@@ -1,0 +1,8 @@
+
+User-agent: *
+Allow: /
+Disallow: /perfil
+Disallow: /meus-estudos
+Disallow: /notas
+
+Sitemap: https://biblialm.com.br/sitemap.xml

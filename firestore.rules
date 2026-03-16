@@ -1,0 +1,201 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- HELPER FUNCTIONS ---
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == 'gabrielamaro' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.subscriptionTier == 'admin')) ||
+        request.auth.token.email == 'gabrielamaro@live.com'
+      );
+    }
+
+    // --- ADMIN & SYSTEM ---
+    
+    match /system_notifications/{notifId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /project_changes/{changeId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /system_features/{featureId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /settings/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /system_logs/{logId} {
+      allow create: if true; 
+      allow read: if isAdmin();
+    }
+    
+    // Suporte (Tickets)
+    match /support_tickets/{ticketId} {
+      allow create: if isAuthenticated();
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow update: if isAdmin();
+    }
+    
+    // Denúncias
+    match /report_tickets/{ticketId} {
+      allow create: if isAuthenticated();
+      allow read, update: if isAdmin();
+    }
+
+    // --- CONTENT & CACHE ---
+    match /bible_chapters/{chapterId} { allow read: if true; allow write: if isAuthenticated(); }
+    match /daily_devotionals/{dateId} { allow read: if true; allow write: if isAuthenticated(); }
+    match /quiz_questions/{questionId} { allow read: if true; allow write: if isAuthenticated(); }
+
+    // --- PUBLIC CONTENT ---
+    match /public_studies/{studyId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      // Allow author to update everything, OR allow anyone to update ONLY metrics (views/shares)
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['metrics'])
+      );
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /custom_plans/{planId} {
+      allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
+      // Allow author to update everything, OR allow anyone to update ONLY subscribersCount, teamScores, or metrics
+      allow update: if isAuthenticated() && (
+        resource.data.authorId == request.auth.uid || 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['subscribersCount', 'teamScores', 'metrics'])
+      );
+      allow delete: if isAuthenticated() && (resource.data.authorId == request.auth.uid || isAdmin());
+      allow read: if isAuthenticated(); // Read allowed for authenticated to browse
+      
+      match /participants/{participantId} {
+         allow read: if isAuthenticated();
+         // O próprio usuário pode se inscrever OU o dono do plano (pastor) pode inscrever/remover usuários
+         allow write: if isAuthenticated() && (
+            request.auth.uid == participantId || 
+            get(/databases/$(database)/documents/custom_plans/$(planId)).data.authorId == request.auth.uid ||
+            isAdmin()
+         );
+      }
+    }
+    
+    match /custom_quizzes/{quizId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.authorId == request.auth.uid;
+    }
+    
+    // TRILHAS DE LEITURA
+    match /reading_tracks/{trackId} {
+      allow read: if true; 
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (resource.data.authorId == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.authorId == request.auth.uid || isAdmin());
+    }
+
+    // ORAÇÕES GUIADAS (Conteúdo Pastoral)
+    match /guided_prayers/{prayerId} {
+      allow read: if true;
+      allow create: if isAuthenticated(); 
+      allow update, delete: if isAuthenticated() && (resource.data.authorId == request.auth.uid || isAdmin());
+    }
+    
+    // Rules for Evaluations (Quizzes inside Plans)
+    match /evaluations/{evalId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.authorId == request.auth.uid;
+      allow delete: if isAuthenticated() && (resource.data.authorId == request.auth.uid || isAdmin());
+    }
+
+    // --- USERS & PROFILES ---
+    match /users/{userId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isOwner(userId) || (
+        isAuthenticated() && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount', 'followingCount'])
+      );
+      
+      match /notes/{noteId} { allow read, write: if isOwner(userId); }
+      match /studies/{studyId} { allow read: if true; allow write: if isOwner(userId); }
+      match /study_modules/{moduleId} { allow read, write: if isOwner(userId); }
+      match /saved_posts/{postId} { allow read, write: if isOwner(userId); }
+      match /daily_routines/{routineId} { allow read, write: if isOwner(userId); }
+      match /notifications/{notifId} { allow read, write: if isOwner(userId); }
+      
+      // REGRA DE TIMES: Explícita para evitar erros de permissão
+      match /teams/{teamId} { 
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+      
+      match /followers/{followerId} { allow read: if true; allow write: if isAuthenticated(); }
+      match /following/{followedId} { allow read: if true; allow write: if isOwner(userId); }
+    }
+
+    // --- SOCIAL (FEED REINO) ---
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount', 'likedBy', 'shares', 'commentsCount'])
+      );
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      }
+    }
+
+    // --- CHURCHES ---
+    match /churches/{churchId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      match /followers/{followerId} { allow read: if true; allow write: if isAuthenticated(); }
+    }
+    
+    match /cells/{cellId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated() && (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
+
+    match /prayer_requests/{prayerId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['intercessorsCount', 'intercessors'])
+      );
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+  }
+}

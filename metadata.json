@@ -1,0 +1,8 @@
+{
+  "name": "BíbliaLM",
+  "description": "Uma experiência de estudo bíblico profundo com IA, inspirada no NotebookLM.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}

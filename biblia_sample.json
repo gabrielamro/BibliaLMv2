@@ -1,0 +1,56 @@
+
+[
+  {
+    "id": "gn",
+    "name": "Gênesis",
+    "chapters": [
+      [
+        "No princípio criou Deus o céu e a terra.",
+        "E a terra era sem forma e vazia; e havia trevas sobre a face do abismo; e o Espírito de Deus se movia sobre a face das águas.",
+        "E disse Deus: Haja luz; e houve luz.",
+        "E viu Deus que era boa a luz; e fez Deus separação entre a luz e as trevas.",
+        "E Deus chamou à luz Dia; e às trevas chamou Noite. E foi a tarde e a manhã, o dia primeiro."
+      ]
+    ]
+  },
+  {
+    "id": "sl",
+    "name": "Salmos",
+    "chapters": [
+      [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], 
+      [
+        "O SENHOR é o meu pastor, nada me faltará.",
+        "Deitar-me faz em verdes pastos, guia-me mansamente a águas tranquilas.",
+        "Refrigera a minha alma; guia-me pelas veredas da justiça, por amor do seu nome.",
+        "Ainda que eu andasse pelo vale da sombra da morte, não temeria mal algum, porque tu estás comigo; a tua vara e o teu cajado me consolam.",
+        "Preparas uma mesa perante mim na presença dos meus inimigos, unges a minha cabeça com óleo, o meu cálice transborda.",
+        "Certamente que a bondade e a misericórdia me seguirão todos os dias da minha vida; e habitarei na casa do Senhor por longos dias."
+      ]
+    ]
+  },
+  {
+    "id": "joao",
+    "name": "João",
+    "chapters": [
+      [], [],
+      [
+        "E havia entre os fariseus um homem, chamado Nicodemos, príncipe dos judeus.",
+        "Este foi ter de noite com Jesus, e disse-lhe: Rabi, bem sabemos que és Mestre, vindo de Deus; porque ninguém pode fazer estes sinais que tu fazes, se Deus não for com ele.",
+        "Jesus respondeu, e disse-lhe: Na verdade, na verdade te digo que aquele que não nascer de novo, não pode ver o reino de Deus.",
+        "Disse-lhe Nicodemos: Como pode um homem nascer, sendo velho? Pode, porventura, tornar a entrar no ventre de sua mãe, e nascer?",
+        "Jesus respondeu: Na verdade, na verdade te digo que aquele que não nascer da água e do Espírito, não pode entrar no reino de Deus.",
+        "O que é nascido da carne é carne, e o que é nascido do Espírito é espírito.",
+        "Não te maravilhes de te ter dito: Necessário vos é nascer de novo.",
+        "O vento assopra onde quer, e ouves a sua voz, mas não sabes de onde vem, nem para onde vai; assim é todo aquele que é nascido do Espírito.",
+        "Nicodemos respondeu, e disse-lhe: Como pode ser isso?",
+        "Jesus respondeu, e disse-lhe: Tu és mestre de Israel, e não sabes isto?",
+        "Na verdade, na verdade te digo que nós dizemos o que sabemos, e testificamos o que vimos; e não aceitais o nosso testemunho.",
+        "Se vos falei de coisas terrestres, e não crestes, como crereis, se vos falar das celestiais?",
+        "Ora, ninguém subiu ao céu, senão o que desceu do céu, o Filho do homem, que está no céu.",
+        "E, como Moisés levantou a serpente no deserto, assim importa que o Filho do homem seja levantado;",
+        "Para que todo aquele que nele crê não pereça, mas tenha a vida eterna.",
+        "Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna."
+      ]
+    ]
+  }
+]

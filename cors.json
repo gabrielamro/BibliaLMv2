@@ -1,0 +1,13 @@
+[
+  {
+    "origin": [
+      "https://biblialm.com.br", 
+      "https://www.biblialm.com.br", 
+      "http://localhost:8080",
+      "*"
+    ],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
+    "responseHeader": ["*"],
+    "maxAgeSeconds": 3600
+  }
+]

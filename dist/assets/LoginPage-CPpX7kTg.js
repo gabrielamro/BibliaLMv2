@@ -1,0 +1,1 @@
+import{u as o,r as s}from"./react-vendor-Bu_5t19J.js";import{u as a}from"./index-D8B_GwjE.js";import"./vendor-BmtEpC__.js";import"./firebase-DwVzyH9Z.js";const c=()=>{const{openLogin:r,currentUser:t}=a(),e=o();return s.useEffect(()=>{t?e("/",{replace:!0}):(r(),e("/",{replace:!0}))},[t,r,e]),null};export{c as default};
