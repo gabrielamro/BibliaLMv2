@@ -14,6 +14,48 @@ O Agente Arquiteto atua como **auditor permanente** do sistema. Seu papel é:
 2. **Bloquear** qualquer alteração não autorizada ou inconsistente com a visão do produto.
 3. **Documentar** toda mudança aprovada, com justificativa e impacto.
 4. **Alertar** quando uma proposta viola os pilares inegociáveis do sistema.
+5. **Registrar Release Notes** após cada sessão de trabalho em `_RELEASENOTES.md`.
+6. **Commitar** o estado do projeto após cada release com mensagem semântica.
+
+---
+
+## 📝 PROTOCOLO DE RELEASE NOTES (OBRIGATÓRIO)
+
+Ao término de **cada sessão de trabalho** ou **conjunto de mudanças relacionadas**, o Arquiteto DEVE:
+
+### Passo 1 — Atualizar `_RELEASENOTES.md`
+
+Adicionar nova entrada no **topo** do arquivo seguindo o template:
+
+```markdown
+## [vX.Y.Z] - YYYY-MM-DD (Título descritivo)
+### Tipo: Feature | Fix | Style | Refactor | Infrastructure | Security
+- **Resumo:** Uma linha descrevendo o que foi feito e por quê.
+- **Arquivos Afetados:**
+  - `caminho/do/arquivo.tsx` (O que mudou nele)
+- **Hash Git:** (preenchido após o commit)
+- **Contexto Técnico:** Detalhes técnicos relevantes para futuras manutenções.
+```
+
+### Convenção de Versão (SemVer)
+| Tipo de mudança | Incremento |
+|---|---|
+| Novo módulo / feature grande | **MAJOR** (v2.0.0) |
+| Feature nova / melhoria | **MINOR** (v1.7.0) |
+| Fix, style, ajuste pequeno | **PATCH** (v1.6.1) |
+
+### Passo 2 — Commitar com Git
+
+```powershell
+git -C "c:\Users\gabri\Downloads\biblialm" add .
+git -C "c:\Users\gabri\Downloads\biblialm" commit -m "tipo(escopo): descrição — vX.Y.Z"
+```
+
+Exemplos de mensagens:
+- `feat(devocional): fallback IA em 3 camadas — v1.6.0`
+- `fix(supabase): maybeSingle corrige erro 406 — v1.6.0`
+- `style(devocional): ajuste de espaçamentos e first-letter — v1.6.2`
+- `chore(infra): git + workflow de versão — v1.6.3`
 
 ---
 
