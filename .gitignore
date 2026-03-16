@@ -2,10 +2,11 @@
 node_modules/
 .pnpm-store/
 
-# Next.js
+# Next.js build output
 .next/
 out/
 build/
+dist/
 
 # Environment variables — NUNCA versionar!
 .env
@@ -40,3 +41,15 @@ Thumbs.db
 
 # TypeScript
 *.tsbuildinfo
+
+# Scripts temporários de migração/debug na raiz
+tmp/
+tmp_*.cjs
+tmp_*.js
+tmp_*.ts
+test_*.js
+test_*.ts
+
+# Test results
+test-results/
+playwright-report/
