@@ -4,12 +4,13 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     MessageCircle, X, Send, Loader2, Sparkles, User,
     BookOpenCheck, Minimize2, Maximize2, ShieldAlert,
-    ArrowRight, RotateCcw, ChevronDown
+    ArrowRight, RotateCcw, ChevronDown, PenLine, ImageIcon, Mic2, Brain
 } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { sendMessageToGeminiStream } from '../services/geminiService';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
+import { useLocation, useNavigate } from '../utils/router';
 
 const WELCOME_MESSAGE: ChatMessage = {
     id: 'welcome',
@@ -27,6 +28,8 @@ const SUGGESTIONS = [
 const ObreiroIAChatbot: React.FC = () => {
     const { currentUser, checkFeatureAccess, incrementUsage, recordActivity, openLogin, openSubscription } = useAuth();
     const { isFocusMode } = useSettings();
+    const location = useLocation();
+    const navigate = useNavigate();
 
     const [isOpen, setIsOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
@@ -129,6 +132,19 @@ const ObreiroIAChatbot: React.FC = () => {
         setMessages([WELCOME_MESSAGE]);
     };
 
+    const handleAction = (type: 'note' | 'image' | 'podcast' | 'quiz', content: string) => {
+        if (type === 'note') {
+            navigate('/notes', { state: { initialContent: content } });
+        } else if (type === 'image') {
+            navigate('/estudio-criativo', { state: { tool: 'image', initialPrompt: content } });
+        } else if (type === 'podcast') {
+            navigate('/estudio-criativo', { state: { tool: 'podcast', initialText: content } });
+        } else if (type === 'quiz') {
+            navigate('/quiz', { state: { initialTopic: content } });
+        }
+        setIsOpen(false);
+    };
+
     const renderMessageContent = (msg: ChatMessage, isLast: boolean) => {
         // Simple markdown-like rendering
         const formatted = msg.content
@@ -157,6 +173,34 @@ const ObreiroIAChatbot: React.FC = () => {
                             <p className="text-[9px] leading-tight italic">Reflexão auxiliada por IA. Examine as Escrituras (At 17:11).</p>
                         </div>
                     )}
+                    {msg.role === 'model' && msg.content.length > 0 && !isLoading && isLast && msg.id !== 'welcome' && (
+                        <div className="mt-4 flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <button
+                                onClick={() => handleAction('note', msg.content)}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg text-[10px] font-bold border border-amber-100 dark:border-amber-800/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+                            >
+                                <PenLine size={12} /> Criar Nota
+                            </button>
+                            <button
+                                onClick={() => handleAction('image', msg.content)}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg text-[10px] font-bold border border-blue-100 dark:border-blue-800/30 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                            >
+                                <ImageIcon size={12} /> Gerar Imagem
+                            </button>
+                            <button
+                                onClick={() => handleAction('podcast', msg.content)}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded-lg text-[10px] font-bold border border-purple-100 dark:border-purple-800/30 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
+                            >
+                                <Mic2 size={12} /> Podcast
+                            </button>
+                            <button
+                                onClick={() => handleAction('quiz', msg.content)}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg text-[10px] font-bold border border-blue-100 dark:border-blue-800/30 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                            >
+                                <Brain size={12} /> Quiz
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -165,7 +209,9 @@ const ObreiroIAChatbot: React.FC = () => {
     const chatWidth = isExpanded ? 'w-[calc(100vw-32px)] md:w-[520px]' : 'w-[calc(100vw-32px)] md:w-[380px]';
     const chatHeight = isExpanded ? 'h-[calc(100svh-140px)] md:h-[680px]' : 'h-[500px] md:h-[520px]';
 
-    if (!isVisible) return null;
+    const isKingdomMode = location.pathname.startsWith('/social');
+
+    if (!isVisible || isKingdomMode) return null;
 
     return (
         <>
@@ -325,16 +371,6 @@ const ObreiroIAChatbot: React.FC = () => {
                         )}
                     </div>
                 </button>
-
-                {/* Tooltip label (only when closed) */}
-                {!isOpen && (
-                    <div className="absolute right-16 bottom-3 pointer-events-none animate-in slide-in-from-right-2 fade-in duration-300">
-                        <div className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-bold px-3 py-1.5 rounded-xl whitespace-nowrap shadow-lg">
-                            Obreiro IA
-                            <div className="absolute top-1/2 -translate-y-1/2 -right-1.5 w-3 h-3 bg-gray-900 dark:bg-white rotate-45 rounded-sm" />
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Limit Modal */}

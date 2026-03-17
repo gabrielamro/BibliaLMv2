@@ -37,11 +37,13 @@ const getUnitLabel = (freq: PlanningFrequency, index: number) => {
 const PlanBuilderPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
     const { currentUser, userProfile, showNotification, checkFeatureAccess, openSubscription, incrementUsage, openLogin } = useAuth();
     const { setTitle: setGlobalTitle, setBreadcrumbs, resetHeader } = useHeader();
     const { setIsFocusMode } = useSettings();
 
     const state = location.state as { planId?: string, planData?: CustomPlan };
+    const urlPlanId = searchParams.get('id');
 
     // --- PLAN STATE ---
     const [plan, setPlan] = useState<Partial<CustomPlan>>({
@@ -105,7 +107,7 @@ const PlanBuilderPage: React.FC = () => {
     const searchTimeoutRef = useRef<any>(null);
 
     const [showSaveSuccessModal, setShowSaveSuccessModal] = useState(false);
-    const [savedPlanId, setSavedPlanId] = useState<string | null>(state?.planId || null);
+    const [savedPlanId, setSavedPlanId] = useState<string | null>(state?.planId || urlPlanId || null);
     const [showEvalModal, setShowEvalModal] = useState(false);
     const [evaluationData, setEvaluationData] = useState<StudyEvaluation | null>(null);
     const [isSavingEval, setIsSavingEval] = useState(false);
@@ -114,6 +116,7 @@ const PlanBuilderPage: React.FC = () => {
 
     useEffect(() => {
         if (state?.planData) {
+            // Dados vieram via navigation state (ex: WorkspacePage)
             setPlan(state.planData);
             setSavedPlanId(state.planData.id);
             if (state.planData.evaluationId) {
@@ -121,7 +124,29 @@ const PlanBuilderPage: React.FC = () => {
                     .then(ev => { if (ev) setEvaluationData(ev); })
                     .catch(err => console.warn(err));
             }
+        } else if (urlPlanId) {
+            // Dados vieram via ?id= na URL (ex: WorkspaceOnePage)
+            dbService.getCustomPlan(urlPlanId)
+                .then(planData => {
+                    if (planData) {
+                        setPlan(planData);
+                        setSavedPlanId(planData.id);
+                        if (planData.evaluationId) {
+                            dbService.getEvaluation(planData.evaluationId)
+                                .then(ev => { if (ev) setEvaluationData(ev); })
+                                .catch(err => console.warn(err));
+                        }
+                    } else {
+                        showNotification('Sala não encontrada.', 'error');
+                        navigate('/workspace-pastoral');
+                    }
+                })
+                .catch(() => {
+                    showNotification('Erro ao carregar a sala.', 'error');
+                    navigate('/workspace-pastoral');
+                });
         } else {
+            // Novo plano
             setPlan(prev => {
                 if (prev.weeks && prev.weeks.length > 0) return prev;
                 const initialFrequency = 'weekly';
@@ -132,7 +157,7 @@ const PlanBuilderPage: React.FC = () => {
                 };
             });
         }
-    }, [state]);
+    }, [state, urlPlanId]);
 
     // --- UI AUTO-FOCUS MODE ---
     useEffect(() => {

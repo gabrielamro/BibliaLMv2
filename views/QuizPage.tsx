@@ -1,5 +1,5 @@
 "use client";
-import { useNavigate, useSearchParams } from '../utils/router';
+import { useNavigate, useSearchParams, useLocation } from '../utils/router';
 
 import React, { useState, useEffect, useRef } from 'react';
 
@@ -28,7 +28,9 @@ const FeatureDisabled = () => (
 const QuizPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const quizId = searchParams.get('id');
+  const state = location.state as { initialTopic?: string };
   
   const { currentUser, userProfile, recordActivity, openLogin } = useAuth();
   const { isFeatureEnabled } = useFeatures();
@@ -80,7 +82,18 @@ const QuizPage: React.FC = () => {
           }
       };
       if (quizId) loadCustomQuiz();
-  }, [quizId]);
+  }, [quizId, navigate]);
+
+  // Handle Initial Topic from Obreiro/Studio
+  useEffect(() => {
+    if (state?.initialTopic && !quizId) {
+        setTopic(state.initialTopic);
+        setGameMode('classic');
+        // If it's a specific verse or short topic, we can try to start immediately or let them pick difficulty
+        // For now, let's keep them in a "Ready to start" state or topic select
+        setView('topic_select'); 
+    }
+  }, [state, quizId]);
 
   useEffect(() => {
     if (timerActive && timeLeft > 0) {

@@ -1001,6 +1001,52 @@ export const dbService = {
             console.warn('user_devotionals: tabela não encontrada ou erro ao salvar.');
         }
     },
+
+    // ── BANCO DE IMAGENS / GALERIA IA ───────────────────────────────────────
+    saveToImageBank: async (data: { 
+        imageUrl: string; 
+        prompt: string; 
+        style?: string; 
+        reference?: string; 
+        label?: string; 
+        category?: string;
+        userId?: string;
+    }) => {
+        try {
+            await supabase.from('image_bank').insert({
+                image_url: data.imageUrl,
+                prompt: data.prompt,
+                style: data.style || 'default',
+                reference: data.reference || '',
+                label: data.label || 'Arte IA',
+                category: data.category || 'IA',
+                user_id: data.userId || null,
+                created_at: now()
+            });
+        } catch (e) {
+            console.error('Erro ao salvar no banco de imagens:', e);
+        }
+    },
+    getImageBank: async (limitCount = 50) => {
+        try {
+            const { data, error } = await supabase
+                .from('image_bank')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(limitCount);
+            
+            if (error) {
+                if (error.code === 'PGRST116' || error.message.includes('not found')) {
+                    console.warn('image_bank table not found. Please create it in Supabase.');
+                    return [];
+                }
+                throw error;
+            }
+            return data ?? [];
+        } catch (e) { 
+            return []; 
+        }
+    },
 };
 
 // ─── mappers: Supabase row → Tipo TS ────────────────────────────────────────

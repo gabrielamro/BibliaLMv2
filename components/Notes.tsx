@@ -1,7 +1,5 @@
-"use client";
-import { useNavigate } from '../utils/router';
-
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from '../utils/router';
 import { Save, Wand2, Download, Trash2, Plus, Bookmark, PenTool, Lock, Instagram, Sparkles, Edit2, Brain, Loader2 } from 'lucide-react';
 import { Note } from '../types';
 import { improveNote, summarizeNoteForSocial } from '../services/geminiService';
@@ -15,9 +13,19 @@ import ConfirmationModal from './ConfirmationModal';
 const Notes: React.FC = () => {
   const { currentUser, earnMana, openLogin, showNotification } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [currentNote, setCurrentNote] = useState('');
+
+  // Handle initial content from navigation state
+  useEffect(() => {
+    const state = location.state as { initialContent?: string };
+    if (state?.initialContent) {
+      setCurrentNote(state.initialContent);
+      showNotification("Conteúdo do Obreiro IA importado!", "success");
+    }
+  }, [location.state]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   

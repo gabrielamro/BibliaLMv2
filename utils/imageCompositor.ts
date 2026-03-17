@@ -32,11 +32,15 @@ export const composeImageWithText = (
   ): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      img.crossOrigin = "anonymous";
+      
+      // Só aplica crossOrigin para URLs externas para evitar problemas com Data URLs
+      if (base64Image.startsWith('http')) {
+          img.crossOrigin = "anonymous";
+      }
       
       const timer = setTimeout(() => {
           reject(new Error("Tempo limite de processamento de imagem excedido."));
-      }, 8000);
+      }, 10000); // Aumentado para 10s para redes lentas
   
       img.onload = () => {
         clearTimeout(timer);
@@ -207,6 +211,7 @@ export const composeImageWithText = (
       };
   
       img.onerror = (err) => {
+          console.error("Erro ao carregar imagem no compositor:", base64Image.substring(0, 100) + "...", err);
           clearTimeout(timer);
           reject(new Error("Falha ao carregar a imagem base para composição."));
       };

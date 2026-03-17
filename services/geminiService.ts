@@ -34,9 +34,9 @@ export const checkAiHealth = async (): Promise<boolean> => {
     }
 };
 
-const TEXT_MODEL = "gemini-flash-latest"; 
-const IMAGE_MODEL = "gemini-flash-latest";
-const TTS_MODEL = "gemini-flash-latest";
+const TEXT_MODEL = "gemini-1.5-flash-latest"; 
+const IMAGE_MODEL = "gemini-2.0-flash-exp"; 
+const TTS_MODEL = "gemini-1.5-flash-latest";
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
@@ -156,11 +156,8 @@ export const sendMessageToGeminiStream = async (
 
 export const analyzeUnderstanding = async (userThoughts: string, context: string): Promise<string> => {
     try {
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: `Analise esta reflexão do usuário sobre o texto: "${userThoughts}". Contexto bíblico: "${context}". Forneça feedback teológico, encorajamento e uma aplicação prática. Responda em HTML simples (p, strong, ul, li). IMPORTANTE: Garanta contraste legível; se usar estilos customizados, assegure que o texto seja escuro em fundos claros.` }] }],
-        });
-        return response.text || "Erro na análise.";
+        const prompt = `Analise esta reflexão do usuário sobre o texto: "${userThoughts}". Contexto bíblico: "${context}". Forneça feedback teológico, encorajamento e uma aplicação prática. Responda em HTML simples (p, strong, ul, li). IMPORTANTE: Garanta contraste legível; se usar estilos customizados, assegure que o texto seja escuro em fundos claros.`;
+        return await callAi(prompt, undefined, "text");
     } catch (e) {
         return "Erro na análise.";
     }
@@ -188,21 +185,16 @@ export const generateDailyDevotional = async (forceNew: boolean = false) => {
 
 export const improveNote = async (content: string): Promise<string> => {
     try {
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: `Melhore esta anotação bíblica, corrigindo gramática, expandindo ideias teológicas e formatando melhor, mantendo a essência pessoal: "${content}"` }] }]
-        });
-        return response.text || content;
+        const prompt = `Melhore esta anotação bíblica, corrigindo gramática, expandindo ideias teológicas e formatando melhor, mantendo a essência pessoal: "${content}"`;
+        return await callAi(prompt, undefined, "text");
     } catch (e) { return content; }
 };
 
 export const summarizeNoteForSocial = async (content: string, bookName: string, chapter: number) => {
     try {
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: `Crie um resumo curto e inspirador (max 280 chars) para compartilhar no feed social, baseado nesta nota sobre ${bookName} ${chapter}: "${content}". Inclua hashtags.`,
-        });
-        return { summary: response.text || "", ref: `${bookName} ${chapter}` };
+        const prompt = `Crie um resumo curto e inspirador (max 280 chars) para compartilhar no feed social, baseado nesta nota sobre ${bookName} ${chapter}: "${content}". Inclua hashtags.`;
+        const text = await callAi(prompt, undefined, "text");
+        return { summary: text || "", ref: `${bookName} ${chapter}` };
     } catch (e) { return null; }
 };
 
@@ -220,33 +212,21 @@ export const generateSermonOutline = async (contextText: string, theme: string, 
         Estrutura OBRIGATÓRIA: 1. Introdução, 2. Contextualização (Contexto histórico, Pontos, Tópicos, Temas), 3. Aplicação Prática, 4. Oração Final. 
         Use formato HTML (h1, h2, p, strong, ul, li).`;
         
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: prompt }] }]
-        });
-        return response.text || "";
+        return await callAi(prompt, undefined, "text");
     } catch (e) { return ""; }
 };
 
 export const generateSermonIllustration = async (theme: string, context: string): Promise<string> => {
     try {
         const prompt = `Crie uma ilustração (história, metáfora ou exemplo histórico) curta e impactante para um sermão sobre: "${theme}". Contexto bíblico: "${context}". A ilustração deve ajudar a explicar o ponto teológico de forma emocional e memorável. Formato HTML (p). Assegure contraste total (texto #222 se o fundo for claro).`;
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: prompt }] }]
-        });
-        return response.text || "";
+        return await callAi(prompt, undefined, "text");
     } catch (e) { return ""; }
 };
 
 export const generateSmallGroupQuestions = async (sermonContent: string): Promise<string> => {
     try {
         const prompt = `Com base neste esboço de sermão, crie 5 perguntas para discussão em pequenos grupos (Células/PGs). As perguntas devem estimular a aplicação prática e a comunhão. \n\nSermão: "${sermonContent.substring(0, 1000)}..." \n\nFormato HTML (ul, li, strong).`;
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: prompt }] }]
-        });
-        return response.text || "";
+        return await callAi(prompt, undefined, "text");
     } catch (e) { return ""; }
 };
 
@@ -344,80 +324,59 @@ export const generateThematicModule = async (theme: string) => {
 
 export const generateModuleDayContent = async (theme: string, dayTitle: string, verses: string[]) => {
     try {
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: `Escreva o conteúdo completo de um estudo bíblico sobre "${dayTitle}" dentro do tema "${theme}". Versículos base: ${verses.join(', ')}. Use formato HTML rico com design elegante e contraste garantido (defina explicitamente a cor do texto para qualquer bloco com fundo colorido).` }] }]
-        });
-        return response.text || "";
+        const prompt = `Escreva o conteúdo completo de um estudo bíblico sobre "${dayTitle}" dentro do tema "${theme}". Versículos base: ${verses.join(', ')}. Use formato HTML rico com design elegante e contraste garantido (defina explicitamente a cor do texto para qualquer bloco com fundo colorido).`;
+        return await callAi(prompt, undefined, "text");
     } catch (e) { return ""; }
 };
 
 export const generateBibleQuiz = async (topic: string, difficulty: string) => {
     try {
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: `Generate 5 bible quiz questions about "${topic}" with difficulty "${difficulty}". 
+        const prompt = `Generate 5 bible quiz questions about "${topic}" with difficulty "${difficulty}". 
             REGRAS: As perguntas devem ser baseadas em fatos bíblicos claros, cite a referência na explicação.
-            JSON format: [{ id: number, question: string, options: string[], correctIndex: number, explanation: string, reference: string }]` }] }],
-            config: { responseMimeType: "application/json" }
-        });
-        return JSON.parse(response.text || "[]");
+            JSON format: [{ id: number, question: string, options: string[], correctIndex: number, explanation: string, reference: string }]`;
+        const text = await callAi(prompt, undefined, "json");
+        return JSON.parse(text || "[]");
     } catch (e) { return []; }
 };
 
 export const analyzeReadingPlanCommitment = async (days: number, scope: string) => {
     try {
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: `Analise um plano de leitura da Bíblia (${scope}) em ${days} dias. Calcule capítulos/dia, versículos estimados, dificuldade e crie uma frase de compromisso e 3 dicas. JSON: { commitment, tips, difficulty, versesPerDay, strategy }` }] }],
-            config: { responseMimeType: "application/json" }
-        });
-        return JSON.parse(response.text || "{}");
+        const prompt = `Analise um plano de leitura da Bíblia (${scope}) em ${days} dias. Calcule capítulos/dia, versículos estimados, dificuldade e crie uma frase de compromisso e 3 dicas. JSON: { commitment, tips, difficulty, versesPerDay, strategy }`;
+        const result = await callAi(prompt, undefined, "json");
+        return JSON.parse(result || "{}");
     } catch (e) { return null; }
 };
 
 export const suggestReadingPlan = async (userPrompt: string) => {
     try {
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: `Sugira uma configuração de plano de leitura baseada no pedido: "${userPrompt}". Retorne JSON: { scope: 'all' | 'new_testament' | 'old_testament', days: number }` }] }],
-            config: { responseMimeType: "application/json" }
-        });
-        return JSON.parse(response.text || "{}");
+        const prompt = `Sugira uma configuração de plano de leitura baseada no pedido: "${userPrompt}". Retorne JSON: { scope: 'all' | 'new_testament' | 'old_testament', days: number }`;
+        const result = await callAi(prompt, undefined, "json");
+        return JSON.parse(result || "{}");
     } catch (e) { return null; }
 };
 
 export const generateReadingConnection = async (refs: string[]) => {
     try {
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: `Encontre a conexão teológica entre estas leituras: ${refs.join(', ')}. Retorne JSON: { theme: string, conclusion: string }` }] }],
-            config: { responseMimeType: "application/json" }
-        });
-        return JSON.parse(response.text || "{}");
+        const prompt = `Encontre a conexão teological entre estas leituras: ${refs.join(', ')}. Retorne JSON: { theme: string, conclusion: string }`;
+        const result = await callAi(prompt, undefined, "json");
+        return JSON.parse(result || "{}");
     } catch (e) { return null; }
 };
 
 export const generateSuggestedPrayer = async (requestContent: string): Promise<string> => {
     try {
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: `Atue como um Pastor Auditor intercessor. Escreva uma oração curta (max 3 frases) e profunda intercedendo por: "${requestContent}". Se possível, inclua uma breve menção a uma promessa bíblica.` }] }]
-        });
-        return response.text || "";
+        const prompt = `Atue como um Pastor Auditor intercessor. Escreva uma oração curta (max 3 frases) e profunda intercedendo por: "${requestContent}". Se possível, inclua uma breve menção a uma promessa bíblica.`;
+        return await callAi(prompt, undefined, "text");
     } catch (e) { return "Senhor, ouve este clamor e traz consolo segundo a Tua Palavra. Amém."; }
 };
 
 export const getBibleChapter = async (bookName: string, chapter: number) => {
     try {
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: `Forneça o texto fiel e completo de ${bookName} capítulo ${chapter} na versão Almeida Revista e Corrigida (ARC). 
+        const prompt = `Forneça o texto fiel e completo de ${bookName} capítulo ${chapter} na versão Almeida Revista e Corrigida (ARC). 
             REGRA DE INTEGRIDADE: Retorne exatamente os versículos bíblicos sem alterações, resumos ou comentários. 
-            Retorne JSON: { number: number, verses: [{ number: number, text: string }] }` }] }],
-            config: { responseMimeType: "application/json" }
-        });
-        return JSON.parse(response.text || "null");
+            Retorne JSON: { number: number, verses: [{ number: number, text: string }] }`;
+        const text = await callAi(prompt, undefined, "json");
+        return JSON.parse(text || "null");
     } catch (e) { return null; }
 };
 
@@ -478,11 +437,8 @@ export const generateSpecificPrayer = async (topic: string, feeling: string): Pr
 // ... (Image, Podcast, Maps logic - keep them)
 export const generateImagePromptForPlan = async (title: string, description: string) => {
     try {
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: `Create a vivid, artistic image prompt for a bible study plan titled "${title}": ${description}. The prompt should be suitable for an image generation model.` }] }]
-        });
-        return response.text;
+        const prompt = `Create a vivid, artistic image prompt for a bible study plan titled "${title}": ${description}. The prompt should be suitable for an image generation model.`;
+        return await callAi(prompt, undefined, "text");
     } catch (e) { return null; }
 };
 
@@ -513,12 +469,9 @@ export const generateVerseImage = async (text: string, reference: string, style:
 
 export const generateSocialPostDesign = async (text: string, ref: string) => {
     try {
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: `Suggest a design for a social media post for verse "${ref}". JSON: { gradient: string (css), textColor: string, fontStyle: string, caption: string, hashtags: string[] }` }] }],
-            config: { responseMimeType: "application/json" }
-        });
-        return JSON.parse(response.text || "{}");
+        const prompt = `Suggest a design for a social media post for verse "${ref}". JSON: { gradient: string (css), textColor: string, fontStyle: string, caption: string, hashtags: string[] }`;
+        const result = await callAi(prompt, undefined, "json");
+        return JSON.parse(result || "{}");
     } catch (e) { return null; }
 };
 
@@ -545,11 +498,7 @@ export const generatePodcastScript = async (sourceText: string, title: string) =
         - Tom conversacional, acolhedor e profundo.
         - Mantenha-se fiel às fontes e cite os versículos.`;
 
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: prompt }] }]
-        });
-        return response.text || null;
+        return await callAi(prompt, undefined, "text");
     } catch (e) { return null; }
 };
 

@@ -28,6 +28,7 @@ import { LogoIcon } from './LogoIcon';
 import MobileBottomNav from './MobileBottomNav';
 import OmniSearch from './OmniSearch';
 import { dbService } from '../services/firebase';
+import ObreiroIAChatbot from './ObreiroIAChatbot';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -131,7 +132,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         return 'BíbliaLM';
     }
     const pageTitle = getPageTitle();
-
+    
     const navStructure = useMemo(() => {
         const base = [
             {
@@ -142,9 +143,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 items: [
                     { label: 'Santuário', path: '/', icon: <Home size={18} />, type: 'personal' as NavType, description: 'Seu painel principal' },
                     { label: 'Meus Estudos', path: '/estudos/planos', icon: <BookMarked size={18} />, protected: true, type: 'personal' as NavType, description: 'Seus sermões e notas' },
-                    { label: 'Atividades', path: '/historico', icon: <History size={18} />, protected: true, type: 'personal' as NavType, description: 'Seu histórico' },
                     { label: 'Cursos & Trilhas', path: '/aluno', icon: <GraduationCap size={18} />, type: 'personal' as NavType, description: 'Salas e Trilhas' },
+                    { label: 'Estúdio Criativo', path: '/estudio-criativo', icon: <Wand2 size={18} />, protected: true, type: 'personal' as NavType, description: 'Crie imagens e podcasts' },
                     { label: 'Conselheiro IA', path: '/chat', icon: <MessageCircle size={18} />, type: 'personal' as NavType, description: 'Tire dúvidas com a IA' },
+                    { label: 'Atividades', path: '/historico', icon: <History size={18} />, protected: true, type: 'personal' as NavType, description: 'Seu histórico' },
                 ]
             },
             {
@@ -158,6 +160,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     { label: 'Orações', path: '/oracoes', icon: <HandHeart size={18} />, type: 'bible' as NavType, description: 'Guiadas por temas' },
                     { label: 'Trilhas', path: '/trilhas', icon: <Map size={18} />, type: 'bible' as NavType, description: 'Leituras temáticas' },
                     { label: 'Meta de Leitura', path: '/plano', icon: <Target size={18} />, protected: true, type: 'bible' as NavType, description: 'Acompanhe seu plano anual' },
+                    { label: 'Quiz Bíblico', path: '/quiz', icon: <Brain size={18} />, type: 'bible' as NavType, description: 'Teste seus conhecimentos' },
                 ]
             },
             {
@@ -184,8 +187,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             });
         }
         return base;
-    }, [isPastor]);
-
+    }, [isPastor, currentUser]);
     const toggleSubmenu = (label: string) => {
         setOpenSubmenus(prev => ({ ...prev, [label]: !prev[label] }));
     };
@@ -332,43 +334,42 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 className={`md:hidden flex items-center justify-between px-4 py-3 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md ${isHeaderHidden ? '' : 'border-b border-gray-100 dark:border-gray-800'} absolute top-0 left-0 right-0 z-[60] h-[60px] pt-safe transition-transform duration-300 ease-in-out ${showHeader ? 'translate-y-0' : '-translate-y-full'
                     } ${isFocusMode ? 'hidden' : ''}`}
             >
-                {/* Left Side: Back button or Logo */}
-                <div className="flex items-center gap-2 z-10 flex-shrink-0">
+                <div className="flex items-center gap-3 z-10 flex-1 overflow-hidden">
                     {showBackButton ? (
-                        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-colors">
+                        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-colors shrink-0">
                             <ArrowLeft size={20} />
                         </button>
                     ) : (
-                        <div onClick={() => navigate('/')} className="cursor-pointer active:opacity-70 flex-shrink-0">
+                        <div onClick={() => navigate('/')} className="cursor-pointer active:opacity-70 flex-shrink-0 mb-0.5">
                             {headerIcon ? (
-                                <span className="text-bible-gold">{headerIcon}</span>
+                                <div className="text-bible-gold scale-125 transform origin-left">
+                                    {headerIcon}
+                                </div>
                             ) : (
                                 <LogoIcon className="w-8 h-8 text-bible-gold" />
                             )}
                         </div>
                     )}
-                </div>
-
-                {/* Center Title container - Absolute to enforce center alignment */}
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-3/5 text-center pointer-events-none mt-1">
-                    {breadcrumbs.length > 0 ? (
-                        <div className="flex items-center justify-center gap-1 text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] truncate mb-0.5 pointer-events-auto">
-                            {breadcrumbs.slice(-2).map((crumb, index) => (
-                                <React.Fragment key={index}>
-                                    {index > 0 && <ChevronRight size={8} />}
-                                    <span className="truncate">{crumb.label}</span>
-                                </React.Fragment>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] truncate mb-0.5">
-                            {headerSubtitle || 'Santuário'}
-                        </p>
-                    )}
-                    <h1 className="font-sans font-black text-[17px] tracking-tight text-gray-900 dark:text-white truncate leading-[1.1] pointer-events-auto flex items-center justify-center gap-1">
-                        {(showBackButton && headerIcon) && <span className="text-bible-gold">{headerIcon}</span>}
-                        {headerTitle || pageTitle}
-                    </h1>
+                    
+                    <div className="flex flex-col justify-center truncate">
+                        {breadcrumbs.length > 0 ? (
+                            <div className="flex items-center gap-1 text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] truncate mb-0.5 pointer-events-auto">
+                                {breadcrumbs.slice(-2).map((crumb, index) => (
+                                    <React.Fragment key={index}>
+                                        {index > 0 && <ChevronRight size={8} />}
+                                        <span className="truncate">{crumb.label}</span>
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] truncate mb-0.5">
+                                {headerSubtitle || 'Santuário'}
+                            </p>
+                        )}
+                        <h1 className="font-sans font-black text-[17px] tracking-tight text-gray-900 dark:text-white truncate leading-[1.1] pointer-events-auto">
+                            {headerTitle || pageTitle}
+                        </h1>
+                    </div>
                 </div>
 
                 {/* Right Side: Icons */}
@@ -520,43 +521,47 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
                     {/* Desktop Header - Hidden in Focus Mode */}
                     <header className={`hidden md:flex items-center justify-between px-8 py-4 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md ${isHeaderHidden ? '' : 'border-b border-gray-100 dark:border-gray-800'} z-40 shrink-0 h-20 ${isFocusMode ? 'hidden' : ''}`}>
-                        {/* Left Side */}
-                        <div className="flex items-center gap-4 w-32 flex-shrink-0">
+                        {/* Left Side & Title */}
+                        <div className="flex items-center gap-4 flex-1">
                             {showBackButton && (
-                                <button onClick={() => navigate(-1)} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                                <button onClick={() => navigate(-1)} className="p-2 mr-2 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shrink-0">
                                     <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300" />
                                 </button>
                             )}
-                        </div>
-
-                        {/* Center Title */}
-                        <div className="flex flex-col items-center justify-center flex-1">
-                            {breadcrumbs.length > 0 ? (
-                                <div className="flex items-center justify-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">
-                                    {breadcrumbs.map((crumb, index) => (
-                                        <React.Fragment key={index}>
-                                            {index > 0 && <ChevronRight size={10} />}
-                                            <span
-                                                onClick={() => {
-                                                    if (crumb.onClick) crumb.onClick();
-                                                    else if (crumb.path) navigate(crumb.path);
-                                                }}
-                                                className={`cursor-pointer hover:text-bible-gold transition-colors ${index === breadcrumbs.length - 1 ? 'text-gray-600 dark:text-gray-300' : ''}`}
-                                            >
-                                                {crumb.label}
-                                            </span>
-                                        </React.Fragment>
-                                    ))}
+                            
+                            {headerIcon && (
+                                <div className="text-bible-gold shrink-0 scale-[1.3] origin-left mr-2">
+                                    {headerIcon}
                                 </div>
-                            ) : (
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">
-                                    {headerSubtitle || 'Santuário'}
-                                </p>
                             )}
-                            <h2 className="text-xl md:text-2xl font-sans font-black tracking-tight text-gray-900 dark:text-white leading-none flex items-center justify-center gap-2">
-                                {headerIcon && <span className="text-bible-gold">{headerIcon}</span>}
-                                {headerTitle || pageTitle}
-                            </h2>
+
+                            <div className="flex flex-col justify-center">
+                                {breadcrumbs.length > 0 ? (
+                                    <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">
+                                        {breadcrumbs.map((crumb, index) => (
+                                            <React.Fragment key={index}>
+                                                {index > 0 && <ChevronRight size={10} className="mx-1" />}
+                                                <span
+                                                    onClick={() => {
+                                                        if (crumb.onClick) crumb.onClick();
+                                                        else if (crumb.path) navigate(crumb.path);
+                                                    }}
+                                                    className={`cursor-pointer hover:text-bible-gold transition-colors ${index === breadcrumbs.length - 1 ? 'text-gray-600 dark:text-gray-300' : ''}`}
+                                                >
+                                                    {crumb.label}
+                                                </span>
+                                            </React.Fragment>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">
+                                        {headerSubtitle || 'BÍBLIA'}
+                                    </p>
+                                )}
+                                <h2 className="text-xl md:text-2xl font-sans font-black tracking-tight text-gray-900 dark:text-white leading-none">
+                                    {headerTitle || pageTitle}
+                                </h2>
+                            </div>
                         </div>
 
                         {/* Right Side */}
@@ -633,6 +638,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <SupportModal isOpen={isSupportModalOpen} onClose={() => setIsSupportModalOpen(false)} />
                     <BuyCreditsModal isOpen={isBuyCreditsModalOpen} onClose={closeBuyCredits} />
                     <SystemTutorialModal isOpen={isTutorialOpen} onClose={() => setIsTutorialOpen(false)} />
+                    <ObreiroIAChatbot />
                 </main>
             </div>
         </div>

@@ -7,8 +7,10 @@ import {
   Search, Palette, Mic2, Loader2, ArrowRight, 
   CheckCircle2, Share2, Info, LayoutTemplate, Download,
   Type, MoveVertical, AlignCenter, AlignLeft, AlignRight,
-  Aperture, Droplets, Sun, Upload, Camera, Layers, ArrowLeft, Rss, X, Sliders, Home
+  Aperture, Droplets, Sun, Upload, Camera, Layers, ArrowLeft, Rss, X, Sliders, Home,
+  Brain, Gamepad2, History, MessageSquareQuote, MonitorPlay, Zap, Image
 } from 'lucide-react';
+
 import { useAuth } from '../contexts/AuthContext';
 import { useFeatures } from '../contexts/FeatureContext';
 import { useHeader } from '../contexts/HeaderContext';
@@ -58,6 +60,26 @@ const FILTERS = [
     { id: 'blur', label: 'Desfocar' },
 ];
 
+interface ImageAsset {
+    id: string;
+    label: string;
+    category: string;
+    url?: string;
+    isAi?: boolean;
+}
+
+const STOCK_TEMPLATES: ImageAsset[] = [
+    { id: '1504179064232-1eb10a4f6507', label: 'Cruz no Monte', category: 'bíblia' },
+    { id: '1501281668939-2d12ff98f121', label: 'Escrituras', category: 'bíblia' },
+    { id: '1438761681033-6461f8090fc2', label: 'Oração', category: 'espiritual' },
+    { id: '1470071459604-3b5ec3a7da05', label: 'Natureza Épica', category: 'natureza' },
+    { id: '1507525428034-b723cf961d3e', label: 'Céu Estrelado', category: 'natureza' },
+    { id: '1519834785169-98be25ec3f84', label: 'Templo Antigo', category: 'bíblia' },
+    { id: '1464822759023-fed622ff2c3b', label: 'Montanhas', category: 'natureza' },
+    { id: '1490730141103-6ca27a9f0042', label: 'Pôr do Sol', category: 'natureza' },
+];
+
+
 const FeatureDisabled = () => (
     <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-white dark:bg-black animate-in fade-in">
         <div className="w-20 h-20 bg-gray-100 dark:bg-gray-900 rounded-full flex items-center justify-center mb-6">
@@ -82,21 +104,61 @@ const CreativeStudioPage: React.FC = () => {
     }
 
     // Initial State from Navigation
-    const state = location.state as { fromReader?: boolean, bookId?: string, chapter?: number, verseText?: string, verseRef?: string, tool?: 'image' | 'podcast' };
+    const state = location.state as { 
+        fromReader?: boolean, 
+        bookId?: string, 
+        chapter?: number, 
+        verseText?: string, 
+        verseRef?: string, 
+        tool?: 'image' | 'podcast',
+        initialPrompt?: string,
+        initialText?: string
+    };
 
     // Mode & Workflow State
-    const [activeTool, setActiveTool] = useState<'image' | 'podcast'>(state?.tool || 'image');
-    const [viewMode, setViewMode] = useState<'setup' | 'editor'>('setup'); // 'setup' = Form, 'editor' = Canvas + Controls
+    const [activeTool, setActiveTool] = useState<'image' | 'podcast' | 'quiz'>(state?.tool || 'image');
+    const [viewMode, setViewMode] = useState<'hub' | 'setup' | 'editor'>(state?.tool ? 'setup' : 'hub'); 
     
     // Content Data
-    const [refInput, setRefInput] = useState('');
-    const [foundVerse, setFoundVerse] = useState<{ref: string, text: string} | null>(null);
+    const [refInput, setRefInput] = useState(state?.verseRef || '');
+    const [foundVerse, setFoundVerse] = useState<{ref: string, text: string} | null>(
+        (state?.verseText && state?.verseRef) ? { ref: state.verseRef, text: state.verseText } : 
+        (state?.initialText) ? { ref: 'Obreiro IA', text: state.initialText } : null
+    );
     const [isSearching, setIsSearching] = useState(false);
     
     // Image Generation State
-    const [selectedStyle, setSelectedStyle] = useState('realistic');
-    const [customPrompt, setCustomPrompt] = useState('');
+    const [selectedStyle, setSelectedStyle] = useState(state?.initialPrompt ? 'custom' : 'realistic');
+    const [customPrompt, setCustomPrompt] = useState(state?.initialPrompt || '');
     const [isGeneratingImg, setIsGeneratingImg] = useState(false);
+    const [stockSearchQuery, setStockSearchQuery] = useState('');
+    const [isLoadingStock, setIsLoadingStock] = useState(false);
+    const [currentStockImages, setCurrentStockImages] = useState<ImageAsset[]>(STOCK_TEMPLATES);
+    const [imageSourceTab, setImageSourceTab] = useState<'stock' | 'ai'>('stock');
+    const [allImageAssets, setAllImageAssets] = useState<ImageAsset[]>(STOCK_TEMPLATES);
+
+    useEffect(() => {
+        const loadBankImages = async () => {
+            try {
+                const bankImages = await dbService.getImageBank(40);
+                if (bankImages.length > 0) {
+                    const formatted = bankImages.map(img => ({
+                        id: img.id,
+                        label: img.label || 'Arte IA',
+                        category: img.category || 'IA',
+                        url: img.image_url,
+                        isAi: true
+                    }));
+                    const combined = [...STOCK_TEMPLATES, ...formatted];
+                    setAllImageAssets(combined);
+                    setCurrentStockImages(combined);
+                }
+            } catch (e) { console.error("Erro ao carregar banco de imagens", e); }
+        };
+        loadBankImages();
+    }, []);
+
+
     const [rawGeneratedBase64, setRawGeneratedBase64] = useState<string | null>(null);
     const [finalImg, setFinalImg] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -124,7 +186,21 @@ const CreativeStudioPage: React.FC = () => {
 
     // --- EFFECTS ---
     useEffect(() => {
-        if (state?.verseText && state?.verseRef) {
+        if (state?.initialPrompt || state?.initialText || state?.tool) {
+            setViewMode('setup');
+        }
+        if (state?.initialPrompt) {
+            setSelectedStyle('custom');
+            setCustomPrompt(state.initialPrompt);
+        }
+        if (state?.initialText) {
+            setFoundVerse({ ref: 'Obreiro IA', text: state.initialText });
+            setRefInput('Obreiro IA');
+        }
+    }, [state]);
+
+    useEffect(() => {
+        if (state?.verseText && state?.verseRef && !state?.initialText) {
             setFoundVerse({ ref: state.verseRef, text: state.verseText });
             setRefInput(state.verseRef);
         }
@@ -132,17 +208,22 @@ const CreativeStudioPage: React.FC = () => {
 
     // Update global header title and breadcrumbs
     useEffect(() => {
-        if (viewMode === 'setup') {
-            setTitle('Estúdio Criativo');
+        if (viewMode === 'hub') {
+            setTitle('Hub de Criação');
             setBreadcrumbs([]);
+        } else if (viewMode === 'setup') {
+            const labels = { image: 'Artes Sacras', podcast: 'Podcast IA', quiz: 'Arena Quiz' };
+            setTitle(labels[activeTool]);
+            setBreadcrumbs([{ label: 'Estúdio', onClick: () => setViewMode('hub') }]);
         } else {
             setTitle('Editando Arte');
             setBreadcrumbs([
-                { label: 'Estúdio', onClick: () => setViewMode('setup') },
+                { label: 'Estúdio', onClick: () => setViewMode('hub') },
+                { label: 'Ferramenta', onClick: () => setViewMode('setup') },
                 { label: foundVerse?.ref || 'Arte' }
             ]);
         }
-    }, [viewMode, foundVerse, setTitle, setBreadcrumbs]);
+    }, [viewMode, activeTool, foundVerse, setTitle, setBreadcrumbs]);
 
     // Live Compositor Preview
     useEffect(() => {
@@ -191,15 +272,39 @@ const CreativeStudioPage: React.FC = () => {
         try {
             const styleLabel = selectedStyle === 'custom' ? customPrompt : STYLES.find(s => s.id === selectedStyle)?.label || 'Realista';
             const result = await generateVerseImage(foundVerse!.text, foundVerse!.ref, styleLabel);
-            if (result) {
-                const raw = `data:${result.mimeType};base64,${result.data}`;
+            if (result && result.data) {
+                const cleanedData = result.data.replace(/\s/g, '');
+                const raw = `data:${result.mimeType};base64,${cleanedData}`;
                 setRawGeneratedBase64(raw); 
                 setViewMode('editor'); // Transição para o modo Editor
                 
+                // Salvar no banco (Acervo)
+                const newAsset: ImageAsset = {
+                    id: Math.random().toString(36).substr(2, 9),
+                    label: `Arte IA: ${foundVerse?.ref || 'Desconhecido'}`,
+                    category: 'IA',
+                    url: raw,
+                    isAi: true
+                };
+
+                dbService.saveToImageBank({
+                    imageUrl: raw,
+                    prompt: styleLabel,
+                    style: selectedStyle,
+                    reference: foundVerse?.ref || '',
+                    label: newAsset.label,
+                    category: 'IA',
+                    userId: currentUser?.uid
+                });
+
+                setAllImageAssets(prev => [newAsset, ...prev]);
+
                 if (currentUser) {
                     await incrementUsage('images');
                     await recordActivity('create_image', `Arte gerada no estúdio: ${foundVerse!.ref}`);
                 }
+            } else {
+                showNotification("A IA não conseguiu gerar a imagem. Tente outro estilo ou verifique sua conexão.", "warning");
             }
         } catch (e) {
             showNotification("Erro ao criar arte. Tente novamente.", "error");
@@ -220,6 +325,66 @@ const CreativeStudioPage: React.FC = () => {
             }
         }
     };
+
+    const handleSelectStockPhoto = async (photoId: string, customUrl?: string) => {
+        setIsLoadingStock(true);
+        try {
+            const imageUrl = customUrl || `https://images.unsplash.com/photo-${photoId}?auto=format&fit=crop&q=80&w=1200`;
+            
+            if (imageUrl.startsWith('data:')) {
+                setRawGeneratedBase64(imageUrl);
+                setEditOptions(prev => ({...prev, filter: 'none', overlayOpacity: 0.4}));
+                if (foundVerse) setViewMode('editor');
+                else showNotification("Selecione um versículo primeiro.", "info");
+            } else if (imageUrl.startsWith('http')) {
+                const response = await fetch(imageUrl);
+                const blob = await response.blob();
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setRawGeneratedBase64(reader.result as string);
+                    setEditOptions(prev => ({...prev, filter: 'none', overlayOpacity: 0.4}));
+                    if (foundVerse) setViewMode('editor');
+                    else showNotification("Selecione um versículo primeiro.", "info");
+                };
+                reader.readAsDataURL(blob);
+            }
+        } catch (e) {
+            showNotification("Erro ao carregar imagem do banco.", "error");
+        } finally {
+            setIsLoadingStock(false);
+        }
+    };
+
+    const handleSearchStock = (manualQuery?: string) => {
+        const query = manualQuery !== undefined ? manualQuery : stockSearchQuery;
+        
+        if (!query.trim()) {
+            setCurrentStockImages(allImageAssets);
+            return;
+        }
+        
+        const filtered = allImageAssets.filter(p => 
+            p.label.toLowerCase().includes(query.toLowerCase()) || 
+            p.category.toLowerCase().includes(query.toLowerCase())
+        );
+        setCurrentStockImages(filtered);
+    };
+
+    // Auto-suggest stock photos based on verse theme
+    useEffect(() => {
+        if (foundVerse) {
+            const text = foundVerse.text.toLowerCase();
+            let theme = 'bíblia';
+            
+            if (text.match(/monte|natureza|sol|mar|terra|céu|estrela/i)) theme = 'natureza';
+            else if (text.match(/oração|fé|espírito|paz|alma/i)) theme = 'espiritual';
+            
+            setStockSearchQuery(theme);
+            handleSearchStock(theme);
+        }
+    }, [foundVerse]);
+
+
 
     const handlePostArtToFeed = () => {
         if (!currentUser) {
@@ -267,26 +432,173 @@ const CreativeStudioPage: React.FC = () => {
     
     const handleExit = () => {
         if (currentUser) navigate('/');
-        else navigate('/intro');
     };
 
     // --- RENDERERS ---
+
+    // 0. HUB VIEW (Dashboard Premium)
+    const renderHubView = () => (
+        <div className="flex flex-col h-full p-4 md:p-8 max-w-5xl mx-auto w-full animate-in fade-in slide-in-from-bottom-6 overflow-y-auto no-scrollbar">
+            
+            <div className="text-center mb-10 mt-4 px-4 relative">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-bible-gold/5 blur-3xl -z-10 rounded-full"></div>
+                
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-bible-gold/10 text-bible-gold rounded-full text-[11px] font-black uppercase tracking-widest mb-6 border border-bible-gold/20 shadow-sm animate-pulse">
+                    <Sparkles size={14} className="animate-spin-slow" fill="currentColor"/> Estúdio de Criação Pro
+                </div>
+                
+                <h2 className="text-3xl md:text-5xl font-serif font-black text-gray-900 dark:text-white mb-4 leading-tight">
+                    Transforme Inspiração <br className="hidden md:block"/> em <span className="text-bible-gold bg-clip-text">Arte Viva</span>
+                </h2>
+                
+                <p className="text-gray-500 dark:text-gray-400 text-sm md:text-lg max-w-2xl mx-auto leading-relaxed font-medium">
+                    Combine o poder das Escrituras com Inteligência Artificial para criar ferramentas ministeriais impactantes.
+                </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                {/* TOOL: IMAGE */}
+                <div 
+                    onClick={() => { setActiveTool('image'); setViewMode('setup'); }}
+                    className="group bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 cursor-pointer hover:border-bible-gold hover:shadow-2xl hover:shadow-bible-gold/20 transition-all duration-500 relative overflow-hidden flex flex-col items-center text-center"
+                >
+                    <div className="absolute top-0 right-0 p-4">
+                        <span className="px-2 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 text-[8px] font-black uppercase rounded-full border border-green-500/20">Ativa</span>
+                    </div>
+                    <div className="w-20 h-20 bg-bible-gold/10 text-bible-gold rounded-3xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-inner">
+                        <ImageIcon size={40} />
+                    </div>
+                    <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">Artes Sacras</h3>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed mb-6 font-medium">
+                        Geração cinematográfica em 4K. Ideal para redes sociais, boletins e apresentações em telão.
+                    </p>
+                    <div className="mt-auto flex items-center gap-2 text-bible-gold text-[10px] font-black uppercase tracking-widest group-hover:translate-x-2 transition-transform">
+                        Produzir <ArrowRight size={14} />
+                    </div>
+                </div>
+
+                {/* TOOL: PODCAST */}
+                <div 
+                    onClick={() => { setActiveTool('podcast'); setViewMode('setup'); }}
+                    className="group bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 cursor-pointer hover:border-purple-500 hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 relative overflow-hidden flex flex-col items-center text-center"
+                >
+                    <div className="absolute top-0 right-0 p-4">
+                        <span className="px-2 py-0.5 bg-bible-gold/10 text-bible-gold text-[8px] font-black uppercase rounded-full border border-bible-gold/20">Premium</span>
+                    </div>
+                    <div className="w-20 h-20 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-3xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-500 shadow-inner">
+                        <Mic2 size={40} />
+                    </div>
+                    <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">Podcast IA</h3>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed mb-6 font-medium">
+                        Narrações ultra-realistas. Converta seus estudos em áudio-devocionais poderosos para o pastorado.
+                    </p>
+                    <div className="mt-auto flex items-center gap-2 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase tracking-widest group-hover:translate-x-2 transition-transform">
+                        Gravar <ArrowRight size={14} />
+                    </div>
+                </div>
+
+                {/* TOOL: QUIZ */}
+                <div 
+                    onClick={() => navigate('/quiz')}
+                    className="group bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 cursor-pointer hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/20 transition-all duration-500 relative overflow-hidden flex flex-col items-center text-center"
+                >
+                    <div className="absolute top-0 right-0 p-4 flex gap-1">
+                        <span className="px-2 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[8px] font-black uppercase rounded-full border border-blue-500/20">Comunidade</span>
+                    </div>
+                    <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-3xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-inner">
+                        <Brain size={40} />
+                    </div>
+                    <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">Arena Quiz</h3>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed mb-6 font-medium">
+                        Engaje sua comunidade com desafios bíblicos. Ideal para escolas dominicais e grupos de estudo.
+                    </p>
+                    <div className="mt-auto flex items-center gap-2 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest group-hover:translate-x-2 transition-transform">
+                        Desafiar <ArrowRight size={14} />
+                    </div>
+                </div>
+            </div>
+
+            {/* QUICK INSPIRATION SECTION */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                <div className="bg-gradient-to-br from-bible-leather to-[#2a1a0a] rounded-[2rem] p-8 text-white relative overflow-hidden shadow-xl border border-white/10 group">
+                    <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
+                        <LayoutTemplate size={120} />
+                    </div>
+                    <h4 className="text-xs font-black uppercase tracking-[0.2em] mb-4 text-bible-gold opacity-80">Sugestão de Hoje</h4>
+                    <p className="text-xl font-serif italic mb-6 leading-relaxed">
+                        "E conhecereis a verdade, e a verdade vos libertará."
+                    </p>
+                    <div className="flex items-center justify-between mt-auto">
+                        <span className="text-[10px] font-bold opacity-60">JOÃO 8:32</span>
+                        <button 
+                            onClick={() => { setRefInput('João 8:32'); handleSearch(); setActiveTool('image'); setViewMode('setup'); }}
+                            className="px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur rounded-full text-[10px] font-black uppercase tracking-widest transition-all"
+                        >
+                            Gerar Arte agora
+                        </button>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-bible-darkPaper rounded-[2rem] p-8 border border-gray-100 dark:border-gray-800 shadow-lg group">
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="w-10 h-10 bg-bible-gold/10 text-bible-gold rounded-full flex items-center justify-center">
+                            <History size={20} />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider">Histórico Recente</h4>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase">Acesse suas criações</p>
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-bible-gold transition-colors cursor-pointer">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-gray-200 dark:bg-gray-800 rounded-lg overflow-hidden">
+                                    <div className="w-full h-full bg-gradient-to-br from-bible-gold/20 to-bible-leather/20"></div>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-gray-900 dark:text-white uppercase">Salmos 23:1</p>
+                                    <p className="text-[8px] text-gray-400 font-bold uppercase">Arte Sacra • 2h atrás</p>
+                                </div>
+                            </div>
+                            <Plus size={14} className="text-gray-300" />
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 opacity-50 cursor-not-allowed">
+                            <span className="text-[10px] font-black text-gray-300 uppercase italic">Nenhuma outra produção recente...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* SECONDARY SECTION: PUBLISHED WORKS */}
+            <div className="bg-gray-100 dark:bg-gray-900/50 rounded-[3rem] p-8 border border-gray-200 dark:border-gray-800 mb-12">
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <h4 className="text-lg font-bold text-gray-900 dark:text-white">Minhas Produções</h4>
+                        <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Histórico de Criação</p>
+                    </div>
+                    <button onClick={() => navigate('/workspace')} className="p-3 bg-white dark:bg-gray-800 rounded-2xl text-gray-500 hover:text-bible-gold shadow-sm transition-all">
+                        <Layers size={20} />
+                    </button>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {/* Placeholder for recent works - could be dynamic */}
+                    <div className="aspect-square bg-white dark:bg-bible-darkPaper rounded-3xl border border-gray-200 dark:border-gray-800 flex flex-col items-center justify-center gap-2 opacity-50 hover:opacity-100 transition-opacity cursor-pointer">
+                        <Plus size={24} className="text-gray-300" />
+                        <span className="text-[10px] font-black text-gray-400 uppercase">Nova Arte</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 
     // 1. SETUP VIEW (O Formulário Inicial OTIMIZADO)
     const renderSetupView = () => (
         <div className="flex flex-col h-full p-4 md:p-8 max-w-3xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 overflow-y-auto no-scrollbar">
             
-            {/* Top Toggle Switch - Cleaner */}
-            <div className="flex justify-center mb-6">
-                <div className="bg-white dark:bg-bible-darkPaper p-1 rounded-full border border-gray-100 dark:border-gray-800 shadow-sm flex">
-                    <button onClick={() => setActiveTool('image')} className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition-all ${activeTool === 'image' ? 'bg-bible-leather dark:bg-bible-gold text-white dark:text-black shadow-md' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>
-                        <ImageIcon size={14}/> Artes
-                    </button>
-                    <button onClick={() => setActiveTool('podcast')} className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition-all ${activeTool === 'podcast' ? 'bg-bible-leather dark:bg-bible-gold text-white dark:text-black shadow-md' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>
-                        <Headphones size={14}/> Podcast
-                    </button>
-                </div>
-            </div>
+            <button onClick={() => setViewMode('hub')} className="w-fit flex items-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest mb-8 hover:text-bible-gold transition-colors">
+                <ArrowLeft size={16} /> Voltar ao Hub
+            </button>
 
             {/* Input Verse - Compact */}
             <div className="bg-white dark:bg-bible-darkPaper p-5 rounded-[1.5rem] border border-gray-100 dark:border-gray-800 shadow-lg mb-4">
@@ -313,10 +625,94 @@ const CreativeStudioPage: React.FC = () => {
                 )}
             </div>
 
-            {/* Image Controls - Only if Image Tool */}
+            {/* Image Source Selection Tabs - NEW */}
             {activeTool === 'image' && (
-                <div className="bg-white dark:bg-bible-darkPaper p-5 rounded-[1.5rem] border border-gray-100 dark:border-gray-800 shadow-lg mb-6">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-3 block">2. Estilo Visual</label>
+                <div className="flex bg-gray-100 dark:bg-gray-800 p-1.5 rounded-2xl mb-6">
+                    <button 
+                        onClick={() => setImageSourceTab('stock')}
+                        className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${imageSourceTab === 'stock' ? 'bg-white dark:bg-bible-darkPaper text-bible-gold shadow-md scale-[1.02]' : 'text-gray-400 hover:text-gray-600'}`}
+                    >
+                        <div className="flex items-center justify-center gap-2">
+                            <Image size={14} /> Banco de Imagens
+                        </div>
+                        <span className="text-[7px] block mt-0.5 text-green-500">Grátis & Rápido</span>
+                    </button>
+                    <button 
+                        onClick={() => setImageSourceTab('ai')}
+                        className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${imageSourceTab === 'ai' ? 'bg-white dark:bg-bible-darkPaper text-bible-gold shadow-md scale-[1.02]' : 'text-gray-400 hover:text-gray-600'}`}
+                    >
+                        <div className="flex items-center justify-center gap-2">
+                            <Sparkles size={14} /> Imagem com IA
+                        </div>
+                        <span className="text-[7px] block mt-0.5 text-bible-gold/70">Premium IA</span>
+                    </button>
+                </div>
+            )}
+
+            {/* Tab Content 1: Stock Photo Bank */}
+            {activeTool === 'image' && imageSourceTab === 'stock' && (
+                <div className="bg-white dark:bg-bible-darkPaper p-5 rounded-[1.5rem] border border-gray-100 dark:border-gray-800 shadow-lg mb-6 group text-left animate-in fade-in slide-in-from-left-4">
+                    <div className="flex items-center justify-between mb-4">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Escolha um Fundo</label>
+                        <div className="flex items-center gap-2">
+                            <div className="relative">
+                                <input 
+                                    type="text" 
+                                    value={stockSearchQuery}
+                                    onChange={(e) => setStockSearchQuery(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSearchStock()}
+                                    placeholder="Buscar no banco..."
+                                    className="pl-3 pr-8 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-lg text-[10px] outline-none w-32 focus:w-48 transition-all"
+                                />
+                                <button onClick={() => handleSearchStock()} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-bible-gold">
+                                    <Search size={12}/>
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                        {currentStockImages.map((photo: ImageAsset) => (
+                            <button 
+                                key={photo.id}
+                                onClick={() => handleSelectStockPhoto(photo.id, photo.url)}
+                                disabled={isLoadingStock}
+                                className="aspect-square rounded-xl overflow-hidden relative group/btn hover:ring-2 hover:ring-bible-gold transition-all disabled:opacity-50"
+                            >
+                                <img 
+                                    src={photo.url || `https://images.unsplash.com/photo-${photo.id}?auto=format&fit=crop&q=60&w=200`} 
+                                    className="w-full h-full object-cover group-hover/btn:scale-110 transition-transform duration-500"
+                                    alt={photo.label}
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/btn:opacity-100 transition-opacity flex items-center justify-center text-center p-1">
+                                    <span className="text-[7px] font-black text-white uppercase leading-tight">{photo.label}</span>
+                                    {photo.isAi && (
+                                        <div className="absolute top-1 right-1 bg-bible-gold text-white rounded-full p-0.5">
+                                            <Sparkles size={8} />
+                                        </div>
+                                    )}
+                                </div>
+                                {isLoadingStock && (
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                        <Loader2 size={12} className="text-white animate-spin" />
+                                    </div>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Tab Content 2: AI Image Creation */}
+            {activeTool === 'image' && imageSourceTab === 'ai' && (
+                <div className="bg-white dark:bg-bible-darkPaper p-5 rounded-[1.5rem] border border-gray-100 dark:border-gray-800 shadow-lg mb-6 text-left animate-in fade-in slide-in-from-right-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Estilo Visual (IA)</label>
+                        <span className="text-[8px] font-black px-2 py-0.5 bg-bible-gold/10 text-bible-gold rounded-full border border-bible-gold/20 flex items-center gap-1">
+                            <Sparkles size={8} fill="currentColor"/> MODO ARTESANAL
+                        </span>
+                    </div>
                     
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-4">
                         {STYLES.map(style => (
@@ -358,15 +754,28 @@ const CreativeStudioPage: React.FC = () => {
                 </div>
             )}
 
+
+
             {/* Main Action Button */}
             <button 
                 onClick={activeTool === 'image' ? handleCreateArt : handleGeneratePodcast}
                 disabled={isGeneratingImg || isGeneratingPod || !foundVerse}
-                className="w-full py-4 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`w-full py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    activeTool === 'image' && imageSourceTab === 'stock' 
+                    ? 'bg-gray-200 dark:bg-gray-800 text-gray-500' 
+                    : 'bg-bible-leather dark:bg-bible-gold text-white dark:text-black'
+                }`}
             >
-                {isGeneratingImg || isGeneratingPod ? <Loader2 size={18} className="animate-spin"/> : <Sparkles size={18} fill="currentColor"/>}
-                {activeTool === 'image' ? 'Gerar Arte Sacra' : 'Gerar Podcast IA'}
+                {isGeneratingImg || isGeneratingPod ? (
+                    <Loader2 size={18} className="animate-spin"/>
+                ) : (
+                    imageSourceTab === 'ai' || activeTool !== 'image' ? <Sparkles size={18} fill="currentColor"/> : <Zap size={18} />
+                )}
+                {activeTool === 'image' 
+                    ? (imageSourceTab === 'stock' ? 'Ou Criar com IA Premium' : 'Gerar Arte Sacra (IA)') 
+                    : 'Gerar Podcast IA'}
             </button>
+
         </div>
     );
 
@@ -517,7 +926,9 @@ const CreativeStudioPage: React.FC = () => {
     return (
         <div className="h-full bg-gray-50 dark:bg-black/20 flex flex-col relative overflow-hidden">
             <SEO title="Estúdio Criativo" />
-            {viewMode === 'setup' ? renderSetupView() : renderEditorView()}
+            {viewMode === 'hub' && renderHubView()}
+            {viewMode === 'setup' && renderSetupView()}
+            {viewMode === 'editor' && renderEditorView()}
             
             <PodcastPlayer 
                 isOpen={isPlayerOpen} 
