@@ -1,6 +1,8 @@
+"use client";
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from '../utils/router';
+import Link from 'next/link';
 import {
     Heart, User as UserIcon, ChevronDown, LogOut,
     BookOpen, LayoutDashboard, Brain, CheckCircle2,
@@ -212,7 +214,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="flex flex-col py-2">
             {currentUser && (
                 <Link
-                    to="/perfil"
+                    href="/perfil"
                     onClick={() => setIsSettingsMenuOpen(false)}
                     className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
                 >
@@ -221,7 +223,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             )}
 
             <Link
-                to="/intro"
+                href="/intro"
                 onClick={() => setIsSettingsMenuOpen(false)}
                 className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
             >
@@ -229,7 +231,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Link>
 
             <Link
-                to="/regras"
+                href="/regras"
                 onClick={() => setIsSettingsMenuOpen(false)}
                 className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
             >
@@ -248,7 +250,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="h-px bg-gray-50 dark:bg-gray-800 my-1" />
 
             <Link
-                to="/suporte"
+                href="/suporte"
                 onClick={() => setIsSettingsMenuOpen(false)}
                 className="w-full text-left px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
             >
@@ -256,7 +258,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Link>
 
             <Link
-                to="/termos"
+                href="/termos"
                 onClick={() => setIsSettingsMenuOpen(false)}
                 className="w-full text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
             >
@@ -264,7 +266,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Link>
 
             <Link
-                to="/privacidade"
+                href="/privacidade"
                 onClick={() => setIsSettingsMenuOpen(false)}
                 className="w-full text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
             >
@@ -275,14 +277,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <>
                     <div className="h-px bg-red-100 dark:bg-red-900/20 my-1" />
                     <Link
-                        to="/admin"
+                        href="/admin"
                         onClick={() => setIsSettingsMenuOpen(false)}
                         className="w-full text-left px-4 py-3 text-xs font-black text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-3"
                     >
                         <Terminal size={16} /> Painel Admin
                     </Link>
                     <Link
-                        to="/system-integrity"
+                        href="/system-integrity"
                         onClick={() => setIsSettingsMenuOpen(false)}
                         className="w-full text-left px-4 py-3 text-xs font-black text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-3"
                     >
@@ -459,7 +461,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                                             return (
                                                 <Link
                                                     key={item.path}
-                                                    to={item.path}
+                                                    href={item.path}
                                                     onClick={(e) => handleNavClick(e, item)}
                                                     className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all group ${isActive ? 'bg-bible-gold/10 text-bible-leather dark:text-bible-gold font-bold' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'}`}
                                                 >
