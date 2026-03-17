@@ -6,6 +6,20 @@
 
 ---
 
+## [v1.7.0] - 2026-03-16 (Refino de Perfis e Topo Unificado)
+### Tipo: Style / Refactor / UX
+- **Resumo:** Padronização do topo global para perfis públicos (Usuário, Igreja, Planos e Estudos). Removidas duplicações de cabeçalho e ajustada a visibilidade do topo no modo leitura.
+- **Arquivos Afetados:**
+  - `components/Layout.tsx` (Ajuste de tipografia suave e alinhamento no mobile)
+  - `views/public/ChurchProfilePage.tsx` (Remoção de título redundante)
+  - `views/public/PublicUserProfilePage.tsx` (Remoção de título redundante e adição de selo de identificação)
+  - `views/public/PublicPlanPage.tsx` (Gestão de visibilidade do topo global no modo de leitura do dia)
+  - `views/public/PublicStudyPage.tsx` (Integração com HeaderContext)
+- **Hash Git:** (pendente commit)
+- **Contexto Técnico:** Utilização intensiva do `HeaderContext` para gerir títulos e breadcrumbs de forma centralizada pelo Layout, garantindo uma UI premium e sem elementos repetidos.
+
+---
+
 ## [v1.6.3] - 2026-03-16 (Controle de Versão Git)
 ### Tipo: Infrastructure / DevOps
 - **Resumo:** Inicialização do repositório Git local para controle de versões do BíbliaLM. Criado workflow `/versao` para salvar, listar e restaurar snapshots.

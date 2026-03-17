@@ -571,23 +571,10 @@ const PlanBuilderPage: React.FC = () => {
             <SEO title="Sala de Estudos" />
 
             {/* HEADER */}
-            <div className="sticky top-0 z-40 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 px-4 md:px-8 py-2 flex flex-col md:flex-row justify-between items-center shadow-sm gap-2 h-auto md:h-20 shrink-0">
+            <div className="sticky top-[85px] md:top-0 z-40 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 px-4 md:px-8 py-2 flex flex-col md:flex-row justify-between items-center shadow-sm gap-2 h-auto md:h-20 shrink-0">
                 <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-                    <div className="flex items-center gap-3">
-                        {editingDayId ? (
-                            <button onClick={() => setEditingDayId(null)} className="p-2 text-gray-500 hover:text-bible-gold transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
-                                <ArrowLeft size={20} />
-                            </button>
-                        ) : (
-                            <button onClick={() => navigate(-1)} className="p-2 text-gray-500 hover:text-bible-gold transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
-                                <ArrowLeft size={20} />
-                            </button>
-                        )}
-                        {typeof headerTitle === 'string' ? <h1 className="text-sm font-bold text-gray-900 dark:text-white hidden md:block">{headerTitle}</h1> : headerTitle}
-                        {!editingDayId && isPlanPublished && <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse hidden md:block" title="Sala Ativa"></div>}
-                    </div>
-
-                    {/* Mobile actions are placed at the bottom or wrapped, but we'll show steps in the middle */}
+                    {/* Redundant back button and title removed to prevent duplication with global header */}
+                    {!editingDayId && isPlanPublished && <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse hidden md:block" title="Sala Ativa"></div>}
                 </div>
 
                 {!editingDayId && (

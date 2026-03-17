@@ -30,6 +30,8 @@ export interface StandardHeaderProps {
     showLogo?: boolean;
     hideBackButton?: boolean;
     progress?: number;
+    hideTitle?: boolean;
+    hideNav?: boolean;
 }
 
 const StandardHeader: React.FC<StandardHeaderProps> = ({
@@ -45,7 +47,9 @@ const StandardHeader: React.FC<StandardHeaderProps> = ({
     onShare,
     showLogo,
     hideBackButton,
-    progress
+    progress,
+    hideTitle,
+    hideNav
 }) => {
     const navigate = useNavigate();
     const [isExpanded, setIsExpanded] = useState(false);
@@ -86,45 +90,47 @@ const StandardHeader: React.FC<StandardHeaderProps> = ({
             </div>
 
             {/* Navigation Bar - Sticky Modernized */}
-            <nav className={`sticky top-0 z-[60] flex justify-between items-center p-4 md:p-6 transition-all duration-300 ${isScrolled ? 'bg-bible-leather/90 dark:bg-black/90 backdrop-blur-xl border-b border-white/10 shadow-lg pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]' : ''}`}>
-                <div className="flex items-center gap-4 z-10 relative">
-                    {!hideBackButton && (
-                        <button onClick={() => navigate(-1)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md transition-colors">
-                            <ArrowLeft size={20} />
-                        </button>
-                    )}
-                </div>
+            {!hideNav && (
+                <nav className={`sticky top-0 z-[60] flex justify-between items-center p-4 md:p-6 transition-all duration-300 ${isScrolled ? 'bg-bible-leather/90 dark:bg-black/90 backdrop-blur-xl border-b border-white/10 shadow-lg pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]' : ''}`}>
+                    <div className="flex items-center gap-4 z-10 relative">
+                        {!hideBackButton && (
+                            <button onClick={() => navigate(-1)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md transition-colors">
+                                <ArrowLeft size={20} />
+                            </button>
+                        )}
+                    </div>
 
-                {/* Mini Title Appears on Scroll (Absolutely Centered) */}
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none w-[60%]">
-                    {showLogo && !isScrolled && (
-                        <div className="flex items-center gap-2 pointer-events-auto cursor-pointer" onClick={() => navigate('/')}>
-                            <LogoIcon className="w-6 h-6 text-bible-gold" />
-                            <span className="font-serif font-bold text-lg hidden md:inline">Bíblia<span className="text-bible-gold">LM</span></span>
-                        </div>
-                    )}
-                    <h2 className={`font-serif font-bold text-base md:text-lg text-white truncate transition-all duration-300 text-center ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-                        {title}
-                    </h2>
-                </div>
+                    {/* Mini Title Appears on Scroll (Absolutely Centered) */}
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none w-[60%]">
+                        {showLogo && !isScrolled && (
+                            <div className="flex items-center gap-2 pointer-events-auto cursor-pointer" onClick={() => navigate('/')}>
+                                <LogoIcon className="w-6 h-6 text-bible-gold" />
+                                <span className="font-serif font-bold text-lg hidden md:inline">Bíblia<span className="text-bible-gold">LM</span></span>
+                            </div>
+                        )}
+                        <h2 className={`font-serif font-bold text-base md:text-lg text-white truncate transition-all duration-300 text-center ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+                            {title}
+                        </h2>
+                    </div>
 
-                <div className="flex gap-2 z-10 relative">
-                    {onShare && (
-                        <button onClick={onShare} className="p-2 bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md transition-colors cursor-pointer pointer-events-auto">
-                            <Share2 size={20} />
-                        </button>
-                    )}
-                </div>
-            </nav>
+                    <div className="flex gap-2 z-10 relative">
+                        {onShare && (
+                            <button onClick={onShare} className="p-2 bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md transition-colors cursor-pointer pointer-events-auto">
+                                <Share2 size={20} />
+                            </button>
+                        )}
+                    </div>
+                </nav>
+            )}
 
             {/* Anchor for scroll observation */}
             <div ref={headerRef} className="absolute top-0 left-0 w-full h-10 -z-10" />
 
-            {/* Hero Content */}
-            <div className={`relative z-10 max-w-7xl mx-auto px-6 pt-2 md:pt-4 pb-6 md:pb-8 text-center md:text-left transition-opacity duration-300 ${isScrolled ? 'opacity-30' : 'opacity-100'}`}>
+            {/* Hero Content - MODERNIZED LEFT ALIGN */}
+            <div className={`relative z-10 max-w-7xl mx-auto px-6 pt-2 md:pt-4 pb-6 md:pb-8 text-left transition-opacity duration-300 ${isScrolled ? 'opacity-30' : 'opacity-100'}`}>
 
                 {/* Badges */}
-                <div className="flex flex-wrap justify-center md:justify-start gap-2 mb-6">
+                <div className="flex flex-wrap justify-start gap-2 mb-6">
                     {badges.map((badge, idx) => (
                         <div key={idx} className="inline-flex items-center gap-2 bg-bible-gold/20 backdrop-blur-md px-3 py-1 rounded-full border border-bible-gold/30 text-bible-gold text-[10px] font-black uppercase tracking-widest">
                             {badge.icon} {badge.label}
@@ -132,9 +138,11 @@ const StandardHeader: React.FC<StandardHeaderProps> = ({
                     ))}
                 </div>
 
-                <h1 className="text-2xl md:text-4xl lg:text-5xl font-serif font-black leading-tight mb-4 drop-shadow-2xl text-white">
-                    {title}
-                </h1>
+                {!hideTitle && (
+                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif font-black leading-tight mb-4 drop-shadow-2xl text-white">
+                        {title}
+                    </h1>
+                )}
 
                 {/* Meta Info Bar */}
                 {/* Meta Info Bar - REORGANIZED FOR MOBILE */}

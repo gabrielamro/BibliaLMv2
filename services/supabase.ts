@@ -1071,6 +1071,7 @@ function mapPlan(d: any): CustomPlan {
         endDate: d.end_date ?? undefined,
         metrics: d.metrics ? safeJson(d.metrics) : undefined,
         tags: safeJson(d.tags, []),
+        authorPhoto: d.author_photo ?? undefined,
     };
 }
 

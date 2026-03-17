@@ -22,7 +22,7 @@ const PublicPlanPage: React.FC = () => {
     const { planId } = useParams<{ planId: string }>();
     const navigate = useNavigate();
     const { currentUser, userProfile, openLogin, showNotification, earnMana, updateProfile } = useAuth();
-    const { setTitle, setBreadcrumbs, resetHeader } = useHeader();
+    const { setTitle, setBreadcrumbs, resetHeader, setIsHeaderHidden } = useHeader();
 
     const [plan, setPlan] = useState<CustomPlan | null>(null);
     const [loading, setLoading] = useState(true);
@@ -130,7 +130,19 @@ const PublicPlanPage: React.FC = () => {
     // --- HEARTBEAT & REAL-TIME PRESENCE ---
     const isOwner = plan?.authorId === currentUser?.uid;
 
-    // 1. Heartbeat do Usuário (Se matriculado)
+    // 1. Header Presence & Heartbeat
+    useEffect(() => {
+        if (plan) {
+            setTitle(plan.title);
+            setBreadcrumbs([
+                { label: 'Comunidade', path: '/social' },
+                { label: 'Planos' }
+            ]);
+        }
+        return () => resetHeader();
+    }, [plan, setTitle, setBreadcrumbs, resetHeader]);
+
+    // 2. Heartbeat do Usuário (Se matriculado)
     useEffect(() => {
         if (!currentUser || !planId || !myStats) return;
 
@@ -394,6 +406,7 @@ const PublicPlanPage: React.FC = () => {
     useEffect(() => {
         if (plan) {
             if (readingDay) {
+                setIsHeaderHidden(true); // Oculta o topo global para não duplicar com a barra de leitura
                 setTitle(dayLabel || readingDay.title);
                 setBreadcrumbs([
                     { label: 'Planos', path: '/estudos/planos' },
@@ -401,6 +414,7 @@ const PublicPlanPage: React.FC = () => {
                     { label: dayLabel || 'Leitura' }
                 ]);
             } else {
+                setIsHeaderHidden(false);
                 setTitle(plan.title);
                 setBreadcrumbs([
                     { label: 'Planos', path: '/estudos/planos' },
@@ -408,8 +422,11 @@ const PublicPlanPage: React.FC = () => {
                 ]);
             }
         }
-        return () => resetHeader();
-    }, [plan, readingDay, setTitle, setBreadcrumbs, resetHeader]);
+        return () => {
+            resetHeader();
+            setIsHeaderHidden(false);
+        };
+    }, [plan, readingDay, setTitle, setBreadcrumbs, resetHeader, setIsHeaderHidden]);
 
     if (loading) return <div className="h-screen flex items-center justify-center bg-bible-paper dark:bg-bible-darkPaper"><Loader2 className="animate-spin text-bible-gold" size={40} /></div>;
     if (!plan) return <div>Plano não encontrado</div>;
@@ -669,6 +686,8 @@ const PublicPlanPage: React.FC = () => {
                 ]}
                 extraFooter={null}
                 hideBackButton={true}
+                hideTitle={true}
+                hideNav={true}
                 actions={
                     <div className="flex items-center gap-2 md:gap-3 w-full justify-between md:justify-end">
                         <div className="flex items-center gap-2">

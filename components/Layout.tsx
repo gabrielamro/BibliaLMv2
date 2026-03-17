@@ -46,7 +46,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     } = useAuth();
 
     const { settings, toggleTheme, isFocusMode } = useSettings();
-    const { title: headerTitle, subtitle: headerSubtitle, icon: headerIcon, breadcrumbs, isHeaderHidden } = useHeader();
+    const { title: headerTitle, subtitle: headerSubtitle, icon: headerIcon, breadcrumbs, actions: headerActions, isHeaderHidden } = useHeader();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -339,95 +339,103 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             {/* Mobile Header - Hidden in Focus Mode */}
             <header
                 onDoubleClick={scrollToTop}
-                className={`md:hidden relative flex items-center justify-center px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] min-h-[72px] bg-bible-leather dark:bg-black border-b border-white/10 z-[60] sticky top-0 transition-all duration-300 ${showHeader ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'} ${isFocusMode ? '!hidden' : ''}`}
+                className={`md:hidden relative flex items-center px-4 py-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] bg-white dark:bg-[#0a0a0a] border-b border-gray-100 dark:border-white/5 z-[60] sticky top-0 transition-all duration-300 ${showHeader ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'} ${(isFocusMode || isHeaderHidden) ? '!hidden' : ''}`}
             >
-                {/* Left Side */}
-                <div className="absolute left-2 bottom-4 flex items-center gap-2">
-                    {showBackButton ? (
-                        <button onClick={() => navigate(-1)} className="p-2 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-colors">
-                            <ArrowLeft size={20} />
-                        </button>
-                    ) : (
-                        <div onClick={() => navigate('/')} className="cursor-pointer active:opacity-70 flex-shrink-0 ml-2">
-                            {headerIcon ? (
-                                <span className="text-bible-gold">{headerIcon}</span>
-                            ) : (
-                                <LogoIcon className="w-8 h-8 text-bible-gold" />
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Centered Title Section */}
-                <div className="flex flex-col items-center justify-center text-center max-w-[65%] overflow-hidden">
-                    {breadcrumbs.length > 0 && (
-                        <div className="flex items-center gap-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest truncate">
-                            {breadcrumbs.slice(-2).map((crumb, index) => (
-                                <React.Fragment key={index}>
-                                    {index > 0 && <ChevronRight size={8} />}
-                                    <span className="truncate">{crumb.label}</span>
-                                </React.Fragment>
-                            ))}
-                        </div>
-                    )}
-                    <h1 className="font-bold text-lg text-gray-900 dark:text-white truncate leading-tight flex items-center gap-1.5 uppercase tracking-wide">
-                        {(!showBackButton && headerIcon) && <span className="text-bible-gold">{headerIcon}</span>}
-                        {headerTitle || pageTitle}
-                    </h1>
-                </div>
-
-                {/* Right Side */}
-                <div className="absolute right-2 bottom-4 flex items-center gap-1">
-                    {isFreePlan && (
-                        <button onClick={() => setIsSupportModalOpen(true)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors">
-                            <Heart size={20} fill="currentColor" />
+                <div className="flex items-center w-full gap-3">
+                    {showBackButton && (
+                        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                            <ArrowLeft size={22} strokeWidth={2} />
                         </button>
                     )}
 
-                    {currentUser && (
-                        <div className="relative" ref={notifRef}>
-                            <button onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-bible-gold transition-colors relative rounded-full">
-                                <Bell size={20} />
-                                {unreadNotificationsCount > 0 && (
-                                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-black"></span>
-                                )}
+                    <div className="flex flex-col flex-1 min-w-0">
+                        {breadcrumbs.length > 0 && (
+                            <div className="flex items-center gap-1 text-[8px] font-black text-gray-400 uppercase tracking-[0.2em] truncate mb-0.5">
+                                {breadcrumbs.map((crumb, index) => (
+                                    <React.Fragment key={index}>
+                                        {index > 0 && <ChevronRight size={7} />}
+                                        <span 
+                                            onClick={crumb.onClick} 
+                                            className={crumb.onClick ? 'cursor-pointer hover:text-bible-gold transition-colors' : ''}
+                                        >
+                                            {crumb.label}
+                                        </span>
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                        )}
+                        <h1 className="font-serif font-medium text-lg text-gray-900 dark:text-white truncate leading-tight tracking-tight">
+                            {headerTitle || pageTitle}
+                        </h1>
+                        {headerSubtitle && (
+                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest truncate -mt-0.5">
+                                {headerSubtitle}
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-0.5">
+                        {headerActions && headerActions.map((action, idx) => (
+                            <button 
+                                key={idx}
+                                onClick={action.onClick}
+                                className={`p-2 rounded-full transition-colors ${action.className || 'text-gray-500 hover:text-bible-gold hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                                title={action.label}
+                            >
+                                {action.icon}
                             </button>
-                            {isNotifDropdownOpen && (
-                                <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50 animate-in fade-in zoom-in-95 origin-top-right">
-                                    <div className="p-3 border-b border-gray-50 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-black/20">
-                                        <span className="font-bold text-xs">Notificações</span>
-                                        <button onClick={markNotificationsAsRead} className="text-[10px] text-bible-gold hover:underline font-bold uppercase">Limpar</button>
+                        ))}
+                        {isFreePlan && (
+                            <button onClick={() => setIsSupportModalOpen(true)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors">
+                                <Heart size={20} fill="currentColor" />
+                            </button>
+                        )}
+
+                        {currentUser && (
+                            <div className="relative" ref={notifRef}>
+                                <button onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-bible-gold transition-colors relative rounded-full">
+                                    <Bell size={20} />
+                                    {unreadNotificationsCount > 0 && (
+                                        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-black"></span>
+                                    )}
+                                </button>
+                                {isNotifDropdownOpen && (
+                                    <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50 animate-in fade-in zoom-in-95 origin-top-right">
+                                        <div className="p-3 border-b border-gray-50 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-black/20">
+                                            <span className="font-bold text-xs text-gray-900 dark:text-white">Notificações</span>
+                                            <button onClick={markNotificationsAsRead} className="text-[10px] text-bible-gold hover:underline font-bold uppercase">Limpar</button>
+                                        </div>
+                                        <div className="max-h-64 overflow-y-auto">
+                                            {notifications.length === 0 ? (
+                                                <div className="p-6 text-center text-gray-400 text-xs">Nenhuma notificação</div>
+                                            ) : (
+                                                notifications.map(notif => (
+                                                    <div key={notif.id} onClick={() => { if (notif.link) navigate(notif.link); setIsNotifDropdownOpen(false); }} className={`p-3 border-b border-gray-50 dark:border-gray-800 active:bg-gray-100 dark:active:bg-gray-800 transition-colors ${!notif.read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}>
+                                                        <p className="text-xs font-bold text-gray-900 dark:text-white line-clamp-1">{notif.title}</p>
+                                                        <p className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-2">{notif.message}</p>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="max-h-64 overflow-y-auto">
-                                        {notifications.length === 0 ? (
-                                            <div className="p-6 text-center text-gray-400 text-xs">Nenhuma notificação</div>
-                                        ) : (
-                                            notifications.map(notif => (
-                                                <div key={notif.id} onClick={() => { if (notif.link) navigate(notif.link); setIsNotifDropdownOpen(false); }} className={`p-3 border-b border-gray-50 dark:border-gray-800 active:bg-gray-100 dark:active:bg-gray-800 transition-colors ${!notif.read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}>
-                                                    <p className="text-xs font-bold text-gray-900 dark:text-white line-clamp-1">{notif.title}</p>
-                                                    <p className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-2">{notif.message}</p>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="relative" ref={settingsRef}>
+                            <button
+                                type="button"
+                                onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
+                                className={`p-2 rounded-full transition-colors ${isSettingsMenuOpen ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}
+                            >
+                                <Settings size={20} />
+                            </button>
+                            {isSettingsMenuOpen && (
+                                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[100] animate-in fade-in zoom-in-95 origin-top-right">
+                                    {renderSettingsDropdown()}
                                 </div>
                             )}
                         </div>
-                    )}
-
-                    <div className="relative" ref={settingsRef}>
-                        <button
-                            type="button"
-                            onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
-                            className={`p-2 rounded-full transition-colors ${isSettingsMenuOpen ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}
-                        >
-                            <Settings size={20} />
-                        </button>
-                        {isSettingsMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[100] animate-in fade-in zoom-in-95 origin-top-right">
-                                {renderSettingsDropdown()}
-                            </div>
-                        )}
                     </div>
                 </div>
             </header>
@@ -625,7 +633,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
                     <div
                         ref={scrollContainerRef}
-                        className={`flex-1 overflow-y-auto overflow-x-hidden scroll-smooth relative transition-all duration-300 ease-in-out ${isFocusMode ? 'pt-0' : (isHeaderHidden ? 'pt-0' : 'pt-[60px] md:pt-0')}`}
+                        className={`flex-1 overflow-y-auto overflow-x-hidden scroll-smooth relative transition-all duration-300 ease-in-out ${isFocusMode ? 'pt-0' : (isHeaderHidden ? 'pt-0' : 'md:pt-0')}`}
                         onScroll={handleScroll}
                     >
                         {children}

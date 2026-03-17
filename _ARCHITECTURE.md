@@ -1,7 +1,7 @@
 # 🏗️ BíbliaLM - Architecture & Technical Source of Truth
 
 > **AI INSTRUCTION:** Read this file FIRST before modifying any code. This defines the project structure and patterns.
-> **VERSION:** v1.5.2 (Nova Jornada + One Page Presentation + Vínculo Eclesiástico)
+> **VERSION:** v1.7.0 (Refino de Perfis e Topo Unificado)
 
 ## 1. Tech Stack (Strict Versions)
 *   **Core:** React 18, Vite 5, TypeScript.

@@ -30,7 +30,7 @@ const Reader: React.FC = () => {
   const navigate = useNavigate();
   const { settings } = useSettings();
   const { currentUser, userProfile, recordActivity, markChapterCompleted } = useAuth();
-  const { setTitle, setSubtitle, setIcon, setBreadcrumbs, resetHeader } = useHeader();
+  const { setTitle, setSubtitle, setIcon, setBreadcrumbs, isHeaderHidden, setIsHeaderHidden, resetHeader } = useHeader();
 
   const [currentBookId, setCurrentBookId] = useState<string>('gn');
   const [currentChapterNum, setCurrentChapterNum] = useState<number>(1);
@@ -59,14 +59,16 @@ const Reader: React.FC = () => {
       setTitle('Bíblia Sagrada');
       setIcon(<BookOpen size={20} />);
       setBreadcrumbs([]);
+      setIsHeaderHidden(false);
     } else {
       setTitle(`${currentBookMetadata.name} ${currentChapterNum}`);
       setSubtitle(undefined);
       setIcon(undefined);
       setBreadcrumbs([{ label: 'Bíblia', onClick: () => setViewMode('library') }]);
+      setIsHeaderHidden(true); // Hide global header to avoid duplication with ReaderView toolbar
     }
     return () => resetHeader();
-  }, [viewMode, currentBookMetadata, currentChapterNum, setTitle, setSubtitle, setIcon, setBreadcrumbs, resetHeader]);
+  }, [viewMode, currentBookMetadata, currentChapterNum, setTitle, setSubtitle, setIcon, setBreadcrumbs, setIsHeaderHidden, resetHeader]);
 
   const loadData = useCallback(async () => {
     if (viewMode !== 'reader') return;

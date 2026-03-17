@@ -119,13 +119,13 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                     </button>
                 </div>
             ) : (
-                <div className="sticky top-0 z-40 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 bg-white/95 dark:bg-[#1a1a1a]/95 flex flex-col transition-all">
-                    <div className="h-12 px-6 flex items-center justify-between">
-                        {/* Breadcrumbs Left */}
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
-                            <span className="hover:text-bible-gold cursor-pointer transition-colors" onClick={onBackToLibrary}>{bookMetadata.name.toUpperCase()}</span>
-                            <ChevronRight size={10} className="text-gray-300" />
-                            <span className="text-gray-600 dark:text-gray-300">CAPÍTULO {currentChapterNum}</span>
+                <div className="sticky top-0 z-40 backdrop-blur-md border-b border-gray-100 dark:border-white/5 bg-white/95 dark:bg-[#0a0a0a]/95 flex flex-col transition-all">
+                    <div className="h-11 px-6 flex items-center justify-between">
+                        {/* Status / Page Indicator */}
+                        <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">
+                            <span className="text-bible-gold">LEITURA ATIVA</span>
+                            <span className="text-gray-300 dark:text-gray-700">|</span>
+                            <span className="dark:text-gray-400">Soli Deo Gloria</span>
                         </div>
 
                         {/* Actions Right */}

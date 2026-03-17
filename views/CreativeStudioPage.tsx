@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useFeatures } from '../contexts/FeatureContext';
+import { useHeader } from '../contexts/HeaderContext';
 import { bibleService } from '../services/bibleService';
 import { generateVerseImage } from '../services/geminiService';
 import usePodcastGenerator from '../hooks/usePodcastGenerator';
@@ -72,6 +73,7 @@ const FeatureDisabled = () => (
 const CreativeStudioPage: React.FC = () => {
     const { currentUser, userProfile, checkFeatureAccess, incrementUsage, recordActivity, showNotification, openSubscription, openLogin } = useAuth();
     const { isFeatureEnabled } = useFeatures();
+    const { setTitle, setBreadcrumbs } = useHeader();
     const navigate = useNavigate();
     const location = useLocation();
     
@@ -127,6 +129,20 @@ const CreativeStudioPage: React.FC = () => {
             setRefInput(state.verseRef);
         }
     }, [state]);
+
+    // Update global header title and breadcrumbs
+    useEffect(() => {
+        if (viewMode === 'setup') {
+            setTitle('Estúdio Criativo');
+            setBreadcrumbs([]);
+        } else {
+            setTitle('Editando Arte');
+            setBreadcrumbs([
+                { label: 'Estúdio', onClick: () => setViewMode('setup') },
+                { label: foundVerse?.ref || 'Arte' }
+            ]);
+        }
+    }, [viewMode, foundVerse, setTitle, setBreadcrumbs]);
 
     // Live Compositor Preview
     useEffect(() => {
@@ -358,28 +374,17 @@ const CreativeStudioPage: React.FC = () => {
     const renderEditorView = () => (
         <div className="flex flex-col h-full bg-gray-100 dark:bg-black relative">
             
-            {/* Top Toolbar */}
-            <div className="bg-white dark:bg-bible-darkPaper p-3 px-4 flex justify-between items-center shadow-sm z-20 shrink-0">
-                <div className="flex items-center gap-2">
-                    <button onClick={() => setViewMode('setup')} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 hover:text-black dark:hover:text-white transition-colors" title="Voltar ao Setup">
-                        <ArrowLeft size={20} />
-                    </button>
-                    {/* Botão Home para sair da ferramenta */}
-                    <button onClick={handleExit} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 hover:text-bible-gold transition-colors" title="Sair para o Início">
-                        <Home size={20} />
-                    </button>
-                </div>
-
-                <div className="flex gap-2">
-                    <button onClick={handleDownload} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-600 dark:text-gray-300 hover:text-bible-gold"><Download size={20} /></button>
-                    <button onClick={handlePostArtToFeed} className="px-4 py-2 bg-bible-gold text-white rounded-full text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-md hover:bg-yellow-600">
-                        <Rss size={14} /> Postar
-                    </button>
-                </div>
-            </div>
-
             {/* Canvas Area - Centralized */}
-            <div className="flex-1 flex items-center justify-center p-4 overflow-hidden relative">
+            <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-hidden relative">
+                {/* Floating Actions on Canvas Area */}
+                <div className="absolute top-4 right-4 z-30 flex gap-2">
+                    <button onClick={handleDownload} className="p-2.5 bg-white/90 dark:bg-bible-darkPaper/90 backdrop-blur rounded-full text-gray-600 dark:text-gray-300 shadow-lg hover:text-bible-gold transition-all" title="Baixar">
+                        <Download size={20} />
+                    </button>
+                    <button onClick={handlePostArtToFeed} className="flex items-center gap-2 px-5 py-2.5 bg-bible-gold text-white rounded-full text-xs font-black uppercase tracking-widest shadow-lg hover:bg-yellow-600 transition-all">
+                        <Rss size={16} /> Postar
+                    </button>
+                </div>
                 {/* Background Pattern for transparency feeling */}
                 <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#999 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
                 

@@ -13,6 +13,7 @@ import {
   UserPlus, UserCheck, Users, Heart, Layout, Calendar, Eye, Settings, LogOut, Edit2
 } from 'lucide-react';
 import { BADGES } from '../../constants';
+import { useHeader } from '../../contexts/HeaderContext';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
 import SEO from '../../components/SEO';
 
@@ -23,6 +24,7 @@ const PublicUserProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser, userProfile: myProfile, recordActivity, openLogin, showNotification, signOut } = useAuth();
+  const { setTitle, resetHeader, setBreadcrumbs } = useHeader();
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [userStudies, setUserStudies] = useState<SavedStudy[]>([]);
@@ -42,6 +44,17 @@ const PublicUserProfilePage: React.FC = () => {
 
   const isMeRoute = location.pathname === '/perfil';
   const isOwner = currentUser && (isMeRoute || currentUser.uid === profile?.uid);
+
+  useEffect(() => {
+    if (profile) {
+      setTitle(profile.displayName || 'Perfil');
+      setBreadcrumbs([
+        { label: 'O Reino', path: '/social' },
+        { label: 'Perfil' }
+      ]);
+    }
+    return () => resetHeader();
+  }, [profile, setTitle, setBreadcrumbs, resetHeader]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -149,11 +162,7 @@ const PublicUserProfilePage: React.FC = () => {
     <div className="h-full bg-gray-50 dark:bg-black overflow-y-auto">
       <SEO title={profile.displayName} />
       
-      {/* HEADER COMPACTO PARA MOBILE */}
-      <div className="h-32 md:h-64 bg-gradient-to-r from-bible-gold to-yellow-600 relative">
-          <button onClick={() => navigate(-1)} className="absolute top-4 left-4 p-2 bg-black/20 text-white rounded-full transition-colors z-20 md:hidden">
-              <ArrowLeft size={20} />
-          </button>
+      <div className="h-32 md:h-64 bg-gradient-to-r from-bible-gold to-yellow-600 relative shadow-inner">
       </div>
 
       <div className="max-w-4xl mx-auto w-full px-4 -mt-12 md:-mt-20 z-10 space-y-4 pb-28">
@@ -171,7 +180,7 @@ const PublicUserProfilePage: React.FC = () => {
                   <div className="flex-1 w-full">
                       <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-3">
                           <div className="min-w-0">
-                              <h1 className="text-xl md:text-4xl font-serif font-bold text-gray-900 dark:text-white truncate">{profile.displayName}</h1>
+                              <p className="text-xs font-black text-bible-gold uppercase tracking-[0.2em] mb-1">Cidadão do Reino</p>
                               <p className="text-xs font-bold text-gray-400">@{profile.username}</p>
                           </div>
                           <button 

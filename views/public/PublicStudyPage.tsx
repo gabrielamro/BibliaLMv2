@@ -54,39 +54,40 @@ const PublicStudyPage: React.FC = () => {
     const isHtmlContent = /<\/?[a-z][\s\S]*>/i.test(study.analysis);
 
     return (
-        <div className="min-h-screen bg-white dark:bg-bible-darkPaper flex flex-col selection:bg-bible-gold selection:text-black">
+        <div className="h-full bg-white dark:bg-bible-darkPaper flex flex-col selection:bg-bible-gold selection:text-black overflow-y-auto">
             <SEO title={study.title} description={study.analysis.substring(0, 160)} />
 
-            <main className="max-w-4xl mx-auto w-full px-6 py-12 space-y-16">
-                {/* Author & Actions Bar */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-gray-100 dark:border-gray-800 pb-8">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800">
-                            {study.userPhoto ? <img src={study.userPhoto} className="w-full h-full object-cover" /> : <User size={24} className="m-auto text-gray-400" />}
-                        </div>
-                        <div>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white">{study.userName}</p>
-                            <p className="text-[10px] text-gray-500 font-medium uppercase tracking-widest">{new Date(study.publishedAt || study.createdAt).toLocaleDateString('pt-BR')}</p>
-                        </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                        <button 
+            <StandardHeader 
+                title={study.title}
+                subtitle={study.sourceText}
+                authorName={study.userName}
+                authorPhoto={study.userPhoto}
+                coverUrl={study.coverUrl}
+                badges={[{ label: 'Estudo Público', icon: <Sparkles size={14} /> }]}
+                hideTitle={true}
+                hideNav={true}
+                hideBackButton={true}
+                actions={
+                    <div className="flex items-center gap-2">
+                         <button 
                             onClick={() => {
                                 const url = window.location.href;
                                 if(navigator.share) navigator.share({title: study.title, url});
-                                else navigator.clipboard.writeText(url);
+                                else { navigator.clipboard.writeText(url); }
                                 dbService.incrementMetric('public_studies', studyId!, 'shares');
                             }}
-                            className="p-2.5 bg-gray-50 dark:bg-gray-900 text-gray-500 rounded-xl hover:text-bible-gold transition-colors"
+                            className="p-2 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors"
                         >
-                            <ArrowRight size={20} className="-rotate-45" />
+                            <ArrowRight size={18} className="-rotate-45" />
                         </button>
-                        <button onClick={() => navigate('/login')} className="px-6 py-2.5 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                            Criar Minha Página
+                        <button onClick={() => navigate('/login')} className="px-4 py-2 bg-bible-gold text-black rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg transition-all">
+                            Criar Conta
                         </button>
                     </div>
-                </div>
+                }
+            />
+
+            <main className="max-w-4xl mx-auto w-full px-6 py-12 space-y-16">
                 
                 {(!isHtmlContent && study.sourceText) && (
                     <section className="space-y-6">

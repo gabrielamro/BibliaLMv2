@@ -8,6 +8,15 @@ export interface Breadcrumb {
   onClick?: () => void;
 }
 
+export interface HeaderAction {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  variant?: 'primary' | 'secondary' | 'ghost';
+  className?: string;
+  id?: string;
+}
+
 interface HeaderContextType {
   title: string;
   setTitle: (title: string) => void;
@@ -17,6 +26,8 @@ interface HeaderContextType {
   setIcon: (icon?: ReactNode) => void;
   breadcrumbs: Breadcrumb[];
   setBreadcrumbs: (breadcrumbs: Breadcrumb[]) => void;
+  actions: HeaderAction[];
+  setActions: (actions: HeaderAction[]) => void;
   isHeaderHidden: boolean;
   setIsHeaderHidden: (isHidden: boolean) => void;
   resetHeader: () => void;
@@ -29,6 +40,7 @@ export const HeaderProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [subtitle, setSubtitle] = useState<string | undefined>(undefined);
   const [icon, setIcon] = useState<ReactNode | undefined>(undefined);
   const [breadcrumbs, setBreadcrumbs] = useState<Breadcrumb[]>([]);
+  const [actions, setActions] = useState<HeaderAction[]>([]);
   const [isHeaderHidden, setIsHeaderHidden] = useState(false);
 
   const resetHeader = useCallback(() => {
@@ -36,11 +48,20 @@ export const HeaderProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setSubtitle(undefined);
     setIcon(undefined);
     setBreadcrumbs([]);
+    setActions([]);
     setIsHeaderHidden(false);
   }, []);
 
   return (
-    <HeaderContext.Provider value={{ title, setTitle, subtitle, setSubtitle, icon, setIcon, breadcrumbs, setBreadcrumbs, isHeaderHidden, setIsHeaderHidden, resetHeader }}>
+    <HeaderContext.Provider value={{ 
+      title, setTitle, 
+      subtitle, setSubtitle, 
+      icon, setIcon, 
+      breadcrumbs, setBreadcrumbs, 
+      actions, setActions,
+      isHeaderHidden, setIsHeaderHidden, 
+      resetHeader 
+    }}>
       {children}
     </HeaderContext.Provider>
   );

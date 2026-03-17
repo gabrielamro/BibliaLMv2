@@ -228,6 +228,7 @@ export interface CustomPlan extends UserContent {
   // Datas
   startDate?: string;
   endDate?: string;
+  authorPhoto?: string;
 }
 
 export interface StudyModule {

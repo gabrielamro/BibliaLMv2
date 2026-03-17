@@ -14,6 +14,7 @@ import {
   Flame, LayoutGrid, Award, Bell, Boxes, MessageSquare, Edit2, Trash2, AtSign, Zap, BookOpen, Brain, MapPinned,
   User as UserIcon, Search, X, Check, UserCheck, Camera, MoreHorizontal, UserCog, ChevronDown, CornerDownRight
 } from 'lucide-react';
+import { useHeader } from '../../contexts/HeaderContext';
 import SEO from '../../components/SEO';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import PromptModal from '../../components/PromptModal';
@@ -71,6 +72,7 @@ const ChurchProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser, userProfile, recordActivity, openLogin, showNotification, earnMana } = useAuth();
+  const { setTitle, resetHeader, setBreadcrumbs } = useHeader();
   
   const [church, setChurch] = useState<Church | null>(null);
   const [groups, setGroups] = useState<ChurchGroup[]>([]);
@@ -80,6 +82,17 @@ const ChurchProfilePage: React.FC = () => {
   const [newPrayer, setNewPrayer] = useState('');
   const [isPostingPrayer, setIsPostingPrayer] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
+
+  useEffect(() => {
+    if (church) {
+      setTitle(church.name);
+      setBreadcrumbs([
+        { label: 'O Reino', path: '/social' },
+        { label: 'Igrejas' }
+      ]);
+    }
+    return () => resetHeader();
+  }, [church, setTitle, resetHeader, setBreadcrumbs]);
   
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [followers, setFollowers] = useState<any[]>([]);
@@ -421,9 +434,7 @@ const ChurchProfilePage: React.FC = () => {
                         </div>
 
                         <div className="flex-1 text-center md:text-left pt-2">
-                            <h1 className="text-3xl md:text-4xl font-serif font-black text-gray-900 dark:text-white leading-tight mb-1 tracking-tight">
-                                {church.name}
-                            </h1>
+                            <p className="text-xs font-black text-bible-gold uppercase tracking-[0.2em] mb-1">Comunidade de Fé</p>
 
                             <div className="flex flex-col gap-1 mb-4">
                                 <div className="flex items-center justify-center md:justify-start gap-2">
@@ -733,7 +744,7 @@ const ChurchProfilePage: React.FC = () => {
                                             <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
                                                 {member.photoURL ? <img src={member.photoURL} className="w-full h-full object-cover" /> : <UserIcon className="m-auto mt-2 text-gray-400" size={20}/>}
                                             </div>
-                                            <div>
+                                            <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-bold text-gray-900 dark:text-white">{member.displayName}</p>
                                                 <p className="text-[10px] text-gray-400">@{member.username}</p>
                                             </div>

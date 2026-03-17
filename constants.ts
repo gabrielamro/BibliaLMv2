@@ -1,7 +1,7 @@
 
 import { Book, Devotional, SubscriptionPlan, Badge, QuizQuestion, ReadingTrack, GuidedPrayer } from './types';
 
-export const SYSTEM_VERSION = "1.6.2";
+export const SYSTEM_VERSION = "1.7.0";
 export const DEFAULT_FONT_SIZE = 3;
 
 // --- LEITURA INTELIGENTE (SMART TEXT) ---
