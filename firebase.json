@@ -6,6 +6,13 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "predeploy": [
+      "npm run build"
+    ],
+    "environment": {
+      "NEXT_PUBLIC_SUPABASE_URL": "https://sewwhyxrvkcptchakocc.supabase.co",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY": "use-firebase-console"
+    },
     "headers": [
       {
         "source": "**/*.@(eot|otf|ttf|ttc|woff|font.css)",
