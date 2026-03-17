@@ -1020,6 +1020,7 @@ export const dbService = {
                 reference: data.reference || '',
                 label: data.label || 'Arte IA',
                 category: data.category || 'IA',
+                is_ai: true,
                 user_id: data.userId || null,
                 created_at: now()
             });
