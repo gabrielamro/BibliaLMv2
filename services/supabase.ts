@@ -15,11 +15,11 @@ import {
     PlanParticipant, PlanComment
 } from '../types';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder_anon_key';
 
-if (!supabaseUrl || !supabaseKey) {
-    console.warn('⚠️ Supabase credentials ausentes. Verifique o .env.local');
+if (supabaseUrl === 'https://placeholder.supabase.co') {
+    console.warn('⚠️ Supabase credentials ausentes. O cliente usará URLs temporárias para evitar travamento da build. Verifique o .env.local na etapa de runtime.');
 }
 
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
