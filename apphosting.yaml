@@ -5,6 +5,3 @@ runConfig:
   concurrency: 80
   cpu: 1
   memoryMiB: 1024
-env:
-  - variable: API_KEY
-    secret: API_KEY
