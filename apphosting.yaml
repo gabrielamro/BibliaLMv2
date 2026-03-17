@@ -5,3 +5,14 @@ runConfig:
   concurrency: 80
   cpu: 1
   memoryMiB: 2048
+env:
+  - variable: NEXT_PUBLIC_SUPABASE_URL
+    value: https://sewwhyxrvkcptchakocc.supabase.co
+  - variable: NEXT_PUBLIC_SUPABASE_ANON_KEY
+    value: sb_publishable_-hyjGg5YnC7vsFQHDhzXtg_Qb9IAuuY
+  - variable: NEXT_PUBLIC_API_KEY
+    secret: API_KEY
+  - variable: NEXT_PUBLIC_GROQ_API_KEY
+    secret: GROQ_API_KEY
+  - variable: NEXT_PUBLIC_OPENROUTER_API_KEY
+    secret: OPENROUTER_API_KEY
