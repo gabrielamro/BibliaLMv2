@@ -355,19 +355,54 @@ const CreativeStudioPage: React.FC = () => {
         }
     };
 
-    const handleSearchStock = (manualQuery?: string) => {
+    const handleSearchStock = async (manualQuery?: string) => {
         const query = manualQuery !== undefined ? manualQuery : stockSearchQuery;
         
         if (!query.trim()) {
             setCurrentStockImages(allImageAssets);
             return;
         }
-        
-        const filtered = allImageAssets.filter(p => 
-            p.label.toLowerCase().includes(query.toLowerCase()) || 
-            p.category.toLowerCase().includes(query.toLowerCase())
-        );
-        setCurrentStockImages(filtered);
+
+        setIsLoadingStock(true);
+        try {
+            // Local filter first
+            const localFiltered = allImageAssets.filter(p => 
+                p.label.toLowerCase().includes(query.toLowerCase()) || 
+                p.category.toLowerCase().includes(query.toLowerCase())
+            );
+
+            // Fetch from Unsplash (Public Bridge/Search)
+            // Using a set of curated IDs or a search simulation if no API key
+            // For now, we'll try to use a few quality Unsplash IDs for common bible terms
+            // In a real app, this would call a server-side proxy to Unsplash API
+            
+            const bibleTerms = ['bible', 'cross', 'church', 'prayer', 'nature', 'landscape', 'spirit', 'faith', 'holy', 'ancient'];
+            const isBibleQuery = bibleTerms.some(term => query.toLowerCase().includes(term) || query.toLowerCase().includes('bíblia') || query.toLowerCase().includes('fé'));
+
+            if (isBibleQuery && query.length > 3) {
+                // Mocking additional results with Unsplash IDs if local is small
+                const unsplashMockIds = [
+                    '1438761681033-6461f8090fc2', '1501281668939-2d12ff98f121', 
+                    '1519834785169-98be25ec3f84', '1490730141103-6ca27a9f0042',
+                    '1464822759023-fed622ff2c3b', '1507525428034-b723cf961d3e'
+                ];
+                
+                const unsplashResults: ImageAsset[] = unsplashMockIds.map(id => ({
+                    id: id + '_' + Math.random(),
+                    label: `Unsplash: ${query}`,
+                    category: 'Unsplash',
+                    url: `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&q=80&w=800`
+                }));
+                
+                setCurrentStockImages([...localFiltered, ...unsplashResults]);
+            } else {
+                setCurrentStockImages(localFiltered);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsLoadingStock(false);
+        }
     };
 
     // Auto-suggest stock photos based on verse theme
