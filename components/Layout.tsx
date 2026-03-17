@@ -1,10 +1,6 @@
-"use client";
-import { useNavigate, useLocation, useSearchParams } from '../utils/router';
-
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-
-import Link from "next/link";
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
     Heart, User as UserIcon, ChevronDown, LogOut,
     BookOpen, LayoutDashboard, Brain, CheckCircle2,
@@ -28,9 +24,8 @@ import SupportModal from './SupportModal';
 import BuyCreditsModal from './BuyCreditsModal';
 import { LogoIcon } from './LogoIcon';
 import MobileBottomNav from './MobileBottomNav';
-import ObreiroIAChatbot from './ObreiroIAChatbot';
 import OmniSearch from './OmniSearch';
-import { dbService } from '../services/supabase';
+import { dbService } from '../services/firebase';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -46,7 +41,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     } = useAuth();
 
     const { settings, toggleTheme, isFocusMode } = useSettings();
-    const { title: headerTitle, subtitle: headerSubtitle, icon: headerIcon, breadcrumbs, actions: headerActions, isHeaderHidden } = useHeader();
+    const { title: headerTitle, subtitle: headerSubtitle, icon: headerIcon, breadcrumbs, isHeaderHidden } = useHeader();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -56,7 +51,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
 
     const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
-        'Bíblia Sagrada': true,
+        'Bíblia': true,
         'Pessoal': true,
         'Pastoral': true
     });
@@ -85,7 +80,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
     const showBackButton = !rootPaths.includes(location.pathname);
 
-    const isAdmin = userProfile?.subscriptionTier === 'admin' || userProfile?.username === 'gabrielamaro' || currentUser?.email === 'gabrielamaro@live.com';
+    const isAdmin = userProfile?.username === 'gabrielamaro' || currentUser?.email === 'gabrielamaro@live.com';
     const isPastor = userProfile?.subscriptionTier === 'pastor';
 
     useEffect(() => {
@@ -117,59 +112,52 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const getPageTitle = () => {
         const path = location.pathname;
         if (path === '/oracoes') return 'Orações Guiadas';
-
+        if (path === '/trilhas') return 'Trilhas de Leitura';
         if (path === '/biblia') return 'Bíblia Sagrada';
         if (path === '/social') return 'O Reino';
-        if (path === '/') return 'Início';
-        if (path === '/perfil') return 'Configurações de Perfil';
-        if (path === '/chat') return 'Conselheiro Teológico';
-        if (path === '/estudio-criativo') return 'Conteúdos Criativos';
-        if (path === '/plano') return 'Metas de Crescimento';
+        if (path === '/') return 'Santuário';
+        if (path === '/perfil') return 'Meu Perfil';
+        if (path === '/chat') return 'Conselheiro IA';
+        if (path === '/estudio-criativo') return 'Estúdio Criativo';
+        if (path === '/plano') return 'Meta de Leitura';
         if (path === '/devocional') return 'Pão Diário';
-        if (path === '/aluno') return 'Minhas Salas de Estudo';
-        if (path === '/quiz') return 'Desafio Bíblico';
-        if (path === '/historico') return 'Meu Progresso';
-        if (path === '/pulpito') return 'Área do Pregador';
-        if (path === '/workspace-pastoral') return 'Estúdio Pastoral';
-        if (path === '/estudos') return 'Meus Estudos';
-        if (path === '/biblioteca') return 'Biblioteca Digital';
-        if (path === '/criador-jornada') return 'Gestão da Sala';
-        if (path === '/social/explore') return 'Explorar';
-
-        // Return empty or a generic term instead of app name to avoid redundancy
-        return '';
+        if (path === '/aluno') return 'Área do Aluno';
+        if (path === '/quiz') return 'Desafio da Sabedoria';
+        if (path === '/historico') return 'Minhas Atividades';
+        if (path === '/pulpito') return 'Púlpito Digital';
+        if (path === '/workspace-pastoral') return 'Workspace Pastoral';
+        return 'BíbliaLM';
     }
     const pageTitle = getPageTitle();
 
     const navStructure = useMemo(() => {
         const base = [
             {
-                groupLabel: 'Bíblia Sagrada',
-                icon: <BookOpen size={18} />,
-                type: 'bible' as NavType,
-                colorClass: 'text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400',
-                items: [
-                    { label: 'Bíblia Sagrada', path: '/biblia', icon: <Book size={18} />, type: 'bible' as NavType },
-                    { label: 'Pão Diário', path: '/devocional', icon: <Coffee size={18} />, type: 'bible' as NavType },
-                    { label: 'Orações', path: '/oracoes', icon: <HandHeart size={18} />, type: 'bible' as NavType },
-
-                    { label: 'Meta de Leitura', path: '/plano', icon: <Target size={18} />, protected: true, type: 'bible' as NavType },
-                ]
-            },
-            {
                 groupLabel: 'Pessoal',
                 icon: <UserIcon size={18} />,
                 type: 'personal' as NavType,
                 colorClass: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400',
                 items: [
-                    { label: 'Inicio', path: '/', icon: <Home size={18} />, type: 'personal' as NavType },
-                    { label: 'Meus Estudos', path: '/estudos/planos', icon: <BookMarked size={18} />, protected: true, type: 'personal' as NavType },
-                    { label: 'Atividades', path: '/historico', icon: <History size={18} />, protected: true, type: 'personal' as NavType },
-                    { label: 'Área do Aluno', path: '/aluno', icon: <GraduationCap size={18} />, type: 'personal' as NavType },
-                    { label: 'Obreiro IA', path: '/chat', icon: <MessageCircle size={18} />, type: 'personal' as NavType },
+                    { label: 'Santuário', path: '/', icon: <Home size={18} />, type: 'personal' as NavType, description: 'Seu painel principal' },
+                    { label: 'Meus Estudos', path: '/estudos/planos', icon: <BookMarked size={18} />, protected: true, type: 'personal' as NavType, description: 'Seus sermões e notas' },
+                    { label: 'Atividades', path: '/historico', icon: <History size={18} />, protected: true, type: 'personal' as NavType, description: 'Seu histórico' },
+                    { label: 'Cursos & Trilhas', path: '/aluno', icon: <GraduationCap size={18} />, type: 'personal' as NavType, description: 'Salas e Trilhas' },
+                    { label: 'Conselheiro IA', path: '/chat', icon: <MessageCircle size={18} />, type: 'personal' as NavType, description: 'Tire dúvidas com a IA' },
                 ]
             },
-
+            {
+                groupLabel: 'Bíblia',
+                icon: <BookOpen size={18} />,
+                type: 'bible' as NavType,
+                colorClass: 'text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400',
+                items: [
+                    { label: 'Bíblia Sagrada', path: '/biblia', icon: <Book size={18} />, type: 'bible' as NavType, description: 'Leitura, áudio e versões' },
+                    { label: 'Pão Diário', path: '/devocional', icon: <Coffee size={18} />, type: 'bible' as NavType, description: 'Mensagem e oração do dia' },
+                    { label: 'Orações', path: '/oracoes', icon: <HandHeart size={18} />, type: 'bible' as NavType, description: 'Guiadas por temas' },
+                    { label: 'Trilhas', path: '/trilhas', icon: <Map size={18} />, type: 'bible' as NavType, description: 'Leituras temáticas' },
+                    { label: 'Meta de Leitura', path: '/plano', icon: <Target size={18} />, protected: true, type: 'bible' as NavType, description: 'Acompanhe seu plano anual' },
+                ]
+            },
             {
                 groupLabel: 'Reino',
                 icon: <Crown size={18} />,
@@ -188,8 +176,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 type: 'pastoral' as NavType,
                 colorClass: 'text-gray-600 bg-gray-100 dark:bg-gray-800 dark:text-gray-300',
                 items: [
-                    { label: 'Área do Pastor', path: '/workspace-pastoral', icon: <LayoutIcon size={18} />, protected: true, type: 'pastoral' as NavType },
-                    { label: 'Púlpito Digital', path: '/pulpito', icon: <Mic2 size={18} />, protected: true, type: 'pastoral' as NavType },
+                    { label: 'Workspace', path: '/workspace-pastoral', icon: <LayoutIcon size={18} />, protected: true, type: 'pastoral' as NavType, description: 'Gestão de jornadas' },
+                    { label: 'Púlpito Digital', path: '/pulpito', icon: <Mic2 size={18} />, protected: true, type: 'pastoral' as NavType, description: 'Modo Pregação e Slides' },
                 ]
             });
         }
@@ -223,7 +211,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const renderSettingsDropdown = () => (
         <div className="flex flex-col py-2">
             {currentUser && (
-                <Link href="/perfil"
+                <Link
+                    to="/perfil"
                     onClick={() => setIsSettingsMenuOpen(false)}
                     className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
                 >
@@ -231,14 +220,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </Link>
             )}
 
-            <Link href="/intro"
+            <Link
+                to="/intro"
                 onClick={() => setIsSettingsMenuOpen(false)}
                 className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
             >
                 <LayoutIcon size={16} className="text-blue-500" /> Apresentação
             </Link>
 
-            <Link href="/regras"
+            <Link
+                to="/regras"
                 onClick={() => setIsSettingsMenuOpen(false)}
                 className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
             >
@@ -256,21 +247,24 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             <div className="h-px bg-gray-50 dark:bg-gray-800 my-1" />
 
-            <Link href="/suporte"
+            <Link
+                to="/suporte"
                 onClick={() => setIsSettingsMenuOpen(false)}
                 className="w-full text-left px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
             >
                 <LifeBuoy size={16} /> Suporte / Doar
             </Link>
 
-            <Link href="/termos"
+            <Link
+                to="/termos"
                 onClick={() => setIsSettingsMenuOpen(false)}
                 className="w-full text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
             >
                 <Scroll size={16} /> Termos
             </Link>
 
-            <Link href="/privacidade"
+            <Link
+                to="/privacidade"
                 onClick={() => setIsSettingsMenuOpen(false)}
                 className="w-full text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
             >
@@ -280,13 +274,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             {isAdmin && (
                 <>
                     <div className="h-px bg-red-100 dark:bg-red-900/20 my-1" />
-                    <Link href="/admin"
+                    <Link
+                        to="/admin"
                         onClick={() => setIsSettingsMenuOpen(false)}
                         className="w-full text-left px-4 py-3 text-xs font-black text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-3"
                     >
                         <Terminal size={16} /> Painel Admin
                     </Link>
-                    <Link href="/system-integrity"
+                    <Link
+                        to="/system-integrity"
                         onClick={() => setIsSettingsMenuOpen(false)}
                         className="w-full text-left px-4 py-3 text-xs font-black text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-3"
                     >
@@ -317,13 +313,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
     );
 
-    const scrollToTop = () => {
-        if (scrollContainerRef.current) {
-            scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-        window.dispatchEvent(new Event('biblialm-scroll-top'));
-    };
-
     if (isLanding) return (
         <>
             {children}
@@ -338,104 +327,100 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* Mobile Header - Hidden in Focus Mode */}
             <header
-                onDoubleClick={scrollToTop}
-                className={`md:hidden relative flex items-center px-4 py-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] bg-white dark:bg-[#0a0a0a] border-b border-gray-100 dark:border-white/5 z-[60] sticky top-0 transition-all duration-300 ${showHeader ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'} ${(isFocusMode || isHeaderHidden) ? '!hidden' : ''}`}
+                className={`md:hidden flex items-center justify-between px-4 py-3 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md ${isHeaderHidden ? '' : 'border-b border-gray-100 dark:border-gray-800'} absolute top-0 left-0 right-0 z-[60] h-[60px] pt-safe transition-transform duration-300 ease-in-out ${showHeader ? 'translate-y-0' : '-translate-y-full'
+                    } ${isFocusMode ? 'hidden' : ''}`}
             >
-                <div className="flex items-center w-full gap-3">
-                    {showBackButton && (
-                        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
-                            <ArrowLeft size={22} strokeWidth={2} />
+                {/* Left Side: Back button or Logo */}
+                <div className="flex items-center gap-2 z-10 flex-shrink-0">
+                    {showBackButton ? (
+                        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-colors">
+                            <ArrowLeft size={20} />
+                        </button>
+                    ) : (
+                        <div onClick={() => navigate('/')} className="cursor-pointer active:opacity-70 flex-shrink-0">
+                            {headerIcon ? (
+                                <span className="text-bible-gold">{headerIcon}</span>
+                            ) : (
+                                <LogoIcon className="w-8 h-8 text-bible-gold" />
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Center Title container - Absolute to enforce center alignment */}
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-3/5 text-center pointer-events-none mt-1">
+                    {breadcrumbs.length > 0 ? (
+                        <div className="flex items-center justify-center gap-1 text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] truncate mb-0.5 pointer-events-auto">
+                            {breadcrumbs.slice(-2).map((crumb, index) => (
+                                <React.Fragment key={index}>
+                                    {index > 0 && <ChevronRight size={8} />}
+                                    <span className="truncate">{crumb.label}</span>
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] truncate mb-0.5">
+                            {headerSubtitle || 'Santuário'}
+                        </p>
+                    )}
+                    <h1 className="font-sans font-black text-[17px] tracking-tight text-gray-900 dark:text-white truncate leading-[1.1] pointer-events-auto flex items-center justify-center gap-1">
+                        {(showBackButton && headerIcon) && <span className="text-bible-gold">{headerIcon}</span>}
+                        {headerTitle || pageTitle}
+                    </h1>
+                </div>
+
+                {/* Right Side: Icons */}
+                <div className="flex items-center gap-1 z-10 flex-shrink-0">
+                    {isFreePlan && (
+                        <button onClick={() => setIsSupportModalOpen(true)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors">
+                            <Heart size={20} fill="currentColor" />
                         </button>
                     )}
 
-                    <div className="flex flex-col flex-1 min-w-0">
-                        {breadcrumbs.length > 0 && (
-                            <div className="flex items-center gap-1 text-[8px] font-black text-gray-400 uppercase tracking-[0.2em] truncate mb-0.5">
-                                {breadcrumbs.map((crumb, index) => (
-                                    <React.Fragment key={index}>
-                                        {index > 0 && <ChevronRight size={7} />}
-                                        <span 
-                                            onClick={crumb.onClick} 
-                                            className={crumb.onClick ? 'cursor-pointer hover:text-bible-gold transition-colors' : ''}
-                                        >
-                                            {crumb.label}
-                                        </span>
-                                    </React.Fragment>
-                                ))}
-                            </div>
-                        )}
-                        <h1 className="font-serif font-medium text-lg text-gray-900 dark:text-white truncate leading-tight tracking-tight">
-                            {headerTitle || pageTitle}
-                        </h1>
-                        {headerSubtitle && (
-                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest truncate -mt-0.5">
-                                {headerSubtitle}
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="flex items-center gap-0.5">
-                        {headerActions && headerActions.map((action, idx) => (
-                            <button 
-                                key={idx}
-                                onClick={action.onClick}
-                                className={`p-2 rounded-full transition-colors ${action.className || 'text-gray-500 hover:text-bible-gold hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                                title={action.label}
-                            >
-                                {action.icon}
-                            </button>
-                        ))}
-                        {isFreePlan && (
-                            <button onClick={() => setIsSupportModalOpen(true)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors">
-                                <Heart size={20} fill="currentColor" />
-                            </button>
-                        )}
-
-                        {currentUser && (
-                            <div className="relative" ref={notifRef}>
-                                <button onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-bible-gold transition-colors relative rounded-full">
-                                    <Bell size={20} />
-                                    {unreadNotificationsCount > 0 && (
-                                        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-black"></span>
-                                    )}
-                                </button>
-                                {isNotifDropdownOpen && (
-                                    <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50 animate-in fade-in zoom-in-95 origin-top-right">
-                                        <div className="p-3 border-b border-gray-50 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-black/20">
-                                            <span className="font-bold text-xs text-gray-900 dark:text-white">Notificações</span>
-                                            <button onClick={markNotificationsAsRead} className="text-[10px] text-bible-gold hover:underline font-bold uppercase">Limpar</button>
-                                        </div>
-                                        <div className="max-h-64 overflow-y-auto">
-                                            {notifications.length === 0 ? (
-                                                <div className="p-6 text-center text-gray-400 text-xs">Nenhuma notificação</div>
-                                            ) : (
-                                                notifications.map(notif => (
-                                                    <div key={notif.id} onClick={() => { if (notif.link) navigate(notif.link); setIsNotifDropdownOpen(false); }} className={`p-3 border-b border-gray-50 dark:border-gray-800 active:bg-gray-100 dark:active:bg-gray-800 transition-colors ${!notif.read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}>
-                                                        <p className="text-xs font-bold text-gray-900 dark:text-white line-clamp-1">{notif.title}</p>
-                                                        <p className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-2">{notif.message}</p>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
+                    {currentUser && (
+                        <div className="relative" ref={notifRef}>
+                            <button onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-bible-gold transition-colors relative rounded-full">
+                                <Bell size={20} />
+                                {unreadNotificationsCount > 0 && (
+                                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-black"></span>
                                 )}
-                            </div>
-                        )}
-
-                        <div className="relative" ref={settingsRef}>
-                            <button
-                                type="button"
-                                onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
-                                className={`p-2 rounded-full transition-colors ${isSettingsMenuOpen ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}
-                            >
-                                <Settings size={20} />
                             </button>
-                            {isSettingsMenuOpen && (
-                                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[100] animate-in fade-in zoom-in-95 origin-top-right">
-                                    {renderSettingsDropdown()}
+                            {isNotifDropdownOpen && (
+                                <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50 animate-in fade-in zoom-in-95 origin-top-right">
+                                    <div className="p-3 border-b border-gray-50 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-black/20">
+                                        <span className="font-bold text-xs">Notificações</span>
+                                        <button onClick={markNotificationsAsRead} className="text-[10px] text-bible-gold hover:underline font-bold uppercase">Limpar</button>
+                                    </div>
+                                    <div className="max-h-64 overflow-y-auto">
+                                        {notifications.length === 0 ? (
+                                            <div className="p-6 text-center text-gray-400 text-xs">Nenhuma notificação</div>
+                                        ) : (
+                                            notifications.map(notif => (
+                                                <div key={notif.id} onClick={() => { if (notif.link) navigate(notif.link); setIsNotifDropdownOpen(false); }} className={`p-3 border-b border-gray-50 dark:border-gray-800 active:bg-gray-100 dark:active:bg-gray-800 transition-colors ${!notif.read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}>
+                                                    <p className="text-xs font-bold text-gray-900 dark:text-white line-clamp-1">{notif.title}</p>
+                                                    <p className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-2">{notif.message}</p>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>
+                    )}
+
+                    <div className="relative" ref={settingsRef}>
+                        <button
+                            type="button"
+                            onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
+                            className={`p-2 rounded-full transition-colors ${isSettingsMenuOpen ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}
+                        >
+                            <Settings size={20} />
+                        </button>
+                        {isSettingsMenuOpen && (
+                            <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[100] animate-in fade-in zoom-in-95 origin-top-right">
+                                {renderSettingsDropdown()}
+                            </div>
+                        )}
                     </div>
                 </div>
             </header>
@@ -473,8 +458,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                                             const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
                                             return (
                                                 <Link
-                                                    key={item.path} href={item.path}
-                                                    data-testid={item.path === '/biblia' ? 'nav-bible' : undefined}
+                                                    key={item.path}
+                                                    to={item.path}
                                                     onClick={(e) => handleNavClick(e, item)}
                                                     className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all group ${isActive ? 'bg-bible-gold/10 text-bible-leather dark:text-bible-gold font-bold' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'}`}
                                                 >
@@ -516,9 +501,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
                     {notification && (
                         <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-[110] px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 fade-in duration-300 border ${notification.type === 'error' ? 'bg-red-500 text-white border-red-600' :
-                            notification.type === 'success' ? 'bg-green-600 text-white border-green-700' :
-                                notification.type === 'badge' ? 'bg-purple-600 text-white border-purple-700' :
-                                    'bg-gray-900 text-white border-gray-800'
+                                notification.type === 'success' ? 'bg-green-600 text-white border-green-700' :
+                                    notification.type === 'badge' ? 'bg-purple-600 text-white border-purple-700' :
+                                        'bg-gray-900 text-white border-gray-800'
                             }`}>
                             {notification.type === 'error' && <AlertTriangle size={18} />}
                             {notification.type === 'success' && <CheckCircle2 size={18} />}
@@ -532,46 +517,48 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     )}
 
                     {/* Desktop Header - Hidden in Focus Mode */}
-                    <header onDoubleClick={scrollToTop} className={`hidden md:flex items-center justify-between px-8 py-4 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 z-40 shrink-0 h-20 ${isFocusMode ? '!hidden' : ''}`}>
-                        <div className="flex items-center gap-4">
+                    <header className={`hidden md:flex items-center justify-between px-8 py-4 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md ${isHeaderHidden ? '' : 'border-b border-gray-100 dark:border-gray-800'} z-40 shrink-0 h-20 ${isFocusMode ? 'hidden' : ''}`}>
+                        {/* Left Side */}
+                        <div className="flex items-center gap-4 w-32 flex-shrink-0">
                             {showBackButton && (
                                 <button onClick={() => navigate(-1)} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
                                     <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300" />
                                 </button>
                             )}
-
-                            {headerIcon && (
-                                <div className="text-bible-gold flex-shrink-0 flex items-center justify-center">
-                                    {headerIcon}
-                                </div>
-                            )}
-
-                            <div className="flex flex-col justify-center">
-                                {breadcrumbs.length > 0 && (
-                                    <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 mt-0.5">
-                                        {breadcrumbs.map((crumb, index) => (
-                                            <React.Fragment key={index}>
-                                                {index > 0 && <ChevronRight size={10} />}
-                                                <span
-                                                    onClick={() => {
-                                                        if (crumb.onClick) crumb.onClick();
-                                                        else if (crumb.path) navigate(crumb.path);
-                                                    }}
-                                                    className={`cursor-pointer hover:text-bible-gold transition-colors ${index === breadcrumbs.length - 1 ? 'text-gray-600 dark:text-gray-300' : ''}`}
-                                                >
-                                                    {crumb.label}
-                                                </span>
-                                            </React.Fragment>
-                                        ))}
-                                    </div>
-                                )}
-                                <h2 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white leading-tight flex items-center gap-2">
-                                    {headerTitle || pageTitle}
-                                </h2>
-                            </div>
                         </div>
 
-                        <div className="flex items-center gap-4">
+                        {/* Center Title */}
+                        <div className="flex flex-col items-center justify-center flex-1">
+                            {breadcrumbs.length > 0 ? (
+                                <div className="flex items-center justify-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">
+                                    {breadcrumbs.map((crumb, index) => (
+                                        <React.Fragment key={index}>
+                                            {index > 0 && <ChevronRight size={10} />}
+                                            <span
+                                                onClick={() => {
+                                                    if (crumb.onClick) crumb.onClick();
+                                                    else if (crumb.path) navigate(crumb.path);
+                                                }}
+                                                className={`cursor-pointer hover:text-bible-gold transition-colors ${index === breadcrumbs.length - 1 ? 'text-gray-600 dark:text-gray-300' : ''}`}
+                                            >
+                                                {crumb.label}
+                                            </span>
+                                        </React.Fragment>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">
+                                    {headerSubtitle || 'Santuário'}
+                                </p>
+                            )}
+                            <h2 className="text-xl md:text-2xl font-sans font-black tracking-tight text-gray-900 dark:text-white leading-none flex items-center justify-center gap-2">
+                                {headerIcon && <span className="text-bible-gold">{headerIcon}</span>}
+                                {headerTitle || pageTitle}
+                            </h2>
+                        </div>
+
+                        {/* Right Side */}
+                        <div className="flex items-center justify-end gap-4 w-32 flex-shrink-0">
                             <button onClick={toggleTheme} className="p-2 text-gray-400 hover:text-bible-gold transition-colors">
                                 {settings.theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
                             </button>
@@ -633,22 +620,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
                     <div
                         ref={scrollContainerRef}
-                        className={`flex-1 overflow-y-auto overflow-x-hidden scroll-smooth relative transition-all duration-300 ease-in-out ${isFocusMode ? 'pt-0' : (isHeaderHidden ? 'pt-0' : 'md:pt-0')}`}
+                        className={`flex-1 overflow-y-auto overflow-x-hidden scroll-smooth relative ${isFocusMode ? 'pt-0' : 'pt-[60px] md:pt-0'}`}
                         onScroll={handleScroll}
                     >
                         {children}
                     </div>
 
                     {!isFocusMode && <MobileBottomNav />}
-                    <ObreiroIAChatbot />
+                    <LoginModal isOpen={isLoginModalOpen} onClose={closeLogin} />
+                    <SupportModal isOpen={isSupportModalOpen} onClose={() => setIsSupportModalOpen(false)} />
+                    <BuyCreditsModal isOpen={isBuyCreditsModalOpen} onClose={closeBuyCredits} />
+                    <SystemTutorialModal isOpen={isTutorialOpen} onClose={() => setIsTutorialOpen(false)} />
                 </main>
             </div>
-            
-            {/* Global Modals */}
-            <LoginModal isOpen={isLoginModalOpen} onClose={closeLogin} />
-            <SupportModal isOpen={isSupportModalOpen} onClose={() => setIsSupportModalOpen(false)} />
-            <BuyCreditsModal isOpen={isBuyCreditsModalOpen} onClose={closeBuyCredits} />
-            <SystemTutorialModal isOpen={isTutorialOpen} onClose={() => setIsTutorialOpen(false)} />
         </div>
     );
 };

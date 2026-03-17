@@ -1,13 +1,10 @@
-"use client";
-import { useNavigate } from '../../utils/router';
-
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Settings as SettingsIcon, Volume2, ChevronRight, ChevronLeft, Loader2, ArrowLeft, Moon, Sun, Headphones, CheckCircle2, BookOpen, Sparkles, X, MousePointerClick, Flame, Users, PenLine, Bookmark, Maximize2, Minimize2 } from 'lucide-react';
 import { Chapter, Note } from '../../types';
 import SettingsModal from '../SettingsModal';
 import { useSettings } from '../../contexts/SettingsContext';
-
+import { useNavigate } from 'react-router-dom';
 import SmartText from './SmartText';
 
 const BOOK_CHAPTER_COUNTS: { [key: string]: number } = {
@@ -44,14 +41,10 @@ export interface ReaderViewProps {
     onViewNotes?: (verseNum: number) => void;
     onNavigate: (bookId: string, chapter: number, verse?: number) => void;
     popularVerses?: number[];
-    activeTrack?: any;
-    currentTrackStepIndex?: number;
-    onNavigateTrackNext?: () => void;
 }
 
 const ReaderView: React.FC<ReaderViewProps> = ({
-    isLoading, chapterContent, chapterNotes = [], bookMetadata, currentChapterNum, selectedVerses, setSelectedVerses, onBackToLibrary, onToggleNarration, isNarrationPlaying, onChapterComplete, isChapterRead, lastReadVerse, highlightedVerse, onNavigate, onGenerateChapterPodcast, popularVerses = [],
-    activeTrack, currentTrackStepIndex, onNavigateTrackNext
+    isLoading, chapterContent, chapterNotes = [], bookMetadata, currentChapterNum, selectedVerses, setSelectedVerses, onBackToLibrary, onToggleNarration, isNarrationPlaying, onChapterComplete, isChapterRead, lastReadVerse, highlightedVerse, onNavigate, onGenerateChapterPodcast, popularVerses = []
 }) => {
     const { settings, updateSettings, isFocusMode, setIsFocusMode } = useSettings();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -95,7 +88,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({
     const versesWithNotes = chapterNotes.map(n => n.verse);
 
     return (
-        <div data-testid="reader-view" className={`flex-1 flex flex-col h-full relative overflow-hidden transition-colors duration-700 ${isFocusMode ? 'bg-black' : 'bg-bible-paper dark:bg-[#0f0d0b]'}`}>
+        <div className={`flex-1 flex flex-col h-full relative overflow-hidden transition-colors duration-700 ${isFocusMode ? 'bg-black' : 'bg-bible-paper dark:bg-[#0f0d0b]'}`}>
 
             {/* 
         HEADER AREA 
@@ -119,13 +112,13 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                     </button>
                 </div>
             ) : (
-                <div className="sticky top-0 z-40 backdrop-blur-md border-b border-gray-100 dark:border-white/5 bg-white/95 dark:bg-[#0a0a0a]/95 flex flex-col transition-all">
-                    <div className="h-11 px-6 flex items-center justify-between">
-                        {/* Status / Page Indicator */}
-                        <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">
-                            <span className="text-bible-gold">LEITURA ATIVA</span>
-                            <span className="text-gray-300 dark:text-gray-700">|</span>
-                            <span className="dark:text-gray-400">Soli Deo Gloria</span>
+                <div className="sticky top-0 z-40 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 bg-white/95 dark:bg-[#0a0a0a]/95 flex flex-col transition-all">
+                    <div className="h-12 px-6 flex items-center justify-between">
+                        {/* Breadcrumbs Left */}
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+                            <span className="hover:text-bible-gold cursor-pointer transition-colors" onClick={onBackToLibrary}>{bookMetadata.name.toUpperCase()}</span>
+                            <ChevronRight size={10} className="text-gray-300" />
+                            <span className="text-gray-600 dark:text-gray-300">CAPÍTULO {currentChapterNum}</span>
                         </div>
 
                         {/* Actions Right */}
@@ -177,24 +170,6 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                                 </div>
                             )}
 
-                            {/* Devotional Advice from Track (Fase 3) */}
-                            {activeTrack && currentTrackStepIndex !== undefined && currentTrackStepIndex >= 0 && (
-                                <div className="mb-12 p-6 rounded-3xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
-
-                                    <div className="flex items-center gap-2 mb-4 text-amber-700 dark:text-amber-500">
-                                        <Sparkles size={20} />
-                                        <span className="text-xs font-black uppercase tracking-widest">
-                                            {(activeTrack.items || activeTrack.steps)[currentTrackStepIndex]?.commentAuthor === 'ai' ? 'Consolador de IA' : 'Mensagem do Pastor'}
-                                        </span>
-                                    </div>
-
-                                    <div className="relative z-10 text-amber-900 dark:text-amber-100 font-serif italic text-lg leading-relaxed">
-                                        "{(activeTrack.items || activeTrack.steps)[currentTrackStepIndex]?.devotionalHtml || (activeTrack.items || activeTrack.steps)[currentTrackStepIndex]?.comment || 'Deus abençoe sua leitura e fale poderosamente ao seu coração.'}"
-                                    </div>
-                                </div>
-                            )}
-
                             {/* Verses */}
                             <div className={`leading-relaxed ${getFontSizeClass(settings.fontSize)} ${isFocusMode ? 'space-y-8 text-gray-300' : 'space-y-4 text-gray-800 dark:text-gray-200'}`}>
                                 {chapterContent?.verses.map((verse) => {
@@ -214,7 +189,6 @@ const ReaderView: React.FC<ReaderViewProps> = ({
 
                                             <span
                                                 id={`verse-${verse.number}`}
-                                                data-verse={verse.number}
                                                 onClick={(e) => handleVerseClick(e, verse.number)}
                                                 className={`
                                             inline-block rounded-lg transition-all duration-300 cursor-pointer select-none
@@ -258,17 +232,10 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                                         <ChevronLeft size={20} /> <span className="text-xs font-bold uppercase tracking-widest">Anterior</span>
                                     </button>
                                     <button
-                                        onClick={() => {
-                                            if (activeTrack && onNavigateTrackNext) {
-                                                onNavigateTrackNext();
-                                            } else {
-                                                if (!isLastChapter) onNavigate(bookMetadata.id, currentChapterNum + 1);
-                                                else onChapterComplete();
-                                            }
-                                        }}
+                                        onClick={() => !isLastChapter ? onNavigate(bookMetadata.id, currentChapterNum + 1) : onChapterComplete()}
                                         className="flex-[2] py-4 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-2xl font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
                                     >
-                                        {activeTrack ? 'Próximo Passo da Trilha' : (isLastChapter ? 'Concluir Livro' : 'Próximo Capítulo')} <ChevronRight size={20} />
+                                        {isLastChapter ? 'Concluir Livro' : 'Próximo Capítulo'} <ChevronRight size={20} />
                                     </button>
                                 </div>
 
