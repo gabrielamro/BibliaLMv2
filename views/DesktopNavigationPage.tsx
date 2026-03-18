@@ -13,6 +13,34 @@ import {
 import { INSPIRATIONAL_VERSES } from '../constants';
 import SEO from '../components/SEO';
 
+interface FeatureItem {
+  title: string;
+  desc: string;
+  icon: React.ReactNode;
+  path: string;
+  color: string;
+  badge?: string;
+}
+
+const MobileFeatureItem: React.FC<{ item: FeatureItem; onClick: () => void }> = ({ item, onClick }) => (
+  <div 
+    onClick={onClick}
+    className="bg-white dark:bg-bible-darkPaper p-4 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-bible-gold/50 flex items-center gap-3 cursor-pointer"
+  >
+    <div className={`p-2 rounded-xl ${item.color.replace('text-', 'bg-').replace('600', '100').replace('500', '100')} dark:bg-opacity-10 shrink-0`}>
+      {React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, { className: `w-5 h-5 ${item.color}` })}
+    </div>
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center gap-2">
+        <h3 className="text-sm font-bold text-gray-900 dark:text-white truncate">{item.title}</h3>
+        {item.badge && <span className="px-2 py-0.5 rounded-full bg-bible-gold text-white text-[9px] font-black">{item.badge}</span>}
+      </div>
+      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{item.desc}</p>
+    </div>
+    <ArrowRight size={16} className="text-gray-300 shrink-0" />
+  </div>
+);
+
 interface FeatureCardProps {
   title: string;
   description: string;
@@ -165,49 +193,70 @@ const DesktopNavigationPage: React.FC = () => {
   ];
 
   return (
-    <div className="h-full bg-bible-paper dark:bg-black/20 overflow-y-auto p-4 md:p-8">
-      <SEO title="Mapa do Sistema" description="Visão geral de todas as funcionalidades do BíbliaLM." />
+    <div className="h-full bg-bible-paper dark:bg-black/20 overflow-y-auto">
+      <SEO title="Navegar" description="Todas as funcionalidades do BíbliaLM." />
       
-      <div className="max-w-7xl mx-auto space-y-12 pb-32">
+      <div className="max-w-7xl mx-auto pb-32">
         
-        {/* HERO BANNER - Mantido escuro para contraste e identidade de capa */}
-        <div className="relative rounded-[3rem] overflow-hidden shadow-2xl bg-bible-leather dark:bg-black">
-            <div className="absolute inset-0 opacity-30 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] mix-blend-overlay"></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-bible-leather/50 to-transparent"></div>
-            
-            <div className="relative z-10 p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-10">
-                <div className="text-center md:text-left max-w-2xl">
-                    <div className="inline-flex items-center gap-2 bg-bible-gold/20 text-bible-gold px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 border border-bible-gold/30">
-                        <Map size={14} /> Central de Navegação
-                    </div>
-                    <h1 className="text-4xl md:text-6xl font-serif font-black text-white mb-6 leading-tight">
-                        Bem-vindo, <br/>
-                        <span className="text-bible-gold">{userProfile?.displayName?.split(' ')[0] || 'Viajante'}</span>.
-                    </h1>
-                    <p className="text-gray-300 text-lg leading-relaxed mb-8">
-                        Explore todas as ferramentas que preparamos para enriquecer sua jornada espiritual. 
-                        Do estudo individual à liderança comunitária.
-                    </p>
-                </div>
-
-                <div className="hidden md:block bg-white/10 backdrop-blur-md p-8 rounded-[2rem] border border-white/10 max-w-md w-full">
-                    <div className="flex items-start gap-4">
-                        <Heart className="text-bible-gold shrink-0 mt-1" size={24} fill="currentColor" />
-                        <div>
-                            <p className="text-white font-serif italic text-xl leading-relaxed mb-4">
-                                "{randomVerse.text}"
-                            </p>
-                            <p className="text-bible-gold font-black text-xs uppercase tracking-widest">
-                                {randomVerse.ref}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        {/* MOBILE: Header simples */}
+        <div className="md:hidden bg-gradient-to-r from-bible-leather to-black p-4 pt-8">
+          <h1 className="text-2xl font-serif font-black text-white mb-2">Navegar</h1>
+          <p className="text-gray-300 text-sm">Todas as funcionalidades</p>
         </div>
 
-        {/* SECTIONS GRID */}
-        <div className="space-y-16">
+        {/* DESKTOP: Hero Banner completo */}
+        <div className="hidden md:block p-8">
+          <div className="relative rounded-[3rem] overflow-hidden shadow-2xl bg-bible-leather dark:bg-black">
+              <div className="absolute inset-0 opacity-30 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] mix-blend-overlay"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-bible-leather/50 to-transparent"></div>
+              
+              <div className="relative z-10 p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-10">
+                  <div className="text-center md:text-left max-w-2xl">
+                      <div className="inline-flex items-center gap-2 bg-bible-gold/20 text-bible-gold px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 border border-bible-gold/30">
+                          <Map size={14} /> Central de Navegação
+                      </div>
+                      <h1 className="text-4xl md:text-6xl font-serif font-black text-white mb-6 leading-tight">
+                          Bem-vindo, <br/>
+                          <span className="text-bible-gold">{userProfile?.displayName?.split(' ')[0] || 'Viajante'}</span>.
+                      </h1>
+                      <p className="text-gray-300 text-lg leading-relaxed mb-8">
+                          Explore todas as ferramentas que preparamos para enriquecer sua jornada espiritual. 
+                          Do estudo individual à liderança comunitária.
+                      </p>
+                  </div>
+
+                  <div className="hidden md:block bg-white/10 backdrop-blur-md p-8 rounded-[2rem] border border-white/10 max-w-md w-full">
+                      <div className="flex items-start gap-4">
+                          <Heart className="text-bible-gold shrink-0 mt-1" size={24} fill="currentColor" />
+                          <div>
+                              <p className="text-white font-serif italic text-xl leading-relaxed mb-4">
+                                  "{randomVerse.text}"
+                              </p>
+                              <p className="text-bible-gold font-black text-xs uppercase tracking-widest">
+                                  {randomVerse.ref}
+                              </p>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+        </div>
+
+        {/* MOBILE: Grid 2 colunas */}
+        <div className="md:hidden grid grid-cols-2 gap-3 p-3">
+          {sections.flatMap((section, sIdx) => 
+            section.items.map((item, iIdx) => (
+              <MobileFeatureItem 
+                key={`${sIdx}-${iIdx}`}
+                item={item}
+                onClick={() => navigate(item.path)}
+              />
+            ))
+          )}
+        </div>
+
+        {/* DESKTOP: Sections com cards grandes */}
+        <div className="hidden md:block p-8 space-y-16">
             {sections.map((section, idx) => (
                 <section key={idx} className="animate-in fade-in slide-in-from-bottom-8" style={{ animationDelay: `${idx * 100}ms` }}>
                     <div className="mb-8 pl-4 border-l-4 border-bible-gold">
