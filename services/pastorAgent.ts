@@ -174,7 +174,18 @@ export const chatWithPastor = async (
     onChunk: (text: string) => void,
     context?: string
 ) => {
-    return await gemini.sendMessageToGeminiStream(history, onChunk, context);
+    try {
+        const result = await bigPickle.chatWithPastor(history, context);
+        if (result) {
+            const chars = result.split('');
+            for (const char of chars) {
+                onChunk(char);
+                await new Promise(r => setTimeout(r, 10));
+            }
+        }
+    } catch (e) {
+        onChunk("Desculpe, tive um problema de conexão momentâneo. Como obreiro, sigo à disposição assim que o sistema estabilizar.");
+    }
 };
 
 export const sendMessageToGeminiStream = async (
@@ -182,7 +193,7 @@ export const sendMessageToGeminiStream = async (
     onChunk: (text: string) => void,
     context?: string
 ) => {
-    return await gemini.sendMessageToGeminiStream(history, onChunk, context);
+    return await chatWithPastor(history, onChunk, context);
 };
 
 export const generateVerseImage = async (text: string, reference: string, style: string) => {

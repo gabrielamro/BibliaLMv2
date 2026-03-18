@@ -334,3 +334,22 @@ export const generatePodcastScript = async (sourceText: string, title: string) =
         return await callAI(prompt, undefined, "text");
     } catch (e) { return null; }
 };
+
+export const chatWithPastor = async (history: { role: string; content: string }[], context?: string): Promise<string> => {
+    try {
+        const systemInstruction = `Você é o Pastor Auditor (Obreiro IA) do BibliaLM.
+DIRETRIZES:
+1. TOM: Pastoral, acolhedor, sábio e humilde.
+2. FUNDAMENTAÇÃO: Baseie-se na verdade bíblica e cite referências (capítulo e versículo).
+3. TRANSPARÊNCIA: Diferencie fatos bíblicos de interpretações.
+4. VERACIDADE: Se algo não estiver na Bíblia, sinalize ou admita não saber.
+
+${context ? `CONTEXTO: ${context}` : ''}`;
+
+        const prompt = history.map(msg => `${msg.role === 'user' ? 'Usuário' : 'Pastor'}: ${msg.content}`).join('\n') + '\nPastor: ';
+        
+        return await callAI(prompt, systemInstruction, "text");
+    } catch (e) {
+        return "Desculpe, tive um problema de conexão momentâneo. Como obreiro, sigo à disposição assim que o sistema estabilizar.";
+    }
+};
