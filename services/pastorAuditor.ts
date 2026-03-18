@@ -1,5 +1,4 @@
-
-import * as bigPickle from './bigPickleService';
+import { callAI } from './bigPickleService';
 
 export interface AuditoriaResult {
     approved: boolean;
@@ -41,27 +40,8 @@ export const auditarConteudo = async (content: string, type: 'chat' | 'study' | 
     try {
         const prompt = `Tipo de conteúdo: ${type}\n\nConteúdo a auditar:\n${content}\n\n${PASTOR_AUDITOR_PROMPT}`;
         
-        const response = await fetch("https://opencode.ai/zen/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${process.env.NEXT_PUBLIC_BIGPICKLE_API_KEY}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                model: "big-pickle",
-                messages: [
-                    { 
-                        role: "system", 
-                        content: "Você é o Pastor Auditor do BibliaLM. Revise o conteúdo com rigor teológico e retorne APENAS JSON válido."
-                    },
-                    { role: "user", content: prompt }
-                ],
-                response_format: { type: "json_object" }
-            })
-        });
-
-        const data = await response.json();
-        const result = JSON.parse(data.choices?.[0]?.message?.content || "{}");
+        const text = await callAI(prompt, "Você é o Pastor Auditor do BibliaLM. Revise o conteúdo com rigor teológico e retorne APENAS JSON válido.", "json");
+        const result = JSON.parse(text || "{}");
         
         return {
             approved: result.approved ?? true,
