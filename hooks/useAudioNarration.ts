@@ -2,7 +2,7 @@
 
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { generateChapterAudioStream } from '../services/geminiService';
+import { generateChapterAudioStream } from '../services/pastorAgent';
 import { decodeAudioData } from '../utils/audioUtils';
 
 const useAudioNarration = (chapterText: string) => {

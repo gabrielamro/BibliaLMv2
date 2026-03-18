@@ -7,7 +7,7 @@ import {
     ArrowRight, RotateCcw, ChevronDown, PenLine, ImageIcon, Mic2, Brain
 } from 'lucide-react';
 import { ChatMessage } from '../types';
-import { sendMessageToGeminiStream } from '../services/geminiService';
+import { sendMessageToGeminiStream } from '../services/pastorAgent';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useLocation, useNavigate } from '../utils/router';

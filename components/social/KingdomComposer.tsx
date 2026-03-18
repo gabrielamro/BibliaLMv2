@@ -10,7 +10,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { bibleService } from '../../services/bibleService';
 import { dbService, uploadBlob } from '../../services/supabase';
-import { findNearbyChurches, NearbyPlace } from '../../services/geminiService';
+import { findNearbyChurches, NearbyPlace } from '../../services/pastorAgent';
 import { MoodType } from '../../types';
 import { base64ToBlob } from '../../utils/imageOptimizer';
 

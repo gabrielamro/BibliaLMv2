@@ -8,7 +8,7 @@ import {
     Heart, BookOpen, Zap, Hand, LayoutTemplate, ChevronDown
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { generateVerseImage } from '../services/geminiService';
+import { generateVerseImage } from '../services/pastorAgent';
 import { optimizeImage, base64ToBlob } from '../utils/imageOptimizer';
 import { uploadBlob } from '../services/supabase';
 

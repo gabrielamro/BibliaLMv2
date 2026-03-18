@@ -177,6 +177,14 @@ export const chatWithPastor = async (
     return await gemini.sendMessageToGeminiStream(history, onChunk, context);
 };
 
+export const sendMessageToGeminiStream = async (
+    history: any[],
+    onChunk: (text: string) => void,
+    context?: string
+) => {
+    return await gemini.sendMessageToGeminiStream(history, onChunk, context);
+};
+
 export const generateVerseImage = async (text: string, reference: string, style: string) => {
     return await gemini.generateVerseImage(text, reference, style);
 };
@@ -196,6 +204,8 @@ export const generateChapterAudioStream = async function*(text: string) {
 export const findNearbyChurches = async (lat: number, lng: number) => {
     return await gemini.findNearbyChurches(lat, lng);
 };
+
+export type { NearbyPlace } from './geminiService';
 
 export const generateDevotionalWithAudit = async (forceNew: boolean = false, audit: boolean = true) => {
     const content = await generateDailyDevotional(forceNew, 'bigpickle');

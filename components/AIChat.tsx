@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, User, Sparkles, Loader2, BookOpenCheck, ArrowRight, Save, Calendar, CheckCircle2, ShieldAlert } from 'lucide-react';
 
 import { ChatMessage } from '../types';
-import { sendMessageToGeminiStream } from '../services/geminiService';
+import { sendMessageToGeminiStream } from '../services/pastorAgent';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmationModal from './ConfirmationModal';
 

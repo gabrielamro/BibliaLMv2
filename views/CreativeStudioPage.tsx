@@ -15,7 +15,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFeatures } from '../contexts/FeatureContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { bibleService } from '../services/bibleService';
-import { generateVerseImage } from '../services/geminiService';
+import { generateVerseImage } from '../services/pastorAgent';
 import usePodcastGenerator from '../hooks/usePodcastGenerator';
 import { PodcastPlayer } from '../components/reader/PodcastPlayer';
 import SEO from '../components/SEO';
