@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { dbService } from '../services/supabase';
-import { generateSuggestedPrayer } from '../services/geminiService';
+import { generateSuggestedPrayer } from '../services/pastorAgent';
 import { PrayerRequest } from '../types';
 import { 
   ArrowLeft, HandHeart, Send, Sparkles, Heart, 

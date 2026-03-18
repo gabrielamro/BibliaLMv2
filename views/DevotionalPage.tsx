@@ -12,7 +12,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import { dbService } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useMana } from '../hooks/useMana';
-import { generateDailyDevotional } from '../services/geminiService';
+import { analyzeUnderstanding, generateDailyDevotional } from '../services/pastorAgent';
 import { DAILY_BREAD } from '../constants';
 import toast from 'react-hot-toast';
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from '../utils/router';
 import { Save, Wand2, Download, Trash2, Plus, Bookmark, PenTool, Lock, Instagram, Sparkles, Edit2, Brain, Loader2 } from 'lucide-react';
 import { Note } from '../types';
-import { improveNote, summarizeNoteForSocial } from '../services/geminiService';
+import { improveNote, summarizeNoteForSocial } from '../services/pastorAgent';
 import { BIBLE_BOOKS_LIST } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
 import { dbService } from '../services/supabase';

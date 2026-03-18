@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../contexts/AuthContext';
-import { checkAiHealth } from '../services/geminiService';
+import { checkHealth } from '../services/pastorAgent';
 import SEO from '../components/SEO';
 
 const MODULES = [
@@ -58,7 +58,7 @@ const SystemIntegrityPage: React.FC = () => {
         setIsTestingIA(true);
         setTestResult(null);
         try {
-            const isHealthy = await checkAiHealth();
+            const isHealthy = await checkHealth();
             if (isHealthy) {
                 setTestResult('success');
                 showNotification("Conexão com IA validada!", "success");

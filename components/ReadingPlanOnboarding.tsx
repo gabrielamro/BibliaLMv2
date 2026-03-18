@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { CalendarRange, Sparkles, ArrowRight, BookOpen, Scroll, Cross, MessageCircle, Loader2, Target, Zap, Clock, CheckCircle2, Bookmark, ShieldCheck, Map, Search, ArrowLeft } from 'lucide-react';
 import { PlanScope } from '../types';
-import { analyzeReadingPlanCommitment, suggestReadingPlan } from '../services/geminiService';
+import { analyzeReadingPlanCommitment, suggestReadingPlan } from '../services/pastorAgent';
 import { useAuth } from '../contexts/AuthContext';
 
 interface ReadingPlanOnboardingProps {

@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { dbService } from '../services/supabase';
 import { bibleService } from '../services/bibleService';
-import { generateStructuredStudy } from '../services/geminiService';
+import { generateStructuredStudy } from '../services/pastorAgent';
 import { 
   Save, ArrowLeft, Loader2, Sparkles, LayoutTemplate, 
   Target, Search, Quote, Info,

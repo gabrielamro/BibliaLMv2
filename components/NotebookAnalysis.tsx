@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 import Link from "next/link";
-import { analyzeUnderstanding } from '../services/geminiService';
+import { analyzeUnderstanding } from '../services/pastorAgent';
 import { SavedStudy } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { dbService } from '../services/supabase';

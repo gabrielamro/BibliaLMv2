@@ -4,7 +4,8 @@ import { useNavigate } from '../utils/router';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, RefreshCw, Share2, Instagram, Loader2, Copy, Image as ImageIcon, Palette, Zap, Lock, Download, Eye, EyeOff, PenTool, Maximize2, Minimize2, Sparkles, Type, LayoutTemplate, Edit3, Rss } from 'lucide-react';
-import { generateSocialPostDesign, generateVerseImage, generateSocialCaption } from '../services/geminiService';
+import { generateSocialPostDesign } from '../services/pastorAgent';
+import { generateVerseImage } from '../services/geminiService';
 import { useAuth } from '../contexts/AuthContext';
 
 import { generateShareLink } from '../utils/shareUtils';

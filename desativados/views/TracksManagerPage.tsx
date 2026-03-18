@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/supabase';
 import { Track, TrackItem, SavedStudy, CustomPlan } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { generateStructuredStudy } from '../services/geminiService';
+import { generateStructuredStudy } from '../../services/pastorAgent';
 import {
     Plus, Layers, Save, Trash2, ArrowLeft, Loader2,
     FileText, Layout, GripVertical, Wand2, Sparkles, X,

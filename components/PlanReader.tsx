@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 import { ArrowLeft, ChevronRight, ChevronLeft, CheckCircle2, Sparkles, Brain, Save, Loader2, BookOpen, PenTool, Lightbulb, RefreshCw, AlertCircle } from 'lucide-react';
 import { DailyReading, Chapter, PlanProgress } from '../types';
-import { analyzeUnderstanding, generateReadingConnection } from '../services/geminiService';
+import { analyzeUnderstanding, generateReadingConnection } from '../services/pastorAgent';
 import { bibleService } from '../services/bibleService';
 import { dbService } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';

@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, Loader2, Quote, Trash2, Wand2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { dbService } from '../../services/supabase';
-import { improveNote } from '../../services/geminiService';
+import { improveNote } from '../../services/pastorAgent';
 
 import { Note } from '../../types';
 import ConfirmationModal from '../ConfirmationModal';

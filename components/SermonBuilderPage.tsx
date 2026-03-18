@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 import { dbService } from '../services/supabase';
-import { generateSermonOutline } from '../services/geminiService';
+import { generateSermonOutline } from '../services/pastorAgent';
 import { Mic2, Save, Plus, Trash2, Loader2, BookOpen, Clock, FileText, Sparkles, Shield, ArrowLeft, CheckCircle2, AlertCircle, Quote, Crown } from 'lucide-react';
 import ConfirmationModal from '../components/ConfirmationModal';
 

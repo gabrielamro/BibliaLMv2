@@ -4,7 +4,8 @@ import { useNavigate } from '../utils/router';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-import { generatePodcastScript, generatePodcastAudio, generatePodcastCover } from '../services/geminiService';
+import { generatePodcastScript } from '../services/pastorAgent';
+import { generatePodcastAudio, generatePodcastCover } from '../services/geminiService';
 import { decodeBase64, pcmToWav } from '../utils/audioUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { dbService } from '../services/supabase';

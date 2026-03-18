@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { dbService } from '../services/supabase';
 import { GuidedPrayer } from '../types';
-import { generateSpecificPrayer } from '../services/geminiService';
+import { generateSpecificPrayer } from '../services/pastorAgent';
 import { 
   HandHeart, Sparkles, Heart, Mic2, Loader2, 
   Search, Church, Plus, Copy, Globe, Volume2, StopCircle

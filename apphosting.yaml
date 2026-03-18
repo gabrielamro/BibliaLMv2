@@ -16,3 +16,5 @@ env:
     secret: GROQ_API_KEY
   - variable: NEXT_PUBLIC_OPENROUTER_API_KEY
     secret: OPENROUTER_API_KEY
+  - variable: NEXT_PUBLIC_BIGPICKLE_API_KEY
+    secret: BIGPICKLE_API_KEY

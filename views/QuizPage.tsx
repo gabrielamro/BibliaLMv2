@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useFeatures } from '../contexts/FeatureContext';
-import { generateBibleQuiz } from '../services/geminiService';
+import { generateBibleQuiz } from '../services/pastorAgent';
 import { dbService } from '../services/supabase';
 import { QuizQuestion, CustomQuiz } from '../types';
 import { ArrowLeft, Loader2, CheckCircle2, XCircle, Brain, Trophy, Zap, ChevronRight, Play, Crown, X, Scroll, Fish, Flame, Lightbulb, Map, Heart, Swords, Lock, User, Share2, Clock, LogIn, Info, ArrowRight, Sparkles, Rss, Dices } from 'lucide-react';

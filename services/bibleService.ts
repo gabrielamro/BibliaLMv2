@@ -1,6 +1,6 @@
 
 import { BIBLE_BOOKS_LIST, BIBLE_DATA } from "../constants";
-import { getBibleChapter as fetchFromAI } from "./geminiService";
+import { getBibleChapter as fetchFromAI } from "./pastorAgent";
 import { dbService, supabase } from "./supabase";
 import { Chapter } from "../types";
 import { searchMatch, normalizeText } from "../utils/textUtils";

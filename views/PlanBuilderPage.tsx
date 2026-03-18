@@ -8,7 +8,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { dbService, uploadBlob } from '../services/supabase';
 import { bibleService } from '../services/bibleService';
-import { generateImagePromptForPlan, generateVerseImage, generateStructuredStudy } from '../services/geminiService';
+import { generateImagePromptForPlan, generateStructuredStudy } from '../services/pastorAgent';
+import { generateVerseImage } from '../services/geminiService';
 import { useSettings } from '../contexts/SettingsContext';
 import {
     ArrowLeft, Plus, Save, Trash2, Loader2, Search, Check,

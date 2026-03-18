@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { Sun, Calendar, Share2, Heart, Sparkles, Loader2, MessageCircle, Brain, CheckCircle2, RefreshCw, Save, Lock } from 'lucide-react';
 
 import { DAILY_BREAD as FALLBACK_BREAD } from '../constants';
-import { analyzeUnderstanding, generateDailyDevotional } from '../services/geminiService';
+import { analyzeUnderstanding, generateDailyDevotional } from '../services/pastorAgent';
 import { Note, Devotional as DevotionalType } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { dbService } from '../services/supabase';

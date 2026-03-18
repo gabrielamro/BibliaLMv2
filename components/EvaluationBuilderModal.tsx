@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { X, Plus, Trash2, Save, Clock, Check, HelpCircle, FileQuestion, AlertCircle, Sparkles, Wand2, Loader2 } from 'lucide-react';
 import { StudyEvaluation, StudyQuestion } from '../types';
-import { generateBibleQuiz } from '../services/geminiService';
+import { generateBibleQuiz } from '../services/pastorAgent';
 
 interface EvaluationBuilderModalProps {
   isOpen: boolean;

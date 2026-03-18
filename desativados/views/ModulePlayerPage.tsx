@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 import { dbService } from '../services/supabase';
-import { generateModuleDayContent } from '../services/geminiService';
+import { generateModuleDayContent } from '../../services/pastorAgent';
 import {
     ArrowLeft, CheckCircle2, Loader2, Sparkles,
     Quote, Calendar, Target, PenLine, Save,
