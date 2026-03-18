@@ -3,7 +3,7 @@ import { useNavigate, useLocation, useSearchParams } from '../utils/router';
 
 import React from 'react';
 
-import { Home, BookOpen, Crown, User, Search } from 'lucide-react';
+import { Home, BookOpen, Crown, Map, Search } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const MobileBottomNav: React.FC = () => {
@@ -42,11 +42,11 @@ const MobileBottomNav: React.FC = () => {
       protected: false
     },
     {
-      id: 'profile',
-      label: 'Eu',
-      icon: User,
-      path: '/perfil',
-      protected: true
+      id: 'navegar',
+      label: 'Navegar',
+      icon: Map,
+      path: '/navegar',
+      protected: false
     }
   ];
 
