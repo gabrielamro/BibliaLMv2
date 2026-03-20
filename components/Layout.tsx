@@ -27,7 +27,7 @@ import BuyCreditsModal from './BuyCreditsModal';
 import { LogoIcon } from './LogoIcon';
 import MobileBottomNav from './MobileBottomNav';
 import OmniSearch from './OmniSearch';
-import { dbService } from '../services/firebase';
+import { dbService } from '../services/supabase';
 import ObreiroIAChatbot from './ObreiroIAChatbot';
 
 interface LayoutProps {
@@ -67,6 +67,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const isLanding = location.pathname === '/intro' || location.pathname === '/apresentacao' || location.pathname === '/faith-tech';
+    const isCustomHomeShell = location.pathname === '/';
 
     // Define quais rotas são "Raiz" e NÃO devem ter botão de voltar no mobile
     // Apenas as abas da MobileBottomNav e páginas de aterrissagem devem estar aqui
@@ -331,8 +332,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* Mobile Header - Hidden in Focus Mode */}
             <header
-                className={`md:hidden flex items-center justify-between px-4 py-3 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md ${isHeaderHidden ? '' : 'border-b border-gray-100 dark:border-gray-800'} absolute top-0 left-0 right-0 z-[60] h-[60px] pt-safe transition-transform duration-300 ease-in-out ${showHeader ? 'translate-y-0' : '-translate-y-full'
-                    } ${isFocusMode ? 'hidden' : ''}`}
+                className={`md:hidden flex items-center justify-between px-4 py-3 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 absolute top-0 left-0 right-0 z-[60] h-[60px] pt-safe transition-transform duration-300 ease-in-out ${showHeader ? 'translate-y-0' : '-translate-y-full'
+                    } ${isFocusMode || isCustomHomeShell || isHeaderHidden ? '!hidden' : ''}`}
             >
                 <div className="flex items-center gap-3 z-10 flex-1 overflow-hidden">
                     {showBackButton ? (
@@ -430,8 +431,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             <div className="flex flex-1 overflow-hidden relative w-full">
 
-                {/* Desktop Sidebar - Hidden in Focus Mode */}
-                <aside className={`hidden md:flex flex-col w-64 bg-white dark:bg-[#0a0a0a] border-r border-gray-200 dark:border-gray-800 relative z-20 ${isFocusMode ? 'hidden' : ''}`}>
+                {/* Desktop Sidebar - Hidden in Focus Mode and Home Shell */}
+                <aside className={`hidden lg:flex flex-col w-64 bg-white dark:bg-[#0a0a0a] border-r border-gray-200 dark:border-gray-800 relative z-20 ${isFocusMode || isCustomHomeShell ? 'hidden' : ''}`}>
                     <div onClick={() => navigate('/')} className="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
                         <LogoIcon className="w-8 h-8 text-bible-gold" />
                         <div>
@@ -520,7 +521,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     )}
 
                     {/* Desktop Header - Hidden in Focus Mode */}
-                    <header className={`hidden md:flex items-center justify-between px-8 py-4 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md ${isHeaderHidden ? '' : 'border-b border-gray-100 dark:border-gray-800'} z-40 shrink-0 h-20 ${isFocusMode ? 'hidden' : ''}`}>
+                    <header className={`hidden md:flex items-center justify-between px-8 py-4 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 z-40 shrink-0 h-20 ${isFocusMode || isCustomHomeShell || isHeaderHidden ? '!hidden' : ''}`}>
                         {/* Left Side & Title */}
                         <div className="flex items-center gap-4 flex-1">
                             {showBackButton && (
@@ -627,7 +628,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
                     <div
                         ref={scrollContainerRef}
-                        className={`flex-1 overflow-y-auto overflow-x-hidden scroll-smooth relative ${isFocusMode ? 'pt-0' : 'pt-[60px] md:pt-0'}`}
+                        className={`flex-1 overflow-y-auto overflow-x-hidden scroll-smooth relative ${isFocusMode || isCustomHomeShell ? 'pt-0' : 'pt-[60px] md:pt-0'}`}
                         onScroll={handleScroll}
                     >
                         {children}
