@@ -6,19 +6,87 @@ import { useHeader } from '../contexts/HeaderContext';
 import { 
   BookOpen, ChevronRight, Share2, Bookmark, Flame, Zap, 
   Search, Bell, Settings, Home, Wand2, User, Play, Pause, 
-  Plus, FileText, Image, Mic, History, Trophy, Crown, Target, Heart, ArrowRight
+  Plus, FileText, Image, Mic, History, Trophy, Crown, Target, Heart, ArrowRight, Sun, Moon
 } from 'lucide-react';
+
+import { useSettings } from '../contexts/SettingsContext';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { dbService } from '../services/supabase';
+import * as pastorAgent from '../services/pastorAgent';
 
 const SanctuaryPage: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser, userProfile, showNotification } = useAuth();
+  const { currentUser, userProfile, showNotification, signOut } = useAuth();
   const { resetHeader, setIsHeaderHidden } = useHeader();
+  const { settings, toggleTheme } = useSettings();
+  const { plans } = useWorkspace();
   
   const [activeTab, setActiveTab] = useState<'inicio' | 'criar' | 'reino'>('inicio');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [dailyDevotional, setDailyDevotional] = useState<any>(null);
+  const [loadingDevotional, setLoadingDevotional] = useState(true);
+
+  const userName = userProfile?.displayName || 'Visitante';
+  const userAvatar = userProfile?.photoURL || 'https://i.pravatar.cc/150?img=5';
+  const userMana = userProfile?.lifetimeXp || 0;
+  const userStreak = userProfile?.stats?.daysStreak || 1;
+  const chaptersRead = userProfile?.stats?.totalChaptersRead || 0;
+  
+  const readGoal = 365;
+  const readPercent = Math.min(100, Math.round((chaptersRead / readGoal) * 100)) || 0;
 
   useEffect(() => {
-    // Esconder o header padrão do Layout.tsx para usar este customizado da imagem
     setIsHeaderHidden(true);
+    
+    const loadData = async () => {
+      try {
+        setLoadingDevotional(true);
+        let devotional = await dbService.getDailyDevotional();
+        
+        // Se não houver devocional hoje no banco, gera via IA e salva
+        // para que os próximos usuários do dia não precisem gerar de novo.
+        if (!devotional) {
+          console.log('[Inicio03] Nenhum devocional para hoje. Gerando via IA...');
+          const generated = await pastorAgent.generateDailyDevotional(true);
+          if (generated) {
+            const todayISO = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const payload = {
+              date: todayISO,
+              title: generated.title,
+              verse: generated.verseText,
+              reference: generated.verseReference,
+              text: generated.content,
+              prayer: generated.prayer,
+            };
+            // Salva silenciosamente — erro não bloqueia o display
+            try {
+              await dbService.saveAdminDevotional(payload);
+              console.log('[Inicio03] Devocional salvo no banco com sucesso.');
+              // Reatribui com shape compatível ao que o render espera
+              devotional = { ...payload, id: todayISO };
+            } catch (saveErr) {
+              console.warn('[Inicio03] Não foi possível salvar devocional no banco:', saveErr);
+              devotional = { ...payload, id: todayISO };
+            }
+          }
+        }
+        
+        setDailyDevotional(devotional);
+
+        // Registra acesso/amen do usuário corrente, se disponível
+        if (currentUser && devotional?.id) {
+          dbService.saveUserDevotionalAction(currentUser.uid, devotional.id, 'amen').catch(() => {});
+        }
+      } catch (error) {
+        console.error('[Inicio03] Erro ao carregar devocional:', error);
+      } finally {
+        setLoadingDevotional(false);
+      }
+    };
+
+    loadData();
+
     return () => {
       setIsHeaderHidden(false);
       resetHeader();
@@ -37,13 +105,13 @@ const SanctuaryPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img 
-                src="https://i.pravatar.cc/150?img=5" 
-                alt="Maria Silva" 
+                src={userAvatar} 
+                alt={userName} 
                 className="w-10 h-10 rounded-full object-cover ring-2 ring-transparent"
               />
               <div className="flex flex-col">
                 <span className="text-gray-400 text-[11px] font-medium leading-tight">Bem-vindo de volta</span>
-                <span className="text-white font-bold text-[15px] leading-tight">Maria Silva</span>
+                <span className="text-white font-bold text-[15px] leading-tight">{userName}</span>
               </div>
             </div>
             
@@ -51,22 +119,40 @@ const SanctuaryPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 bg-[#1A1A1A] rounded-full px-3 py-1.5">
                   <Zap size={14} className="text-[#c5a059]" fill="currentColor" />
-                  <span className="text-white font-bold text-xs">3.420</span>
+                  <span className="text-white font-bold text-xs">{userMana.toLocaleString('pt-BR')}</span>
                   <span className="text-gray-500 text-[10px] font-medium">Mana</span>
                 </div>
                 <div className="flex items-center gap-1.5 bg-[#1A1A1A] rounded-full px-3 py-1.5">
                   <Flame size={14} className="text-red-500" fill="currentColor" />
-                  <span className="text-white font-bold text-xs">7</span>
+                  <span className="text-white font-bold text-xs">{userStreak}</span>
                   <span className="text-gray-500 text-[10px] font-medium">dias</span>
                 </div>
               </div>
               <div className="flex items-center gap-3 text-gray-400">
-                <button className="hover:text-white transition-colors">
+                <button className="hover:text-white transition-colors" onClick={() => navigate('/notificacoes')}>
                   <Bell size={20} />
                 </button>
-                <button className="hover:text-white transition-colors">
-                  <Settings size={20} />
-                </button>
+                <div className="relative">
+                  <button className="hover:text-white transition-colors" onClick={() => setIsSettingsOpen(!isSettingsOpen)}>
+                    <Settings size={20} />
+                  </button>
+                  {isSettingsOpen && (
+                    <div className="absolute right-0 top-full mt-3 w-48 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl shadow-xl overflow-hidden z-50 py-2">
+                      <button onClick={() => { setIsSettingsOpen(false); navigate('/perfil'); }} className="w-full text-left px-4 py-2 text-sm font-bold text-gray-300 hover:bg-[#252525] flex items-center gap-2 transition-colors">
+                        <User size={16}/> Meu Perfil
+                      </button>
+                      <button onClick={toggleTheme} className="w-full text-left px-4 py-2 text-sm font-bold text-gray-300 hover:bg-[#252525] flex items-center gap-2 transition-colors">
+                        {settings.theme === 'dark' ? <Sun size={16}/> : <Moon size={16}/>}
+                        {settings.theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+                      </button>
+                      {currentUser && (
+                        <button onClick={() => { signOut(); setIsSettingsOpen(false); }} className="w-full text-left px-4 py-2 mt-2 border-t border-[#2A2A2A]/50 text-sm font-bold text-red-500 hover:bg-red-500/10 flex items-center gap-2 transition-colors">
+                          Sair
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -78,8 +164,15 @@ const SanctuaryPage: React.FC = () => {
             </div>
             <input
               type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && searchTerm.trim()) {
+                  navigate(`/social/explore?q=${encodeURIComponent(searchTerm.trim())}`);
+                }
+              }}
               placeholder="Buscar versículos, estudos, pessoas..."
-              className="w-full bg-[#161616] border-none rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-[#c5a059]/50 transition-all outline-none"
+              className="w-full bg-[#161616] border border-transparent rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder-gray-500 focus:border-[#c5a059]/30 transition-all outline-none"
             />
           </div>
 
@@ -132,20 +225,20 @@ const SanctuaryPage: React.FC = () => {
               
               <div className="relative z-10">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#c5a059] text-black font-bold text-[11px] rounded-lg mb-4 shadow-lg shadow-[#c5a059]/20">
-                  <BookOpen size={14} /> Versículo do Dia
+                  <BookOpen size={14} /> Devocional do Dia
                 </div>
                 
-                <h2 className="text-2xl md:text-[32px] font-bold text-white leading-tight mb-8 max-w-3xl">
-                  "Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna."
+                <h2 className="text-2xl md:text-[32px] font-bold text-white leading-tight mb-8 max-w-3xl line-clamp-3">
+                  "{dailyDevotional?.verse || dailyDevotional?.verseText || 'Carregando palavra de vida...'}"
                 </h2>
                 
                 <div className="flex items-center justify-between">
-                  <span className="text-[#c5a059] font-bold text-lg md:text-xl">— João 3:16</span>
+                  <span className="text-[#c5a059] font-bold text-lg md:text-xl">— {dailyDevotional?.reference || dailyDevotional?.verseReference || ''}</span>
                   <div className="flex items-center gap-3">
-                    <button className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); showNotification('Compartilhamento em breve', 'info'); }}>
+                    <button className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); navigate('/devocional'); }}>
                       <Share2 size={18} />
                     </button>
-                    <button className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); showNotification('Salvo em favoritos', 'success'); }}>
+                    <button className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); navigate('/devocional'); }}>
                       <Bookmark size={18} />
                     </button>
                   </div>
@@ -166,12 +259,23 @@ const SanctuaryPage: React.FC = () => {
                     <span className="text-gray-500 font-bold text-[10px] flex items-center gap-1 uppercase tracking-wider">RETOMAR <ChevronRight size={12} /></span>
                   </div>
                 </div>
-                <div className="relative w-16 h-16 flex items-center justify-center">
-                  <svg className="w-full h-full -rotate-90">
-                    <circle cx="32" cy="32" r="28" className="stroke-[#222] fill-none" strokeWidth="6" />
-                    <circle cx="32" cy="32" r="28" className="stroke-blue-500 fill-none" strokeWidth="6" strokeDasharray="175" strokeDashoffset={175 - (175 * 67) / 100} strokeLinecap="round" />
+                <div className="relative w-16 h-16 flex items-center justify-center flex-shrink-0">
+                  <svg viewBox="0 0 64 64" className="w-16 h-16 -rotate-90">
+                    <circle cx="32" cy="32" r="26" fill="none" stroke="#222" strokeWidth="6" />
+                    <circle 
+                      cx="32" 
+                      cy="32" 
+                      r="26" 
+                      fill="none"
+                      stroke="#3b82f6"
+                      strokeWidth="6" 
+                      strokeDasharray="163.36" 
+                      strokeDashoffset={163.36 - (163.36 * (readPercent || 0)) / 100} 
+                      strokeLinecap="round"
+                      style={{ transition: 'stroke-dashoffset 1s ease-out' }}
+                    />
                   </svg>
-                  <span className="absolute text-white font-black text-xs">67%</span>
+                  <span className="absolute inset-0 flex items-center justify-center text-white font-black text-[10px] rotate-90">{readPercent}%</span>
                 </div>
               </div>
 
@@ -192,12 +296,12 @@ const SanctuaryPage: React.FC = () => {
                 <div className="relative z-10 w-2/3 pl-4 flex flex-col justify-center border-l border-[#2A2A2A] ml-4 bg-gradient-to-r from-transparent to-[#141414]">
                   <div className="flex items-center gap-1 text-[#c5a059] mb-2">
                     <Zap size={10} fill="currentColor" />
-                    <span className="text-[9px] font-black tracking-widest uppercase">VERSÍCULO DO DIA</span>
+                    <span className="text-[9px] font-black tracking-widest uppercase">DEVOCIONAL DO DIA</span>
                   </div>
-                  <p className="text-white text-xs font-serif italic mb-2 leading-snug pr-4">
-                    "Alegrem-se sempre no Senhor. Novamente direi: Alegrem-se!"
+                  <p className="text-white text-xs font-serif italic mb-2 leading-snug pr-4 line-clamp-3">
+                    "{dailyDevotional?.text || dailyDevotional?.content || 'Pão nosso de cada dia...'}"
                   </p>
-                  <span className="text-[#c5a059] font-bold text-[9px] uppercase tracking-widest">FILIPENSES 4:4</span>
+                  <span className="text-[#c5a059] font-bold text-[9px] uppercase tracking-widest">{dailyDevotional?.reference || dailyDevotional?.verseReference || ''}</span>
                 </div>
               </div>
             </div>
@@ -221,7 +325,7 @@ const SanctuaryPage: React.FC = () => {
                 {/* Nova Sala */}
                 <button 
                   onClick={() => navigate('/criador-jornada')}
-                  className="min-w-[160px] h-[190px] rounded-2xl border border-dashed border-[#c5a059]/40 bg-transparent flex flex-col items-center justify-center gap-4 hover:bg-[#c5a059]/5 transition-colors cursor-pointer"
+                  className="min-w-[160px] h-[190px] rounded-2xl border border-dashed border-[#c5a059]/40 bg-transparent flex flex-col items-center justify-center gap-4 hover:bg-[#c5a059]/5 transition-colors cursor-pointer shrink-0"
                 >
                   <div className="w-12 h-12 bg-[#c5a059] rounded-xl flex items-center justify-center text-black">
                     <Plus size={24} />
@@ -229,57 +333,38 @@ const SanctuaryPage: React.FC = () => {
                   <span className="text-white font-bold text-[11px] uppercase tracking-wider">NOVA SALA</span>
                 </button>
 
-                {/* Deus e Seu Amor */}
-                <div 
-                  className="min-w-[200px] h-[190px] rounded-2xl p-5 bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col justify-between cursor-pointer hover:border-[#4A4A4A] transition-colors"
-                  onClick={() => navigate('/jornada/deus-e-seu-amor')}
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="bg-[#1a4a35] text-emerald-400 font-bold text-[8px] px-2 py-1 rounded tracking-widest">EM ANDAMENTO</span>
-                      <span className="text-gray-500 font-bold text-[9px]">16/03/26</span>
+                {plans.length > 0 ? plans.map(plan => (
+                  <div 
+                    key={plan.id}
+                    className="min-w-[200px] h-[190px] rounded-2xl p-5 bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col justify-between cursor-pointer hover:border-[#4A4A4A] transition-colors shrink-0"
+                    onClick={() => navigate(`/plano/${plan.id}`)}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="bg-[#1a4a35] text-emerald-400 font-bold text-[8px] px-2 py-1 rounded tracking-widest">EM ANDAMENTO</span>
+                        <span className="text-gray-500 font-bold text-[9px]">{new Date(plan.createdAt || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                      </div>
+                      <h3 className="text-white font-bold text-sm truncate">{plan.title}</h3>
                     </div>
-                    <h3 className="text-white font-bold text-sm">Deus e Seu Amor</h3>
+                    
+                    <div>
+                      <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold mb-1">
+                        <User size={12} /> {plan.teams && plan.teams.length > 0 ? 'SALA EM TIME' : 'SALA INDIVIDUAL'}
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold mb-4">
+                        <BookOpen size={12} /> {plan.planningFrequency === 'daily' ? 'DIÁRIO' : 'LIVRE'}
+                      </div>
+                      <button className="w-full bg-[#2A2A2A] hover:bg-[#3A3A3A] transition-colors text-white font-bold text-[10px] py-2 rounded-lg flex items-center justify-center gap-2">
+                        GERENCIAR SALA <ArrowRight size={14} className="text-gray-400" />
+                      </button>
+                    </div>
                   </div>
-                  
-                  <div>
-                    <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold mb-1">
-                      <User size={12} /> 0 INSCRITOS
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold mb-4">
-                      <BookOpen size={12} /> 4 MÓDULOS
-                    </div>
-                    <button className="w-full bg-[#2A2A2A] hover:bg-[#3A3A3A] transition-colors text-white font-bold text-[10px] py-2 rounded-lg flex items-center justify-center gap-2">
-                      GERENCIAR SALA <ArrowRight size={14} className="text-gray-400" />
-                    </button>
+                )) : (
+                  <div className="min-w-[200px] h-[190px] rounded-2xl p-5 bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col justify-center items-center text-center shrink-0">
+                    <BookOpen size={24} className="text-gray-600 mb-3" />
+                    <span className="text-gray-500 text-xs mb-2">Você ainda não tem salas ativas</span>
                   </div>
-                </div>
-
-                {/* Vida de Oração */}
-                <div 
-                  className="min-w-[200px] h-[190px] rounded-2xl p-5 bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col justify-between cursor-pointer hover:border-[#4A4A4A] transition-colors"
-                  onClick={() => navigate('/jornada/vida-de-oracao')}
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="bg-[#1a4a35] text-emerald-400 font-bold text-[8px] px-2 py-1 rounded tracking-widest">EM ANDAMENTO</span>
-                      <span className="text-gray-500 font-bold text-[9px]">08/03/26</span>
-                    </div>
-                    <h3 className="text-white font-bold text-sm">Vida de Oração</h3>
-                  </div>
-                  
-                  <div>
-                    <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold mb-1">
-                      <User size={12} /> 0 INSCRITOS
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold mb-4">
-                      <BookOpen size={12} /> 1 MÓDULOS
-                    </div>
-                    <button className="w-full bg-[#2A2A2A] hover:bg-[#3A3A3A] transition-colors text-white font-bold text-[10px] py-2 rounded-lg flex items-center justify-center gap-2">
-                      GERENCIAR SALA <ArrowRight size={14} className="text-gray-400" />
-                    </button>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -300,25 +385,26 @@ const SanctuaryPage: React.FC = () => {
 
               {/* Box Cards Escuros */}
               <div className="w-full md:w-[65%] flex gap-4 h-full">
-                <div className="flex-1 bg-[#121212] rounded-2xl p-6 border border-[#202020] flex flex-col justify-between">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-white font-medium text-sm">Deus e Seu Amor</h3>
-                    <span className="text-gray-500 text-[10px] font-bold">16/03/26</span>
+                {plans.length > 0 ? plans.slice(0, 2).map((plan, i) => (
+                  <div key={`box-${plan.id || i}`} onClick={() => navigate(`/plano/${plan.id}`)} className="flex-1 bg-[#121212] rounded-2xl p-6 border border-[#202020] flex flex-col justify-between cursor-pointer hover:border-[#3A3A3A] transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-white font-medium text-sm line-clamp-2">{plan.title}</h3>
+                      <span className="text-gray-500 text-[10px] font-bold shrink-0">{new Date(plan.createdAt || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <BookOpen size={14} /> <span className="text-xs font-bold uppercase">{plan.planningFrequency === 'daily' ? 'Diário' : 'Leitura'}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-gray-500">
-                    <User size={14} /> <span className="text-xs font-bold">0</span>
-                  </div>
-                </div>
-
-                <div className="flex-1 bg-[#121212] rounded-2xl p-6 border border-[#202020] flex flex-col justify-between">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-white font-medium text-sm">Vida de Oração</h3>
-                    <span className="text-gray-500 text-[10px] font-bold">08/03/26</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-500">
-                    <User size={14} /> <span className="text-xs font-bold">0</span>
-                  </div>
-                </div>
+                )) : (
+                  <>
+                    <div onClick={() => navigate('/plano')} className="flex-1 bg-[#121212] rounded-2xl p-6 border border-[#202020] flex flex-col justify-center items-center cursor-pointer hover:border-[#3A3A3A] transition-colors text-center">
+                      <span className="text-gray-500 text-xs">Nenhum estudo iniciado</span>
+                    </div>
+                    <div onClick={() => navigate('/plano')} className="flex-1 bg-[#121212] rounded-2xl p-6 border border-[#202020] flex flex-col justify-center items-center cursor-pointer hover:border-[#3A3A3A] transition-colors text-center">
+                      <span className="text-gray-500 text-xs">Explore a biblioteca</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
