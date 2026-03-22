@@ -710,12 +710,138 @@ const SanctuaryPage: React.FC = () => {
             {/* ==================== ABA REINO ==================== */}
             {activeTab === 'reino' && (
               <div className="space-y-6">
-                <div className="bg-white dark:bg-[#1A1E24] rounded-2xl p-10 border border-gray-200 dark:border-[#2A2A2A] text-center">
-                  <Users size={48} className="text-gray-500 dark:text-gray-500 mx-auto mb-4" />
-                  <h2 className="text-gray-900 dark:text-white font-bold text-xl mb-2">Comunidade Reino</h2>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm max-w-md mx-auto relative cursor-pointer">
-                    A aba Reino está em desenvolvimento. Em breve você poderá interagir com a comunidade, igrejas, enviar pedidos de oração e acompanhar atividades.
-                  </p>
+                
+                {/* HEAD REINO */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 md:p-8 flex items-center justify-between relative overflow-hidden">
+                  <div className="absolute top-[-50%] right-[-10%] w-64 h-64 bg-white/10 blur-3xl rounded-full pointer-events-none" />
+                  <div className="relative z-10">
+                    <h2 className="text-white font-bold text-2xl flex items-center gap-2 mb-2">
+                       <Users size={24} /> Comunidade do Reino
+                    </h2>
+                    <p className="text-blue-100 text-sm max-w-lg">
+                      Conecte-se com sua igreja local, veja os pedidos de oração da semana e acompanhe as novidades da sua célula.
+                    </p>
+                  </div>
+                  <button className="relative z-10 bg-white text-indigo-700 font-bold text-[11px] px-4 py-2 uppercase tracking-wide rounded-lg shadow-lg hover:bg-gray-100 transition-colors shrink-0 hidden md:block">
+                    Novo Post
+                  </button>
+                </div>
+
+                {/* CONTEÚDO REINO GRID */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                  
+                  {/* FEED PRINCIPAL */}
+                  <div className="md:col-span-8 space-y-4">
+                    <h3 className="text-gray-900 dark:text-white font-bold flex items-center gap-2 px-1">
+                      <Layout size={16} className="text-[#c5a059]" /> Feed da Igreja & Células
+                    </h3>
+                    
+                    {/* Post Exemplo Igreja */}
+                    <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-5 hover:border-blue-500/30 transition-colors">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                          <Users size={16} className="text-blue-500" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900 dark:text-white text-sm">Comunidade Vida</p>
+                          <p className="text-xs text-gray-500 font-medium">Igreja Local • Há 2 horas</p>
+                        </div>
+                      </div>
+                      <p className="text-gray-800 dark:text-gray-300 text-sm leading-relaxed mb-4">
+                        Culto de Celebração maravilhoso neste domingo! A mensagem sobre fé e perseverança nos renovou. Não perca nosso estudo desta semana na célula.
+                      </p>
+                      <div className="h-[200px] bg-[#1A1A1A] rounded-xl overflow-hidden mb-4">
+                        <img src="https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800" className="w-full h-full object-cover opacity-80" alt="Culto" />
+                      </div>
+                      <div className="flex items-center gap-4 border-t border-gray-100 dark:border-[#202020] pt-3 mt-2">
+                        <button className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 hover:text-white text-xs font-bold transition-colors">
+                           <Heart size={14} /> Amém (45)
+                        </button>
+                        <button className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 hover:text-white text-xs font-bold transition-colors">
+                           <MessageSquare size={14} /> Comentar (12)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Post Exemplo Célula */}
+                    <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-5 hover:border-[#c5a059]/30 transition-colors">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-full bg-[#c5a059]/20 flex items-center justify-center shrink-0">
+                          <Book size={16} className="text-[#c5a059]" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900 dark:text-white text-sm">Célula Multiplicadores</p>
+                          <p className="text-xs text-gray-500 font-medium">Pequenos Grupos • Ontem</p>
+                        </div>
+                      </div>
+                      <p className="text-gray-800 dark:text-gray-300 text-sm leading-relaxed mb-3">
+                        Estudo da semana finalizado e compartilhado com o grupo! Quem não pôde ir no encontro de ontem, acesse a sala no painel para acompanhar a discussão sobre o Sermão da Montanha.
+                      </p>
+                      <div className="flex items-center justify-between bg-gray-50 dark:bg-[#1A1A1A] p-3 rounded-xl border border-gray-200 dark:border-[#252525]">
+                         <div className="flex items-center gap-2">
+                           <BookOpen size={16} className="text-[#c5a059]"/>
+                           <span className="text-gray-900 dark:text-white font-bold text-sm">Sermão da Montanha (Parte 2)</span>
+                         </div>
+                         <button className="text-[10px] bg-[#c5a059] text-black font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide">Abrir</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SIDEBAR REINO */}
+                  <div className="md:col-span-4 space-y-6">
+                    
+                    {/* Pedidos de Oração */}
+                    <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-gray-900 dark:text-white font-bold text-[13px] flex items-center gap-2">
+                          <HelpCircle size={14} className="text-pink-500" /> Mural de Oração
+                        </h3>
+                        <button className="text-[10px] text-pink-500 font-bold uppercase tracking-widest hover:text-pink-400">Ver Todos</button>
+                      </div>
+                      <div className="space-y-3">
+                         <div className="p-3 bg-gray-50 dark:bg-[#1A1A1A] rounded-xl border border-gray-100 dark:border-[#252525]">
+                           <span className="text-gray-900 dark:text-white font-bold text-xs inline-block mb-1">Família Santos</span>
+                           <p className="text-gray-600 dark:text-gray-400 text-[11px] leading-tight mb-3">Peço oração pela saúde do meu pai que fará uma cirurgia amanhã.</p>
+                           <button className="w-full text-center py-1.5 border border-gray-300 dark:border-[#3A3A3A] hover:bg-gray-100 dark:hover:bg-[#2A2A2A] rounded-lg text-gray-600 dark:text-gray-400 font-bold text-[10px] transition-colors">ORAR JUNTO</button>
+                         </div>
+                         <div className="p-3 bg-gray-50 dark:bg-[#1A1A1A] rounded-xl border border-gray-100 dark:border-[#252525]">
+                           <span className="text-gray-900 dark:text-white font-bold text-xs inline-block mb-1">Lucas M.</span>
+                           <p className="text-gray-600 dark:text-gray-400 text-[11px] leading-tight mb-3">Oração por provisão e uma nova porta de emprego.</p>
+                           <button className="w-full text-center py-1.5 border border-gray-300 dark:border-[#3A3A3A] hover:bg-gray-100 dark:hover:bg-[#2A2A2A] rounded-lg text-gray-600 dark:text-gray-400 font-bold text-[10px] transition-colors">ORAR JUNTO</button>
+                         </div>
+                      </div>
+                    </div>
+
+                    {/* Menções */}
+                    <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-gray-900 dark:text-white font-bold text-[13px] flex items-center gap-2">
+                          <MessageSquare size={14} className="text-[#c5a059]" /> Menções
+                        </h3>
+                      </div>
+                      <div className="space-y-3">
+                         <div className="flex gap-3">
+                           <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                              <span className="font-bold text-purple-600 text-[10px]">PA</span>
+                           </div>
+                           <div>
+                             <p className="text-xs text-gray-700 dark:text-gray-300"><strong className="text-gray-900 dark:text-white font-bold">Pr. André</strong> mencionou você em comentário.</p>
+                             <p className="text-[10px] text-gray-500 mt-0.5 font-medium">Há 3 horas</p>
+                           </div>
+                         </div>
+                         <div className="flex gap-3">
+                           <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                              <span className="font-bold text-orange-600 text-[10px]">CE</span>
+                           </div>
+                           <div>
+                             <p className="text-xs text-gray-700 dark:text-gray-300">Nova resposta na sala <strong className="text-gray-900 dark:text-white font-bold">Célula Multiplicadores</strong>.</p>
+                             <p className="text-[10px] text-gray-500 mt-0.5 font-medium">Ontem</p>
+                           </div>
+                         </div>
+                      </div>
+                    </div>
+
+                  </div>
                 </div>
               </div>
             )}
