@@ -140,9 +140,9 @@ const StudentWorkspacePage: React.FC = () => {
                         <StandardCard
                             key={plan.id}
                             title={plan.title}
-                            subtitle={plan.description}
+                            subtitle={plan.description ?? ''}
                             imageUrl={plan.coverUrl}
-                            author={plan.authorName}
+                            author={plan.authorName ?? ''}
                             badges={[
                                 { label: plan.category, color: 'bg-purple-100 text-purple-600' },
                                 { label: getFrequencyLabel(plan.planningFrequency), color: 'bg-blue-100 text-blue-600' }

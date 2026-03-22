@@ -191,7 +191,7 @@ const WorkspacePage: React.FC = () => {
                     {/* Create Button */}
                     <div className="flex gap-2 w-full md:w-auto justify-end">
                         <button
-                            onClick={() => navigate('/criar-estudo')}
+                            onClick={() => navigate('/criar-conteudo')}
                             className="bg-bible-leather dark:bg-bible-gold text-white dark:text-black px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-md flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all whitespace-nowrap"
                         >
                             <PlusCircle size={16} /> Criar Novo

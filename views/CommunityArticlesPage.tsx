@@ -65,7 +65,7 @@ const CommunityArticlesPage: React.FC = () => {
                         type: 'plan',
                         title: p.title,
                         subtitle: p.description || 'Sala de Estudo',
-                        author: p.authorName,
+                        author: p.authorName ?? 'Comunidade',
                         createdAt: p.createdAt,
                         engagement: p.subscribersCount || 0,
                         original: p

@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mockup - Santuario Central</title>
+  <style>
+    :root {
+      --bg: #f8f6f2;
+      --paper: #ffffff;
+      --ink: #1f2430;
+      --muted: #6f7789;
+      --gold: #c5a059;
+      --gold-strong: #b48635;
+      --line: #e9e3d7;
+      --hero-1: #2f231a;
+      --hero-2: #4e3728;
+      --ok: #137a57;
+      --warn: #b33b33;
+      --violet: #53389e;
+      --blue: #1e5eff;
+      --pink: #c03fa3;
+      --shadow: 0 8px 30px rgba(18, 21, 31, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 10% 10%, #fffdf8, var(--bg));
+    }
+
+    .container {
+      width: min(1240px, 94vw);
+      margin: 18px auto 48px;
+    }
+
+    .topbar {
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      padding: 10px 14px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 10px;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+    }
+
+    .brand-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 999px;
+      background: var(--gold);
+      box-shadow: 0 0 0 4px rgba(197, 160, 89, 0.2);
+    }
+
+    .mode {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .mode button {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+
+    .mode button.active {
+      color: #fff;
+      border-color: var(--gold-strong);
+      background: linear-gradient(120deg, var(--gold), var(--gold-strong));
+    }
+
+    .hero {
+      margin-top: 16px;
+      border-radius: 28px;
+      padding: 26px;
+      color: #fff;
+      background: linear-gradient(120deg, var(--hero-1), var(--hero-2));
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -40px;
+      top: -30px;
+      width: 220px;
+      height: 220px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(197, 160, 89, 0.3), rgba(197, 160, 89, 0));
+    }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.5rem, 2.1vw, 2.3rem);
+      font-family: "Playfair Display", "Georgia", serif;
+      font-weight: 800;
+      line-height: 1.16;
+      max-width: 760px;
+    }
+
+    .hero p {
+      margin: 0;
+      color: #f2ede2;
+      max-width: 860px;
+      line-height: 1.5;
+    }
+
+    .hero-tags {
+      margin-top: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-radius: 999px;
+      padding: 7px 10px;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.24);
+    }
+
+    .grid {
+      margin-top: 16px;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 2fr 1fr;
+    }
+
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+      letter-spacing: 0.02em;
+    }
+
+    .card h3 {
+      margin: 0;
+      font-size: 0.95rem;
+    }
+
+    .sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .quick-ai {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, 1fr);
+      margin-top: 10px;
+    }
+
+    .ai-box {
+      border-radius: 16px;
+      padding: 14px;
+      color: #fff;
+      display: grid;
+      gap: 8px;
+      min-height: 120px;
+      align-content: space-between;
+    }
+
+    .ai-box.image { background: linear-gradient(135deg, #203f88, var(--blue)); }
+    .ai-box.podcast { background: linear-gradient(135deg, #742d66, var(--pink)); }
+
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .kpi {
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fcfbf9;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .kpi strong {
+      display: block;
+      font-size: 1.1rem;
+    }
+
+    .tiles {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .tile {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .tile .label {
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+
+    .module-grid {
+      margin-top: 10px;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .module {
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 10px;
+      min-height: 92px;
+    }
+
+    .module .name {
+      margin-top: 3px;
+      font-weight: 700;
+      font-size: 0.86rem;
+    }
+
+    .module .hint {
+      margin-top: 4px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .rooms {
+      margin-top: 10px;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .room {
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 12px;
+    }
+
+    .room .status {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border-radius: 999px;
+      padding: 4px 8px;
+      margin-bottom: 8px;
+      background: #ecf7f0;
+      color: var(--ok);
+    }
+
+    .room .progress {
+      margin-top: 10px;
+      height: 8px;
+      border-radius: 999px;
+      background: #f0eee7;
+      overflow: hidden;
+    }
+
+    .room .progress > i {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, var(--gold), var(--gold-strong));
+    }
+
+    .pastor-only, .normal-only {
+      display: none;
+    }
+
+    body.mode-pastor .pastor-only { display: block; }
+    body.mode-pastor .normal-only { display: none; }
+    body.mode-user .normal-only { display: block; }
+    body.mode-user .pastor-only { display: none; }
+
+    .footer-note {
+      margin-top: 14px;
+      border-radius: 12px;
+      border: 1px dashed var(--line);
+      padding: 10px;
+      font-size: 12px;
+      color: var(--muted);
+      background: #fff;
+    }
+
+    @media (max-width: 1080px) {
+      .grid { grid-template-columns: 1fr; }
+      .module-grid { grid-template-columns: repeat(3, 1fr); }
+      .rooms { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .quick-ai { grid-template-columns: 1fr; }
+      .kpis { grid-template-columns: 1fr 1fr 1fr; }
+      .tiles { grid-template-columns: 1fr; }
+      .module-grid { grid-template-columns: 1fr 1fr; }
+      .rooms { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="mode-user">
+  <!-- /inicio (mockup anterior mantido para referência) -->
+  <div class="container" id="inicio">
+    <div class="topbar">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span>SANTUARIO CENTRAL · Mockup de Validacao</span>
+      </div>
+      <div class="mode">
+        <span style="font-size:12px;color:#6f7789;font-weight:700">Perfil:</span>
+        <button id="btn-user" class="active" type="button">Usuario comum</button>
+        <button id="btn-pastor" type="button">Pastor</button>
+      </div>
+    </div>
+
+    <section class="hero">
+      <h1>Uma pagina central para revelar todo o poder do BibliaLM em um unico lugar</h1>
+      <p>
+        Esta proposta organiza as funcionalidades por prioridade de uso: primeiro IA criativa (imagem e podcast),
+        depois continuidade espiritual (onde parei), depois comunidade e lideranca (salas/jornadas).
+      </p>
+      <div class="hero-tags">
+        <span class="tag">Foco em IA</span>
+        <span class="tag">Descoberta de recursos</span>
+        <span class="tag">Regras por perfil</span>
+        <span class="tag">Acesso rapido a tudo</span>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>1) Centro de Comando de IA</h2>
+        <div class="sub">A entrada principal da Home. O usuario entende imediatamente o que pode criar agora.</div>
+
+        <div class="quick-ai">
+          <article class="ai-box image">
+            <div>
+              <h3>Gerar Imagem com IA</h3>
+              <div style="font-size:13px;opacity:.9;line-height:1.4">Arte sacra, capa para estudo, thumbnail para compartilhamento.</div>
+            </div>
+            <strong style="font-size:12px;letter-spacing:.06em;text-transform:uppercase">CTA Primario</strong>
+          </article>
+          <article class="ai-box podcast">
+            <div>
+              <h3>Gerar Podcast com IA</h3>
+              <div style="font-size:13px;opacity:.9;line-height:1.4">Roteiro + audio para devocional, jornada e celula.</div>
+            </div>
+            <strong style="font-size:12px;letter-spacing:.06em;text-transform:uppercase">CTA Primario</strong>
+          </article>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi"><strong>12</strong><span style="font-size:12px;color:#6f7789">Imagens hoje</span></div>
+          <div class="kpi"><strong>3</strong><span style="font-size:12px;color:#6f7789">Podcasts hoje</span></div>
+          <div class="kpi"><strong>84%</strong><span style="font-size:12px;color:#6f7789">Uso do plano</span></div>
+        </div>
+
+        <div class="footer-note">
+          Decisao de UX: imagem e podcast viram os dois botoes mais fortes da pagina, porque sao prioridade de negocio e percepcao de valor.
+        </div>
+      </section>
+
+      <aside class="card">
+        <h2>Agora com voce</h2>
+        <div class="tiles">
+          <div class="tile">
+            <div class="label">Pao diario</div>
+            <strong>Concluido</strong>
+            <div class="sub">Reflexao salva e pronta para revisar.</div>
+          </div>
+          <div class="tile">
+            <div class="label">Leitura</div>
+            <strong>Joao 6:35</strong>
+            <div class="sub">Retomar capitulo em 1 toque.</div>
+          </div>
+          <div class="tile">
+            <div class="label">Historico</div>
+            <strong>Ultimas 24h</strong>
+            <div class="sub">2 notas, 1 imagem, 1 compartilhamento.</div>
+          </div>
+          <div class="tile">
+            <div class="label">Perfil</div>
+            <strong>Mana 1260</strong>
+            <div class="sub">Streak 9 dias consecutivos.</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <section class="card normal-only">
+      <h2>2) Salas e Jornadas para Usuario comum</h2>
+      <div class="sub">Usuario comum nao cria sala aqui, mas ve as salas existentes e retoma de onde parou.</div>
+      <div class="rooms">
+        <article class="room">
+          <span class="status">Em andamento</span>
+          <h3>Jornada de Romanos</h3>
+          <div class="sub">Igreja: Nova Alianca · Semana 2</div>
+          <div class="sub" style="margin-top:8px">Voce parou no modulo 2, aula 3.</div>
+          <div class="progress"><i style="width:58%"></i></div>
+        </article>
+        <article class="room">
+          <span class="status">Em andamento</span>
+          <h3>Discipulado Basico</h3>
+          <div class="sub">Igreja: Betel Centro · Semana 1</div>
+          <div class="sub" style="margin-top:8px">Voce parou no modulo 1, aula 4.</div>
+          <div class="progress"><i style="width:31%"></i></div>
+        </article>
+        <article class="room">
+          <span class="status" style="background:#fdeeee;color:var(--warn)">Novo</span>
+          <h3>Sala de Oracao da Semana</h3>
+          <div class="sub">Entrar na sala e ver pedidos ativos do grupo.</div>
+          <div class="sub" style="margin-top:8px">Sem progresso iniciado.</div>
+          <div class="progress"><i style="width:0%"></i></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="card pastor-only">
+      <h2>2) Salas e Jornadas para Pastor</h2>
+      <div class="sub">Pastor ve as salas em andamento e tem CTA dedicado para criar nova sala.</div>
+      <div class="rooms">
+        <article class="room" style="border-style:dashed;border-width:2px">
+          <span class="status" style="background:#fff8ea;color:#8d6720">Acao principal</span>
+          <h3>+ Criar Nova Sala</h3>
+          <div class="sub">Fluxo rapido para jornada, modulo, data e publico.</div>
+          <div class="sub" style="margin-top:8px">Acesso direto ao Criador de Jornada.</div>
+          <div class="progress"><i style="width:100%"></i></div>
+        </article>
+        <article class="room">
+          <span class="status">Publicado</span>
+          <h3>Jornada de Casais</h3>
+          <div class="sub">42 inscritos · 4 modulos</div>
+          <div class="sub" style="margin-top:8px">Ultimo engajamento: ha 2 horas.</div>
+          <div class="progress"><i style="width:67%"></i></div>
+        </article>
+        <article class="room">
+          <span class="status">Rascunho</span>
+          <h3>Serie de Atos</h3>
+          <div class="sub">16 inscritos · 2 modulos</div>
+          <div class="sub" style="margin-top:8px">Pronto para publicar o modulo 3.</div>
+          <div class="progress"><i style="width:44%"></i></div>
+        </article>
+      </div>
+      <div class="footer-note">
+        Regra de negocio aplicada: pastor tem a visao de progresso das salas e comando de criacao; usuario comum nao ve CTA de criacao.
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3) Mapa total de funcionalidades do app (organizado por valor)</h2>
+      <div class="sub">Toda funcionalidade continua acessivel, mas agrupada por intencao para reduzir confusao e aumentar descoberta.</div>
+      <div class="module-grid">
+        <article class="module"><strong>Home</strong><div class="name">Santuario</div><div class="hint">Resumo diario e atalhos.</div></article>
+        <article class="module"><strong>Biblia</strong><div class="name">Leitor</div><div class="hint">Texto, audio e anotacoes.</div></article>
+        <article class="module"><strong>IA</strong><div class="name">Chat Obreiro</div><div class="hint">Conselho e estudo guiado.</div></article>
+        <article class="module"><strong>IA</strong><div class="name">Estudio Criativo</div><div class="hint">Imagem e podcast.</div></article>
+        <article class="module"><strong>Comunidade</strong><div class="name">Reino Feed</div><div class="hint">Posts e interacoes.</div></article>
+        <article class="module"><strong>Comunidade</strong><div class="name">Mural de Oracao</div><div class="hint">Pedidos da igreja/celula.</div></article>
+        <article class="module"><strong>Evolucao</strong><div class="name">Plano de Leitura</div><div class="hint">Meta e continuidade.</div></article>
+        <article class="module"><strong>Evolucao</strong><div class="name">Historico</div><div class="hint">Tudo que voce produziu.</div></article>
+        <article class="module"><strong>Conteudo</strong><div class="name">Meus Estudos</div><div class="hint">Biblioteca pessoal.</div></article>
+        <article class="module"><strong>Pastoral</strong><div class="name">Workspace</div><div class="hint">Visivel ao pastor.</div></article>
+        <article class="module"><strong>Pastoral</strong><div class="name">Pulpito</div><div class="hint">Roteiro e apresentacao.</div></article>
+        <article class="module"><strong>Sistema</strong><div class="name">Configuracoes</div><div class="hint">Tema, foco, perfil.</div></article>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>4) Fluxo recomendado de descoberta na Home</h2>
+      <div class="sub">
+        1) Ver IA em destaque. 2) Continuar onde parou. 3) Entrar nas salas. 4) Explorar poder total do app.
+        Isso melhora entendimento do produto sem remover nenhuma funcionalidade existente.
+      </div>
+    </section>
+  </div>
+
+  <!-- /inicio2 (nova home central do app) -->
+  <div class="container" id="inicio2" style="margin-top:54px;padding-top:8px">
+    <div class="topbar">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span>INICIO 2 · Santuario Central</span>
+      </div>
+      <div class="mode">
+        <span style="font-size:12px;color:#6f7789;font-weight:700">Perfil visualizado:</span>
+        <button id="btn2-user" class="active" type="button">Usuario comum</button>
+        <button id="btn2-pastor" type="button">Pastor</button>
+      </div>
+    </div>
+
+    <!-- HERO CENTRAL COM VISUAL MAIS VIVO -->
+    <section class="hero" style="margin-top:18px;padding:26px 26px 22px">
+      <div class="grid" style="margin-top:0;grid-template-columns:1.5fr 1.1fr;gap:18px;align-items:stretch">
+        <div>
+          <span class="tag">Home como central de poder</span>
+          <h1>Crie, continue e cuide da sua gente com a Biblia e IA</h1>
+          <p>
+            Inicio 2 transforma o Santuário em uma central moderna: primeiro estúdio criativo de IA, depois
+            continuidade espiritual, depois salas, comunidade e o mapa completo do BibliaLM.
+          </p>
+          <div class="hero-tags" style="margin-top:18px">
+            <span class="tag">Imagem IA em destaque</span>
+            <span class="tag">Podcast IA em destaque</span>
+            <span class="tag">Salas por perfil</span>
+            <span class="tag">Todas as áreas visiveis</span>
+          </div>
+        </div>
+        <!-- “TELA” DEMO DO INICIO 2 -->
+        <div style="position:relative">
+          <div style="border-radius:24px;border:1px solid rgba(249,241,220,.4);background:rgba(12,7,3,.68);backdrop-filter:blur(12px);padding:14px 14px 48px;box-shadow:0 20px 48px rgba(0,0,0,.45);">
+            <div style="display:flex;justify-content:space-between;align-items:center;color:#fdf4dd;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase">
+              <span>Inicio · Santuario</span>
+              <span>Usuario / Pastor</span>
+            </div>
+            <div style="margin-top:10px;border-radius:18px;padding:12px;background:linear-gradient(135deg,#27407a,#356ee0);color:white;display:grid;gap:6px">
+              <div style="font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;opacity:.9">Estudio Criativo</div>
+              <div style="font-size:17px;font-weight:800">Gerar Imagem + Podcast com IA</div>
+              <div style="display:flex;gap:8px;margin-top:6px">
+                <span style="border-radius:999px;padding:6px 10px;font-size:11px;font-weight:800;background:rgba(255,255,255,.16)">Imagem</span>
+                <span style="border-radius:999px;padding:6px 10px;font-size:11px;font-weight:800;background:rgba(255,255,255,.16)">Podcast</span>
+              </div>
+            </div>
+            <div style="margin-top:8px;display:grid;gap:8px;font-size:11px;color:#f3e3c8">
+              <div style="display:flex;justify-content:space-between;gap:6px">
+                <span>Leitura · João 6</span>
+                <span>Devocional · Pao da Vida</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;gap:6px">
+                <span>Salas · Romanos em andamento</span>
+                <span>Mapa do app · Criar / Estudar / Comunidade</span>
+              </div>
+            </div>
+            <div style="position:absolute;left:16px;right:16px;bottom:10px;display:flex;justify-content:space-between;gap:8px;font-size:10px;color:#f5e7d0;opacity:.9">
+              <span>Inicio</span><span>Biblia</span><span>Reino</span><span>Explorar</span><span>Perfil</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LINHA DE STATUS RÁPIDO (COM MENOS TEXTO) -->
+    <section class="card" style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+        <div>
+          <h2 style="margin-bottom:2px">Hoje no seu Santuario</h2>
+          <div class="sub">Resumo visual do seu ritmo e poder de IA.</div>
+        </div>
+        <div class="tiles" style="margin-top:0;grid-template-columns:repeat(4,minmax(0,1fr))">
+          <div class="tile">
+            <div class="label">Maná</div>
+            <strong>1260</strong>
+            <div class="sub">Streak de 9 dias.</div>
+          </div>
+          <div class="tile">
+            <div class="label">Créditos de IA</div>
+            <strong>38</strong>
+            <div class="sub">Imagem, podcast e estudo.</div>
+          </div>
+          <div class="tile">
+            <div class="label">Ultima ação</div>
+            <strong>Estudo em Romanos</strong>
+            <div class="sub">Pronto para virar podcast.</div>
+          </div>
+          <div class="tile">
+            <div class="label">Perfil</div>
+            <strong>Discípulo focado</strong>
+            <div class="sub">Crescimento constante.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BLOCO 1: CRIAR COM IA -->
+    <section class="card" style="margin-top:16px">
+      <h2>1) Criar com IA (Imagem, Podcast e Conteudo)</h2>
+      <div class="sub">
+        O centro criativo do BibliaLM. Tudo que gera algo novo com IA começa aqui.
+      </div>
+
+      <div class="quick-ai" style="margin-top:14px">
+        <article class="ai-box image">
+          <div>
+            <h3>Gerar Imagem com IA</h3>
+            <div style="font-size:13px;opacity:.9;line-height:1.4">
+              Capas para estudos, posts para redes, artes sacras para series de sermoes.
+            </div>
+          </div>
+          <strong style="font-size:12px;letter-spacing:.06em;text-transform:uppercase">CTA Primario · Estudio Criativo</strong>
+        </article>
+        <article class="ai-box podcast">
+          <div>
+            <h3>Gerar Podcast com IA</h3>
+            <div style="font-size:13px;opacity:.9;line-height:1.4">
+              Transforme um estudo ou devocional em roteiro e audio prontos para compartilhar.
+            </div>
+          </div>
+          <strong style="font-size:12px;letter-spacing:.06em;text-transform:uppercase">CTA Primario · Estudio Criativo</strong>
+        </article>
+      </div>
+
+      <div class="tiles" style="margin-top:14px">
+        <div class="tile">
+          <div class="label">Chat com Obreiro IA</div>
+          <strong>Conselho e estudo guiado</strong>
+          <div class="sub">Pergunte, peça esboços e receba direcao biblica.</div>
+        </div>
+        <div class="tile">
+          <div class="label">Gerar Estudo Estruturado</div>
+          <strong>Estudo a partir de um versiculo</strong>
+          <div class="sub">Escolha tema e referencia, receba um estudo pronto para editar.</div>
+        </div>
+        <div class="tile pastor-only">
+          <div class="label">Esboco de Sermão</div>
+          <strong>Série ou mensagem unica</strong>
+          <div class="sub">Gere uma estrutura para o pulpito com introducao, pontos e aplicacao.</div>
+        </div>
+        <div class="tile">
+          <div class="label">Minhas criações</div>
+          <strong>Historico de IA</strong>
+          <div class="sub">Veja tudo que ja gerou: imagens, podcasts, estudos.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BLOCO 2: CONTINUAR DE ONDE PAREI -->
+    <section class="card" style="margin-top:16px">
+      <h2>2) Continuar de onde parei</h2>
+      <div class="sub">
+        Retome imediatamente sua caminhada espiritual: leitura biblica, devocional e estudos em andamento.
+      </div>
+      <div class="grid" style="margin-top:12px;grid-template-columns:2fr 1.2fr">
+        <div>
+          <div class="tiles">
+            <div class="tile">
+              <div class="label">Leitura bíblica</div>
+              <strong>Você parou em João 6</strong>
+              <div class="sub">Continuar a partir do versículo 35.</div>
+            </div>
+            <div class="tile">
+              <div class="label">Devocional do dia</div>
+              <strong>Pão da Vida</strong>
+              <div class="sub">Verso chave, reflexão e oração em um só lugar.</div>
+            </div>
+          </div>
+        </div>
+        <aside>
+          <div class="tile">
+            <div class="label">Ultimos conteudos criados</div>
+            <strong>Estudo em Romanos · Imagem · Podcast</strong>
+            <div class="sub" style="margin-top:6px">
+              Retome a edição ou compartilhe com um toque.
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- BLOCO 3: SALAS / JORNADAS -->
+    <section class="card normal-only" style="margin-top:16px">
+      <h2>3) Minhas Salas e Jornadas (Usuario)</h2>
+      <div class="sub">
+        Como usuario, voce não cria salas aqui, mas enxerga claramente onde está em cada jornada.
+      </div>
+      <div class="rooms">
+        <article class="room">
+          <span class="status">Em andamento</span>
+          <h3>Jornada de Romanos</h3>
+          <div class="sub">Igreja Nova Alianca · Semana 2</div>
+          <div class="sub" style="margin-top:8px">Voce esta no modulo 2, aula 3.</div>
+          <div class="progress"><i style="width:58%"></i></div>
+        </article>
+        <article class="room">
+          <span class="status">Em andamento</span>
+          <h3>Discipulado Basico</h3>
+          <div class="sub">Betel Centro · Semana 1</div>
+          <div class="sub" style="margin-top:8px">Voce esta no modulo 1, aula 4.</div>
+          <div class="progress"><i style="width:31%"></i></div>
+        </article>
+        <article class="room">
+          <span class="status" style="background:#fdeeee;color:var(--warn)">Novo</span>
+          <h3>Sala de Oração da Semana</h3>
+          <div class="sub">Veja pedidos ativos do grupo e participe.</div>
+          <div class="sub" style="margin-top:8px">Nenhum progresso ainda.</div>
+          <div class="progress"><i style="width:0%"></i></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="card pastor-only" style="margin-top:16px">
+      <h2>3) Salas e Jornadas (Pastor)</h2>
+      <div class="sub">
+        Como pastor, você lidera salas, acompanha engajamento e cria novas jornadas com foco no rebanho.
+      </div>
+      <div class="rooms">
+        <article class="room" style="border-style:dashed;border-width:2px">
+          <span class="status" style="background:#fff8ea;color:#8d6720">Acao Principal</span>
+          <h3>+ Criar Nova Sala</h3>
+          <div class="sub">Fluxo direto para jornada, modulo, datas e publico.</div>
+          <div class="sub" style="margin-top:8px">Leva ao criador de planos/salas.</div>
+          <div class="progress"><i style="width:100%"></i></div>
+        </article>
+        <article class="room">
+          <span class="status">Publicado</span>
+          <h3>Jornada de Casais</h3>
+          <div class="sub">42 inscritos · 4 modulos</div>
+          <div class="sub" style="margin-top:8px">Ultimo engajamento ha 2 horas.</div>
+          <div class="progress"><i style="width:67%"></i></div>
+        </article>
+        <article class="room">
+          <span class="status">Rascunho</span>
+          <h3>Serie de Atos</h3>
+          <div class="sub">16 inscritos · 2 modulos</div>
+          <div class="sub" style="margin-top:8px">Pronto para publicar o modulo 3.</div>
+          <div class="progress"><i style="width:44%"></i></div>
+        </article>
+      </div>
+      <div class="footer-note">
+        Regra aplicada: pastor ve criacao/gestao; usuario so ve participacao e progresso.
+      </div>
+    </section>
+
+    <!-- BLOCO 4: MAPA DE FUNCIONALIDADES POR INTENÇÃO -->
+    <section class="card" style="margin-top:16px">
+      <h2>4) Tudo que o BibliaLM faz (organizado por intenção)</h2>
+      <div class="sub">
+        Um "mapa mental" das funcionalidades, agrupadas por o que o usuario quer fazer: criar, estudar, cuidar de gente,
+        viver comunidade e ajustar o sistema.
+      </div>
+      <div class="module-grid">
+        <article class="module">
+          <strong>Criar</strong>
+          <div class="name">Estudio Criativo · Imagem</div>
+          <div class="hint">Gere artes para estudos, series e redes.</div>
+        </article>
+        <article class="module">
+          <strong>Criar</strong>
+          <div class="name">Estudio Criativo · Podcast</div>
+          <div class="hint">Crie episodios em audio com IA.</div>
+        </article>
+        <article class="module">
+          <strong>Criar</strong>
+          <div class="name">Meus Estudos</div>
+          <div class="hint">Biblioteca de estudos escritos com ou sem IA.</div>
+        </article>
+        <article class="module pastor-only">
+          <strong>Criar</strong>
+          <div class="name">Pulpito & Sermoes</div>
+          <div class="hint">Roteiro, outline e apresentacao pastoral.</div>
+        </article>
+
+        <article class="module">
+          <strong>Estudar</strong>
+          <div class="name">Biblia · Leitor</div>
+          <div class="hint">Texto, audio, anotacoes e marcadores.</div>
+        </article>
+        <article class="module">
+          <strong>Estudar</strong>
+          <div class="name">Planos de Leitura</div>
+          <div class="hint">Jornadas pessoais e sugeridas por IA.</div>
+        </article>
+        <article class="module">
+          <strong>Estudar</strong>
+          <div class="name">Quiz / Desafios</div>
+          <div class="hint">Teste seu conhecimento biblico e ganhe Mana.</div>
+        </article>
+
+        <article class="module">
+          <strong>Cuidar de Gente</strong>
+          <div class="name">Salas & Jornadas</div>
+          <div class="hint">Ambientes de discipulado, celula e cursos.</div>
+        </article>
+        <article class="module">
+          <strong>Cuidar de Gente</strong>
+          <div class="name">Mural de Oração</div>
+          <div class="hint">Pedidos, intercessao e acompanhamento.</div>
+        </article>
+        <article class="module pastor-only">
+          <strong>Cuidar de Gente</strong>
+          <div class="name">Workspace Pastoral</div>
+          <div class="hint">Visao consolidada de membros e salas.</div>
+        </article>
+
+        <article class="module">
+          <strong>Comunidade</strong>
+          <div class="name">Reino Feed</div>
+          <div class="hint">Compartilhe imagens, versiculos e podcasts.</div>
+        </article>
+        <article class="module">
+          <strong>Comunidade</strong>
+          <div class="name">Compartilhamentos</div>
+          <div class="hint">Envie conteudo para quem voce ama.</div>
+        </article>
+
+        <article class="module">
+          <strong>Sistema</strong>
+          <div class="name">Configuracoes</div>
+          <div class="hint">Tema, foco, notificacoes e idioma.</div>
+        </article>
+        <article class="module">
+          <strong>Sistema</strong>
+          <div class="name">Plano & Estatisticas</div>
+          <div class="hint">Uso de IA, Mana, streaks e limites.</div>
+        </article>
+      </div>
+    </section>
+
+    <!-- BLOCO 5: SUGESTOES DO DIA -->
+    <section class="card" style="margin-top:16px;margin-bottom:10px">
+      <h2>5) Sugestões do dia com IA</h2>
+      <div class="sub">
+        Pequenas recomendações para desbloquear o próximo passo, com base no que voce mais usa.
+      </div>
+      <div class="tiles" style="margin-top:10px">
+        <div class="tile">
+          <div class="label">Sugestão principal</div>
+          <strong>Transformar seu ultimo estudo em podcast</strong>
+          <div class="sub">Use o Estudio Criativo para gerar um audio e compartilhar com sua celula.</div>
+        </div>
+        <div class="tile">
+          <div class="label">Explorar IA</div>
+          <strong>Gerar 1 imagem para cada modulo da jornada em Romanos</strong>
+          <div class="sub">Deixe visuais prontos para as proximas semanas.</div>
+        </div>
+        <div class="tile pastor-only">
+          <div class="label">Cuidar de gente</div>
+          <strong>Rever pedidos recentes no Mural de Oração</strong>
+          <div class="sub">Ore pelos membros e marque como acompanhados.</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const btnUser = document.getElementById("btn-user");
+    const btnPastor = document.getElementById("btn-pastor");
+
+    function setMode(mode) {
+      document.body.classList.remove("mode-user", "mode-pastor");
+      document.body.classList.add(mode === "pastor" ? "mode-pastor" : "mode-user");
+      btnUser.classList.toggle("active", mode !== "pastor");
+      btnPastor.classList.toggle("active", mode === "pastor");
+    }
+
+    btnUser.addEventListener("click", () => setMode("user"));
+    btnPastor.addEventListener("click", () => setMode("pastor"));
+
+    // Controles independentes para a secao /inicio2 (apenas troca a classe do body)
+    const btn2User = document.getElementById("btn2-user");
+    const btn2Pastor = document.getElementById("btn2-pastor");
+    if (btn2User && btn2Pastor) {
+      btn2User.addEventListener("click", () => {
+        setMode("user");
+        btn2User.classList.add("active");
+        btn2Pastor.classList.remove("active");
+      });
+      btn2Pastor.addEventListener("click", () => {
+        setMode("pastor");
+        btn2Pastor.classList.add("active");
+        btn2User.classList.remove("active");
+      });
+    }
+  </script>
+</body>
+</html>

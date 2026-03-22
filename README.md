@@ -1,23 +1,69 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# BibliaLM v2
 
-# BíbliaLM v2
-Santuário Digital 🕊️
+Santuario digital de estudo biblico com IA, construido em Next.js 16, React 18 e TypeScript.
 
-**Status:** v1.7.0 (Refino de Perfis e Topo Unificado)  
-**Último Deploy:** 2026-03-16 23:25 UTC-4 (Fix: Infra App Hosting)
+## Stack atual
 
----
-View your app in AI Studio: https://ai.studio/apps/4dc2fe56-0f7b-4d5c-87bd-9a467382a2e6
+- Next.js 16
+- React 18
+- TypeScript
+- Tailwind CSS 4
+- Supabase para dados e autenticacao
+- Google GenAI como provedor principal de IA
+- Groq, OpenRouter e BigPickle como fallbacks opcionais
+- Firebase App Hosting para deploy
 
-## Run Locally
+## Pre-requisitos
 
-**Prerequisites:**  Node.js
+- Node.js 20
+- npm
 
+## Configuracao local
 
-1. Install dependencies:
+1. Instale as dependencias:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Crie o arquivo local de ambiente:
+   `Copy-Item .env.example .env.local`
+3. Preencha as variaveis obrigatorias em `.env.local`:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_API_KEY`
+4. Se quiser habilitar fallbacks de IA, preencha tambem:
+   - `NEXT_PUBLIC_GROQ_API_KEY`
+   - `NEXT_PUBLIC_OPENROUTER_API_KEY`
+   - `NEXT_PUBLIC_BIGPICKLE_API_KEY`
+5. Rode o app:
    `npm run dev`
+
+Aplicacao local: `http://localhost:3010`
+
+## Scripts principais
+
+- `npm run dev`: sobe o ambiente local
+- `npm run build`: gera o build de producao
+- `npm run start`: executa o build
+- `npm run lint`: roda lint
+- `npm run make-admin`: script utilitario de permissao
+- `npm run check-profile`: script utilitario de validacao
+
+## Variaveis de ambiente
+
+O runtime atual usa as seguintes variaveis:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_API_KEY`
+- `NEXT_PUBLIC_GROQ_API_KEY`
+- `NEXT_PUBLIC_OPENROUTER_API_KEY`
+- `NEXT_PUBLIC_BIGPICKLE_API_KEY`
+- `GEMINI_API_KEY` apenas como compatibilidade secundaria em alguns fluxos
+
+As variaveis de deploy em `apphosting.yaml` seguem o mesmo padrao `NEXT_PUBLIC_*`.
+
+## Agentes locais
+
+A pasta `.agents/skills` contem skills locais para orientar agentes no workspace do BibliaLM. Elas nao fazem parte do runtime da aplicacao web; servem como camada de operacao para desenvolvimento, produto, pastoral e deploy.
+
+## Deploy
+
+O projeto esta preparado para Firebase App Hosting com runtime `nodejs20`.

@@ -1,22 +1,25 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from '../utils/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { 
   BookOpen, ChevronRight, Share2, Bookmark, Flame, Zap, 
   Search, Bell, Settings, Home, Wand2, User, Play, Pause, 
-  Plus, FileText, Image, Mic, History, Trophy, Crown, Target, Heart, ArrowRight, Sun, Moon
+  Plus, FileText, Image, Mic, History, Trophy, Crown, Target, Heart, ArrowRight, Sun, Moon,
+  Users, MessageSquare, Calendar, Sparkles, CreditCard, HelpCircle, Book, Layout,
+  LifeBuoy, Scroll, ShieldCheck, Terminal, ShieldAlert, LogOut, UserCircle
 } from 'lucide-react';
 
 import { useSettings } from '../contexts/SettingsContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { dbService } from '../services/supabase';
 import * as pastorAgent from '../services/pastorAgent';
+import { bibleService } from '../services/bibleService';
 
 const SanctuaryPage: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser, userProfile, showNotification, signOut } = useAuth();
+  const { currentUser, userProfile, notifications, unreadNotificationsCount, markNotificationsAsRead, openLogin, signOut } = useAuth();
   const { resetHeader, setIsHeaderHidden } = useHeader();
   const { settings, toggleTheme } = useSettings();
   const { plans } = useWorkspace();
@@ -24,17 +27,38 @@ const SanctuaryPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'inicio' | 'criar' | 'reino'>('inicio');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
   const [dailyDevotional, setDailyDevotional] = useState<any>(null);
   const [loadingDevotional, setLoadingDevotional] = useState(true);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   const userName = userProfile?.displayName || 'Visitante';
-  const userAvatar = userProfile?.photoURL || 'https://i.pravatar.cc/150?img=5';
+  const userAvatar = userProfile?.photoURL || currentUser?.user_metadata?.avatar_url || null;
   const userMana = userProfile?.lifetimeXp || 0;
   const userStreak = userProfile?.stats?.daysStreak || 1;
   const chaptersRead = userProfile?.stats?.totalChaptersRead || 0;
+  const isAdmin = userProfile?.username === 'gabrielamaro' || currentUser?.email === 'gabrielamaro@live.com';
+  const isLightTheme = settings.theme === 'light';
+  const dailyReference = dailyDevotional?.reference || dailyDevotional?.verseReference || '';
   
   const readGoal = 365;
   const readPercent = Math.min(100, Math.round((chaptersRead / readGoal) * 100)) || 0;
+
+  const openVerseOfDay = () => {
+    const parsed = dailyReference ? bibleService.parseReference(dailyReference) : null;
+    if (parsed) {
+      navigate('/biblia', {
+        state: {
+          bookId: parsed.bookId,
+          chapter: parsed.chapter,
+          scrollToVerse: parsed.startVerse
+        }
+      });
+      return;
+    }
+    navigate('/biblia');
+  };
 
   useEffect(() => {
     setIsHeaderHidden(true);
@@ -91,10 +115,24 @@ const SanctuaryPage: React.FC = () => {
       setIsHeaderHidden(false);
       resetHeader();
     };
-  }, [setIsHeaderHidden, resetHeader]);
+  }, [setIsHeaderHidden, resetHeader, currentUser]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+        setIsSettingsOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setIsNotifDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-[#0E0E0E] text-white selection:bg-[#c5a059]/30 font-sans pb-24">
+    <div className={`min-h-screen selection:bg-[#c5a059]/30 font-sans pb-24 ${isLightTheme ? 'bg-[#F6F3EE] text-[#111111]' : 'bg-[#0E0E0E] text-white'}`}>
       <main className="max-w-[1200px] mx-auto px-4 lg:px-6 pt-6 space-y-6">
         
         {/* ========================================================= */}
@@ -104,14 +142,20 @@ const SanctuaryPage: React.FC = () => {
           {/* Usuário e Status */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img 
-                src={userAvatar} 
-                alt={userName} 
-                className="w-10 h-10 rounded-full object-cover ring-2 ring-transparent"
-              />
+              {userAvatar ? (
+                <img 
+                  src={userAvatar} 
+                  alt={userName} 
+                  className="w-10 h-10 rounded-full object-cover ring-2 ring-transparent"
+                />
+              ) : (
+                <div className={`w-10 h-10 rounded-full ring-2 ring-transparent flex items-center justify-center font-bold text-xs ${isLightTheme ? 'bg-[#E2DBCD] text-[#5C4A2A]' : 'bg-[#1A1A1A] text-gray-300'}`}>
+                  {userName.slice(0, 2).toUpperCase()}
+                </div>
+              )}
               <div className="flex flex-col">
                 <span className="text-gray-400 text-[11px] font-medium leading-tight">Bem-vindo de volta</span>
-                <span className="text-white font-bold text-[15px] leading-tight">{userName}</span>
+                <span className={`font-bold text-[15px] leading-tight ${isLightTheme ? 'text-[#111111]' : 'text-white'}`}>{userName}</span>
               </div>
             </div>
             
@@ -129,25 +173,91 @@ const SanctuaryPage: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3 text-gray-400">
-                <button className="hover:text-white transition-colors" onClick={() => navigate('/notificacoes')}>
-                  <Bell size={20} />
-                </button>
-                <div className="relative">
+                <div className="relative" ref={notifRef}>
+                  <button className="hover:text-white transition-colors relative" onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}>
+                    <Bell size={20} />
+                    {unreadNotificationsCount > 0 && (
+                      <span className={`absolute top-0 right-0 w-2 h-2 rounded-full ${isLightTheme ? 'border border-[#F6F3EE]' : 'border border-[#0E0E0E]'} bg-red-500`}></span>
+                    )}
+                  </button>
+                  {isNotifDropdownOpen && (
+                    <div className={`absolute right-0 top-full mt-3 w-72 rounded-xl shadow-xl overflow-hidden z-50 ${isLightTheme ? 'bg-white border border-[#E7E2D7]' : 'bg-[#1A1A1A] border border-[#2A2A2A]'}`}>
+                      <div className={`p-3 flex items-center justify-between ${isLightTheme ? 'border-b border-[#EFE9DD]' : 'border-b border-[#2A2A2A]'}`}>
+                        <span className={`font-bold text-xs ${isLightTheme ? 'text-[#111111]' : 'text-white'}`}>Notificações</span>
+                        <button onClick={markNotificationsAsRead} className="text-[10px] text-[#c5a059] hover:underline font-bold uppercase">Marcar lidas</button>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="p-6 text-center text-gray-400 text-xs">Nenhuma notificação</div>
+                        ) : (
+                          notifications.map((notif) => (
+                            <button
+                              key={notif.id}
+                              onClick={() => {
+                                if (notif.link) navigate(notif.link);
+                                setIsNotifDropdownOpen(false);
+                              }}
+                              className={`w-full text-left p-3 transition-colors ${isLightTheme ? 'border-b border-[#F2EEE5] hover:bg-[#F8F4EA]' : 'border-b border-[#2A2A2A] hover:bg-[#252525]'} ${!notif.read ? (isLightTheme ? 'bg-[#FFF8E8]' : 'bg-[#1F1A10]') : ''}`}
+                            >
+                              <p className={`text-xs font-bold line-clamp-1 ${isLightTheme ? 'text-[#111111]' : 'text-white'}`}>{notif.title}</p>
+                              <p className="text-[10px] text-gray-500 line-clamp-2">{notif.message}</p>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="relative" ref={settingsRef}>
                   <button className="hover:text-white transition-colors" onClick={() => setIsSettingsOpen(!isSettingsOpen)}>
                     <Settings size={20} />
                   </button>
                   {isSettingsOpen && (
-                    <div className="absolute right-0 top-full mt-3 w-48 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl shadow-xl overflow-hidden z-50 py-2">
-                      <button onClick={() => { setIsSettingsOpen(false); navigate('/perfil'); }} className="w-full text-left px-4 py-2 text-sm font-bold text-gray-300 hover:bg-[#252525] flex items-center gap-2 transition-colors">
-                        <User size={16}/> Meu Perfil
+                    <div className={`absolute right-0 top-full mt-3 w-64 rounded-xl shadow-xl overflow-hidden z-50 py-2 ${isLightTheme ? 'bg-white border border-[#E7E2D7]' : 'bg-[#1A1A1A] border border-[#2A2A2A]'}`}>
+                      {currentUser && (
+                        <button onClick={() => { setIsSettingsOpen(false); navigate('/perfil'); }} className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-700 hover:bg-[#F8F4EA]' : 'text-gray-300 hover:bg-[#252525]'}`}>
+                          <User size={16}/> Meu Perfil
+                        </button>
+                      )}
+                      <button onClick={() => { setIsSettingsOpen(false); navigate('/intro'); }} className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-700 hover:bg-[#F8F4EA]' : 'text-gray-300 hover:bg-[#252525]'}`}>
+                        <Layout size={16} className="text-blue-500" /> Apresentação
                       </button>
-                      <button onClick={toggleTheme} className="w-full text-left px-4 py-2 text-sm font-bold text-gray-300 hover:bg-[#252525] flex items-center gap-2 transition-colors">
+                      <button onClick={() => { setIsSettingsOpen(false); navigate('/regras'); }} className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-700 hover:bg-[#F8F4EA]' : 'text-gray-300 hover:bg-[#252525]'}`}>
+                        <Zap size={16} className="text-purple-500" /> Manual do Maná
+                      </button>
+                      <button onClick={() => { toggleTheme(); setIsSettingsOpen(false); }} className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-700 hover:bg-[#F8F4EA]' : 'text-gray-300 hover:bg-[#252525]'}`}>
                         {settings.theme === 'dark' ? <Sun size={16}/> : <Moon size={16}/>}
                         {settings.theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
                       </button>
-                      {currentUser && (
-                        <button onClick={() => { signOut(); setIsSettingsOpen(false); }} className="w-full text-left px-4 py-2 mt-2 border-t border-[#2A2A2A]/50 text-sm font-bold text-red-500 hover:bg-red-500/10 flex items-center gap-2 transition-colors">
-                          Sair
+                      <div className={`h-px my-1 ${isLightTheme ? 'bg-[#EFE9DD]' : 'bg-[#2A2A2A]/50'}`} />
+                      <button onClick={() => { setIsSettingsOpen(false); navigate('/suporte'); }} className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-500 hover:bg-[#F8F4EA]' : 'text-gray-400 hover:bg-[#252525]'}`}>
+                        <LifeBuoy size={16} /> Suporte / Doar
+                      </button>
+                      <button onClick={() => { setIsSettingsOpen(false); navigate('/termos'); }} className={`w-full text-left px-4 py-2 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-400 hover:bg-[#F8F4EA]' : 'text-gray-400 hover:bg-[#252525]'}`}>
+                        <Scroll size={16} /> Termos
+                      </button>
+                      <button onClick={() => { setIsSettingsOpen(false); navigate('/privacidade'); }} className={`w-full text-left px-4 py-2 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-400 hover:bg-[#F8F4EA]' : 'text-gray-400 hover:bg-[#252525]'}`}>
+                        <ShieldCheck size={16} /> Privacidade
+                      </button>
+                      {isAdmin && (
+                        <>
+                          <div className={`h-px my-1 ${isLightTheme ? 'bg-red-100' : 'bg-red-900/20'}`} />
+                          <button onClick={() => { setIsSettingsOpen(false); navigate('/admin'); }} className={`w-full text-left px-4 py-2 text-xs font-black flex items-center gap-2 transition-colors ${isLightTheme ? 'text-red-600 hover:bg-red-50' : 'text-red-500 hover:bg-red-500/10'}`}>
+                            <Terminal size={16} /> Painel Admin
+                          </button>
+                          <button onClick={() => { setIsSettingsOpen(false); navigate('/system-integrity'); }} className={`w-full text-left px-4 py-2 text-xs font-black flex items-center gap-2 transition-colors ${isLightTheme ? 'text-red-600 hover:bg-red-50' : 'text-red-500 hover:bg-red-500/10'}`}>
+                            <ShieldAlert size={16} /> Integridade
+                          </button>
+                        </>
+                      )}
+                      <div className={`h-px my-1 ${isLightTheme ? 'bg-[#EFE9DD]' : 'bg-[#2A2A2A]/50'}`} />
+                      {currentUser ? (
+                        <button onClick={() => { signOut(); setIsSettingsOpen(false); }} className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${isLightTheme ? 'text-red-600 hover:bg-red-50' : 'text-red-500 hover:bg-red-500/10'}`}>
+                          <LogOut size={16} /> Sair
+                        </button>
+                      ) : (
+                        <button onClick={() => { openLogin(); setIsSettingsOpen(false); }} className="w-full text-left px-4 py-2 text-xs font-bold text-[#c5a059] hover:bg-[#c5a059]/10 flex items-center gap-2 transition-colors">
+                          <UserCircle size={16} /> Entrar na Conta
                         </button>
                       )}
                     </div>
@@ -188,7 +298,7 @@ const SanctuaryPage: React.FC = () => {
             </button>
             <button 
               onClick={() => setActiveTab('criar')}
-              className={`flex items-center gap-2 pb-3 px-1 relative ${activeTab === 'criar' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+              className={`flex items-center gap-2 pb-3 px-1 relative ${activeTab === 'criar' ? (isLightTheme ? 'text-[#111111]' : 'text-white') : 'text-gray-500 hover:text-gray-300'}`}
             >
               <Wand2 size={16} />
               <span className="text-sm font-semibold">Criar</span>
@@ -196,7 +306,7 @@ const SanctuaryPage: React.FC = () => {
             </button>
             <button 
               onClick={() => setActiveTab('reino')}
-              className={`flex items-center gap-2 pb-3 px-1 relative ${activeTab === 'reino' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+              className={`flex items-center gap-2 pb-3 px-1 relative ${activeTab === 'reino' ? (isLightTheme ? 'text-[#111111]' : 'text-white') : 'text-gray-500 hover:text-gray-300'}`}
             >
               <User size={16} />
               <span className="text-sm font-semibold">Reino</span>
@@ -214,7 +324,7 @@ const SanctuaryPage: React.FC = () => {
           <div className="lg:col-span-8 space-y-4 lg:space-y-6">
             
             {/* 1. HERO - VERSÍCULO DO DIA */}
-            <div className="relative rounded-2xl md:rounded-[2rem] overflow-hidden min-h-[320px] md:min-h-[400px] flex flex-col justify-end p-6 md:p-10 group cursor-pointer" onClick={() => navigate('/devocional')}>
+            <div className="relative rounded-2xl md:rounded-[2rem] overflow-hidden min-h-[320px] md:min-h-[400px] flex flex-col justify-end p-6 md:p-10 group cursor-pointer" onClick={openVerseOfDay}>
               <div className="absolute inset-0">
                 <img src="https://images.unsplash.com/photo-1525286102666-b3281abadd14?auto=format&fit=crop&q=80&w=1600" alt="Background Adoração" className="w-full h-full object-cover transition-transform duration-[20s] group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0E0E0E] via-[#0E0E0E]/80 to-[#0E0E0E]/30" />
@@ -225,7 +335,7 @@ const SanctuaryPage: React.FC = () => {
               
               <div className="relative z-10">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#c5a059] text-black font-bold text-[11px] rounded-lg mb-4 shadow-lg shadow-[#c5a059]/20">
-                  <BookOpen size={14} /> Devocional do Dia
+                  <BookOpen size={14} /> Versículo do Dia
                 </div>
                 
                 <h2 className="text-2xl md:text-[32px] font-bold text-white leading-tight mb-8 max-w-3xl line-clamp-3">
@@ -233,12 +343,12 @@ const SanctuaryPage: React.FC = () => {
                 </h2>
                 
                 <div className="flex items-center justify-between">
-                  <span className="text-[#c5a059] font-bold text-lg md:text-xl">— {dailyDevotional?.reference || dailyDevotional?.verseReference || ''}</span>
+                  <span className="text-[#c5a059] font-bold text-lg md:text-xl">— {dailyReference}</span>
                   <div className="flex items-center gap-3">
-                    <button className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); navigate('/devocional'); }}>
+                    <button className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); openVerseOfDay(); }}>
                       <Share2 size={18} />
                     </button>
-                    <button className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); navigate('/devocional'); }}>
+                    <button className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); openVerseOfDay(); }}>
                       <Bookmark size={18} />
                     </button>
                   </div>
@@ -299,9 +409,9 @@ const SanctuaryPage: React.FC = () => {
                     <span className="text-[9px] font-black tracking-widest uppercase">DEVOCIONAL DO DIA</span>
                   </div>
                   <p className="text-white text-xs font-serif italic mb-2 leading-snug pr-4 line-clamp-3">
-                    "{dailyDevotional?.text || dailyDevotional?.content || 'Pão nosso de cada dia...'}"
+                    "{dailyDevotional?.verse || dailyDevotional?.verseText || 'Hoje, enquanto meditamos nas palavras do Senhor...'}"
                   </p>
-                  <span className="text-[#c5a059] font-bold text-[9px] uppercase tracking-widest">{dailyDevotional?.reference || dailyDevotional?.verseReference || ''}</span>
+                  <span className="text-[#c5a059] font-bold text-[9px] uppercase tracking-widest">{dailyReference}</span>
                 </div>
               </div>
             </div>
@@ -373,7 +483,7 @@ const SanctuaryPage: React.FC = () => {
               {/* Box Criar Estudo */}
               <div 
                 className="w-full md:w-[35%] bg-[#1A1E24] rounded-2xl p-6 border border-[#2A2A2A] flex flex-col items-center justify-center relative overflow-hidden cursor-pointer hover:border-blue-500/30 transition-colors"
-                onClick={() => navigate('/criar-estudo')}
+                onClick={() => navigate('/criar-conteudo')}
               >
                 <div className="w-12 h-12 bg-white flex items-center justify-center rounded-xl mb-4">
                   <FileText size={24} className="text-black" />
@@ -424,7 +534,7 @@ const SanctuaryPage: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
                 <button 
-                  onClick={() => navigate('/estudio-criativo')}
+                  onClick={() => navigate('/artes-sacras')}
                   className="bg-[#16131D] p-5 rounded-2xl border border-[#252525] text-left hover:border-green-500/30 transition-colors"
                 >
                   <div className="flex items-center gap-2 mb-3">
@@ -443,7 +553,7 @@ const SanctuaryPage: React.FC = () => {
                 </button>
 
                 <button 
-                  onClick={() => navigate('/estudio-criativo')}
+                  onClick={() => navigate('/estudio-criativo', { state: { tool: 'podcast' } })}
                   className="bg-[#16131D] p-5 rounded-2xl border border-[#252525] text-left hover:border-pink-500/30 transition-colors"
                 >
                   <div className="flex items-center gap-2 mb-3">
@@ -491,11 +601,13 @@ const SanctuaryPage: React.FC = () => {
               
               <div className="space-y-1 mb-6">
                 {[
-                  { icon: <BookOpen size={16} />, label: 'Meus Estudos', color: 'text-blue-500', route: '/estudos/planos' },
+                  { icon: <BookOpen size={16} />, label: 'Bíblia Sagrada', color: 'text-blue-500', route: '/biblia' },
+                  { icon: <Target size={16} />, label: 'Planos de Leitura', color: 'text-red-500', route: '/plano' },
+                  { icon: <Book size={16} />, label: 'Meus Estudos', color: 'text-orange-500', route: '/estudos/planos' },
+                  { icon: <Plus size={16} />, label: 'Criar Estudo', color: 'text-green-500', route: '/criar-conteudo' },
                   { icon: <Trophy size={16} />, label: 'Ranking Global', color: 'text-yellow-500', route: '/quiz' },
-                  { icon: <Wand2 size={16} />, label: 'Estúdio Criativo', color: 'text-pink-500', route: '/estudio-criativo' }
                 ].map((item, i) => (
-                  <button key={`top-${i}`} onClick={() => navigate(item.route)} className="w-full flex items-center gap-4 py-3 px-2 hover:bg-[#1A1A1A] rounded-xl transition-colors">
+                  <button key={`core-${i}`} onClick={() => navigate(item.route)} className="w-full flex items-center gap-4 py-3 px-2 hover:bg-[#1A1A1A] rounded-xl transition-colors">
                     <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center bg-[#151515] border border-[#252525]">
                       <div className={item.color}>{item.icon}</div>
                     </div>
@@ -507,13 +619,19 @@ const SanctuaryPage: React.FC = () => {
               <div className="h-[1px] bg-[#202020] w-full mb-6" />
 
               <div className="space-y-1 mb-6">
-                {/* Conforme o mockup, repete os itens */}
                 {[
-                  { icon: <BookOpen size={16} />, label: 'Meus Estudos', color: 'text-blue-500', route: '/estudos/planos' },
-                  { icon: <Trophy size={16} />, label: 'Ranking Global', color: 'text-yellow-500', route: '/quiz' },
-                  { icon: <Wand2 size={16} />, label: 'Estúdio Criativo', color: 'text-pink-500', route: '/estudio-criativo' }
+                  { icon: <Image size={16} />, label: 'Gerar Arte Sacra', color: 'text-pink-500', route: '/artes-sacras' },
+                  { icon: <Mic size={16} />, label: 'Gerar Podcast', color: 'text-fuchsia-500', route: '/estudio-criativo', onClick: () => navigate('/estudio-criativo', { state: { tool: 'podcast' } }) },
+                  { icon: <Zap size={16} />, label: 'FaithTech AI', color: 'text-purple-500', route: '/faith-tech' },
+                  { icon: <Users size={16} />, label: 'Comunidade', color: 'text-cyan-500', route: '/social' },
+                  { icon: <Heart size={16} />, label: 'Sala de Oração', color: 'text-rose-500', route: '/oracoes' },
+                  { icon: <MessageSquare size={16} />, label: 'Pedidos de Oração', color: 'text-indigo-500', route: '/oracoes/gerenciar' },
+                  { icon: <FileText size={16} />, label: 'Notas & Insights', color: 'text-amber-500', route: '/notes' },
+                  { icon: <Calendar size={16} />, label: 'Minha Rotina', color: 'text-emerald-500', route: '/rotina' },
+                  { icon: <CreditCard size={16} />, label: 'Assinatura PRO', color: 'text-slate-400', route: '/planos' },
+                  { icon: <HelpCircle size={16} />, label: 'Ajuda & Suporte', color: 'text-gray-400', route: '/suporte' }
                 ].map((item, i) => (
-                  <button key={`bottom-${i}`} onClick={() => navigate(item.route)} className="w-full flex items-center gap-4 py-3 px-2 hover:bg-[#1A1A1A] rounded-xl transition-colors">
+                  <button key={`tools-${i}`} onClick={() => item.onClick ? item.onClick() : navigate(item.route)} className="w-full flex items-center gap-4 py-3 px-2 hover:bg-[#1A1A1A] rounded-xl transition-colors">
                     <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center bg-[#151515] border border-[#252525]">
                       <div className={item.color}>{item.icon}</div>
                     </div>

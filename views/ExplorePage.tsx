@@ -4,9 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     Search, Church, User, Trophy, Loader2, ArrowRight,
     Compass, BookOpen, Layout, X, Sparkles, Globe, HandHeart,
-    Plus, MoreVertical, Calendar, GraduationCap
+    Plus, MoreVertical, Calendar, GraduationCap, FolderOpen
 } from 'lucide-react';
 import { dbService } from '../services/supabase';
+import { bibleService } from '../services/bibleService';
 import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { INSPIRATIONAL_VERSES, BIBLE_BOOKS_LIST } from '../constants';
@@ -83,12 +84,19 @@ const ExplorePage: React.FC = () => {
             const newResults: SearchResult[] = [];
 
             // 1. Bible Books
-            const bibleMatch = lowerText.match(/^([1-3]?\s?[a-zà-ú\ç\ã\õ\s]+)\s+(\d+)/i);
-            if (bibleMatch) {
-                const bookPart = bibleMatch[1].trim();
-                const chapter = parseInt(bibleMatch[2]);
-                const book = BIBLE_BOOKS_LIST.find(b => searchMatch(bookPart, b.name, b.id));
-                if (book) newResults.push({ id: `bible-${book.id}`, type: 'bible', title: `Ler ${book.name} ${chapter}`, subtitle: 'Escrituras', icon: <BookOpen size={16} />, action: () => navigate('/biblia', { state: { bookId: book.id, chapter } }) });
+            const bibleParsed = bibleService.parseReference(lowerText);
+            if (bibleParsed) {
+                const book = BIBLE_BOOKS_LIST.find(b => b.id === bibleParsed.bookId);
+                if (book) {
+                    newResults.push({
+                        id: `bible-${book.id}`,
+                        type: 'bible',
+                        title: `Ler ${book.name} ${bibleParsed.chapter}`,
+                        subtitle: 'Escrituras',
+                        icon: <BookOpen size={16} />,
+                        action: () => navigate('/biblia', { state: { bookId: book.id, chapter: bibleParsed.chapter } })
+                    });
+                }
             }
 
             try {
@@ -177,9 +185,18 @@ const ExplorePage: React.FC = () => {
 
                             {/* PLANOS & SALAS SECTION */}
                             <div className="space-y-4">
-                                <div className="flex items-center gap-2 px-1">
-                                    <BookOpen size={18} className="text-bible-gold" />
-                                    <h3 className="text-lg font-serif font-black text-gray-900 dark:text-white">Planos & Salas</h3>
+                                <div className="flex items-center justify-between px-1">
+                                    <div className="flex items-center gap-2">
+                                        <BookOpen size={18} className="text-bible-gold" />
+                                        <h3 className="text-lg font-serif font-black text-gray-900 dark:text-white">Planos & Salas</h3>
+                                    </div>
+                                    <button 
+                                        onClick={() => navigate('/acervo')}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-bible-gold/10 hover:bg-bible-gold/20 rounded-lg text-bible-gold text-xs font-bold transition-colors"
+                                    >
+                                        <FolderOpen size={14} />
+                                        Acervo
+                                    </button>
                                 </div>
 
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

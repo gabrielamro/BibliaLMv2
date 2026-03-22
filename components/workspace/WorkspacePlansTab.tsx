@@ -94,7 +94,7 @@ const WorkspacePlansTab: React.FC = () => {
               <StandardCard
                 key={plan.id}
                 title={plan.title}
-                subtitle={plan.description}
+                subtitle={plan.description ?? ''}
                 imageUrl={plan.coverUrl}
                 badges={[
                   { label: plan.category || 'Geral', color: 'bg-purple-50 text-purple-600' },

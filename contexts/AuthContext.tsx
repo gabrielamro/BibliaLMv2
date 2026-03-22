@@ -146,16 +146,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser(user);
 
       if (user) {
+        const uid = user?.id ?? user?.uid;
+        if (!uid) {
+          console.error("Usuário autenticado sem id/uid válido:", user);
+          setUserProfile(null);
+          setNotifications([]);
+          setLoading(false);
+          return;
+        }
+
+        let stage = 'getUserProfile';
         try {
-          let profile = await dbService.getUserProfile(user.id ?? user.uid);
+          let profile = await dbService.getUserProfile(uid);
 
           if (!profile) {
+            stage = 'createUserProfile:prepare';
             // Cria perfil automático
             const generatedUsername = (user.email ?? user.id).split('@')[0]
               .toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 20);
 
             const newProfile: any = {
-              uid: user.id,
+              uid,
               email: user.email,
               displayName: user.user_metadata?.display_name || user.user_metadata?.full_name || 'Membro',
               photoURL: user.user_metadata?.avatar_url ?? null,
@@ -168,8 +179,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               activityLog: [],
               stats: { totalChaptersRead: 0, daysStreak: 1, studiesCreated: 0, totalDevotionalsRead: 0, totalNotes: 0, totalShares: 0, totalImagesGenerated: 0, totalChatMessages: 0, totalSermonsCreated: 0, totalVersesMarked: 0, totalQuizzesCompleted: 0, perfectQuizzes: 0 }
             };
-            await dbService.createUserProfile(user.id, newProfile);
-            profile = await dbService.getUserProfile(user.id);
+            stage = 'createUserProfile:insert';
+            await dbService.createUserProfile(uid, newProfile);
+            stage = 'getUserProfile:afterCreate';
+            profile = await dbService.getUserProfile(uid);
           }
 
           if (profile) {
@@ -180,7 +193,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (checkedProfile.usageToday?.date !== todayStr) {
               const resetUsage: UserUsage = { date: todayStr, imagesCount: 0, podcastsCount: 0, analysisCount: 0, chatCount: 0 };
               try {
-                await dbService.updateUserProfile(user.id, { usageToday: resetUsage });
+                stage = 'updateUserProfile:usageTodayReset';
+                await dbService.updateUserProfile(uid, { usageToday: resetUsage });
                 checkedProfile.usageToday = resetUsage;
               } catch { /* silencioso */ }
             }
@@ -188,15 +202,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUserProfile(checkedProfile);
           }
 
-          await loadNotifications(user.id);
+          stage = 'loadNotifications';
+          await loadNotifications(uid);
         } catch (e: any) {
+          const parsedError = e instanceof Error
+            ? { type: 'Error', name: e.name, message: e.message, stack: e.stack }
+            : {
+                type: typeof e,
+                raw: e,
+                keys: e && typeof e === 'object' ? Object.keys(e) : [],
+                stringified: (() => { try { return JSON.stringify(e); } catch { return String(e); } })()
+              };
+
           console.error("Erro detalhado ao carregar perfil:", {
-            message: e.message,
-            code: e.code,
-            details: e.details,
-            hint: e.hint,
-            error: e
+            uid,
+            stage,
+            message: e?.message,
+            code: e?.code,
+            details: e?.details,
+            hint: e?.hint,
+            parsedError
           });
+
+          setUserProfile(prev => prev ?? {
+            uid,
+            email: user?.email || '',
+            displayName: user?.user_metadata?.display_name || user?.user_metadata?.full_name || 'Membro',
+            photoURL: user?.user_metadata?.avatar_url || null,
+            username: (user?.email || uid).split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 20),
+            credits: 0,
+            lifetimeXp: 0,
+            badges: ['event_early'],
+            subscriptionTier: 'free',
+            subscriptionStatus: 'active',
+            activityLog: [],
+            stats: {
+              totalChaptersRead: 0, daysStreak: 1, studiesCreated: 0, totalDevotionalsRead: 0, totalNotes: 0,
+              totalShares: 0, totalImagesGenerated: 0, totalChatMessages: 0, totalSermonsCreated: 0,
+              totalVersesMarked: 0, totalQuizzesCompleted: 0, perfectQuizzes: 0
+            },
+            usageToday: { date: new Date().toISOString().split('T')[0], imagesCount: 0, podcastsCount: 0, analysisCount: 0, chatCount: 0 }
+          } as UserProfile);
         }
       } else {
         setUserProfile(null);
@@ -212,10 +258,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Inscrição realtime para notificações
   useEffect(() => {
     if (!currentUser) return;
+    const uid = currentUser?.id ?? currentUser?.uid;
+    if (!uid) return;
     const channel = supabase
-      .channel(`notifications_${currentUser.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` },
-        () => loadNotifications(currentUser.id))
+      .channel(`notifications_${uid}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${uid}` },
+        () => loadNotifications(uid))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [currentUser, loadNotifications]);
@@ -403,3 +451,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
+

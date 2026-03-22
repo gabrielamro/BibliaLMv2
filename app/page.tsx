@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
-import HomeDashboardPage from '../views/HomeDashboardPage';
+import Inicio03 from '../views/Inicio03';
 
 export default function Home() {
     const { currentUser, loading } = useAuth();
@@ -28,6 +28,6 @@ export default function Home() {
         return null; // vai redirecionar no useEffect
     }
 
-    return <HomeDashboardPage />;
+    return <Inicio03 />;
 }
 

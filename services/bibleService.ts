@@ -5,6 +5,28 @@ import { dbService, supabase } from "./supabase";
 import { Chapter } from "../types";
 import { searchMatch, normalizeText } from "../utils/textUtils";
 
+function resolveBibleBook(bookPartRaw: string) {
+    const bookPart = bookPartRaw.trim();
+    const normalized = normalizeText(bookPart);
+
+    // Caso clássico de ambiguidade em PT-BR:
+    // "Jo" frequentemente significa "João", mas normaliza igual a "Jó" ("jo").
+    // Se o usuário realmente quis "Jó", normalmente digita com acento ("Jó") ou o nome completo.
+    const normalizedForLookup =
+        normalized === "jo" && !/[ó]/i.test(bookPart) ? "joao" : normalized;
+
+    // 1) Match por id (mais determinístico)
+    const byId = BIBLE_BOOKS_LIST.find(b => normalizeText(b.id) === normalizedForLookup);
+    if (byId) return byId;
+
+    // 2) Match exato por nome
+    const byExactName = BIBLE_BOOKS_LIST.find(b => normalizeText(b.name) === normalizedForLookup);
+    if (byExactName) return byExactName;
+
+    // 3) Fallback: prefix match (abreviações)
+    return BIBLE_BOOKS_LIST.find(b => searchMatch(bookPart, b.name, b.id)) || null;
+}
+
 export const bibleService = {
     /**
      * Helper para esperar o estado do Auth resolver antes de operações sensíveis
@@ -80,11 +102,7 @@ export const bibleService = {
         const chapterStr = match[2];
         const verseStr = match[3];
 
-        // Busca inteligente do livro: Tenta match exato primeiro, depois aproximação
-        const normalizedBookPart = normalizeText(bookPart);
-        const book = BIBLE_BOOKS_LIST.find(b =>
-            normalizeText(b.name) === normalizedBookPart || b.id === normalizedBookPart
-        ) || BIBLE_BOOKS_LIST.find(b => searchMatch(bookPart, b.name, b.id));
+        const book = resolveBibleBook(bookPart);
 
         if (!book) return null;
 
@@ -133,10 +151,7 @@ export const bibleService = {
         const startVerse = match[3] ? parseInt(match[3]) : 1; // Se não especificado, assume versículo 1 (ou cap todo, tratado na UI)
         const endVerse = match[4] ? parseInt(match[4]) : undefined;
 
-        const normalizedBookPart = normalizeText(bookPart);
-        const book = BIBLE_BOOKS_LIST.find(b =>
-            normalizeText(b.name) === normalizedBookPart || b.id === normalizedBookPart
-        ) || BIBLE_BOOKS_LIST.find(b => searchMatch(bookPart, b.name, b.id));
+        const book = resolveBibleBook(bookPart);
 
         if (!book) return null;
 

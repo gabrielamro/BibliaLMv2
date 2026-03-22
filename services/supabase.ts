@@ -179,7 +179,7 @@ export const dbService = {
         return (data ?? []).map((d: any) => ({ ...d, id: d.id, createdAt: d.created_at, updatedAt: d.updated_at }));
     },
     add: async (uid: string, tableName: string, data: any) => {
-        const userColumn = ['custom_plans', 'reading_tracks', 'guided_prayers', 'custom_quizzes', 'evaluations'].includes(tableName)
+        const userColumn = ['custom_plans', 'reading_tracks', 'guided_prayers', 'custom_quizzes', 'evaluations', 'studies'].includes(tableName)
             ? 'author_id'
             : 'user_id';
 
@@ -574,10 +574,20 @@ export const dbService = {
     },
     createPost: async (data: any) => {
         const { error } = await supabase.from('posts').insert({
-            user_id: data.userId, user_display_name: data.userDisplayName, user_username: data.userUsername, user_photo_url: data.userPhotoURL ?? null,
-            content: data.content, type: data.type ?? 'reflection', destination: data.destination ?? 'global',
-            church_id: data.churchId ?? null, cell_id: data.cellId ?? null, image_url: data.imageUrl ?? null,
-            likes_count: 0, comments_count: 0, liked_by: '[]', created_at: now()
+            user_id: data.userId, 
+            user_display_name: data.userDisplayName, 
+            user_username: data.userUsername, 
+            user_photo_url: data.userPhotoURL ?? null,
+            content: data.content, 
+            type: data.type ?? 'reflection', 
+            destination: data.destination ?? 'global',
+            church_id: data.churchId ?? null, 
+            cell_id: data.cellId ?? null, 
+            image_url: data.imageUrl || data.image || null,
+            likes_count: 0, 
+            comments_count: 0, 
+            liked_by: '[]', 
+            created_at: now()
         });
         if (error) throw error;
     },
@@ -667,6 +677,10 @@ export const dbService = {
     getPublicPlans: async (): Promise<CustomPlan[]> => {
         const { data } = await supabase.from('custom_plans').select('*').eq('is_public', true).limit(20);
         return (data ?? []).map(mapPlan);
+    },
+    getPublicTracks: async (limitCount = 20): Promise<Track[]> => {
+        const { data } = await supabase.from('reading_tracks').select('*').in('scope', ['global', 'church']).limit(limitCount);
+        return (data ?? []).map(mapTrack);
     },
     createCustomPlan: async (data: any) => {
         const { data: res, error } = await supabase.from('custom_plans').insert(mapPlanToDb(data)).select().single();
@@ -911,6 +925,64 @@ export const dbService = {
     unpublishStudy: async (uid: string, id: string) => {
         await supabase.from('public_studies').delete().eq('id', id);
         await supabase.from('studies').update({ status: 'draft' }).eq('id', id).eq('user_id', uid);
+    },
+    // Landing Page Creator
+    getPublicStudyById: async (id: string): Promise<any | null> => {
+        const { data } = await supabase.from('public_studies').select('*').eq('id', id).single();
+        return data || null;
+    },
+    createPublicStudy: async (data: any): Promise<{ id: string }> => {
+        const slug = data.slug || `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 9)}`;
+        const { data: result, error } = await supabase
+            .from('public_studies')
+            .insert({
+                user_id: data.authorId,
+                user_name: data.authorName,
+                user_photo: data.authorPhoto,
+                title: data.meta?.title || 'Novo Conteúdo',
+                description: data.meta?.description || '',
+                type: data.type || 'article',
+                slug,
+                blocks: JSON.stringify(data.blocks || []),
+                meta: JSON.stringify(data.meta || {}),
+                status: data.status || 'draft',
+                published_at: data.status === 'published' ? now() : null,
+                views_count: 0,
+                shares_count: 0,
+                created_at: now(),
+                updated_at: now()
+            })
+            .select('id')
+            .single();
+        if (error) throw error;
+        return { id: result.id };
+    },
+    updatePublicStudy: async (id: string, data: any): Promise<void> => {
+        const { error } = await supabase
+            .from('public_studies')
+            .update({
+                title: data.meta?.title,
+                description: data.meta?.description,
+                blocks: JSON.stringify(data.blocks || []),
+                meta: JSON.stringify(data.meta || {}),
+                status: data.status,
+                published_at: data.status === 'published' ? now() : null,
+                updated_at: now()
+            })
+            .eq('id', id);
+        if (error) throw error;
+    },
+    publishPublicStudy: async (id: string, slug: string): Promise<void> => {
+        const { error } = await supabase
+            .from('public_studies')
+            .update({
+                status: 'published',
+                slug,
+                published_at: now(),
+                updated_at: now()
+            })
+            .eq('id', id);
+        if (error) throw error;
     },
     incrementMetric: async (tableName: string, id: string, field: string) => {
         const colMap: Record<string, string> = { views: 'views_count', shares: 'shares_count', completions: 'completions_count', likes: 'likes_count' };

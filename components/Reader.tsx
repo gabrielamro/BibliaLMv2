@@ -239,18 +239,6 @@ const Reader: React.FC = () => {
           onToggleNarration={toggleNarrationPlayPause}
           isNarrationPlaying={isNarrationPlaying}
           onGenerateChapterPodcast={() => generatePodcast(currentBookMetadata.name, chapterContent?.verses.map(v => v.text).join(' ') || '')}
-          activeTrack={activeTrack}
-          currentTrackStepIndex={currentTrackStepIndex}
-          onNavigateTrackNext={() => {
-            if (activeTrack) {
-              const steps = activeTrack.items || [];
-              const nextStep = steps[currentTrackStepIndex + 1];
-              if (nextStep) {
-                setCurrentBookId(nextStep.bookId || 'gn');
-                setCurrentChapterNum(nextStep.chapter || 1);
-              }
-            }
-          }}
           onMarkAsRead={(v) => recordActivity('mark_verse', `Lido: ${currentBookMetadata.name} ${currentChapterNum}:${v}`)}
           onChapterComplete={() => markChapterCompleted(currentBookId, currentChapterNum)}
           lastReadVerse={userProfile?.lastReadingPosition?.verse || null}

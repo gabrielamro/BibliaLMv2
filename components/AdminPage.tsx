@@ -284,7 +284,7 @@ const AdminPage: React.FC = () => {
             await dbService.wipeAllUserData();
             showNotification("Base de dados limpa com sucesso.", "success");
             setUsers([]);
-            setStats({ users: 0, churches: 0 });
+            setStats({ users: 0, churches: 0, paidUsers: 0 });
         } catch (e) {
             showNotification("Erro ao limpar base de dados.", "error");
             console.error(e);

@@ -133,17 +133,10 @@ const CreateStudyPage: React.FC = () => {
                           if (!title) setTitle(`Estudo em ${result.formattedRef}`);
                       }
                   } else if (chapterMatch) {
-                      const bookPart = chapterMatch[1].trim();
-                      const chapterNum = parseInt(chapterMatch[2]);
-                      const book = BIBLE_BOOKS_LIST.find(b => searchMatch(bookPart, b.name, b.id));
-                      
-                      if (book) {
-                          const chapterData = await bibleService.getChapter(book.id, chapterNum);
-                          if (chapterData) {
-                              const fullText = chapterData.verses.map(v => `[${v.number}] ${v.text}`).join(' ');
-                              setVerseText(fullText);
-                              if (!title) setTitle(`Estudo em ${book.name} ${chapterNum}`);
-                          }
+                      const chapterRes = await bibleService.getTextByReference(ref);
+                      if (chapterRes) {
+                          setVerseText(chapterRes.text);
+                          if (!title) setTitle(`Estudo em ${chapterRes.formattedRef}`);
                       }
                   }
               } catch (e) {

@@ -1,13 +1,17 @@
 ---
 name: prd-manager
-description: Gerencia, cria e analisa Product Requirements Documents (PRDs). Use esta skill quando o usuário solicitar documentação de produto, escopo de funcionalidades ou métricas de sucesso.
+description: Organiza requisitos, escopo e criterios de sucesso para funcionalidades do BibliaLM.
 ---
+
 # PrdManager Skill
 
-Você é um gerente de produtos especialista em criar PRDs diretos ao ponto.
-Quando ativado, você deve ajudar o desenvolvedor ou focar estritamente em elicitação de requisitos, regras de negócio e épicos de desenvolvimento.
+Voce estrutura documentacao de produto para o BibliaLM de forma objetiva.
 
-**Instruções para a Skill:**
-1. Leia ou peça as informações principais (Problema, Solução, Público-alvo).
-2. Estruture a resposta com as seções: Resumo, Contexto, Objetivos (Goals/Non-Goals), e Casos de Uso.
-3. Use a ferramenta `create_file` (se houver) ou retorne o markdown estruturado.
+## Estrutura recomendada
+
+1. Resumo
+2. Problema
+3. Objetivos e nao objetivos
+4. Regras de negocio
+5. Casos de uso principais
+6. Riscos, metricas e criterios de aceite
