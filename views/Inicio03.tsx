@@ -323,6 +323,8 @@ const SanctuaryPage: React.FC = () => {
           {/* COLUNA ESQUERDA (Principal) - ocupa 8 colunas no grid baseado no anexo */}
           <div className="lg:col-span-8 space-y-4 lg:space-y-6">
             
+            {activeTab === 'inicio' && (
+              <>
             {/* 1. HERO - VERSÍCULO DO DIA */}
             <div className="relative rounded-2xl md:rounded-[2rem] overflow-hidden min-h-[320px] md:min-h-[400px] flex flex-col justify-end p-6 md:p-10 group cursor-pointer" onClick={openVerseOfDay}>
               <div className="absolute inset-0">
@@ -571,6 +573,152 @@ const SanctuaryPage: React.FC = () => {
                 </button>
               </div>
             </div>
+            </>
+            )}
+
+            {/* ==================== ABA CRIAR ==================== */}
+            {activeTab === 'criar' && (
+              <div className="space-y-6">
+                
+                {/* 1. RESUMO IA / CRÉDITOS */}
+                <div className="bg-[#1A1624] rounded-[2rem] p-6 md:p-8 border border-[#2A2A2A] relative overflow-hidden flex flex-col md:flex-row items-center gap-6">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/5 blur-3xl rounded-full" />
+                  <div className="w-16 h-16 bg-[#c5a059] rounded-2xl flex items-center justify-center border border-white/10 shadow-lg relative z-10 shrink-0">
+                    <Sparkles size={32} className="text-white" />
+                  </div>
+                  <div className="relative z-10 flex-1">
+                    <h2 className="text-white font-bold text-[24px] leading-tight mb-2">Seu Estúdio Criativo</h2>
+                    <p className="text-gray-400 text-[14px] leading-relaxed">
+                      Você pode gerar imagens bíblicas, criar episódios de podcast curtos e planejar esboços utilizando os assistentes de IA especializados.
+                    </p>
+                  </div>
+                  <div className="relative z-10 bg-[#120F18] border border-[#2A2A2A] rounded-2xl p-4 shrink-0 flex items-center gap-4">
+                    <div className="flex flex-col">
+                      <span className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-1">Status</span>
+                      <span className="text-green-500 font-bold text-sm flex items-center gap-1"><Zap size={14} /> Ativo</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. FERRAMENTAS */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* ... cards artes sacras, podcast, criar conteudo ... */}
+                  <button 
+                    onClick={() => navigate('/artes-sacras')}
+                    className="bg-[#1A1E24] p-5 rounded-2xl border border-[#2A2A2A] text-left hover:border-blue-500/30 transition-colors group relative overflow-hidden h-[180px] flex flex-col"
+                  >
+                    <div className="flex items-center gap-2 mb-auto">
+                      <div className="p-2 rounded-lg bg-blue-500/10">
+                         <Image size={24} className="text-blue-500" />
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-white font-bold text-lg">Gerar Imagens</h3>
+                      <p className="text-gray-400 text-xs mt-1">Crie artes sacras com IA.</p>
+                      <div className="mt-4 flex items-center text-blue-500 text-xs font-bold gap-1 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
+                        INICIAR <ArrowRight size={12} />
+                      </div>
+                    </div>
+                  </button>
+
+                  <button 
+                    onClick={() => navigate('/estudio-criativo', { state: { tool: 'podcast' } })}
+                    className="bg-[#1A1E24] p-5 rounded-2xl border border-[#2A2A2A] text-left hover:border-pink-500/30 transition-colors group relative overflow-hidden h-[180px] flex flex-col"
+                  >
+                    <div className="flex items-center gap-2 mb-auto">
+                      <div className="p-2 rounded-lg bg-pink-500/10">
+                         <Mic size={24} className="text-pink-500" />
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-white font-bold text-lg">Gerar Podcast</h3>
+                      <p className="text-gray-400 text-xs mt-1">Narrativas e Devocionais gerados em áudio.</p>
+                      <div className="mt-4 flex items-center text-pink-500 text-xs font-bold gap-1 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
+                        INICIAR <ArrowRight size={12} />
+                      </div>
+                    </div>
+                  </button>
+
+                  <button 
+                    onClick={() => navigate('/criar-conteudo')}
+                    className="bg-[#1A1E24] p-5 rounded-2xl border border-[#2A2A2A] text-left hover:border-green-500/30 transition-colors group relative overflow-hidden h-[180px] flex flex-col md:col-span-2 lg:col-span-1"
+                  >
+                    <div className="flex items-center gap-2 mb-auto">
+                      <div className="p-2 rounded-lg bg-green-500/10">
+                         <Wand2 size={24} className="text-green-500" />
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-white font-bold text-lg">Esboços de IA</h3>
+                      <p className="text-gray-400 text-xs mt-1">Aprofundamento de textos.</p>
+                      <div className="mt-4 flex items-center text-green-500 text-xs font-bold gap-1 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
+                        INICIAR <ArrowRight size={12} />
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                {/* 3. HISTÓRICO RECENTE & DICAS */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Historico */}
+                  <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-6">
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-white font-bold flex items-center gap-2"><History size={16} className="text-gray-400"/> Histórico Recente</h3>
+                      <button className="text-[10px] text-[#c5a059] font-bold uppercase tracking-widest hover:text-white transition-colors">Ver Tudo</button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-3">
+                      {[
+                        { url: 'https://images.unsplash.com/photo-1507692049790-de58290a4334?w=200', title: 'Criação', type: 'image' },
+                        { url: 'https://images.unsplash.com/photo-1508672019048-805c876b67e2?w=200', title: 'Mar Vermelho', type: 'image' },
+                        { url: 'https://images.unsplash.com/photo-1489549132488-d00b7eee80f1?w=200', title: 'Jerusalém', type: 'podcast' },
+                        { url: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=200', title: 'Daniel', type: 'podcast' },
+                      ].map((item, i) => (
+                        <div key={i} className="aspect-square rounded-xl overflow-hidden bg-[#1A1A1A] relative group cursor-pointer border border-[#2A2A2A] hover:border-[#c5a059]/50 transition-colors">
+                          <img src={item.url} alt={item.title} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
+                          <div className="absolute top-1 left-1 p-1 bg-black/50 backdrop-blur rounded-md">
+                            {item.type === 'image' ? <Image size={10} className="text-white"/> : <Mic size={10} className="text-white"/>}
+                          </div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="text-white text-[9px] font-bold truncate">{item.title}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Dicas */}
+                  <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-6">
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-white font-bold flex items-center gap-2"><Book size={16} className="text-gray-400"/> Dicas de Prompt</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="p-3 bg-[#1A1A1A] rounded-xl border border-[#2A2A2A]">
+                        <span className="text-[10px] text-[#c5a059] font-bold uppercase mb-1 block">Imagens</span>
+                        <p className="text-gray-400 text-xs">Para melhores resultados, seja descritivo com o estilo desejado. Ex: "Jesus caminhando sobre as águas, estilo pintura a óleo impressionista, luz dramática".</p>
+                      </div>
+                      <div className="p-3 bg-[#1A1A1A] rounded-xl border border-[#2A2A2A]">
+                        <span className="text-[10px] text-pink-500 font-bold uppercase mb-1 block">Podcasts</span>
+                        <p className="text-gray-400 text-xs">Cole o versículo ou citação completa do devocional e defina o tom como "encorajador" ou "reflexivo" para a narração.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* ==================== ABA REINO ==================== */}
+            {activeTab === 'reino' && (
+              <div className="space-y-6">
+                <div className="bg-[#1A1E24] rounded-2xl p-10 border border-[#2A2A2A] text-center">
+                  <Users size={48} className="text-gray-500 mx-auto mb-4" />
+                  <h2 className="text-white font-bold text-xl mb-2">Comunidade Reino</h2>
+                  <p className="text-gray-400 text-sm max-w-md mx-auto relative cursor-pointer">
+                    A aba Reino está em desenvolvimento. Em breve você poderá interagir com a comunidade, igrejas, enviar pedidos de oração e acompanhar atividades.
+                  </p>
+                </div>
+              </div>
+            )}
 
           </div>
 
