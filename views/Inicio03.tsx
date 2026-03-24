@@ -30,6 +30,7 @@ const SanctuaryPage: React.FC = () => {
   const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
   const [dailyDevotional, setDailyDevotional] = useState<any>(null);
   const [loadingDevotional, setLoadingDevotional] = useState(true);
+  const [searchPreview, setSearchPreview] = useState<{ text: string, formattedRef: string, routeState: any } | null>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -59,6 +60,38 @@ const SanctuaryPage: React.FC = () => {
     }
     navigate('/biblia');
   };
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      const term = searchTerm.trim();
+      if (term.length >= 3) {
+        const parsed = bibleService.parseReference(term);
+        if (parsed) {
+           // Procura o versículo ou trecho
+           const verseData = await bibleService.getTextByReference(term) || await bibleService.getVerseText(term);
+           if (verseData) {
+              setSearchPreview({
+                 text: verseData.text,
+                 formattedRef: verseData.formattedRef,
+                 routeState: {
+                   bookId: parsed.bookId,
+                   chapter: parsed.chapter,
+                   scrollToVerse: parsed.startVerse
+                 }
+              });
+           } else {
+              setSearchPreview(null);
+           }
+        } else {
+           setSearchPreview(null);
+        }
+      } else {
+        setSearchPreview(null);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm]);
 
   useEffect(() => {
     setIsHeaderHidden(true);
@@ -278,12 +311,28 @@ const SanctuaryPage: React.FC = () => {
               onChange={e => setSearchTerm(e.target.value)}
               onKeyDown={e => {
                 if (e.key === 'Enter' && searchTerm.trim()) {
-                  navigate(`/social/explore?q=${encodeURIComponent(searchTerm.trim())}`);
+                  if (searchPreview) {
+                    navigate('/biblia', { state: searchPreview.routeState });
+                  } else {
+                    navigate(`/social/explore?q=${encodeURIComponent(searchTerm.trim())}`);
+                  }
                 }
               }}
               placeholder="Buscar versículos, estudos, pessoas..."
-              className="w-full bg-[#161616] border border-transparent rounded-xl py-3 pl-11 pr-4 text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:border-[#c5a059]/30 transition-all outline-none"
+              className="w-full bg-white dark:bg-[#161616] border border-gray-200 dark:border-transparent rounded-xl py-3 pl-11 pr-4 text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:border-[#c5a059]/50 transition-all outline-none"
             />
+            {/* Search Preview Autocomplete */}
+            {searchPreview && (
+              <div className={`absolute top-full left-0 right-0 mt-2 rounded-xl shadow-xl overflow-hidden z-50 p-4 border cursor-pointer flex flex-col gap-2 ${isLightTheme ? 'bg-white border-gray-200 hover:bg-gray-50' : 'bg-[#1A1A1A] border-[#2A2A2A] hover:bg-[#202020]'}`}
+                   onClick={() => navigate('/biblia', { state: searchPreview.routeState })}>
+                <div className="flex items-center gap-2 text-[#c5a059]">
+                  <BookOpen size={16} />
+                  <span className="font-bold text-xs uppercase tracking-widest">{searchPreview.formattedRef}</span>
+                </div>
+                <p className="text-gray-900 dark:text-white text-sm line-clamp-2">"{searchPreview.text}"</p>
+                <span className="text-gray-500 text-[10px] uppercase font-bold mt-1">APERTAR ENTER PARA LER</span>
+              </div>
+            )}
           </div>
 
           {/* Tabs Nav */}
@@ -328,7 +377,7 @@ const SanctuaryPage: React.FC = () => {
             {/* 1. HERO - VERSÍCULO DO DIA */}
             <div className="relative rounded-2xl md:rounded-[2rem] overflow-hidden min-h-[320px] md:min-h-[400px] flex flex-col justify-end p-6 md:p-10 group cursor-pointer" onClick={openVerseOfDay}>
               <div className="absolute inset-0">
-                <img src="https://images.unsplash.com/photo-1525286102666-b3281abadd14?auto=format&fit=crop&q=80&w=1600" alt="Background Adoração" className="w-full h-full object-cover transition-transform duration-[20s] group-hover:scale-105" />
+                <img src="https://images.unsplash.com/photo-1525286102666-b3281abadd14?auto=format&fit=crop&q=80&w=1600" alt="" className="w-full h-full object-cover transition-transform duration-[20s] group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0E0E0E] via-[#0E0E0E]/80 to-[#0E0E0E]/30" />
                 <div className="absolute top-10 left-0 w-full text-center pointer-events-none opacity-80">
                   <h1 className="text-[120px] md:text-[180px] font-black text-white/10 tracking-tighter leading-none select-none">JESUS</h1>
@@ -361,7 +410,7 @@ const SanctuaryPage: React.FC = () => {
             {/* 2. META LIDA & PÃO DIÁRIO */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Meta de Leitura */}
-              <div className="bg-gray-50 dark:bg-[#141414] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex justify-between items-center cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors" onClick={() => navigate('/plano')}>
+              <div className="bg-gray-50 dark:bg-[#141414] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex justify-between items-center cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors" onClick={() => navigate('/estudos')}>
                 <div className="flex flex-col h-full justify-between">
                   <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center mb-6">
                     <Target size={16} className="text-blue-500" />
@@ -405,7 +454,7 @@ const SanctuaryPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="relative z-10 w-2/3 pl-4 flex flex-col justify-center border-l border-gray-200 dark:border-[#2A2A2A] ml-4 bg-gradient-to-r from-transparent to-[#141414]">
+                <div className="relative z-10 w-2/3 pl-4 flex flex-col justify-center border-l border-gray-200 dark:border-[#2A2A2A] ml-4 bg-gradient-to-r from-transparent to-gray-50 dark:to-[#141414]">
                   <div className="flex items-center gap-1 text-[#c5a059] mb-2">
                     <Zap size={10} fill="currentColor" />
                     <span className="text-[9px] font-black tracking-widest uppercase">DEVOCIONAL DO DIA</span>
@@ -418,105 +467,122 @@ const SanctuaryPage: React.FC = () => {
               </div>
             </div>
 
-            {/* 3. PLANOS & SALAS */}
-            <div className="pt-2 border-t border-transparent">
+            {/* 3. PLANOS & SALAS (ADMIN ONLY) */}
+            {isAdmin && (
+              <div className="pt-2 border-t border-transparent">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <BookOpen size={18} className="text-[#c5a059]" />
+                    <h2 className="font-bold text-base">Planos & Salas</h2>
+                  </div>
+                  <button 
+                    onClick={() => navigate('/workspace-pastoral')}
+                    className="text-[#c5a059] font-black text-[10px] tracking-widest uppercase hover:text-white transition-colors"
+                  >
+                    PAINEL DE CONTROLE
+                  </button>
+                </div>
+
+                <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+                  {/* Nova Sala */}
+                  <button 
+                    onClick={() => navigate('/criador-jornada')}
+                    className="min-w-[160px] h-[190px] rounded-2xl border border-dashed border-[#c5a059]/40 bg-transparent flex flex-col items-center justify-center gap-4 hover:bg-[#c5a059]/5 transition-colors cursor-pointer shrink-0"
+                  >
+                    <div className="w-12 h-12 bg-[#c5a059] rounded-xl flex items-center justify-center text-black">
+                      <Plus size={24} />
+                    </div>
+                    <span className="text-gray-900 dark:text-white font-bold text-[11px] uppercase tracking-wider">NOVA SALA</span>
+                  </button>
+
+                  {plans.length > 0 ? plans.map(plan => (
+                    <div 
+                      key={plan.id}
+                      className="min-w-[200px] h-[190px] rounded-2xl p-5 bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-between cursor-pointer hover:border-gray-400 dark:hover:border-[#4A4A4A] transition-colors shrink-0"
+                      onClick={() => navigate(`/plano/${plan.id}`)}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="bg-[#1a4a35] text-emerald-400 font-bold text-[8px] px-2 py-1 rounded tracking-widest">EM ANDAMENTO</span>
+                          <span className="text-gray-500 dark:text-gray-500 font-bold text-[9px]">{new Date(plan.createdAt || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                        </div>
+                        <h3 className="text-gray-900 dark:text-white font-bold text-sm truncate">{plan.title}</h3>
+                      </div>
+                      
+                      <div>
+                        <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-500 font-bold mb-1">
+                          <User size={12} /> {plan.teams && plan.teams.length > 0 ? 'SALA EM TIME' : 'SALA INDIVIDUAL'}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-500 font-bold mb-4">
+                          <BookOpen size={12} /> {plan.planningFrequency === 'daily' ? 'DIÁRIO' : 'LIVRE'}
+                        </div>
+                        <button className="w-full bg-gray-100 dark:bg-[#2A2A2A] hover:bg-gray-200 dark:hover:bg-[#3A3A3A] transition-colors text-gray-900 dark:text-white font-bold text-[10px] py-2 rounded-lg flex items-center justify-center gap-2">
+                          GERENCIAR SALA <ArrowRight size={14} className="text-gray-600 dark:text-gray-400" />
+                        </button>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="min-w-[200px] h-[190px] rounded-2xl p-5 bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-center items-center text-center shrink-0">
+                      <BookOpen size={24} className="text-gray-600 mb-3" />
+                      <span className="text-gray-500 dark:text-gray-500 text-xs mb-2">Você ainda não tem salas ativas</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 4. MEUS ESTUDOS E CARDS */}
+            <div className={`pt-2 border-t ${isAdmin ? 'border-gray-200 dark:border-[#2A2A2A] mt-6' : 'border-transparent'}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2 text-gray-900 dark:text-white">
-                  <BookOpen size={18} className="text-[#c5a059]" />
-                  <h2 className="font-bold text-base">Planos & Salas</h2>
+                  <FileText size={18} className="text-[#c5a059]" />
+                  <h2 className="font-bold text-base">Meus Estudos</h2>
                 </div>
                 <button 
-                  onClick={() => navigate('/workspace-pastoral')}
+                  onClick={() => navigate('/estudos')}
                   className="text-[#c5a059] font-black text-[10px] tracking-widest uppercase hover:text-white transition-colors"
                 >
-                  PAINEL DE CONTROLE
+                  VER TODOS
                 </button>
               </div>
 
-              <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
-                {/* Nova Sala */}
-                <button 
-                  onClick={() => navigate('/criador-jornada')}
-                  className="min-w-[160px] h-[190px] rounded-2xl border border-dashed border-[#c5a059]/40 bg-transparent flex flex-col items-center justify-center gap-4 hover:bg-[#c5a059]/5 transition-colors cursor-pointer shrink-0"
+              <div className="flex flex-col md:flex-row gap-4 h-[240px]">
+                {/* Box Criar Estudo */}
+                <div 
+                  className="w-full md:w-[35%] bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col items-center justify-center relative overflow-hidden cursor-pointer hover:border-blue-500/30 transition-colors"
+                  onClick={() => navigate('/criar-conteudo')}
                 >
-                  <div className="w-12 h-12 bg-[#c5a059] rounded-xl flex items-center justify-center text-black">
-                    <Plus size={24} />
+                  <div className="w-12 h-12 bg-gray-100 dark:bg-[#2A2A2A] flex items-center justify-center rounded-xl mb-4 relative z-10">
+                    <FileText size={24} className="text-gray-900 dark:text-white" />
                   </div>
-                  <span className="text-gray-900 dark:text-white font-bold text-[11px] uppercase tracking-wider">NOVA SALA</span>
-                </button>
-
-                {plans.length > 0 ? plans.map(plan => (
-                  <div 
-                    key={plan.id}
-                    className="min-w-[200px] h-[190px] rounded-2xl p-5 bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-between cursor-pointer hover:border-gray-400 dark:hover:border-[#4A4A4A] transition-colors shrink-0"
-                    onClick={() => navigate(`/plano/${plan.id}`)}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="bg-[#1a4a35] text-emerald-400 font-bold text-[8px] px-2 py-1 rounded tracking-widest">EM ANDAMENTO</span>
-                        <span className="text-gray-500 dark:text-gray-500 font-bold text-[9px]">{new Date(plan.createdAt || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
-                      </div>
-                      <h3 className="text-gray-900 dark:text-white font-bold text-sm truncate">{plan.title}</h3>
-                    </div>
-                    
-                    <div>
-                      <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-500 font-bold mb-1">
-                        <User size={12} /> {plan.teams && plan.teams.length > 0 ? 'SALA EM TIME' : 'SALA INDIVIDUAL'}
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-500 font-bold mb-4">
-                        <BookOpen size={12} /> {plan.planningFrequency === 'daily' ? 'DIÁRIO' : 'LIVRE'}
-                      </div>
-                      <button className="w-full bg-gray-100 dark:bg-[#2A2A2A] hover:bg-gray-200 dark:hover:bg-[#3A3A3A] transition-colors text-gray-900 dark:text-white font-bold text-[10px] py-2 rounded-lg flex items-center justify-center gap-2">
-                        GERENCIAR SALA <ArrowRight size={14} className="text-gray-600 dark:text-gray-400" />
-                      </button>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="min-w-[200px] h-[190px] rounded-2xl p-5 bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-center items-center text-center shrink-0">
-                    <BookOpen size={24} className="text-gray-600 mb-3" />
-                    <span className="text-gray-500 dark:text-gray-500 text-xs mb-2">Você ainda não tem salas ativas</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 4. CRIAR ESTUDO E CARDS */}
-            <div className="flex flex-col md:flex-row gap-4 h-[240px]">
-              {/* Box Criar Estudo */}
-              <div 
-                className="w-full md:w-[35%] bg-white dark:bg-[#1A1E24] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col items-center justify-center relative overflow-hidden cursor-pointer hover:border-blue-500/30 transition-colors"
-                onClick={() => navigate('/criar-conteudo')}
-              >
-                <div className="w-12 h-12 bg-white flex items-center justify-center rounded-xl mb-4">
-                  <FileText size={24} className="text-black" />
+                  <h3 className="text-gray-900 dark:text-white font-bold text-lg mb-1 relative z-10">Criar Estudo</h3>
+                  <p className="text-gray-600 dark:text-gray-400 text-xs relative z-10">Análise profunda com IA</p>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-2xl rounded-full translate-x-1/2 -translate-y-1/2" />
                 </div>
-                <h3 className="text-gray-900 dark:text-white font-bold text-lg mb-1">Criar Estudo</h3>
-                <p className="text-gray-600 dark:text-gray-400 text-xs">Análise profunda com IA</p>
-                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-2xl rounded-full translate-x-1/2 -translate-y-1/2" />
-              </div>
 
-              {/* Box Cards Escuros */}
-              <div className="w-full md:w-[65%] flex gap-4 h-full">
-                {plans.length > 0 ? plans.slice(0, 2).map((plan, i) => (
-                  <div key={`box-${plan.id || i}`} onClick={() => navigate(`/plano/${plan.id}`)} className="flex-1 bg-white dark:bg-[#121212] rounded-2xl p-6 border border-gray-200 dark:border-[#202020] flex flex-col justify-between cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-gray-900 dark:text-white font-medium text-sm line-clamp-2">{plan.title}</h3>
-                      <span className="text-gray-500 dark:text-gray-500 text-[10px] font-bold shrink-0">{new Date(plan.createdAt || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                {/* Box Cards Escuros */}
+                <div className="w-full md:w-[65%] flex gap-4 h-full">
+                  {plans.length > 0 ? plans.slice(0, 2).map((plan, i) => (
+                    <div key={`box-${plan.id || i}`} onClick={() => navigate(`/plano/${plan.id}`)} className="flex-1 bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-between cursor-pointer hover:border-[#c5a059]/30 transition-colors">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="text-gray-900 dark:text-white font-bold text-sm line-clamp-2">{plan.title}</h3>
+                        <span className="text-gray-500 dark:text-gray-500 text-[10px] font-bold shrink-0">{new Date(plan.createdAt || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[#c5a059]">
+                        <BookOpen size={14} /> <span className="text-xs font-bold uppercase">{plan.planningFrequency === 'daily' ? 'Diário' : 'Leitura'}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-500">
-                      <BookOpen size={14} /> <span className="text-xs font-bold uppercase">{plan.planningFrequency === 'daily' ? 'Diário' : 'Leitura'}</span>
-                    </div>
-                  </div>
-                )) : (
-                  <>
-                    <div onClick={() => navigate('/plano')} className="flex-1 bg-white dark:bg-[#121212] rounded-2xl p-6 border border-gray-200 dark:border-[#202020] flex flex-col justify-center items-center cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors text-center">
-                      <span className="text-gray-500 dark:text-gray-500 text-xs">Nenhum estudo iniciado</span>
-                    </div>
-                    <div onClick={() => navigate('/plano')} className="flex-1 bg-white dark:bg-[#121212] rounded-2xl p-6 border border-gray-200 dark:border-[#202020] flex flex-col justify-center items-center cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors text-center">
-                      <span className="text-gray-500 dark:text-gray-500 text-xs">Explore a biblioteca</span>
-                    </div>
-                  </>
-                )}
+                  )) : (
+                    <>
+                      <div onClick={() => navigate('/estudos')} className="flex-1 bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-center items-center cursor-pointer hover:border-[#c5a059]/30 transition-colors text-center">
+                        <span className="text-gray-500 dark:text-gray-500 text-xs font-bold">Nenhum estudo iniciado</span>
+                      </div>
+                      <div onClick={() => navigate('/estudos')} className="flex-1 bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-center items-center cursor-pointer hover:border-[#c5a059]/30 transition-colors text-center">
+                        <span className="text-gray-500 dark:text-gray-500 text-xs font-bold">Explore a biblioteca</span>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -536,7 +602,7 @@ const SanctuaryPage: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
                 <button 
-                  onClick={() => navigate('/artes-sacras')}
+                  onClick={() => navigate('/criar-arte-sacra')}
                   className="bg-white dark:bg-[#16131D] p-5 rounded-2xl border border-gray-200 dark:border-[#252525] text-left hover:border-green-500/30 transition-colors"
                 >
                   <div className="flex items-center gap-2 mb-3">
@@ -547,15 +613,15 @@ const SanctuaryPage: React.FC = () => {
                   </div>
                   <p className="text-[#888] text-[11px] leading-relaxed mb-4 min-h-[34px]">Crie imagens inspiradas em versículos, cenas bíblicas ou reflexões espirituais.</p>
                   <div className="flex gap-2">
-                    <span className="px-2 py-1 bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Realista</span>
-                    <span className="px-2 py-1 bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Óleo</span>
-                    <span className="px-2 py-1 bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Cinematográfico</span>
-                    <span className="px-2 py-1 bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Aquarela</span>
+                    <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Realista</span>
+                    <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Óleo</span>
+                    <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Cinematográfico</span>
+                    <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Aquarela</span>
                   </div>
                 </button>
 
                 <button 
-                  onClick={() => navigate('/estudio-criativo', { state: { tool: 'podcast' } })}
+                  onClick={() => navigate('/criar-podcast')}
                   className="bg-white dark:bg-[#16131D] p-5 rounded-2xl border border-gray-200 dark:border-[#252525] text-left hover:border-pink-500/30 transition-colors"
                 >
                   <div className="flex items-center gap-2 mb-3">
@@ -566,9 +632,9 @@ const SanctuaryPage: React.FC = () => {
                   </div>
                   <p className="text-[#888] text-[11px] leading-relaxed mb-4 min-h-[34px]">Transforme versículos e reflexões em episódios de podcast com narração IA.</p>
                   <div className="flex gap-2">
-                    <span className="px-2 py-1 bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Devocional</span>
-                    <span className="px-2 py-1 bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Estudo</span>
-                    <span className="px-2 py-1 bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Pregação</span>
+                    <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Devocional</span>
+                    <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Estudo</span>
+                    <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Pregação</span>
                   </div>
                 </button>
               </div>
@@ -592,7 +658,7 @@ const SanctuaryPage: React.FC = () => {
                       Você pode gerar imagens bíblicas, criar episódios de podcast curtos e planejar esboços utilizando os assistentes de IA especializados.
                     </p>
                   </div>
-                  <div className="relative z-10 bg-[#120F18] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-4 shrink-0 flex items-center gap-4">
+                  <div className="relative z-10 bg-gray-50 dark:bg-[#120F18] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-4 shrink-0 flex items-center gap-4">
                     <div className="flex flex-col">
                       <span className="text-gray-500 dark:text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-1">Status</span>
                       <span className="text-green-500 font-bold text-sm flex items-center gap-1"><Zap size={14} /> Ativo</span>
@@ -604,7 +670,7 @@ const SanctuaryPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* ... cards artes sacras, podcast, criar conteudo ... */}
                   <button 
-                    onClick={() => navigate('/artes-sacras')}
+                    onClick={() => navigate('/criar-arte-sacra')}
                     className="bg-white dark:bg-[#1A1E24] p-5 rounded-2xl border border-gray-200 dark:border-[#2A2A2A] text-left hover:border-blue-500/30 transition-colors group relative overflow-hidden h-[180px] flex flex-col"
                   >
                     <div className="flex items-center gap-2 mb-auto">
@@ -622,7 +688,7 @@ const SanctuaryPage: React.FC = () => {
                   </button>
 
                   <button 
-                    onClick={() => navigate('/estudio-criativo', { state: { tool: 'podcast' } })}
+                    onClick={() => navigate('/criar-podcast')}
                     className="bg-white dark:bg-[#1A1E24] p-5 rounded-2xl border border-gray-200 dark:border-[#2A2A2A] text-left hover:border-pink-500/30 transition-colors group relative overflow-hidden h-[180px] flex flex-col"
                   >
                     <div className="flex items-center gap-2 mb-auto">
@@ -870,7 +936,7 @@ const SanctuaryPage: React.FC = () => {
             </button>
 
             {/* Acesso Rápido Black Box */}
-            <div className="bg-[#101010] border border-gray-200 dark:border-[#202020] rounded-[2rem] p-6 pb-2">
+            <div className="bg-white dark:bg-[#101010] border border-gray-200 dark:border-[#202020] rounded-[2rem] p-6 pb-2">
               <h4 className="text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase tracking-wider mb-6 pl-2">ACESSO RÁPIDO</h4>
               
               <div className="space-y-1 mb-6">
@@ -881,8 +947,8 @@ const SanctuaryPage: React.FC = () => {
                   { icon: <Plus size={16} />, label: 'Criar Estudo', color: 'text-green-500', route: '/criar-conteudo' },
                   { icon: <Trophy size={16} />, label: 'Ranking Global', color: 'text-yellow-500', route: '/quiz' },
                 ].map((item, i) => (
-                  <button key={`core-${i}`} onClick={() => navigate(item.route)} className="w-full flex items-center gap-4 py-3 px-2 hover:bg-[#1A1A1A] rounded-xl transition-colors">
-                    <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center bg-[#151515] border border-gray-200 dark:border-[#252525]">
+                  <button key={`core-${i}`} onClick={() => navigate(item.route)} className="w-full flex items-center gap-4 py-3 px-2 hover:bg-gray-50 dark:hover:bg-[#1A1A1A] rounded-xl transition-colors">
+                    <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center bg-gray-50 dark:bg-[#151515] border border-gray-200 dark:border-[#252525]">
                       <div className={item.color}>{item.icon}</div>
                     </div>
                     <span className="text-[13px] text-gray-900 dark:text-white font-bold">{item.label}</span>
@@ -890,7 +956,7 @@ const SanctuaryPage: React.FC = () => {
                 ))}
               </div>
 
-              <div className="h-[1px] bg-[#202020] w-full mb-6" />
+              <div className="h-[1px] bg-gray-200 dark:bg-[#202020] w-full mb-6" />
 
               <div className="space-y-1 mb-6">
                 {[
@@ -905,8 +971,8 @@ const SanctuaryPage: React.FC = () => {
                   { icon: <CreditCard size={16} />, label: 'Assinatura PRO', color: 'text-slate-400', route: '/planos' },
                   { icon: <HelpCircle size={16} />, label: 'Ajuda & Suporte', color: 'text-gray-400', route: '/suporte' }
                 ].map((item, i) => (
-                  <button key={`tools-${i}`} onClick={() => item.onClick ? item.onClick() : navigate(item.route)} className="w-full flex items-center gap-4 py-3 px-2 hover:bg-[#1A1A1A] rounded-xl transition-colors">
-                    <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center bg-[#151515] border border-gray-200 dark:border-[#252525]">
+                  <button key={`tools-${i}`} onClick={() => item.onClick ? item.onClick() : navigate(item.route)} className="w-full flex items-center gap-4 py-3 px-2 hover:bg-gray-50 dark:hover:bg-[#1A1A1A] rounded-xl transition-colors">
+                    <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center bg-gray-50 dark:bg-[#151515] border border-gray-200 dark:border-[#252525]">
                       <div className={item.color}>{item.icon}</div>
                     </div>
                     <span className="text-[13px] text-gray-900 dark:text-white font-bold">{item.label}</span>
@@ -916,7 +982,7 @@ const SanctuaryPage: React.FC = () => {
             </div>
 
             {/* Descobertas / Flash Quiz Box */}
-            <div className="bg-[#0A0A0A] border border-gray-200 dark:border-[#202020] rounded-[2rem] p-6 relative overflow-hidden">
+            <div className="bg-white dark:bg-[#0A0A0A] border border-gray-200 dark:border-[#202020] rounded-[2rem] p-6 relative overflow-hidden">
               <div className="flex items-center gap-2 mb-6 relative z-10">
                 <Zap size={14} className="text-[#c5a059]" />
                 <span className="text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase tracking-wider">DESCOBERTAS</span>
@@ -937,7 +1003,7 @@ const SanctuaryPage: React.FC = () => {
                     <button 
                       key={opt}
                       onClick={() => navigate('/quiz')}
-                      className="w-full text-left bg-white dark:bg-[#1A1A1A] hover:bg-[#252525] border border-gray-200 dark:border-[#2A2A2A] rounded-xl py-3 px-4 text-[13px] text-gray-300 font-medium transition-colors"
+                      className="w-full text-left bg-white dark:bg-[#1A1A1A] hover:bg-gray-50 dark:hover:bg-[#252525] border border-gray-200 dark:border-[#2A2A2A] rounded-xl py-3 px-4 text-[13px] text-gray-700 dark:text-gray-300 font-medium transition-colors"
                     >
                       {opt}
                     </button>

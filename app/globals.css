@@ -61,3 +61,29 @@
     }
   }
 }
+
+/* Editor Simulation Proportions (Canvas Viewport Overrides) */
+.canvas-mobile {
+  container-type: inline-size;
+}
+
+.canvas-mobile * {
+  word-break: break-word;
+}
+
+.canvas-mobile h1, .canvas-mobile .text-5xl, .canvas-mobile .lg\:text-5xl, .canvas-mobile .lg\:text-7xl { font-size: 1.875rem !important; line-height: 2.25rem !important; }
+.canvas-mobile h2, .canvas-mobile .text-4xl, .canvas-mobile .lg\:text-4xl { font-size: 1.5rem !important; line-height: 2rem !important; }
+.canvas-mobile h3, .canvas-mobile .text-3xl { font-size: 1.25rem !important; line-height: 1.75rem !important; }
+.canvas-mobile p, .canvas-mobile .text-lg, .canvas-mobile .text-xl { font-size: 0.875rem !important; line-height: 1.5rem !important; }
+
+.canvas-mobile .py-12, .canvas-mobile .py-16, .canvas-mobile .py-20, .canvas-mobile .py-24, .canvas-mobile .p-12, .canvas-mobile .p-16 { padding-top: 2.5rem !important; padding-bottom: 2.5rem !important; padding-left: 1.25rem !important; padding-right: 1.25rem !important; }
+.canvas-mobile .px-12, .canvas-mobile .px-16 { padding-left: 1rem !important; padding-right: 1rem !important; }
+.canvas-mobile .min-h-\[300px\], .canvas-mobile .min-h-\[400px\] { min-height: 200px !important; }
+
+.canvas-mobile h3, .canvas-tablet h3 { font-size: 1.25rem !important; }
+
+/* Force prose to be full width within blocks */
+.prose, .rich-editor-content {
+  max-width: none !important;
+}
+

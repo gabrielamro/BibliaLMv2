@@ -287,3 +287,8 @@ export const generateQuizWithAudit = async (
 };
 
 export { type AuditoriaResult } from './pastorAuditor';
+
+export const generateAIOnePage = async (userPrompt: string, authorName?: string): Promise<any> => {
+    return await bigPickle.generateAIOnePage(userPrompt, authorName);
+};
+

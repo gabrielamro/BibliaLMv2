@@ -5,7 +5,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import {
     Bold, Italic, List, Heading1, Heading2, Quote, Undo, Eraser,
     Image as ImageIcon, Sparkles, Loader2, Lock, Mic,
-    Heart, BookOpen, Zap, Hand, LayoutTemplate, ChevronDown
+    Heart, BookOpen, Zap, Hand, LayoutTemplate, ChevronDown, Maximize2, Minimize2, Check
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { generateVerseImage } from '../services/pastorAgent';
@@ -33,6 +33,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     const [showTemplates, setShowTemplates] = useState(false);
     const recognitionRef = useRef<any>(null);
     const templateRef = useRef<HTMLDivElement>(null);
+    const [isFullScreen, setIsFullScreen] = useState(false);
 
     // Close templates dropdown on click outside
     useEffect(() => {
@@ -50,16 +51,16 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         switch (type) {
             case 'hero':
                 html = `
-                    <div class="bible-hero-box" style="background: linear-gradient(to bottom right, #fdfaf5, #fff); border-radius: 20px; padding: 30px; margin-bottom: 30px; border-left: 5px solid #c5a059; color: #333;">
-                        <h2 class="bible-hero-title" style="color: #c5a059; margin-top: 0;">1. Abertura do Coração</h2>
-                        <p style="font-size: 1.15em; line-height: 1.7; color: #222;">Insira aqui uma introdução envolvente que conecte o tema ao coração do aluno...</p>
+                    <div class="bible-hero-box" style="border-radius: 20px; padding: 30px; margin-bottom: 30px; border-left: 5px solid #c5a059;">
+                        <h2 class="bible-hero-title" style="margin-top: 0;">1. Abertura do Coração</h2>
+                        <p style="font-size: 1.15em; line-height: 1.7;">Insira aqui uma introdução envolvente que conecte o tema ao coração do aluno...</p>
                     </div><p><br></p>`;
                 break;
             case 'verse':
                 html = `
-                    <blockquote style="border-left: 4px solid #c5a059; background: #fdfaf5; padding: 30px; margin: 40px 0; font-size: 1.3em; font-style: italic; border-radius: 12px; color: #444; position: relative;">
+                    <blockquote class="bible-verse-block" style="border-left: 4px solid #c5a059; padding: 30px; margin: 40px 0; font-size: 1.3em; font-style: italic; border-radius: 12px; position: relative;">
                         <span style="font-size: 3em; color: #c5a059; opacity: 0.2; position: absolute; left: 10px; top: -10px;">"</span>
-                        <span style="color: #222;">Insira o versículo bíblico principal aqui (Referência)</span>
+                        <span>Insira o versículo bíblico principal aqui (Referência)</span>
                         <span style="font-size: 3em; color: #c5a059; opacity: 0.2; position: absolute; right: 10px; bottom: -30px;">"</span>
                     </blockquote><p><br></p>`;
                 break;
@@ -67,16 +68,16 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 html = `
                     <h2>4. Aplicação Prática (Life-Change)</h2>
                     <ul class="bible-list" style="list-style: none; padding-left: 0;">
-                      <li style="background: #fff; padding: 20px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #eee; border-left: 4px solid #c5a059; color: #333;"><strong>🛡️ O Escudo:</strong> [O que nos protege deste pecado ou distração?].</li>
-                      <li style="background: #fff; padding: 20px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #eee; border-left: 4px solid #c5a059; color: #333;"><strong>🔥 A Ação:</strong> [Qual passo prático devo dar hoje?].</li>
-                      <li style="background: #fff; padding: 20px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #eee; border-left: 4px solid #c5a059; color: #333;"><strong>🕊️ O Resultado:</strong> [Qual a promessa de Deus ao obedecer?].</li>
+                      <li class="bible-list-item" style="padding: 20px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #eee; border-left: 4px solid #c5a059;"><strong>🛡️ O Escudo:</strong> [O que nos protege deste pecado ou distração?].</li>
+                      <li class="bible-list-item" style="padding: 20px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #eee; border-left: 4px solid #c5a059;"><strong>🔥 A Ação:</strong> [Qual passo prático devo dar hoje?].</li>
+                      <li class="bible-list-item" style="padding: 20px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #eee; border-left: 4px solid #c5a059;"><strong>🕊️ O Resultado:</strong> [Qual a promessa de Deus ao obedecer?].</li>
                     </ul><p><br></p>`;
                 break;
             case 'prayer':
                 html = `
-                    <div class="bible-footer-box" style="background: #1a1a1a; color: #fff; border-radius: 25px; padding: 40px; margin-top: 50px; text-align: center;">
+                    <div class="bible-footer-box" style="border-radius: 25px; padding: 40px; margin-top: 50px; text-align: center;">
                         <h2 class="bible-footer-title" style="color: #c5a059; margin-top: 0;">Consagração e Oração</h2>
-                        <p class="bible-prayer" style="font-size: 1.2em; font-style: italic; color: #ddd;">" [Escreva uma oração fervorosa aqui] Amém. "</p>
+                        <p class="bible-prayer" style="font-size: 1.2em; font-style: italic;">" [Escreva uma oração fervorosa aqui] Amém. "</p>
                     </div><p><br></p>`;
                 break;
         }
@@ -235,7 +236,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     };
 
     return (
-        <div className={`flex flex-col w-full h-full ${className}`}>
+        <div className={`flex flex-col w-full h-full ${className} ${isFullScreen ? 'fixed inset-0 z-[200] bg-white dark:bg-gray-900 overflow-hidden animate-in fade-in duration-300' : 'relative'}`}>
             {/* CSS Scoped for the Editor Content */}
             <style>{`
             .rich-editor-content {
@@ -282,33 +283,36 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             .rich-editor-content .bible-subtitle { text-align: center; color: #888; font-style: italic; font-size: 1.1em; margin-bottom: 30px; }
             .dark .rich-editor-content .bible-subtitle { color: #aaa; }
 
-            .rich-editor-content .bible-hero-box { background: #fcfcfc; border: 1px solid #f0f0f0; border-radius: 12px; padding: 25px; margin-bottom: 30px; }
-            .dark .rich-editor-content .bible-hero-box { background: #1f2937; border-color: #374151; }
+            .rich-editor-content .bible-hero-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 25px; margin-bottom: 30px; }
+            .dark .rich-editor-content .bible-hero-box { background: #1e293b; border-color: #334155; }
 
-            .rich-editor-content .bible-hero-title { color: #c5a059; margin-top: 0; }
+            .rich-editor-content .bible-hero-title { color: #c5a059; margin-top: 0; font-weight: 800; }
             .dark .rich-editor-content .bible-hero-title { color: #d4af37; }
 
-            .rich-editor-content .bible-list { border-left: 2px solid #e0e0e0; margin-left: 10px; padding-left: 20px; }
-            .dark .rich-editor-content .bible-list { border-left-color: #374151; }
+            .rich-editor-content .bible-verse-block { background: #fdfaf5; border: 1px solid #f0e6d6; border-radius: 12px; }
+            .dark .rich-editor-content .bible-verse-block { background: #1a1a1a; border-color: #c5a05933; }
 
-            .rich-editor-content .bible-footer-box { margin-top: 40px; padding-top: 20px; border-top: 1px dashed #e5e5e5; text-align: center; }
-            .dark .rich-editor-content .bible-footer-box { border-top-color: #374151; }
+            .rich-editor-content .bible-list-item { background: #ffffff; border: 1px solid #f1f5f9; }
+            .dark .rich-editor-content .bible-list-item { background: #0f172a; border-color: #1e293b; }
 
-            .rich-editor-content .bible-footer-title { font-size: 1.3rem; margin-bottom: 10px; }
+            .rich-editor-content .bible-footer-box { background: #f8fafc; border-radius: 20px; padding: 40px; margin-top: 40px; text-align: center; }
+            .dark .rich-editor-content .bible-footer-box { background: #0f172a; }
+
+            .rich-editor-content .bible-footer-title { font-size: 1.5rem; margin-bottom: 15px; color: #c5a059; }
             
-            .rich-editor-content .bible-prayer { font-style: italic; color: #666; max-width: 600px; margin: auto; }
-            .dark .rich-editor-content .bible-prayer { color: #aaa; }
-
+            .rich-editor-content .bible-prayer { font-style: italic; color: #475569; max-width: 600px; margin: auto; line-height: 1.8; }
+            .dark .rich-editor-content .bible-prayer { color: #94a3b8; }
+            
             .rich-editor-content .bible-details { margin-top: 15px; cursor: pointer; }
             .rich-editor-content .bible-details summary { font-weight: bold; outline: none; color: #c5a059; font-style: normal; font-size: 0.85em; user-select: none; }
             .dark .rich-editor-content .bible-details summary { color: #d4af37; }
-            .rich-editor-content .bible-details-content { margin-top: 15px; padding-top: 15px; border-top: 1px dashed #e5d5b5; color: #666; font-size: 0.95em; line-height: 1.6; opacity: 0.9; }
-            .dark .rich-editor-content .bible-details-content { border-top-color: #4b5563; color: #9ca3af; }
+            .rich-editor-content .bible-details-content { margin-top: 15px; padding-top: 15px; border-top: 1px dashed #e2e8f0; color: #475569; font-size: 0.95em; line-height: 1.6; opacity: 0.9; }
+            .dark .rich-editor-content .bible-details-content { border-top-color: #334155; color: #94a3b8; }
         `}</style>
 
             {/* Toolbar */}
             <div
-                className="sticky top-0 z-10 bg-white dark:bg-[#1a1a1a] border-b border-gray-200 dark:border-gray-800 p-2 flex flex-wrap items-center gap-1 shadow-sm"
+                className={`${isFullScreen ? 'p-4 border-b-2' : 'sticky top-0 p-2 border-b'} z-10 bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-800 flex flex-wrap items-center gap-1 shadow-sm`}
                 onMouseDown={e => {
                     // Prevents focus loss when clicking buttons (keeps caret in the editor)
                     if ((e.target as HTMLElement).tagName !== 'INPUT') {
@@ -440,14 +444,35 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                     <Mic size={18} />
                     {isListening && <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">Ouvindo...</span>}
                 </button>
+
+                <div className="flex-1" />
+
+                <button 
+                    onClick={() => setIsFullScreen(!isFullScreen)}
+                    className={`p-2 rounded-xl transition-all ${isFullScreen ? 'bg-bible-gold text-white shadow-lg' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400'}`}
+                    title={isFullScreen ? "Sair do Modo Foco" : "Modo Foco (Tela Cheia)"}
+                >
+                    {isFullScreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+                </button>
+
+                {isFullScreen && (
+                    <button 
+                        onClick={() => setIsFullScreen(false)}
+                        className="p-2 ml-1 bg-green-500 text-white rounded-xl shadow-lg active:scale-95 transition-transform"
+                        title="Concluir"
+                    >
+                        <Check size={20} />
+                    </button>
+                )}
             </div>
 
             {/* Editor Area */}
             <div
                 ref={editorRef}
                 contentEditable
+                spellCheck="true"
                 onInput={handleInput}
-                className="rich-editor-content flex-1 w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-white p-8 outline-none shadow-inner overflow-y-auto empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400"
+                className="rich-editor-content prose prose-slate dark:prose-invert flex-1 w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-white p-8 outline-none shadow-inner overflow-y-auto empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400"
                 data-placeholder={placeholder}
             />
         </div>

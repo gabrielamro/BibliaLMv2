@@ -40,11 +40,12 @@ const SavedStudiesPage: React.FC = () => {
     const fetchData = async () => {
         if (!currentUser) return;
         try {
-            const [studiesData, notesData] = await Promise.all([
+            const [studiesData, publicStudiesData, notesData] = await Promise.all([
                 dbService.getAll(currentUser.uid, 'studies'),
+                dbService.getAll(currentUser.uid, 'public_studies'),
                 dbService.getAll(currentUser.uid, 'notes')
             ]);
-            setStudies(studiesData as SavedStudy[]);
+            setStudies([...studiesData as SavedStudy[], ...publicStudiesData as SavedStudy[]]);
             setNotes(notesData as Note[]);
         } catch (e) { 
             console.error(e); 
@@ -80,17 +81,21 @@ const SavedStudiesPage: React.FC = () => {
 
   const handleEditStudy = (e: React.MouseEvent, study: SavedStudy) => {
       e.stopPropagation();
-      navigate('/criar-estudo', { 
-          state: { 
-              prefill: {
-                  title: study.title,
-                  mainVerse: study.sourceText, // Simplificação
-                  textAnalysis: study.analysis,
-                  source: study.source
-              },
-              id: study.id // Pass ID to update instead of create
-          } 
-      });
+      if ('blocks' in study && Array.isArray((study as any).blocks)) {
+         navigate('/criar-conteudo', { state: { contentId: study.id } });
+      } else {
+         navigate('/criar-estudo', { 
+             state: { 
+                 prefill: {
+                     title: study.title,
+                     mainVerse: study.sourceText, // Simplificação
+                     textAnalysis: study.analysis,
+                     source: study.source
+                 },
+                 id: study.id // Pass ID to update instead of create
+             } 
+         });
+      }
   };
 
   const handleViewPublic = (e: React.MouseEvent, id: string) => {
@@ -102,12 +107,13 @@ const SavedStudiesPage: React.FC = () => {
       if (!currentUser || !deleteId) return;
       try {
           if (deleteType === 'study') {
-              // Se for público, despublicar primeiro (opcional, mas boa prática)
               const study = studies.find(s => s.id === deleteId);
-              if (study?.status === 'published') {
+              const isPublicStudyBlock = 'blocks' in (study || {});
+              if (study?.status === 'published' && !isPublicStudyBlock) {
                   await dbService.unpublishStudy(currentUser.uid, deleteId);
               }
-              await dbService.delete(currentUser.uid, 'studies', deleteId);
+              const endpoint = isPublicStudyBlock ? 'public_studies' : 'studies';
+              await dbService.delete(currentUser.uid, endpoint, deleteId);
               setStudies(prev => prev.filter(s => s.id !== deleteId));
           } else {
               await dbService.delete(currentUser.uid, 'notes', deleteId);
@@ -155,7 +161,7 @@ const SavedStudiesPage: React.FC = () => {
                 
                 <div className="flex w-full md:w-auto justify-end">
                     <button 
-                        onClick={() => navigate('/criar-estudo')} 
+                        onClick={() => navigate('/criar-conteudo')} 
                         className="bg-bible-leather dark:bg-bible-gold text-white dark:text-black px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-md flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all whitespace-nowrap"
                     >
                         <PlusCircle size={16} /> Novo

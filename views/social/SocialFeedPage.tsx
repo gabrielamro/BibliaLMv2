@@ -184,11 +184,11 @@ const SocialFeedPage: React.FC = () => {
                 setIsKingdomComposerOpen(true);
                 break;
             case 'image':
-                navigate('/estudio-criativo', { state: { tool: 'image' } });
-                break;
+                navigate('/criar-arte-sacra');
+                return;
             case 'podcast':
-                navigate('/estudio-criativo', { state: { tool: 'podcast' } });
-                break;
+                navigate('/criar-podcast');
+                return;
         }
     };
 

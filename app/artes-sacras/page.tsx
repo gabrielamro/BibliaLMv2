@@ -43,8 +43,13 @@ export default function ArtesSacrasPage() {
     return () => resetHeader();
   }, []);
 
-  const handleCreateImage = (verse?: string) => {
-    navigate('/estudio-criativo', { state: { tool: 'image', verse } });
+  const handleCreateImage = (verse?: string, prompt?: string) => {
+    navigate('/criar-arte-sacra', { 
+        state: { 
+            verseRef: verse,
+            initialPrompt: prompt || ''
+        } 
+    });
   };
 
   const copyPrompt = (idea: typeof imageIdeas[0]) => {
@@ -166,7 +171,7 @@ export default function ArtesSacrasPage() {
                     )}
                   </button>
                   <button 
-                    onClick={() => handleCreateImage(idea.verse)}
+                    onClick={() => handleCreateImage(idea.verse, idea.prompt)}
                     className="flex items-center gap-1 px-3 py-2 bg-[#c5a059] text-black font-bold text-xs rounded-lg hover:bg-[#d4b06a] transition-colors"
                   >
                     <Sparkles size={12} />

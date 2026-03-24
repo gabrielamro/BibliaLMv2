@@ -43,7 +43,7 @@ const WorkspacePage: React.FC = () => {
 
     // --- HEADER SETUP ---
     useEffect(() => {
-        setTitle('Workspace');
+        setTitle('Meus Estudos');
         setIcon(<Layers size={20} />);
         return () => resetHeader();
     }, [setTitle, setIcon, resetHeader]);
@@ -55,18 +55,20 @@ const WorkspacePage: React.FC = () => {
             setLoading(true);
             try {
                 // Fetch parallel
-                const [studiesData, plansData, notesData] = await Promise.all([
+                const [studiesData, publicStudiesData, plansData, notesData] = await Promise.all([
                     dbService.getAll(currentUser.uid, 'studies'),
+                    dbService.getAll(currentUser.uid, 'public_studies'),
                     dbService.getAll(currentUser.uid, 'custom_plans'), // Assuming this method exists or similar
                     dbService.getAll(currentUser.uid, 'notes')
                 ]);
 
                 // Normalize data
                 const normalizedStudies = (studiesData as any[]).map(s => ({ ...s, type: 'study' }));
+                const normalizedPublicStudies = (publicStudiesData as any[]).map(s => ({ ...s, type: 'study' }));
                 const normalizedPlans = (plansData as any[]).map(p => ({ ...p, type: 'plan' }));
                 const normalizedNotes = (notesData as any[]).map(n => ({ ...n, type: 'note', title: n.title || 'Anotação sem título' }));
 
-                setContent([...normalizedStudies, ...normalizedPlans, ...normalizedNotes]);
+                setContent([...normalizedStudies, ...normalizedPublicStudies, ...normalizedPlans, ...normalizedNotes]);
             } catch (e) {
                 console.error(e);
                 showNotification("Erro ao carregar workspace.", "error");
@@ -124,7 +126,11 @@ const WorkspacePage: React.FC = () => {
                 // Navega para o visualizador (NotebookAnalysisPage) em vez do editor
                 navigate('/estudo', { state: { studyData: item } });
             } else {
-                navigate('/criar-estudo', { state: { id: item.id, prefill: item } });
+                if ('blocks' in item && Array.isArray((item as any).blocks)) {
+                    navigate('/criar-conteudo', { state: { contentId: item.id } });
+                } else {
+                    navigate('/criar-estudo', { state: { id: item.id, prefill: item } });
+                }
             }
         } else {
             // Note edit logic
@@ -134,7 +140,7 @@ const WorkspacePage: React.FC = () => {
     const handleDelete = async () => {
         if (!currentUser || !deleteId || !deleteType) return;
         try {
-            const collection = deleteType === 'plan' ? 'custom_plans' : (deleteType === 'note' ? 'notes' : 'studies');
+            const collection = deleteType === 'plan' ? 'custom_plans' : (deleteType === 'note' ? 'notes' : ('blocks' in (content.find(c => c.id === deleteId) || {}) ? 'public_studies' : 'studies'));
             await dbService.delete(currentUser.uid, collection, deleteId);
             setContent(prev => prev.filter(c => c.id !== deleteId));
             showNotification("Item excluído.", "success");

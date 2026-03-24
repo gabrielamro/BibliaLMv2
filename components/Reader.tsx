@@ -197,7 +197,20 @@ const Reader: React.FC = () => {
 
   const handleNavigateToStudio = () => {
     const { text, ref } = getSelectedContent();
-    navigate('/estudio-criativo', {
+    navigate('/criar-podcast', {
+      state: {
+        fromReader: true,
+        bookId: currentBookId,
+        chapter: currentChapterNum,
+        verseText: text,
+        verseRef: ref
+      }
+    });
+  };
+
+  const handleNavigateToImage = () => {
+    const { text, ref } = getSelectedContent();
+    navigate('/criar-arte-sacra', {
       state: {
         fromReader: true,
         bookId: currentBookId,
@@ -254,9 +267,9 @@ const Reader: React.FC = () => {
           selectedVerses={selectedVerses}
           setSelectedVerses={setSelectedVerses}
           getSelectedContent={getSelectedContent}
-          onGeneratePodcast={() => generatePodcast(currentBookMetadata.name, getSelectedContent().text)}
+          onGeneratePodcast={handleNavigateToStudio}
           onAddNote={() => setIsNoteModalOpen(true)}
-          onGenerateImage={handleNavigateToStudio}
+          onGenerateImage={handleNavigateToImage}
           bookId={currentBookId}
           chapter={currentChapterNum}
           onMarkRead={() => recordActivity('mark_verse', `Lidos: ${getSelectedContent().ref}`)}

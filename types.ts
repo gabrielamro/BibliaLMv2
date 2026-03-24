@@ -354,6 +354,7 @@ export interface PlanDayContent {
     endVerse?: number;
     formatted: string;
   };
+  blocksConfig?: any[];
 }
 
 export interface PlanParticipant {

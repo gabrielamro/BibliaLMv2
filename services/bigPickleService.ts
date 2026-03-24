@@ -353,3 +353,79 @@ ${context ? `CONTEXTO: ${context}` : ''}`;
         return "Desculpe, tive um problema de conexão momentâneo. Como obreiro, sigo à disposição assim que o sistema estabilizar.";
     }
 };
+
+export const generateAIOnePage = async (userPrompt: string, authorName?: string): Promise<any> => {
+    const systemInstruction = `Você é Dr. Marcos Teológico, o melhor escritor pastoral e designer editorial bíblico do Brasil.
+Sua especialidade é criar conteúdo bíblico EXTRAORDINARIAMENTE RICO, profundo, elegante e completo.
+
+PERSONALIDADE: Erudito, pastoral, criativo, eloquente. Combina profundidade teológica com linguagem acessível.
+
+REGRAS ABSOLUTAS:
+1. Gere conteúdo LONGO E DETALHADO em cada seção - nunca texto curto ou genérico
+2. Cada seção do estudo deve ter 2-4 parágrafos ricos com insights teológicos reais
+3. Use HTML completo: <h2>, <h3>, <p>, <strong>, <em>, <blockquote>, <ul>, <li>
+4. Escolha versículos REAIS e RELEVANTES ao tema
+5. Inclua CONTEXTO HISTÓRICO real da passagem bíblica
+6. Aplique interpretação PASTORAL com exemplos práticos concretos de vida real
+7. Use cores elegantes para destaques, mas NÃO use cores fixas (como preto ou cinza escuro) no texto base para garantir compatibilidade com o modo escuro (Dark Mode).
+8. Seja CRIATIVO e ÚNICO - nunca use um template genérico.
+9. Responda SOMENTE com JSON válido, sem markdown.
+10. O campo studyContent.content deve ter PELO MENOS 1500 caracteres de HTML rico, profundo e sem placeholders.
+11. REVISÃO DE PORTUGUÊS: Garanta ortografia e gramática IMPECÁVEIS. Use o padrão da norma culta com tom pastoral.`;
+
+    const prompt = `PEDIDO: "${userPrompt}"
+AUTOR: "${authorName || 'Pr. Gabriel'}"
+
+Crie uma one-page pastoral bíblica COMPLETA, PROFUNDA E ELEGANTE. Retorne JSON com esta estrutura EXATA:
+
+{
+  "meta": {
+    "title": "TÍTULO IMPACTANTE E ESPECÍFICO (não genérico)",
+    "description": "Subtítulo pastoral profundo de 15-25 palavras que inspira e contextualiza"
+  },
+  "slug": "slug-especifico-sobre-o-tema",
+  "blocks": {
+    "hero": {
+      "title": "TÍTULO PRINCIPAL PODEROSO (máx 8 palavras)",
+      "subtitle": "Frase pastoral profunda e inspiradora de 15 a 25 palavras",
+      "backgroundColor": "#1a2744",
+      "textColor": "#ffffff",
+      "backgroundImage": "",
+      "showCta": true,
+      "ctaText": "Mergulhe nesta mensagem",
+      "ctaLink": "#estudo",
+      "alignment": "center",
+      "showSubtitle": true
+    },
+    "biblical": {
+      "verse": "Livro X:Y",
+      "reference": "Livro X:Y",
+      "text": "TEXTO COMPLETO E REAL do versículo escolhido, sem abreviação",
+      "style": "elegant"
+    },
+    "studyContent": {
+      "content": "<p><span style='color:#C9A227;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;'>Guia de Estudo Bíblico</span></p>\n<h2><strong>1. Introdução — O Chamado que Muda Tudo</strong></h2>\n<p>[PARÁGRAFO LONGO ≥120 palavras: contextualize o tema com riqueza, mostre por que essa mensagem é urgente hoje, conecte com a vida real do leitor com exemplos concretos]</p>\n<p>[SEGUNDO PARÁGRAFO ≥80 palavras: aprofunde a introdução com reflexão teológica acessível]</p>\n<h2><strong>2. Contexto Bíblico — O Pano de Fundo da Mensagem</strong></h2>\n<p>[PARÁGRAFO LONGO ≥150 palavras: explique o contexto histórico, geográfico e cultural da passagem. Quem escreveu? Para quem? Em que momento? O que estava acontecendo? Use detalhes históricos reais]</p>\n<p>[SEGUNDO PARÁGRAFO ≥100 palavras: explique o significado teológico profundo do texto no contexto do plano redentor de Deus]</p>\n<blockquote style='border-left:4px solid #C9A227;padding-left:1rem;margin:1rem 0;font-style:italic;'><p>[Destaque uma frase-chave do versículo com comentário pastoral breve]</p></blockquote>\n<h2><strong>3. Aplicação Prática — Vivendo esta Verdade Hoje</strong></h2>\n<p>[PARÁGRAFO LONGO ≥120 palavras: mostre como aplicar esta verdade na vida diária com 3-4 passos ou princípios concretos e práticos]</p>\n<ul style='padding-left:1.5rem;'><li style='margin-bottom:0.5rem;'>[Princípio prático 1 com exemplo real]</li><li style='margin-bottom:0.5rem;'>[Princípio prático 2 com exemplo real]</li><li style='margin-bottom:0.5rem;'>[Princípio prático 3 com exemplo real]</li></ul>\n<h2><strong>4. Oração — Um Coração que Responde</strong></h2>\n<p>[ORAÇÃO PASTORAL LONGA ≥80 palavras: primeira pessoa, fervorosa, conectada ao tema, com petições específicas, finaliza com louvor]</p>\n<h2><strong>5. Conclusão — O Chamado Continua</strong></h2>\n<p>[PARÁGRAFO DE FECHAMENTO ≥100 palavras: recapitule a mensagem central, faça um chamado à ação transformador, termine com esperança e comissão]</p>"
+    },
+    "authority": {
+      "name": "${authorName || 'Pr. Gabriel'}",
+      "bio": "BIO PASTORAL ESPECÍFICA E INSPIRADORA de 2-3 frases: mencione chamado, paixão bíblica e ministério específico do autor. Seja criativo e pastoral."
+    },
+    "footer": {
+      "tagline": "TAGLINE MEMORÁVEL E ESPECÍFICA ao tema (não genérica) de 8-12 palavras",
+      "showSocial": true
+    }
+  }
+}
+
+ATENÇÃO: O campo studyContent.content deve ser HTML RICO E LONGO com todo o conteúdo real preenchido (não placeholders entre colchetes). Mínimo de 1500 caracteres.`;
+
+    try {
+        const raw = await callAI(prompt, systemInstruction, "json");
+        // Strip any potential markdown wrappers
+        const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        return JSON.parse(cleaned);
+    } catch (e: any) {
+        throw new Error(`Falha ao gerar one-page com IA: ${e.message}`);
+    }
+};
+

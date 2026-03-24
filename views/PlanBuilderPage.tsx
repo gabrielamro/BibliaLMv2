@@ -15,15 +15,26 @@ import {
     ArrowLeft, Plus, Save, Trash2, Loader2, Search, Check,
     Calendar, Layout, Sparkles, Clock, BookOpen, ChevronDown,
     X, CheckCircle2, GraduationCap, Edit2, Wand2, FileText, Camera, ImageIcon,
-    Trophy, Eye, EyeOff, PlayCircle, PenTool, Target, Layers, Zap, Brain, AlignLeft, Globe, Info, Quote, Settings
+    Trophy, Eye, EyeOff, PlayCircle, PenTool, Target, Layers, Zap, Brain, AlignLeft, Globe, Info, Quote, Settings, Monitor, Smartphone, Tablet, Maximize2, Minimize2
 } from 'lucide-react';
 import { CustomPlan, PlanDayContent, PlanningFrequency, StudyEvaluation, PlanTeam } from '../types';
 import SEO from '../components/SEO';
 import ConfirmationModal from '../components/ConfirmationModal';
 import EvaluationBuilderModal from '../components/EvaluationBuilderModal';
-import RichTextEditor from '../components/RichTextEditor';
 import { base64ToBlob } from '../utils/imageOptimizer';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+
+import { 
+    ContentBuilder, 
+    Block, 
+    BlockType, 
+    createBlock,
+    buildBaseBlocks,
+    buildWrittenContentHtml 
+} from '../components/Builder';
+import { MobileToolbar } from '../components/Builder/MobileToolbar';
+import { MobilePropertiesSheet } from '../components/Builder/MobilePropertiesSheet';
+import { MobileAddBlockMenu } from '../components/Builder/MobileAddBlockMenu';
 
 
 const getUnitLabel = (freq: PlanningFrequency, index: number) => {
@@ -94,6 +105,8 @@ const PlanBuilderPage: React.FC = () => {
     const [dayTitle, setDayTitle] = useState('');
     const [dayRef, setDayRef] = useState('');
     const [dayVerseText, setDayVerseText] = useState('');
+    const [dayCategory, setDayCategory] = useState('Geral');
+    const [dayTags, setDayTags] = useState<string[]>([]);
     const [htmlContent, setHtmlContent] = useState('');
 
     // AI Inputs
@@ -104,6 +117,13 @@ const PlanBuilderPage: React.FC = () => {
     
     // Auxiliar para evitar que a busca automática da bíblia sobrescreva dados salvos ao abrir o editor
     const isLoadingItemRef = useRef(false);
+
+    // --- CONTENT BUILDER STATES ---
+    const [editorBlocks, setEditorBlocks] = useState<Block[]>([]);
+    const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+    const [canvasWidth, setCanvasWidth] = useState<'mobile' | 'tablet' | 'desktop' | 'full'>('desktop');
+    const [isMobilePropertiesOpen, setIsMobilePropertiesOpen] = useState(false);
+    const [isMobileAddMenuOpen, setIsMobileAddMenuOpen] = useState(false);
 
     const searchTimeoutRef = useRef<any>(null);
 
@@ -171,13 +191,32 @@ const PlanBuilderPage: React.FC = () => {
 
     // --- GLOBAL HEADER DATA ---
     useEffect(() => {
-        const titleText = plan.title || (plan.status === 'published' ? 'Gestão da Sala' : 'Nova Sala de Estudo');
-        setGlobalTitle(titleText);
-        setBreadcrumbs([
-            { label: 'Workspace', path: '/workspace-pastoral' },
-            { label: titleText }
-        ]);
-    }, [plan.title, plan.status, setGlobalTitle, setBreadcrumbs]);
+        const stepLabels: Record<number, string> = {
+            1: 'Planejamento',
+            2: 'Conteúdo',
+            3: 'Configurações',
+            4: 'Avaliação'
+        };
+        const planTitle = plan.title || 'Nova Sala de Estudo';
+
+        if (editingDayId) {
+            const aulLabel = editingDayTitle || 'Nova Aula';
+            setGlobalTitle(aulLabel);
+            setBreadcrumbs([
+                { label: 'Workspace', path: '/workspace-pastoral' },
+                { label: planTitle, path: '/criador-jornada' },
+                { label: 'Conteúdo' },
+                { label: aulLabel }
+            ]);
+        } else {
+            setGlobalTitle(planTitle);
+            setBreadcrumbs([
+                { label: 'Workspace', path: '/workspace-pastoral' },
+                { label: planTitle },
+                { label: stepLabels[currentStep] || 'Planejamento' }
+            ]);
+        }
+    }, [plan.title, plan.status, editingDayId, editingDayTitle, currentStep, setGlobalTitle, setBreadcrumbs]);
 
     // Load Pastor Teams
     useEffect(() => {
@@ -356,50 +395,41 @@ const PlanBuilderPage: React.FC = () => {
 
     const openEditor = (weekId: string, dayItem?: PlanDayContent) => {
         setActiveWeekId(weekId);
+        setSelectedBlockId(null);
         if (dayItem) {
-            // IMPORTANTE: Seta o conteúdo ANTES de mudar o editingDayId
-            // Assim quando o key={editingDayId} muda no RichTextEditor,
-            // o htmlContent já está correto no estado do React
-            isLoadingItemRef.current = true; // Bloqueia a busca automática
+            isLoadingItemRef.current = true;
             setDayTitle(dayItem.title);
             setEditingDayTitle(dayItem.title);
             setDayRef(dayItem.description || '');
             setDayVerseText('');
             setHtmlContent(dayItem.htmlContent || '<p></p>');
-            // Seta o ID por último para que o key do RichTextEditor mude com dados prontos
+            
+            // Inicializar blocos
+            if (dayItem.blocksConfig && dayItem.blocksConfig.length > 0) {
+                setEditorBlocks(dayItem.blocksConfig);
+            } else {
+                // Fallback para conteúdo legado (apenas HTML)
+                setEditorBlocks([{
+                    id: `legacy-${Date.now()}`,
+                    type: 'study-content',
+                    data: {
+                        title: dayItem.title,
+                        content: dayItem.htmlContent
+                    }
+                }]);
+            }
             setEditingDayId(dayItem.id);
         } else {
             isLoadingItemRef.current = false;
-            setEditingDayId(Date.now().toString());
+            const newId = Date.now().toString();
+            setEditingDayId(newId);
             setDayTitle('');
             setEditingDayTitle('Nova Aula');
             setDayRef('');
             setDayVerseText('');
-            setHtmlContent(`
-<div style="font-family: sans-serif; max-width: 800px; margin: auto;">
-  <h1 style="text-align: center; color: #111;">Nova Aula</h1>
-  <p style="text-align: center; color: #888; font-style: italic; font-size: 1.1em; margin-bottom: 30px;">Referência Bíblica Base</p>
-  
-  <h2 style="color: #c5a059; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 40px;">📖 Introdução</h2>
-  <p style="font-size: 1.1em; line-height: 1.6; color: #444;">Escreva aqui de forma cativante. Qual a grande ideia desta aula e por que ela importa para o leitor?</p>
-  
-  <h2 style="color: #c5a059; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 40px;">💡 Exposição Bíblica</h2>
-  <p style="font-size: 1.1em; line-height: 1.6; color: #444;">Desenvolva os princípios divinos encontrados na Palavra.</p>
-  
-  <blockquote style="border-left: 4px solid #c5a059; background: #fdfaf5; padding: 20px; text-align: left; margin: 30px 0; font-size: 1.2em; font-style: italic; color: #555; border-radius: 8px;">
-    "O texto bíblico aparecerá aqui ou cole-o manualmente..."
-  </blockquote>
-  
-  <h2 style="color: #c5a059; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 40px;">🛠️ Como Aplicar Praticamente</h2>
-  <p style="font-size: 1.1em; line-height: 1.6; color: #444;">Qual o desafio desta semana para o aluno aplicara isso na prática?</p>
-  <ul style="font-size: 1.1em; line-height: 1.6; color: #444; margin-bottom: 30px;">
-    <li><strong>Passo 1:</strong> Ação Imediata</li>
-    <li><strong>Passo 2:</strong> Ação Contínua</li>
-  </ul>
-  
-  <h2 style="color: #c5a059; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 40px;">🙏 Conclusão</h2>
-  <p style="font-size: 1.1em; line-height: 1.6; color: #444;">Finalize a jornada de hoje engajando o aluno com propósito. Deixe uma oração.</p>
-</div>`);
+            // Template modelo de aula — mesmo padrão do CreateLandingPage
+            setEditorBlocks(buildBaseBlocks(['hero', 'biblical', 'study-content', 'authority', 'footer']));
+            setHtmlContent('');
         }
     };
 
@@ -459,11 +489,19 @@ const PlanBuilderPage: React.FC = () => {
         if (!activeWeekId || !editingDayId) return;
         if (!dayTitle) { showNotification("Dê um título para a aula.", "error"); return; }
 
+        // Gerar HTML final a partir dos blocos para retrocompatibilidade
+        const generatedHtml = editorBlocks.map(b => {
+             if (b.type === 'study-content') return b.data.content;
+             if (b.type === 'hero') return `<h1>${b.data.title}</h1>`;
+             return '';
+        }).join('\n');
+
         const newDay: PlanDayContent = {
             id: editingDayId,
             title: dayTitle,
             description: dayRef,
-            htmlContent: htmlContent || '<p>Conteúdo em construção...</p>',
+            htmlContent: generatedHtml || '<p>Conteúdo em construção...</p>',
+            blocksConfig: editorBlocks,
             isCompleted: false
         };
 
@@ -482,6 +520,7 @@ const PlanBuilderPage: React.FC = () => {
 
         setEditingDayId(null);
         setActiveWeekId(null);
+        setSelectedBlockId(null);
         showNotification("Aula salva no plano!", "success");
     };
 
@@ -525,6 +564,45 @@ const PlanBuilderPage: React.FC = () => {
 
             return { ...prev, weeks: newWeeks };
         });
+    };
+
+    // --- CONTENT BUILDER HANDLERS ---
+    const handleAddBlock = (type: BlockType) => {
+        const newBlock = createBlock(type);
+        setEditorBlocks(prev => [...prev, newBlock]);
+        setSelectedBlockId(newBlock.id);
+        setIsMobileAddMenuOpen(false);
+    };
+
+    const handleUpdateBlock = (id: string, data: any) => {
+        setEditorBlocks(prev => prev.map(b => b.id === id ? { ...b, data: { ...b.data, ...data } } : b));
+    };
+
+    const handleRemoveBlock = (id: string) => {
+        setEditorBlocks(prev => prev.filter(b => b.id !== id));
+        if (selectedBlockId === id) setSelectedBlockId(null);
+    };
+
+    const handleMoveBlock = (fromIndex: number, toIndex: number) => {
+        setEditorBlocks(prev => {
+            const next = [...prev];
+            const [moved] = next.splice(fromIndex, 1);
+            next.splice(toIndex, 0, moved);
+            return next;
+        });
+    };
+
+    const handleDuplicateBlock = (id: string, index: number) => {
+        const block = editorBlocks.find(b => b.id === id);
+        if (block) {
+            const newBlock = { ...block, id: `block-${Date.now()}` };
+            setEditorBlocks(prev => {
+                const next = [...prev];
+                next.splice(index + 1, 0, newBlock);
+                return next;
+            });
+            setSelectedBlockId(newBlock.id);
+        }
     };
 
 
@@ -585,18 +663,32 @@ const PlanBuilderPage: React.FC = () => {
     const isPlanPublished = plan.status === 'published';
     const headerTitle = editingDayId
         ? (
-            <div className="flex flex-col">
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Editando Aula</span>
-                <span className="text-sm font-bold text-gray-900 dark:text-white truncate max-w-[200px]">{editingDayTitle || 'Nova Aula'}</span>
+            <div className="flex items-center gap-3">
+                <button 
+                    onClick={() => setEditingDayId(null)}
+                    className="p-2 -ml-2 text-gray-400 hover:text-bible-gold hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all"
+                    title="Voltar para a Lista de Aulas"
+                >
+                    <ArrowLeft size={18} />
+                </button>
+                <div className="flex flex-col">
+                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Editando Aula</span>
+                    <span className="text-sm font-black text-gray-900 dark:text-white truncate max-w-[200px]">{editingDayTitle || 'Nova Aula'}</span>
+                </div>
             </div>
         )
-        : (isPlanPublished ? "Gestão da Sala" : "Sala de Estudos");
+        : (
+            <div className="flex items-center gap-2">
+                <span className="font-black text-gray-900 dark:text-white">{isPlanPublished ? "Gestão da Sala" : "Sala de Estudos"}</span>
+            </div>
+        );
 
     return (
-        <div className="h-full bg-bible-paper dark:bg-black overflow-y-auto flex flex-col">
+        <div className={editingDayId ? "h-screen bg-bible-paper dark:bg-black overflow-hidden flex flex-col" : "h-full bg-bible-paper dark:bg-black overflow-y-auto flex flex-col"}>
             <SEO title="Sala de Estudos" />
 
-            {/* HEADER */}
+            {/* HEADER — hidden while editing a lesson */}
+            {!editingDayId && (
             <div className="sticky top-[85px] md:top-0 z-40 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 px-4 md:px-8 py-2 flex flex-col md:flex-row justify-between items-center shadow-sm gap-2 h-auto md:h-20 shrink-0">
                 <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
                     {/* Redundant back button and title removed to prevent duplication with global header */}
@@ -619,44 +711,37 @@ const PlanBuilderPage: React.FC = () => {
                 )}
 
                 <div className="flex items-center gap-2 w-full md:w-auto justify-end py-1 md:py-0">
-                    {editingDayId ? (
-                        <button onClick={saveDayContent} className="px-4 py-2 bg-bible-gold text-white rounded-xl shadow-lg active:scale-95 flex items-center gap-2 text-xs font-bold uppercase tracking-widest w-full md:w-auto justify-center">
-                            <Check size={16} /> Salvar Aula
+                    {isPlanPublished ? (
+                        <button
+                            onClick={() => handleSavePlan('published')}
+                            disabled={isSaving || isPublishing}
+                            className="px-4 py-2 bg-green-600 text-white rounded-xl shadow-sm active:scale-95 text-xs font-bold uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center"
+                        >
+                            {isPublishing ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} Salvar
                         </button>
                     ) : (
                         <>
-                            {isPlanPublished ? (
-                                <button
-                                    onClick={() => handleSavePlan('published')}
-                                    disabled={isSaving || isPublishing}
-                                    className="px-4 py-2 bg-green-600 text-white rounded-xl shadow-sm active:scale-95 text-xs font-bold uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center"
-                                >
-                                    {isPublishing ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} Salvar
-                                </button>
-                            ) : (
-                                <>
-                                    <button
-                                        onClick={() => handleSavePlan('draft')}
-                                        disabled={isSaving}
-                                        className="flex-1 md:flex-none flex items-center justify-center px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-bible-gold hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors text-xs font-bold uppercase tracking-widest border border-gray-200 dark:border-gray-700 md:border-transparent"
-                                    >
-                                        {isSaving ? <Loader2 className="animate-spin" size={16} /> : "Salvar Rascunho"}
-                                    </button>
-                                    <button
-                                        onClick={() => handleSavePlan('published')}
-                                        disabled={isPublishing}
-                                        className="flex-1 md:flex-none px-4 py-2 bg-bible-gold text-white rounded-xl shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest"
-                                    >
-                                        {isPublishing ? <Loader2 className="animate-spin" size={16} /> : <Globe size={16} />} Publicar
-                                    </button>
-                                </>
-                            )}
+                            <button
+                                onClick={() => handleSavePlan('draft')}
+                                disabled={isSaving}
+                                className="flex-1 md:flex-none flex items-center justify-center px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-bible-gold hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors text-xs font-bold uppercase tracking-widest border border-gray-200 dark:border-gray-700 md:border-transparent"
+                            >
+                                {isSaving ? <Loader2 className="animate-spin" size={16} /> : "Salvar Rascunho"}
+                            </button>
+                            <button
+                                onClick={() => handleSavePlan('published')}
+                                disabled={isPublishing}
+                                className="flex-1 md:flex-none px-4 py-2 bg-bible-gold text-white rounded-xl shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest"
+                            >
+                                {isPublishing ? <Loader2 className="animate-spin" size={16} /> : <Globe size={16} />} Publicar
+                            </button>
                         </>
                     )}
                 </div>
             </div>
+            )}
 
-            <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
+            <div className={editingDayId ? "flex-1 overflow-hidden flex flex-col" : "flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full"}>
 
                 {/* STEPS NAVIGATION - REMOVED FROM HERE */}
 
@@ -769,7 +854,20 @@ const PlanBuilderPage: React.FC = () => {
                                                                     >
                                                                         <div className="p-2 bg-bible-gold/10 text-bible-gold rounded-lg"><FileText size={18} /></div>
                                                                         <div className="flex-1 min-w-0">
-                                                                            <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{day.title}</p>
+                                                                            <input
+                                                                                type="text"
+                                                                                value={day.title}
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                onChange={(e) => setPlan(prev => ({
+                                                                                    ...prev,
+                                                                                    weeks: prev.weeks?.map(w => w.id === unit.id
+                                                                                        ? { ...w, days: w.days.map(d => d.id === day.id ? { ...d, title: e.target.value } : d) }
+                                                                                        : w
+                                                                                    )
+                                                                                }))}
+                                                                                placeholder="Título da aula"
+                                                                                className="text-sm font-bold text-gray-900 dark:text-white bg-transparent outline-none w-full truncate hover:bg-gray-50 dark:hover:bg-gray-800 focus:bg-gray-50 dark:focus:bg-gray-800 rounded px-1 -mx-1 transition-colors"
+                                                                            />
                                                                             <p className="text-[10px] text-gray-500 truncate">{day.description || 'Sem referência definida'}</p>
                                                                         </div>
                                                                         <div className="flex items-center gap-2">
@@ -942,9 +1040,19 @@ const PlanBuilderPage: React.FC = () => {
                                         disabled={isSaving}
                                         className="w-full md:w-auto max-w-xs mx-auto md:mx-0 py-4 px-6 md:px-8 border-2 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-xl hover:border-bible-gold hover:text-bible-gold transition-colors font-black uppercase tracking-widest flex items-center justify-center gap-2"
                                     >
-                                        {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                                        Salvar Rascunho
+                                        {isSaving ? <Loader2 className="animate-spin" size={18} /> : (savedPlanId ? <Check size={18} className="text-bible-gold" /> : <Save size={18} />)}
+                                        {savedPlanId ? "Rascunho Atualizado" : "Salvar Rascunho"}
                                     </button>
+
+                                    {savedPlanId && (
+                                        <button
+                                            onClick={() => navigate(`/jornada/${savedPlanId}`, { state: { fromEditor: true } })}
+                                            className="w-full md:w-auto max-w-xs mx-auto md:mx-0 py-4 px-6 md:px-8 bg-bible-gold text-white rounded-xl hover:scale-105 transition-all font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-bible-gold/20"
+                                        >
+                                            <Eye size={18} />
+                                            Visualizar Sala
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => handleSavePlan('published')}
                                         disabled={isPublishing}
@@ -958,86 +1066,269 @@ const PlanBuilderPage: React.FC = () => {
                         )}
                     </div>
                 ) : (
-                    // --- VIEW: EDITOR STUDIO (NOVA UI REFORMULADA UNIFICADA) ---
-                    <div className="flex flex-col gap-4 h-full pb-20 animate-in fade-in">
+                    // --- VIEW: EDITOR STUDIO — Layout duas colunas, tela cheia ---
+                    <div className="flex h-full overflow-hidden animate-in fade-in">
 
-                        {/* NAVBAR / PAINEL COMPACTO DE CONFIGURAÇÃO */}
-                        <div className="bg-white dark:bg-bible-darkPaper p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 w-full flex flex-col md:flex-row gap-4 items-center shrink-0">
-                            <div className="flex-1 w-full relative">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">Título (Módulo/Aula)</label>
-                                <input
-                                    type="text"
-                                    value={dayTitle}
-                                    onChange={e => {
-                                        setDayTitle(e.target.value);
-                                        setEditingDayTitle(e.target.value);
-                                        setHtmlContent(prev => prev.replace(/<h1[^>]*>.*?<\/h1>/i, `<h1 style="text-align: center; color: #111;">${e.target.value || 'Título da Aula'}</h1>`));
-                                    }}
-                                    className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-sm outline-none focus:ring-2 ring-bible-gold"
-                                    placeholder="Ex: O Poder da Oração"
-                                />
-                            </div>
+                        {/* SIDEBAR ESQUERDA */}
+                        <aside className="w-[230px] xl:w-64 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-r border-gray-200 dark:border-gray-800 overflow-y-auto hidden lg:flex flex-col">
 
-                            <div className="flex-1 w-full relative">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">Referência Bíblica Base</label>
-                                <div className="relative group">
-                                    <input
-                                        type="text"
-                                        value={dayRef}
-                                        onChange={e => { setDayRef(e.target.value); }}
-                                        onKeyDown={e => { if (e.key === 'Enter') handleSearchBible(); }}
-                                        className="w-full p-3 pr-16 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl font-medium text-sm outline-none focus:ring-2 ring-bible-gold transition-all"
-                                        placeholder="Ex: João 3:16 (Aperte Enter)"
-                                    />
+                            {/* Topo da sidebar: Voltar + ações */}
+                            <div className="flex-shrink-0 border-b border-gray-100 dark:border-gray-800 p-3 flex flex-col gap-2">
+                                <button
+                                    onClick={() => setEditingDayId(null)}
+                                    className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-bible-gold transition-colors text-xs font-bold"
+                                >
+                                    <ArrowLeft size={15} /> Voltar
+                                </button>
+                                <div>
+                                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Editando aula</p>
+                                    <p className="text-xs font-black text-gray-800 dark:text-white truncate">{dayTitle || 'Nova Aula'}</p>
+                                </div>
+                                <div className="flex gap-1.5 pt-1">
                                     <button
-                                        onClick={handleSearchBible}
-                                        disabled={isFetchingBible || !dayRef.trim()}
-                                        title="Buscar Versículo"
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-bible-gold text-white p-2 rounded-lg hover:scale-105 active:scale-95 transition-transform disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center shrink-0 w-8 h-8 focus:outline-none focus:ring-2 focus:ring-bible-gold"
+                                        onClick={handleAiFill}
+                                        disabled={isGeneratingAI}
+                                        className="flex-1 flex items-center justify-center gap-1 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg font-bold text-[10px] hover:opacity-90 transition-all disabled:opacity-50"
                                     >
-                                        {isFetchingBible ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                                        {isGeneratingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                                        IA
+                                    </button>
+                                    <button
+                                        onClick={saveDayContent}
+                                        className="flex-1 flex items-center justify-center gap-1 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-lg font-bold text-[10px] hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                    >
+                                        <Save size={12} /> Salvar
+                                    </button>
+                                    <button
+                                        onClick={saveDayContent}
+                                        className="flex-1 flex items-center justify-center gap-1 py-2 bg-bible-gold text-white rounded-lg font-bold text-[10px] hover:bg-bible-gold/90 transition-colors"
+                                    >
+                                        <Eye size={12} /> Ver
                                     </button>
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* AI TOOLBAR COMPACT - HORIZONTAL */}
-                        <div className="bg-white dark:bg-bible-darkPaper p-4 rounded-3xl shadow-sm border border-purple-100 dark:border-purple-800/30 flex flex-col xl:flex-row items-center gap-4 bg-gradient-to-r from-purple-50 to-white dark:from-purple-900/10 dark:to-transparent shrink-0">
-                            <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-black text-sm uppercase tracking-widest min-w-max">
-                                <Sparkles size={18} fill="currentColor" /> Obreiro IA
-                            </div>
-                            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
-                                <input type="text" value={aiTheme} onChange={e => setAiTheme(e.target.value)} placeholder="Tema Central (ex: O Poder do Foco)" className="w-full p-2.5 bg-white dark:bg-gray-900 border border-purple-100 dark:border-purple-800/50 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-purple-400 shadow-sm" />
-                                <input type="text" value={aiAudience} onChange={e => setAiAudience(e.target.value)} placeholder="Público Alvo (ex: Jovens Adultos)" className="w-full p-2.5 bg-white dark:bg-gray-900 border border-purple-100 dark:border-purple-800/50 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-purple-400 shadow-sm" />
-                            </div>
-                            <button
-                                onClick={handleAiFill}
-                                disabled={isGeneratingAI}
-                                className="w-full xl:w-auto px-6 py-3 bg-purple-600 text-white rounded-xl font-black uppercase text-xs tracking-widest shadow-lg hover:bg-purple-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap active:scale-95"
-                            >
-                                {isGeneratingAI ? <Loader2 className="animate-spin" size={16} /> : <Wand2 size={16} />}
-                                Gerar Conteúdo IA
-                            </button>
-                        </div>
-
-                        {/* O EDITOR DE TEXTO (CANVAS FULL WIDTH, TOMA TODO RESTO DO ESPAÇO) */}
-                        <div className="flex-1 bg-white dark:bg-bible-darkPaper rounded-[2rem] shadow-sm border border-border overflow-hidden flex flex-col min-h-[600px] relative">
-                            <div className="flex-1 overflow-hidden relative auto-focus">
-                                <div className="absolute top-4 right-6 opacity-30 pointer-events-none select-none">
-                                    <FileText size={100} className="text-gray-100 dark:text-gray-800" />
+                                {/* Canvas Width inline */}
+                                <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 gap-0.5">
+                                    {([{ key: 'mobile' as const, Icon: Smartphone }, { key: 'tablet' as const, Icon: Tablet }, { key: 'desktop' as const, Icon: Monitor }, { key: 'full' as const, Icon: Maximize2 }]).map(({ key, Icon }) => (
+                                        <button key={key} title={key} onClick={() => setCanvasWidth(key)} className={`flex-1 py-1 rounded-md transition-colors flex items-center justify-center ${canvasWidth === key ? 'bg-white dark:bg-gray-900 text-bible-gold shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+                                            <Icon size={12} />
+                                        </button>
+                                    ))}
                                 </div>
-                                <RichTextEditor
-                                    key={editingDayId}
-                                    content={htmlContent}
-                                    onChange={setHtmlContent}
-                                    placeholder="Comece a digitar sua incrível aula aqui..."
-                                    className="h-full"
-                                />
                             </div>
-                        </div>
+
+                            <div className="p-4 space-y-5 flex-1 overflow-y-auto">
+
+                                {/* Referência Bíblica */}
+                                <div className="p-3 bg-gradient-to-br from-bible-gold/10 dark:from-bible-gold/5 to-amber-50 dark:to-amber-900/10 rounded-2xl border border-bible-gold/20 dark:border-bible-gold/10">
+                                    <h3 className="text-[10px] font-bold text-bible-gold uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        <BookOpen size={12} /> Referência Bíblica
+                                    </h3>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            value={dayRef}
+                                            onChange={e => setDayRef(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter') handleSearchBible(); }}
+                                            placeholder="Ex: João 3:16"
+                                            className="w-full pl-8 pr-2 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-600 outline-none focus:border-bible-gold transition-colors"
+                                        />
+                                        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        {isFetchingBible && <Loader2 size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-bible-gold animate-spin" />}
+                                    </div>
+                                    {dayVerseText && (
+                                        <div className="mt-2 p-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700">
+                                            <p className="text-[9px] text-bible-gold font-bold mb-1">{dayRef}</p>
+                                            <p className="text-[10px] italic text-gray-600 dark:text-gray-300 line-clamp-4">"{dayVerseText}"</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Informações */}
+                                <div>
+                                    <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Informações</h3>
+                                    <div className="space-y-2">
+                                        <div>
+                                            <label className="text-[10px] text-gray-500 block mb-1">Título</label>
+                                            <input
+                                                type="text"
+                                                value={dayTitle}
+                                                onChange={e => { setDayTitle(e.target.value); setEditingDayTitle(e.target.value); }}
+                                                placeholder="Título da aula"
+                                                className="w-full px-2.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-600 outline-none focus:border-bible-gold font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] text-gray-500 block mb-1">Categoria</label>
+                                            <select
+                                                value={dayCategory}
+                                                onChange={e => setDayCategory(e.target.value)}
+                                                className="w-full px-2.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 outline-none focus:border-bible-gold"
+                                            >
+                                                <option value="Geral">Geral</option>
+                                                <option value="Evangelismo">Evangelismo</option>
+                                                <option value="Discipulado">Discipulado</option>
+                                                <option value="Família">Família</option>
+                                                <option value="Juventude">Juventude</option>
+                                                <option value="Casais">Casais</option>
+                                                <option value="Liderança">Liderança</option>
+                                                <option value="Oração">Oração</option>
+                                                <option value="Teologia">Teologia</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Blocos */}
+                                <div>
+                                    <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Blocos</h3>
+                                    <div className="space-y-1.5">
+                                        {(['hero', 'biblical', 'study-content', 'authority', 'video', 'slide', 'footer'] as const).map(type => {
+                                            const labels: Record<string, { label: string; description: string; color: string }> = {
+                                                hero: { label: 'Capa Impactante', description: 'Título, subtítulo e CTA', color: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600' },
+                                                authority: { label: 'Perfil do Autor', description: 'Foto, nome e bio', color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600' },
+                                                biblical: { label: 'Versículo em Destaque', description: 'Citação da Bíblia', color: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700' },
+                                                'study-content': { label: 'Conteúdo do Estudo', description: 'Texto rico e formatado', color: 'bg-purple-100 dark:bg-purple-900/40 text-purple-600' },
+                                                video: { label: 'Vídeo', description: 'YouTube ou url', color: 'bg-red-100 dark:bg-red-900/40 text-red-600' },
+                                                slide: { label: 'Slides', description: 'Carrossel de slides', color: 'bg-teal-100 dark:bg-teal-900/40 text-teal-600' },
+                                                footer: { label: 'Rodapé', description: 'CTA e assinatura final', color: 'bg-gray-200 dark:bg-gray-800 text-gray-600' },
+                                            };
+                                            const info = labels[type];
+                                            const count = editorBlocks.filter(b => b.type === type).length;
+                                            return (
+                                                <button
+                                                    key={type}
+                                                    onClick={() => handleAddBlock(type)}
+                                                    className="w-full flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 hover:bg-bible-gold/10 active:scale-[0.98] transition-all text-left"
+                                                >
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${info.color}`}>
+                                                        {type === 'hero' && <Layout size={15} />}
+                                                        {type === 'authority' && <Brain size={15} />}
+                                                        {type === 'biblical' && <BookOpen size={15} />}
+                                                        {type === 'study-content' && <FileText size={15} />}
+                                                        {type === 'video' && <PlayCircle size={15} />}
+                                                        {type === 'slide' && <Layers size={15} />}
+                                                        {type === 'footer' && <AlignLeft size={15} />}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-bold text-[11px] text-gray-800 dark:text-white">{info.label}</p>
+                                                        <p className="text-[9px] text-gray-500 dark:text-gray-400 truncate">{info.description}</p>
+                                                    </div>
+                                                    {count > 0 ? (
+                                                        <span className="text-[9px] font-bold bg-bible-gold/10 text-bible-gold rounded-full px-1.5 py-0.5 flex-shrink-0">×{count}</span>
+                                                    ) : (
+                                                        <Plus size={13} className="text-gray-400 flex-shrink-0" />
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Tags */}
+                                <div>
+                                    <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Tags</h3>
+                                    <input
+                                        type="text"
+                                        value={dayTags.join(', ')}
+                                        onChange={e => setDayTags(e.target.value.split(',').map(t => t.trim()).filter(Boolean))}
+                                        placeholder="fé, oração, amor"
+                                        className="w-full px-2.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-600 outline-none focus:border-bible-gold"
+                                    />
+                                    {dayTags.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                            {dayTags.map(tag => (
+                                                <span key={tag} className="px-2 py-0.5 bg-bible-gold/10 text-bible-gold rounded-full text-[10px] font-bold">{tag}</span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </aside>
+
+                        {/* CANVAS PRINCIPAL — sem header, tela cheia */}
+                        <main className="flex-1 flex flex-col overflow-hidden bg-gray-100 dark:bg-gray-950">
+
+                            {/* ContentBuilder direto, sem sub-header */}
+                            <div className="flex-1 overflow-auto">
+                                <div className={`mx-auto h-full transition-all duration-300 ${
+                                    canvasWidth === 'mobile' ? 'max-w-[375px]'
+                                    : canvasWidth === 'tablet' ? 'max-w-[768px]'
+                                    : canvasWidth === 'full' ? 'w-full h-full'
+                                    : 'max-w-5xl'
+                                }`}>
+                                    <ContentBuilder
+                                        blocks={editorBlocks}
+                                        selectedBlockId={selectedBlockId}
+                                        canvasWidth={canvasWidth}
+                                        onSelectBlock={setSelectedBlockId}
+                                        onUpdateBlock={handleUpdateBlock}
+                                        onRemoveBlock={handleRemoveBlock}
+                                        onMoveBlock={handleMoveBlock}
+                                        onDuplicateBlock={handleDuplicateBlock}
+                                        onAddBlock={handleAddBlock}
+                                        isEditing={true}
+                                    />
+                                </div>
+                            </div>
+                        </main>
                     </div>
                 )}
             </div>
+
+            {/* MOBILE CONTROLS */}
+            {editingDayId && (
+                <>
+                    {/* Botão flutuante para adicionar blocos se nada estiver selecionado */}
+                    {!selectedBlockId && (
+                        <button
+                            onClick={() => setIsMobileAddMenuOpen(true)}
+                            className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-bible-gold text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all md:hidden"
+                        >
+                            <Plus size={24} />
+                        </button>
+                    )}
+
+                    {selectedBlockId && editorBlocks.find(b => b.id === selectedBlockId) && (
+                        <MobileToolbar
+                            blockType={editorBlocks.find(b => b.id === selectedBlockId)!.type}
+                            onMoveUp={() => {
+                                const index = editorBlocks.findIndex(b => b.id === selectedBlockId);
+                                if (index > 0) handleMoveBlock(index, index - 1);
+                            }}
+                            onMoveDown={() => {
+                                const index = editorBlocks.findIndex(b => b.id === selectedBlockId);
+                                if (index < editorBlocks.length - 1) handleMoveBlock(index, index + 1);
+                            }}
+                            onDuplicate={() => {
+                                const index = editorBlocks.findIndex(b => b.id === selectedBlockId);
+                                handleDuplicateBlock(selectedBlockId, index);
+                            }}
+                            onRemove={() => handleRemoveBlock(selectedBlockId)}
+                            onOpenProperties={() => setIsMobilePropertiesOpen(true)}
+                            onClose={() => setSelectedBlockId(null)}
+                            canMoveUp={editorBlocks.findIndex(b => b.id === selectedBlockId) > 0}
+                            canMoveDown={editorBlocks.findIndex(b => b.id === selectedBlockId) < editorBlocks.length - 1}
+                        />
+                    )}
+
+                    <MobileAddBlockMenu
+                        isOpen={isMobileAddMenuOpen}
+                        onClose={() => setIsMobileAddMenuOpen(false)}
+                        onSelect={handleAddBlock}
+                        onAIBuild={handleAiFill}
+                    />
+
+                    {selectedBlockId && editorBlocks.find(b => b.id === selectedBlockId) && (
+                        <MobilePropertiesSheet
+                            isOpen={isMobilePropertiesOpen}
+                            onClose={() => setIsMobilePropertiesOpen(false)}
+                            block={editorBlocks.find(b => b.id === selectedBlockId)!}
+                            onUpdate={(data) => handleUpdateBlock(selectedBlockId, data)}
+                            isEditing={true}
+                        />
+                    )}
+                </>
+            )}
 
             <ConfirmationModal isOpen={showSaveSuccessModal} onClose={() => setShowSaveSuccessModal(false)} onConfirm={() => savedPlanId && navigate(`/jornada/${savedPlanId}`)} title="Sucesso!" message="Seu plano foi publicado." confirmText="Ver Plano" variant="success" />
             <EvaluationBuilderModal isOpen={showEvalModal} onClose={() => setShowEvalModal(false)} onSave={handleSaveEvaluation} initialData={evaluationData || undefined} />

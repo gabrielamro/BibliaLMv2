@@ -15,6 +15,7 @@ import SEO from '../../components/SEO';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHeader } from '../../contexts/HeaderContext';
 import StandardHeader from '../../components/ui/StandardHeader';
+import { ContentBuilder } from '../../components/Builder/ContentBuilder';
 
 type Tab = 'content' | 'ranking';
 
@@ -452,13 +453,23 @@ const PublicPlanPage: React.FC = () => {
                     {/* Floating Reading Toolbar */}
                     <div className={`sticky top-4 z-[90] flex justify-center mb-6 transition-all duration-300 ${isReadingScrolled || isFocusedMode ? '-translate-y-24 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100 hover:opacity-100'}`}>
                         <div className="bg-white/80 dark:bg-bible-darkPaper/80 backdrop-blur-md border border-gray-100 dark:border-gray-800 p-2 rounded-2xl shadow-xl flex items-center gap-2">
-                            <button
-                                onClick={() => setReadingDay(null)}
-                                className="p-2 text-gray-400 hover:text-bible-gold transition-colors"
-                                title="Voltar"
-                            >
-                                <ArrowLeft size={18} />
-                            </button>
+                                <button
+                                    onClick={() => setReadingDay(null)}
+                                    className="p-2 text-gray-400 hover:text-bible-gold transition-colors"
+                                    title="Voltar"
+                                >
+                                    <ArrowLeft size={18} />
+                                </button>
+                                {isOwner && (
+                                    <button
+                                        onClick={() => navigate('/criador-jornada', { state: { planData: plan } })}
+                                        className="px-3 py-1 bg-bible-gold/10 text-bible-gold rounded-lg font-bold text-[10px] uppercase tracking-widest hover:bg-bible-gold hover:text-white transition-all flex items-center gap-1.5"
+                                        title="Voltar para Edição"
+                                    >
+                                        <Edit3 size={12} />
+                                        Editar
+                                    </button>
+                                )}
                             <div className="w-px h-6 bg-gray-100 dark:bg-gray-800 mx-1" />
 
                             {/* Font Size Controls */}
@@ -513,11 +524,29 @@ const PublicPlanPage: React.FC = () => {
                             </div>
                         </header>
 
-                        <div
-                            className="prose dark:prose-invert max-w-none font-serif leading-relaxed text-gray-800 dark:text-gray-200 empty:hidden [&_h1]:text-[1.5rem] [&_h1]:font-black [&_h1]:mb-6"
-                            style={{ fontSize: `${fontSize}px` }}
-                            dangerouslySetInnerHTML={{ __html: readingDay.htmlContent }}
-                        />
+                        {readingDay.blocksConfig && readingDay.blocksConfig.length > 0 ? (
+                            <div className="animate-in fade-in duration-700">
+                                <ContentBuilder
+                                    blocks={readingDay.blocksConfig}
+                                    selectedBlockId={null}
+                                    onSelectBlock={() => {}}
+                                    onUpdateBlock={() => {}}
+                                    onMoveBlock={() => {}}
+                                    onDuplicateBlock={() => {}}
+                                    onRemoveBlock={() => {}}
+                                    onAddBlock={() => {}}
+                                    isEditing={false}
+                                    canvasWidth="full"
+                                    authorName={plan.authorName}
+                                />
+                            </div>
+                        ) : (
+                            <div
+                                className="prose dark:prose-invert max-w-none font-serif leading-relaxed text-gray-800 dark:text-gray-200 empty:hidden [&_h1]:text-[1.5rem] [&_h1]:font-black [&_h1]:mb-6"
+                                style={{ fontSize: `${fontSize}px` }}
+                                dangerouslySetInnerHTML={{ __html: readingDay.htmlContent }}
+                            />
+                        )}
 
                         <div className={`flex flex-row justify-between items-center gap-2 mt-12 py-6 border-y border-gray-100 dark:border-gray-800 transition-all duration-500 ${isFocusedMode ? 'opacity-0 h-0 overflow-hidden' : 'opacity-100'}`}>
                             <div className="hidden sm:block">
@@ -526,7 +555,7 @@ const PublicPlanPage: React.FC = () => {
                             <div className="flex flex-1 sm:flex-none justify-between sm:justify-end gap-2 w-full sm:w-auto">
                                 {isOwner && (
                                     <button
-                                        onClick={() => navigate('/criar-estudo', { state: { prefill: { ...readingDay, htmlContent: readingDay.htmlContent, fromPlan: planId } } })}
+                                        onClick={() => navigate('/criador-jornada', { state: { planData: plan } })}
                                         className="flex-1 sm:flex-none p-2.5 sm:px-5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-white dark:bg-bible-darkPaper text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-800 flex items-center justify-center gap-2"
                                     >
                                         <Edit3 size={14} /> <span className="hidden sm:inline">Editar</span>
@@ -674,19 +703,19 @@ const PublicPlanPage: React.FC = () => {
             <SEO title={plan.title} description={plan.description} />
 
             <StandardHeader
-                title={plan.title}
-                subtitle={plan.description}
-                authorName={plan.authorName}
-                authorPhoto={plan.authorPhoto}
+                title={plan.title || 'Jornada Sem Título'}
+                subtitle={plan.description || 'Nenhuma descrição fornecida para esta jornada.'}
+                authorName={plan.authorName || (isOwner ? userProfile?.displayName : 'Autor Desconhecido')}
+                authorPhoto={plan.authorPhoto || (isOwner ? (userProfile?.photoURL || undefined) : undefined)}
                 progress={myStats ? calculateProgress() : undefined}
-                coverUrl={plan.coverUrl}
+                coverUrl={plan.coverUrl || 'https://images.unsplash.com/photo-1490730141103-6cac27aaab94?auto=format&fit=crop&q=80'}
                 badges={[
                     { label: 'Geral', icon: <BookOpen size={14} /> },
-                    { label: `${plan.weeks.length} Semanas`, icon: <Calendar size={14} /> }
+                    { label: `${plan.weeks?.length || 0} Semanas`, icon: <Calendar size={14} /> }
                 ]}
                 extraFooter={null}
-                hideBackButton={true}
-                hideTitle={true}
+                hideBackButton={false}
+                hideTitle={false}
                 hideNav={true}
                 actions={
                     <div className="flex items-center gap-2 md:gap-3 w-full justify-between md:justify-end">
@@ -760,7 +789,19 @@ const PublicPlanPage: React.FC = () => {
 
                 {activeTab === 'content' && (
                     <div className="space-y-4 animate-in fade-in">
-                        {plan.weeks.map((week, wIdx) => (
+                        {(!plan.weeks || plan.weeks.length === 0) && (
+                            <div className="text-center py-20 bg-white dark:bg-bible-darkPaper rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm mt-4">
+                                <BookOpen size={48} className="mx-auto text-gray-200 dark:text-gray-800 mb-4" />
+                                <h3 className="text-lg font-black text-gray-900 dark:text-white mb-2">Jornada Vazia</h3>
+                                <p className="text-sm text-gray-500 max-w-sm mx-auto">Esta jornada ainda não possui nenhum conteúdo, semana ou aula cadastrada.</p>
+                                {isOwner && (
+                                    <button onClick={() => navigate('/criador-jornada', { state: { planData: plan } })} className="mt-8 px-6 py-3 bg-bible-gold text-white rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg hover:scale-105 transition-transform">
+                                        Adicionar Aulas
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                        {plan.weeks?.map((week, wIdx) => (
                             <div key={week.id} className="bg-white dark:bg-bible-darkPaper rounded-[2rem] border border-gray-100 dark:border-gray-800 overflow-hidden shadow-sm transition-all hover:shadow-md">
                                 <button onClick={() => toggleWeek(week.id)} className="w-full flex items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
                                     <div className="flex items-center gap-4">

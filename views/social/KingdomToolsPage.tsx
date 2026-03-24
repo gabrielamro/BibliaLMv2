@@ -32,7 +32,7 @@ const KingdomToolsPage: React.FC = () => {
                 
                 {/* Card Estúdio Criativo */}
                 <div 
-                    onClick={() => navigate('/estudio-criativo')}
+                    onClick={() => navigate('/criar-arte-sacra')}
                     className="group relative bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 cursor-pointer overflow-hidden hover:shadow-xl transition-all duration-300"
                 >
                     <div className="absolute top-0 right-0 p-20 bg-pink-50 dark:bg-pink-900/10 rounded-full blur-3xl opacity-50 translate-x-1/2 -translate-y-1/2 group-hover:bg-pink-100 dark:group-hover:bg-pink-900/20 transition-colors"></div>

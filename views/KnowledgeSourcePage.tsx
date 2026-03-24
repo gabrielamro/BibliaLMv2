@@ -61,7 +61,7 @@ const KnowledgeSourcePage: React.FC = () => {
                     </div>
 
                     {/* Card 2: Exegese */}
-                    <div onClick={() => navigate('/criar-estudo')} className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-xl border border-gray-100 dark:border-gray-800 group cursor-pointer hover:border-purple-500 transition-all">
+                    <div onClick={() => navigate('/criar-conteudo')} className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-xl border border-gray-100 dark:border-gray-800 group cursor-pointer hover:border-purple-500 transition-all">
                         <div className="w-14 h-14 bg-purple-50 dark:bg-purple-900/20 rounded-2xl flex items-center justify-center text-purple-600 mb-6 group-hover:scale-110 transition-transform">
                             <Scroll size={28} />
                         </div>

@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Metadata, Viewport } from 'next';
-import { Lora, Inter, Great_Vibes, Oswald, Cinzel, Playfair_Display } from 'next/font/google';
+import { Lora, Inter, Great_Vibes, Oswald, Cinzel, Playfair_Display, Merriweather, Montserrat, Lato, Roboto_Slab } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import Layout from '../components/Layout';
@@ -11,6 +11,10 @@ const greatVibes = Great_Vibes({ weight: '400', subsets: ['latin'], variable: '-
 const oswald = Oswald({ subsets: ['latin'], variable: '--font-oswald', preload: false });
 const cinzel = Cinzel({ subsets: ['latin'], variable: '--font-cinzel', preload: false });
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair', preload: false });
+const merriweather = Merriweather({ weight: ['300', '400', '700'], subsets: ['latin'], variable: '--font-merriweather', preload: false });
+const montserrat = Montserrat({ subsets: ['latin'], variable: '--font-montserrat', preload: false });
+const lato = Lato({ weight: ['300', '400', '700'], subsets: ['latin'], variable: '--font-lato', preload: false });
+const robotoSlab = Roboto_Slab({ subsets: ['latin'], variable: '--font-roboto-slab', preload: false });
 
 export const viewport: Viewport = {
     width: 'device-width',
@@ -36,7 +40,7 @@ export default function RootLayout({
     children: React.ReactNode;
 }) {
     return (
-        <html lang="pt-BR" className={`dark h-full ${inter.variable} ${lora.variable} ${greatVibes.variable} ${oswald.variable} ${cinzel.variable} ${playfair.variable}`}>
+        <html lang="pt-BR" className={`dark h-full ${inter.variable} ${lora.variable} ${greatVibes.variable} ${oswald.variable} ${cinzel.variable} ${playfair.variable} ${merriweather.variable} ${montserrat.variable} ${lato.variable} ${robotoSlab.variable}`}>
             <body className="h-full bg-bible-paper text-bible-ink dark:bg-bible-darkPaper dark:text-bible-darkInk transition-colors duration-300 font-sans">
                 <Providers>
                     <Layout>
