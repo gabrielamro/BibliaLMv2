@@ -134,7 +134,7 @@ const PrayersManagerPage: React.FC = () => {
                         className="w-full p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 font-bold"
                     />
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <select
                             value={currentPrayer.category}
                             onChange={e => setCurrentPrayer({ ...currentPrayer, category: e.target.value as any })}

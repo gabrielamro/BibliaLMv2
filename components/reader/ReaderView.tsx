@@ -6,6 +6,7 @@ import SettingsModal from '../SettingsModal';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 import SmartText from './SmartText';
+import { extractVerseLead } from '../../utils/verseTypography';
 
 const BOOK_CHAPTER_COUNTS: { [key: string]: number } = {
     'gn': 50, 'ex': 40, 'lv': 27, 'nm': 36, 'dt': 34, 'js': 24, 'jz': 21, 'rt': 4,
@@ -37,33 +38,35 @@ export interface ReaderViewProps {
     isChapterRead?: boolean;
     lastReadVerse: number | null;
     userIsLogged: boolean;
-    highlightedVerse?: number | null;
+    highlightedVerses?: number[];
     onViewNotes?: (verseNum: number) => void;
     onNavigate: (bookId: string, chapter: number, verse?: number) => void;
     popularVerses?: number[];
 }
 
 const ReaderView: React.FC<ReaderViewProps> = ({
-    isLoading, chapterContent, chapterNotes = [], bookMetadata, currentChapterNum, selectedVerses, setSelectedVerses, onBackToLibrary, onToggleNarration, isNarrationPlaying, onChapterComplete, isChapterRead, lastReadVerse, highlightedVerse, onNavigate, onGenerateChapterPodcast, popularVerses = []
+    isLoading, chapterContent, chapterNotes = [], bookMetadata, currentChapterNum, selectedVerses, setSelectedVerses, onBackToLibrary, onToggleNarration, isNarrationPlaying, onChapterComplete, isChapterRead, lastReadVerse, highlightedVerses = [], onNavigate, onGenerateChapterPodcast, popularVerses = []
 }) => {
     const { settings, updateSettings, isFocusMode, setIsFocusMode } = useSettings();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
+    const highlightedVersesKey = highlightedVerses.join(',');
+    const firstHighlightedVerse = highlightedVerses[0] ?? null;
 
     const maxChapters = BOOK_CHAPTER_COUNTS[bookMetadata.id] || 1;
     const isLastChapter = currentChapterNum >= maxChapters;
 
     useEffect(() => {
-        if (chapterContent && highlightedVerse) {
-            setSelectedVerses([highlightedVerse]);
+        if (chapterContent && highlightedVerses.length > 0 && firstHighlightedVerse) {
+            setSelectedVerses(highlightedVerses);
             setTimeout(() => {
-                const el = document.getElementById(`verse-${highlightedVerse}`);
+                const el = document.getElementById(`verse-${firstHighlightedVerse}`);
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 500);
         } else if (chapterContent && !isLoading && contentRef.current) {
             contentRef.current.scrollTo({ top: 0, behavior: 'instant' });
         }
-    }, [currentChapterNum, bookMetadata.id, highlightedVerse, chapterContent, isLoading]);
+    }, [currentChapterNum, bookMetadata.id, highlightedVersesKey, firstHighlightedVerse, highlightedVerses, chapterContent, isLoading, setSelectedVerses]);
 
     const getFontSizeClass = (size: number) => {
         // Escala de fontes ajustada para o modo foco
@@ -116,6 +119,14 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                     <div className="h-12 px-6 flex items-center justify-between">
                         {/* Breadcrumbs Left */}
                         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+                            <button
+                                onClick={onBackToLibrary}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:border-bible-gold/40 hover:text-bible-gold dark:border-gray-700 dark:text-gray-300"
+                                title="Voltar"
+                                aria-label="Voltar"
+                            >
+                                <ArrowLeft size={14} />
+                            </button>
                             <span className="hover:text-bible-gold cursor-pointer transition-colors" onClick={onBackToLibrary}>{bookMetadata.name.toUpperCase()}</span>
                             <ChevronRight size={10} className="text-gray-300" />
                             <span className="text-gray-600 dark:text-gray-300">CAPÍTULO {currentChapterNum}</span>
@@ -151,7 +162,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({
 
             {/* CONTENT AREA */}
             <div ref={contentRef} className="flex-1 overflow-y-auto scroll-smooth">
-                <div className={`mx-auto transition-all duration-500 ${isFocusMode ? 'max-w-3xl px-8 py-12' : 'max-w-2xl px-6 py-10 md:py-16 pb-40'}`}>
+                <div className={`mx-auto transition-all duration-500 ${isFocusMode ? 'max-w-3xl px-8 py-12' : 'max-w-2xl md:max-w-3xl xl:max-w-4xl px-6 py-10 md:py-16 pb-40'}`}>
 
                     {isLoading && !chapterContent ? (
                         <div className="flex flex-col items-center justify-center py-40">
@@ -177,6 +188,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                                     const isPopular = popularVerses.includes(verse.number);
                                     const hasNote = versesWithNotes.includes(verse.number);
                                     const hasFriendNote = verse.number % 7 === 0;
+                                    const verseLead = !isFocusMode ? extractVerseLead(verse.text) : null;
 
                                     return (
                                         <div key={verse.number} className={`relative group ${isFocusMode ? 'transition-opacity duration-500' : ''}`}>
@@ -207,7 +219,17 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                                                     </sup>
                                                 )}
 
-                                                <SmartText text={verse.text} enabled={settings.smartReadingMode || false} />
+                                                {verseLead ? (
+                                                    <>
+                                                        {verseLead.prefix && <span>{verseLead.prefix}</span>}
+                                                        <span className="text-bible-gold/75 dark:text-bible-gold/85 md:text-[1.55em] md:leading-none md:align-[-0.06em] md:mr-0.5 md:font-serif md:font-black">
+                                                            {verseLead.initial}
+                                                        </span>
+                                                        {verseLead.rest ? <SmartText text={verseLead.rest} enabled={settings.smartReadingMode || false} /> : null}
+                                                    </>
+                                                ) : (
+                                                    <SmartText text={verse.text} enabled={settings.smartReadingMode || false} />
+                                                )}
                                             </span>
                                         </div>
                                     );

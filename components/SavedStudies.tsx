@@ -250,7 +250,7 @@ const SavedStudies: React.FC = () => {
                     />
                 </div>
                 <button 
-                    onClick={() => navigate('/criar-estudo')} 
+                    onClick={() => navigate('/criar-conteudo')} 
                     className="bg-bible-leather dark:bg-bible-gold text-white dark:text-black px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-md flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all whitespace-nowrap"
                 >
                     <PlusCircle size={16} /> Novo

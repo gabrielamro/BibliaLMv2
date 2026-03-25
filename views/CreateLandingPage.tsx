@@ -90,7 +90,7 @@ const CreateLandingPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser, earnMana, showNotification } = useAuth();
-  const { setTitle, setBreadcrumbs, resetHeader } = useHeader();
+  const { setTitle, setBreadcrumbs, resetHeader, setIsHeaderHidden } = useHeader();
 
   const [currentStep, setCurrentStep] = useState<'type' | 'create' | 'preview' | 'publish'>('type');
   const [contentType, setContentType] = useState<ContentType>('article');
@@ -141,6 +141,7 @@ const CreateLandingPage: React.FC = () => {
       preview: 'Preview',
       publish: 'Publicar'
     };
+    setIsHeaderHidden(true);
     setTitle(titles[currentStep]);
     setBreadcrumbs([
       { label: 'Estúdio Criativo', path: '/estudio-criativo' },
@@ -178,6 +179,39 @@ const CreateLandingPage: React.FC = () => {
             blocks: data.blocks || []
           });
           setContentType(data.type || 'article');
+        } else if (state.studyData) {
+          // Fallback para estudo legado ou draft da tabela studies
+          const legacyData = state.studyData;
+          let blocks = legacyData.blocks || [];
+          
+          // Se não tem blocos estruturados mas tem conteudo (analysis), cria base blocks
+          if (blocks.length === 0 && legacyData.analysis) {
+            blocks = buildBaseBlocks(contentTemplates.article).map(b => {
+              if (b.type === 'hero') {
+                return { ...b, data: { ...b.data, title: legacyData.title || 'Estudo', subtitle: legacyData.sourceText?.substring(0, 120) } };
+              }
+              if (b.type === 'study-content') {
+                return { ...b, data: { ...b.data, content: legacyData.analysis } };
+              }
+              return b;
+            });
+          } else if (blocks.length === 0) {
+            blocks = buildBaseBlocks(contentTemplates.article);
+          }
+
+          setContent(prev => ({
+            ...prev,
+            id: legacyData.id,
+            type: 'article',
+            status: legacyData.status || 'draft',
+            meta: { 
+              ...prev.meta, 
+              title: legacyData.title || 'Novo Estudo', 
+              description: legacyData.sourceText?.substring(0, 150) || '' 
+            },
+            blocks
+          }));
+          setCurrentStep('create');
         }
       } catch (e) {
         console.error('Erro ao carregar conteúdo:', e);

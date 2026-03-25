@@ -101,7 +101,7 @@ const ProfilePage: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-8 pb-24">
+      <main className="max-w-4xl mx-auto px-4 md:px-6 py-8 pb-24">
         {/* Avatar e Info Principal */}
         <div className="text-center mb-8">
           <div className="relative inline-block">
@@ -133,7 +133,7 @@ const ProfilePage: React.FC = () => {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-3 gap-4 mt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
             <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
               <div className="flex items-center justify-center gap-2 text-[#c5a059]">
                 <Zap size={18} fill="#c5a059" />
@@ -218,7 +218,7 @@ const ProfilePage: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs text-gray-400 block mb-1.5">Instagram</label>
                     <input
@@ -320,7 +320,7 @@ const ProfilePage: React.FC = () => {
               
               <div className="space-y-3">
                 <label className="text-xs text-gray-400 block mb-1.5">Tema</label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {['dark', 'light'].map(theme => (
                     <button
                       key={theme}

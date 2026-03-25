@@ -126,14 +126,21 @@ export const analyzeUnderstanding = async (userThoughts: string, context: string
     } catch (e) { return "Erro na análise."; }
 };
 
-export const generateDailyDevotional = async (forceNew: boolean = false) => {
+export const generateDailyDevotional = async (
+    forceNew: boolean = false,
+    options?: { excludedVerseReferences?: string[] }
+) => {
     try {
+        const forbiddenReferences = options?.excludedVerseReferences?.length
+            ? `\n        5. NUNCA reutilize nenhuma destas referências bíblicas: ${options.excludedVerseReferences.join(', ')}.`
+            : '';
         const prompt = `Gere um devocional cristão profundo e acolhedor para hoje. 
         REGRAS PASTORAIS:
         1. Baseie-se estritamente na verdade bíblica.
         2. Diferencie claramente fatos bíblicos de incentivo pastoral.
         3. Se houver interpretação, sinalize com humildade.
         4. Cite explicitamente a fonte (capítulo e versículo).
+        ${forbiddenReferences}
         
         Inclua: Título, Referência Bíblica (Ex: Salmos 23:1), Texto do Versículo, Conteúdo (Reflexão profunda de 3 parágrafos) e uma Oração final. 
         Retorne em JSON: { title, verseReference, verseText, content, prayer }.`;
@@ -428,4 +435,3 @@ ATENÇÃO: O campo studyContent.content deve ser HTML RICO E LONGO com todo o co
         throw new Error(`Falha ao gerar one-page com IA: ${e.message}`);
     }
 };
-

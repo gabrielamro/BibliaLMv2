@@ -122,7 +122,7 @@ export const ContentBuilder: React.FC<ContentBuilderProps> = ({
           >
             {/* Controles de Bloco (Apenas em edição - Desktop) */}
             {isEditing && (
-              <div className={`absolute right-4 top-4 items-center gap-1 z-30 transition-all duration-300 hidden xl:flex ${
+              <div className={`absolute right-4 top-4 items-center gap-1 z-30 transition-all duration-300 hidden lg:flex ${
                 selectedBlockId === block.id ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto'
               }`}>
                 <div className="flex items-center gap-1 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md p-1.5 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800">

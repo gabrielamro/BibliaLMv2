@@ -324,31 +324,31 @@ const SermonBuilderPage: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-bible-paper dark:bg-black overflow-hidden">
+        <div className="flex flex-col h-[100dvh] bg-bible-paper dark:bg-black overflow-hidden">
             {/* HEADER */}
             <div className="sticky top-0 z-40 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 px-4 md:px-8 py-2 flex flex-col md:flex-row justify-between items-center shadow-sm gap-2 h-auto md:h-20 shrink-0">
-                <div className="flex items-center gap-4">
+                <div className="flex w-full items-center gap-4 md:w-auto">
                     <button onClick={() => navigate(-1)} className="p-2 text-gray-500 hover:text-bible-gold transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
                         <ArrowLeft size={20} />
                     </button>
-                    <div className="flex flex-col">
+                    <div className="flex min-w-0 flex-col">
 
-                        <h1 className="text-sm font-bold text-gray-900 dark:text-white truncate max-w-[200px] leading-tight">
+                        <h1 className="text-sm font-bold text-gray-900 dark:text-white truncate max-w-full md:max-w-[200px] leading-tight">
                             {title || 'Novo Sermão'}
                         </h1>
                     </div>
                 </div>
 
-                <div className="flex bg-gray-100 dark:bg-gray-900 p-1 rounded-xl">
+                <div className="flex w-full md:w-auto bg-gray-100 dark:bg-gray-900 p-1 rounded-xl overflow-x-auto no-scrollbar">
                     <button onClick={() => setActiveTab('editor')} className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'editor' ? 'bg-white dark:bg-gray-700 text-bible-gold shadow-sm' : 'text-gray-500'}`}>Editor</button>
                     <button onClick={() => setActiveTab('pulpit')} className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'pulpit' ? 'bg-white dark:bg-gray-700 text-bible-gold shadow-sm' : 'text-gray-500'}`}>Púlpito</button>
                 </div>
 
-                <div className="flex gap-2">
-                    <button onClick={() => handleSave('draft')} className="px-4 py-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
+                <div className="flex w-full md:w-auto gap-2">
+                    <button onClick={() => handleSave('draft')} className="flex-1 md:flex-none px-4 py-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
                         <Save size={16} /> Salvar
                     </button>
-                    <button onClick={() => setShowPublishModal(true)} className="px-4 py-2 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-xl text-xs font-bold uppercase tracking-widest shadow-md hover:opacity-90 transition-opacity flex items-center gap-2">
+                    <button onClick={() => setShowPublishModal(true)} className="flex-1 md:flex-none px-4 py-2 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-xl text-xs font-bold uppercase tracking-widest shadow-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
                         <Sparkles size={16} /> Publicar
                     </button>
                 </div>
@@ -417,7 +417,7 @@ const SermonBuilderPage: React.FC = () => {
 
                         {/* Header Card */}
                         <div className="bg-white dark:bg-bible-darkPaper p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
-                            <div className="flex justify-between items-start mb-2">
+                            <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-2">
                                 <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full text-2xl font-bold font-serif bg-transparent border-b-2 border-gray-100 dark:border-gray-800 focus:border-bible-gold transition-colors outline-none py-2 text-gray-900 dark:text-white placeholder-gray-400" placeholder="Título do Sermão..." />
                                 <button onClick={() => setShowSettings(!showSettings)} className="text-gray-400 hover:text-bible-gold p-2"><Target size={18} /></button>
                             </div>
@@ -431,7 +431,7 @@ const SermonBuilderPage: React.FC = () => {
                             )}
 
                             {showSettings && (
-                                <div className="grid grid-cols-3 gap-4 mt-4 animate-in slide-in-from-top-2">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 animate-in slide-in-from-top-2">
                                     <div><label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Data</label><input type="datetime-local" value={presentationDate} onChange={(e) => setPresentationDate(e.target.value)} className="w-full p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-900 dark:text-white" /></div>
                                     <div><label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Duração (min)</label><input type="number" value={estimatedDuration} onChange={(e) => setEstimatedDuration(parseInt(e.target.value))} className="w-full p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-900 dark:text-white" /></div>
                                     <div><label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Ocasião</label><input type="text" value={occasion} onChange={(e) => setOccasion(e.target.value)} className="w-full p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-900 dark:text-white" placeholder="Ex: Culto de Jovens" /></div>
@@ -491,7 +491,7 @@ const SermonBuilderPage: React.FC = () => {
                                     {/* EDITOR MODE: FREE (Final Output) */}
                                     {editorMode === 'free' && (
                                         <div className="animate-in fade-in">
-                                            <textarea value={content} onChange={(e) => setContent(e.target.value)} className="w-full h-[600px] p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 outline-none resize-none text-base leading-relaxed font-serif text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600" placeholder="Escreva seu sermão livremente ou use o modo Guiado..." />
+                                            <textarea value={content} onChange={(e) => setContent(e.target.value)} className="w-full h-[55vh] md:h-[600px] p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 outline-none resize-none text-base leading-relaxed font-serif text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600" placeholder="Escreva seu sermão livremente ou use o modo Guiado..." />
                                         </div>
                                     )}
                                 </div>
@@ -535,10 +535,10 @@ const SermonBuilderPage: React.FC = () => {
                 {activeTab === 'pulpit' && (
                     <div className="h-full flex flex-col bg-black text-white">
                         {/* Pulpit Toolbar */}
-                        <div className="p-4 bg-gray-900 border-b border-gray-800 flex items-center justify-between shrink-0">
+                        <div className="p-4 bg-gray-900 border-b border-gray-800 flex flex-col xl:flex-row items-start xl:items-center justify-between shrink-0 gap-4">
                             <HolyTimer initialMinutes={estimatedDuration || 40} onFinish={() => showNotification("Tempo Esgotado!", "warning")} />
 
-                            <div className="flex items-center gap-4">
+                            <div className="flex w-full xl:w-auto flex-wrap items-center gap-4">
                                 <div className="flex bg-gray-800 rounded-lg p-1">
                                     <button onClick={() => setFontSize(Math.max(1, fontSize - 1))} className="p-2 hover:bg-gray-700 rounded text-gray-400"><Type size={16} /></button>
                                     <span className="px-3 py-2 text-sm font-bold">{fontSize}x</span>

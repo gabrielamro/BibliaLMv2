@@ -51,11 +51,50 @@ const PlanBuilderPage: React.FC = () => {
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const { currentUser, userProfile, showNotification, checkFeatureAccess, openSubscription, incrementUsage, openLogin } = useAuth();
-    const { setTitle: setGlobalTitle, setBreadcrumbs, resetHeader } = useHeader();
+    const { setTitle: setGlobalTitle, setBreadcrumbs, resetHeader, setIsHeaderHidden } = useHeader();
     const { setIsFocusMode } = useSettings();
 
     const state = location.state as { planId?: string, planData?: CustomPlan };
     const urlPlanId = searchParams.get('id');
+
+    // --- EDITOR STUDIO STATE ---
+    const [editingDayId, setEditingDayId] = useState<string | null>(null);
+    const [activeWeekId, setActiveWeekId] = useState<string | null>(null);
+    const [editingDayTitle, setEditingDayTitle] = useState('');
+
+    // Editor Configuration
+    const [editorTab, setEditorTab] = useState<'config' | 'content'>('config');
+    const [studyMode, setStudyMode] = useState<'quick' | 'deep'>('deep');
+
+    // Content Inputs
+    const [dayTitle, setDayTitle] = useState('');
+    const [dayRef, setDayRef] = useState('');
+    const [dayVerseText, setDayVerseText] = useState('');
+    const [dayCategory, setDayCategory] = useState('Geral');
+    const [dayTags, setDayTags] = useState<string[]>([]);
+    const [htmlContent, setHtmlContent] = useState('');
+
+    // AI Inputs
+    const [aiTheme, setAiTheme] = useState('');
+    const [aiAudience, setAiAudience] = useState('');
+    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+    const [isFetchingBible, setIsFetchingBible] = useState(false);
+    
+    // Auxiliar para evitar que a busca automática da bíblia sobrescreva dados salvos ao abrir o editor
+    const isLoadingItemRef = useRef(false);
+
+    // --- CONTENT BUILDER STATES ---
+    const [editorBlocks, setEditorBlocks] = useState<Block[]>([]);
+    const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+    const [canvasWidth, setCanvasWidth] = useState<'mobile' | 'tablet' | 'desktop' | 'full'>('desktop');
+    const [isMobilePropertiesOpen, setIsMobilePropertiesOpen] = useState(false);
+    const [isMobileAddMenuOpen, setIsMobileAddMenuOpen] = useState(false);
+
+    // Remove old state header
+    useEffect(() => {
+        setIsHeaderHidden(!!editingDayId);
+        return () => setIsHeaderHidden(false);
+    }, [editingDayId, setIsHeaderHidden]);
 
     // --- PLAN STATE ---
     const [plan, setPlan] = useState<Partial<CustomPlan>>({
@@ -92,38 +131,6 @@ const PlanBuilderPage: React.FC = () => {
         { id: 4, title: 'Avaliação', icon: GraduationCap }
     ];
 
-    // --- EDITOR STUDIO STATE ---
-    const [editingDayId, setEditingDayId] = useState<string | null>(null);
-    const [activeWeekId, setActiveWeekId] = useState<string | null>(null);
-    const [editingDayTitle, setEditingDayTitle] = useState('');
-
-    // Editor Configuration
-    const [editorTab, setEditorTab] = useState<'config' | 'content'>('config');
-    const [studyMode, setStudyMode] = useState<'quick' | 'deep'>('deep');
-
-    // Content Inputs
-    const [dayTitle, setDayTitle] = useState('');
-    const [dayRef, setDayRef] = useState('');
-    const [dayVerseText, setDayVerseText] = useState('');
-    const [dayCategory, setDayCategory] = useState('Geral');
-    const [dayTags, setDayTags] = useState<string[]>([]);
-    const [htmlContent, setHtmlContent] = useState('');
-
-    // AI Inputs
-    const [aiTheme, setAiTheme] = useState('');
-    const [aiAudience, setAiAudience] = useState('');
-    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-    const [isFetchingBible, setIsFetchingBible] = useState(false);
-    
-    // Auxiliar para evitar que a busca automática da bíblia sobrescreva dados salvos ao abrir o editor
-    const isLoadingItemRef = useRef(false);
-
-    // --- CONTENT BUILDER STATES ---
-    const [editorBlocks, setEditorBlocks] = useState<Block[]>([]);
-    const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-    const [canvasWidth, setCanvasWidth] = useState<'mobile' | 'tablet' | 'desktop' | 'full'>('desktop');
-    const [isMobilePropertiesOpen, setIsMobilePropertiesOpen] = useState(false);
-    const [isMobileAddMenuOpen, setIsMobileAddMenuOpen] = useState(false);
 
     const searchTimeoutRef = useRef<any>(null);
 
@@ -189,34 +196,37 @@ const PlanBuilderPage: React.FC = () => {
         };
     }, [setIsFocusMode, resetHeader]);
 
-    // --- GLOBAL HEADER DATA ---
     useEffect(() => {
-        const stepLabels: Record<number, string> = {
-            1: 'Planejamento',
-            2: 'Conteúdo',
-            3: 'Configurações',
-            4: 'Avaliação'
-        };
         const planTitle = plan.title || 'Nova Sala de Estudo';
 
         if (editingDayId) {
             const aulLabel = editingDayTitle || 'Nova Aula';
             setGlobalTitle(aulLabel);
             setBreadcrumbs([
-                { label: 'Workspace', path: '/workspace-pastoral' },
-                { label: planTitle, path: '/criador-jornada' },
-                { label: 'Conteúdo' },
+                { label: 'Criador de Jornada', path: '/workspace-pastoral' },
+                { label: planTitle, path: `/criar-jornada?id=${savedPlanId}`, onClick: () => setEditingDayId(null) },
+                { label: 'Conteúdo', path: `/criar-jornada?id=${savedPlanId}`, onClick: () => { setEditingDayId(null); setCurrentStep(2); } },
                 { label: aulLabel }
             ]);
-        } else {
-            setGlobalTitle(planTitle);
-            setBreadcrumbs([
-                { label: 'Workspace', path: '/workspace-pastoral' },
-                { label: planTitle },
-                { label: stepLabels[currentStep] || 'Planejamento' }
-            ]);
+            return;
         }
-    }, [plan.title, plan.status, editingDayId, editingDayTitle, currentStep, setGlobalTitle, setBreadcrumbs]);
+
+        if (currentStep === 2) {
+             setGlobalTitle(planTitle);
+             setBreadcrumbs([
+                 { label: 'Criador de Jornada', path: '/workspace-pastoral' },
+                 { label: planTitle, path: `/criar-jornada?id=${savedPlanId}`, onClick: () => setCurrentStep(1) },
+                 { label: 'Conteúdo' }
+             ]);
+             return;
+        }
+
+        setGlobalTitle(planTitle);
+        setBreadcrumbs([
+            { label: 'Criador de Jornada', path: '/workspace-pastoral' },
+            { label: planTitle, path: `/criar-jornada?id=${savedPlanId}` }
+        ]);
+    }, [plan.title, editingDayId, editingDayTitle, currentStep, setGlobalTitle, setBreadcrumbs, navigate, savedPlanId]);
 
     // Load Pastor Teams
     useEffect(() => {
@@ -291,7 +301,7 @@ const PlanBuilderPage: React.FC = () => {
                     }
 
                     // Altera a Referência (Subtítulo abaixo do H1) de forma robusta com Regex
-                    // Independente de ser a 1ª busca ou n-ésima busca
+                    // Independente de ser a 1Ã‚Âª busca ou n-ésima busca
                     if (newHtml.includes('Referência Bíblica Base')) {
                         newHtml = newHtml.replace('Referência Bíblica Base', verseData.formattedRef);
                     } else {
@@ -427,7 +437,7 @@ const PlanBuilderPage: React.FC = () => {
             setEditingDayTitle('Nova Aula');
             setDayRef('');
             setDayVerseText('');
-            // Template modelo de aula — mesmo padrão do CreateLandingPage
+            // Template modelo de aula — mesmo padrão do CreateLandingPage
             setEditorBlocks(buildBaseBlocks(['hero', 'biblical', 'study-content', 'authority', 'footer']));
             setHtmlContent('');
         }
@@ -479,7 +489,6 @@ const PlanBuilderPage: React.FC = () => {
             }
         } catch (e) {
             console.error("Erro na geração da AI:", e);
-            showNotification("Erro na IA.", "error");
         } finally {
             setIsGeneratingAI(false);
         }
@@ -502,7 +511,9 @@ const PlanBuilderPage: React.FC = () => {
             description: dayRef,
             htmlContent: generatedHtml || '<p>Conteúdo em construção...</p>',
             blocksConfig: editorBlocks,
-            isCompleted: false
+            isCompleted: false,
+            tags: dayTags,
+            category: dayCategory
         };
 
         setPlan(prev => ({
@@ -684,12 +695,12 @@ const PlanBuilderPage: React.FC = () => {
         );
 
     return (
-        <div className={editingDayId ? "h-screen bg-bible-paper dark:bg-black overflow-hidden flex flex-col" : "h-full bg-bible-paper dark:bg-black overflow-y-auto flex flex-col"}>
+        <div className={editingDayId ? "h-[100dvh] bg-bible-paper dark:bg-black overflow-hidden flex flex-col" : "h-full bg-bible-paper dark:bg-black overflow-y-auto flex flex-col"}>
             <SEO title="Sala de Estudos" />
 
-            {/* HEADER — hidden while editing a lesson */}
+            {/* HEADER — hidden while editing a lesson */}
             {!editingDayId && (
-            <div className="sticky top-[85px] md:top-0 z-40 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 px-4 md:px-8 py-2 flex flex-col md:flex-row justify-between items-center shadow-sm gap-2 h-auto md:h-20 shrink-0">
+            <div className="sticky top-0 z-40 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 px-4 md:px-8 py-2 flex flex-col md:flex-row justify-between items-center shadow-sm gap-2 h-auto md:h-20 shrink-0">
                 <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
                     {/* Redundant back button and title removed to prevent duplication with global header */}
                     {!editingDayId && isPlanPublished && <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse hidden md:block" title="Sala Ativa"></div>}
@@ -741,7 +752,7 @@ const PlanBuilderPage: React.FC = () => {
             </div>
             )}
 
-            <div className={editingDayId ? "flex-1 overflow-hidden flex flex-col" : "flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full"}>
+            <div className={editingDayId ? "flex-1 min-w-0 overflow-hidden flex flex-col" : "flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full"}>
 
                 {/* STEPS NAVIGATION - REMOVED FROM HERE */}
 
@@ -1066,55 +1077,98 @@ const PlanBuilderPage: React.FC = () => {
                         )}
                     </div>
                 ) : (
-                    // --- VIEW: EDITOR STUDIO — Layout duas colunas, tela cheia ---
-                    <div className="flex h-full overflow-hidden animate-in fade-in">
-
-                        {/* SIDEBAR ESQUERDA */}
-                        <aside className="w-[230px] xl:w-64 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-r border-gray-200 dark:border-gray-800 overflow-y-auto hidden lg:flex flex-col">
-
-                            {/* Topo da sidebar: Voltar + ações */}
-                            <div className="flex-shrink-0 border-b border-gray-100 dark:border-gray-800 p-3 flex flex-col gap-2">
-                                <button
-                                    onClick={() => setEditingDayId(null)}
-                                    className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-bible-gold transition-colors text-xs font-bold"
-                                >
-                                    <ArrowLeft size={15} /> Voltar
-                                </button>
+                    // --- VIEW: EDITOR STUDIO — Layout duas colunas, tela cheia ---
+                    <div className="flex flex-col h-full min-w-0 overflow-hidden animate-in fade-in">
+                        {/* Header do Editor */}
+                        <header className="flex-shrink-0 bg-white dark:bg-bible-darkPaper border-b border-gray-200 dark:border-gray-800 px-4 py-3 z-50">
+                          <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
+                            <div className="flex items-center gap-4">
+                              <button 
+                                onClick={() => setEditingDayId(null)}
+                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors group"
+                              >
+                                <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300 group-hover:text-bible-gold" />
+                              </button>
+                              <div className="flex items-center gap-3">
                                 <div>
-                                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Editando aula</p>
-                                    <p className="text-xs font-black text-gray-800 dark:text-white truncate">{dayTitle || 'Nova Aula'}</p>
+                                  <h1 className="font-bold text-bible-ink dark:text-white flex items-center gap-2">
+                                    {dayTitle || 'Nova Aula'}
+                                  </h1>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${plan.status === 'published' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
+                                      {plan.status === 'published' ? 'Publicado' : 'Rascunho'}
+                                    </span>
+                                    <span className="text-[10px] text-gray-400 font-medium">• Aula em Edição</span>
+                                  </div>
                                 </div>
-                                <div className="flex gap-1.5 pt-1">
-                                    <button
-                                        onClick={handleAiFill}
-                                        disabled={isGeneratingAI}
-                                        className="flex-1 flex items-center justify-center gap-1 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg font-bold text-[10px] hover:opacity-90 transition-all disabled:opacity-50"
-                                    >
-                                        {isGeneratingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                                        IA
-                                    </button>
-                                    <button
-                                        onClick={saveDayContent}
-                                        className="flex-1 flex items-center justify-center gap-1 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-lg font-bold text-[10px] hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                                    >
-                                        <Save size={12} /> Salvar
-                                    </button>
-                                    <button
-                                        onClick={saveDayContent}
-                                        className="flex-1 flex items-center justify-center gap-1 py-2 bg-bible-gold text-white rounded-lg font-bold text-[10px] hover:bg-bible-gold/90 transition-colors"
-                                    >
-                                        <Eye size={12} /> Ver
-                                    </button>
-                                </div>
-                                {/* Canvas Width inline */}
-                                <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 gap-0.5">
-                                    {([{ key: 'mobile' as const, Icon: Smartphone }, { key: 'tablet' as const, Icon: Tablet }, { key: 'desktop' as const, Icon: Monitor }, { key: 'full' as const, Icon: Maximize2 }]).map(({ key, Icon }) => (
-                                        <button key={key} title={key} onClick={() => setCanvasWidth(key)} className={`flex-1 py-1 rounded-md transition-colors flex items-center justify-center ${canvasWidth === key ? 'bg-white dark:bg-gray-900 text-bible-gold shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
-                                            <Icon size={12} />
-                                        </button>
-                                    ))}
-                                </div>
+                              </div>
                             </div>
+
+                            <div className="flex items-center gap-2">
+                              {/* BotÃµes de Ação Modelados da PÃ¡gina Criar Conteúdo */}
+                              <button
+                                onClick={handleAiFill}
+                                disabled={isGeneratingAI}
+                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg font-bold text-sm hover:from-violet-700 hover:to-purple-700 transition-all shadow-md shadow-purple-200 dark:shadow-purple-900/30 disabled:opacity-50"
+                              >
+                                {isGeneratingAI ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                                <span className="hidden sm:inline">IA Auto-Builder</span>
+                              </button>
+                              <button
+                                onClick={handleAiFill}
+                                disabled={isGeneratingAI}
+                                className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg font-medium text-sm hover:bg-purple-600 transition-colors disabled:opacity-50 hidden md:flex"
+                              >
+                                {isGeneratingAI ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
+                                <span className="hidden sm:inline">Gerar com IA</span>
+                              </button>
+                              
+                              {/* Canvas Width Controls */}
+                              <div className="hidden sm:flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-0.5 ml-2 mr-2">
+                                {([
+                                  { key: 'mobile' as const, icon: <Minimize2 size={14} />, label: 'Mobile (375px)' },
+                                  { key: 'tablet' as const, icon: <Tablet size={14} />, label: 'Tablet (768px)' },
+                                  { key: 'desktop' as const, icon: <Monitor size={14} />, label: 'Desktop (900px)' },
+                                  { key: 'full' as const, icon: <Maximize2 size={14} />, label: 'Largura total' },
+                                ]).map(opt => (
+                                  <button
+                                    key={opt.key}
+                                    title={opt.label}
+                                    onClick={() => setCanvasWidth(opt.key)}
+                                    className={`p-1.5 rounded-md transition-colors ${
+                                      canvasWidth === opt.key
+                                        ? 'bg-white dark:bg-gray-900 text-bible-gold shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                                    }`}
+                                  >
+                                    {opt.icon}
+                                  </button>
+                                ))}
+                              </div>
+
+                              <button
+                                onClick={saveDayContent}
+                                className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                              >
+                                <Save size={16} />
+                                <span className="hidden sm:inline">Salvar</span>
+                              </button>
+
+                              <button
+                                onClick={saveDayContent}
+                                className="flex items-center gap-2 px-4 py-2 bg-bible-gold text-white rounded-lg font-bold text-sm hover:bg-bible-gold/90 transition-colors hidden sm:flex"
+                              >
+                                <Eye size={16} />
+                                Preview
+                              </button>
+                            </div>
+                          </div>
+                        </header>
+
+                        {/* Editor Body */}
+                        <div className="flex-1 flex overflow-hidden">
+                            {/* SIDEBAR ESQUERDA */}
+                            <aside className="w-72 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-r border-gray-200 dark:border-gray-800 overflow-y-auto hidden lg:block">
 
                             <div className="p-4 space-y-5 flex-1 overflow-y-auto">
 
@@ -1243,37 +1297,38 @@ const PlanBuilderPage: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                        </aside>
+                            </aside>
 
-                        {/* CANVAS PRINCIPAL — sem header, tela cheia */}
-                        <main className="flex-1 flex flex-col overflow-hidden bg-gray-100 dark:bg-gray-950">
+                        {/* CANVAS PRINCIPAL — sem header, tela cheia */}
+                        <main className="flex-1 min-w-0 flex flex-col overflow-hidden bg-gray-100 dark:bg-gray-950">
 
                             {/* ContentBuilder direto, sem sub-header */}
                             <div className="flex-1 overflow-auto">
-                                <div className={`mx-auto h-full transition-all duration-300 ${
-                                    canvasWidth === 'mobile' ? 'max-w-[375px]'
-                                    : canvasWidth === 'tablet' ? 'max-w-[768px]'
-                                    : canvasWidth === 'full' ? 'w-full h-full'
+                                <div className={`mx-auto h-full w-full px-2 sm:px-4 py-6 sm:py-8 transition-all duration-300 ${
+                                    canvasWidth === 'mobile' ? 'max-w-[420px]'
+                                    : canvasWidth === 'tablet' ? 'max-w-[820px]'
+                                    : canvasWidth === 'full' ? 'w-full h-full p-0'
                                     : 'max-w-5xl'
                                 }`}>
                                     <ContentBuilder
                                         blocks={editorBlocks}
                                         selectedBlockId={selectedBlockId}
-                                        canvasWidth={canvasWidth}
                                         onSelectBlock={setSelectedBlockId}
                                         onUpdateBlock={handleUpdateBlock}
-                                        onRemoveBlock={handleRemoveBlock}
                                         onMoveBlock={handleMoveBlock}
                                         onDuplicateBlock={handleDuplicateBlock}
+                                        onRemoveBlock={handleRemoveBlock}
                                         onAddBlock={handleAddBlock}
                                         isEditing={true}
+                                        canvasWidth={canvasWidth}
                                     />
                                 </div>
                             </div>
                         </main>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
+        </div>
 
             {/* MOBILE CONTROLS */}
             {editingDayId && (
@@ -1282,7 +1337,7 @@ const PlanBuilderPage: React.FC = () => {
                     {!selectedBlockId && (
                         <button
                             onClick={() => setIsMobileAddMenuOpen(true)}
-                            className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-bible-gold text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all md:hidden"
+                            className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-bible-gold text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all lg:hidden"
                         >
                             <Plus size={24} />
                         </button>

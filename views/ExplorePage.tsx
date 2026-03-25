@@ -7,11 +7,11 @@ import {
     Plus, MoreVertical, Calendar, GraduationCap, FolderOpen
 } from 'lucide-react';
 import { dbService } from '../services/supabase';
-import { bibleService } from '../services/bibleService';
 import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { INSPIRATIONAL_VERSES, BIBLE_BOOKS_LIST } from '../constants';
 import { searchMatch } from '../utils/textUtils';
+import { resolveBibleSearchNavigation } from '../utils/bibleSearchNavigation';
 import SEO from '../components/SEO';
 import SocialNavigation from '../components/SocialNavigation';
 import { CustomPlan, StudyModule, GuidedPrayer, CustomQuiz } from '../types';
@@ -75,7 +75,11 @@ const ExplorePage: React.FC = () => {
 
     const handleSearch = (text: string) => {
         setQuery(text);
-        if (text.length < 2) { setResults([]); return; }
+        if (text.length < 2) {
+            setResults([]);
+            setIsSearching(false);
+            return;
+        }
         setIsSearching(true);
         if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -84,19 +88,16 @@ const ExplorePage: React.FC = () => {
             const newResults: SearchResult[] = [];
 
             // 1. Bible Books
-            const bibleParsed = bibleService.parseReference(lowerText);
-            if (bibleParsed) {
-                const book = BIBLE_BOOKS_LIST.find(b => b.id === bibleParsed.bookId);
-                if (book) {
-                    newResults.push({
-                        id: `bible-${book.id}`,
-                        type: 'bible',
-                        title: `Ler ${book.name} ${bibleParsed.chapter}`,
-                        subtitle: 'Escrituras',
-                        icon: <BookOpen size={16} />,
-                        action: () => navigate('/biblia', { state: { bookId: book.id, chapter: bibleParsed.chapter } })
-                    });
-                }
+            const bibleResult = await resolveBibleSearchNavigation(lowerText);
+            if (bibleResult) {
+                newResults.push({
+                    id: `bible-${bibleResult.routeState.bookId}-${bibleResult.routeState.chapter}`,
+                    type: 'bible',
+                    title: `Ler ${bibleResult.formattedRef}`,
+                    subtitle: 'Escrituras',
+                    icon: <BookOpen size={16} />,
+                    action: () => navigate('/biblia', { state: bibleResult.routeState })
+                });
             }
 
             try {
@@ -147,7 +148,7 @@ const ExplorePage: React.FC = () => {
                 </div>
             </div>
 
-            <div ref={containerRef} className="flex-1 overflow-y-auto p-4 pb-24" onScroll={handleScroll}>
+            <div ref={containerRef} className="flex-1 overflow-y-auto p-4 pb-24 mobile-bottom-nav-offset md:pb-24" onScroll={handleScroll}>
                 <div className="max-w-xl mx-auto space-y-8">
                     {query.length > 0 ? (
                         results.map(item => (
@@ -170,7 +171,7 @@ const ExplorePage: React.FC = () => {
                                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Descubra o Reino</p>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4 mb-8">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
                                 <button onClick={() => navigate('/social/artigos')} className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col items-center justify-center gap-3 hover:border-bible-gold transition-all active:scale-95">
                                     <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-2xl"><Globe size={24} /></div>
                                     <span className="font-bold text-gray-900 dark:text-white text-sm">Biblioteca Global</span>
@@ -199,11 +200,11 @@ const ExplorePage: React.FC = () => {
                                     </button>
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                                     {/* NEW ROOM CTA */}
                                     <div
                                         onClick={() => navigate('/criador-jornada')}
-                                        className="min-w-[160px] md:min-w-[180px] h-[180px] flex flex-col items-center justify-center border-2 border-dashed border-bible-gold/30 rounded-3xl bg-bible-gold/5 hover:bg-bible-gold/10 transition-colors cursor-pointer group"
+                                        className="h-[180px] flex flex-col items-center justify-center border-2 border-dashed border-bible-gold/30 rounded-3xl bg-bible-gold/5 hover:bg-bible-gold/10 transition-colors cursor-pointer group"
                                     >
                                         <div className="p-3 bg-bible-gold/20 text-bible-gold rounded-2xl mb-4 group-hover:scale-110 transition-transform">
                                             <Plus size={24} />
@@ -241,7 +242,7 @@ const ExplorePage: React.FC = () => {
                                             </div>
                                         );
                                     })}
-                                    {isLoadingPlans && [1, 2].map(i => <div key={i} className="min-w-[200px] h-[180px] bg-gray-100 dark:bg-bible-darkPaper/50 animate-pulse rounded-3xl" />)}
+                                    {isLoadingPlans && [1, 2].map(i => <div key={i} className="h-[180px] bg-gray-100 dark:bg-bible-darkPaper/50 animate-pulse rounded-3xl" />)}
                                 </div>
                             </div>
                         </>

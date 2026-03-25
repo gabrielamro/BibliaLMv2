@@ -243,14 +243,14 @@ const CreateStudyPage: React.FC = () => {
   };
 
   return (
-    <div className="h-full bg-gray-100 dark:bg-[#121212] overflow-y-auto">
+    <div className="h-full bg-gray-100 dark:bg-[#121212] overflow-y-auto mobile-bottom-nav-offset md:pb-8">
         <SEO title="Editor de Manuscrito Bíblico" />
         
         {/* Header Fixo (Removido para usar o global) */}
         <div className="sticky top-0 z-40 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex justify-end items-center shadow-sm">
-            <div className="flex gap-3">
-                <button onClick={() => handleSave('draft')} disabled={isLoading} className="hidden md:block px-4 py-2 text-gray-500 dark:text-gray-400 font-bold text-xs hover:text-bible-gold transition-colors">Salvar Rascunho</button>
-                <button onClick={() => setShowPublishModal(true)} disabled={isLoading} className="px-5 py-2 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-lg font-bold text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg active:scale-95 transition-all">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+                <button onClick={() => handleSave('draft')} disabled={isLoading} className="w-full sm:w-auto px-4 py-2 text-gray-500 dark:text-gray-400 font-bold text-xs hover:text-bible-gold transition-colors border border-gray-200 dark:border-gray-700 rounded-lg md:border-transparent">Salvar Rascunho</button>
+                <button onClick={() => setShowPublishModal(true)} disabled={isLoading} className="w-full sm:w-auto px-5 py-2 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-lg font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all">
                     {isLoading ? <Loader2 size={16} className="animate-spin"/> : <Sparkles size={16}/>} 
                     <span className="hidden md:inline">Publicar</span>
                     <span className="md:hidden">Publicar</span>
@@ -315,7 +315,7 @@ const CreateStudyPage: React.FC = () => {
             </div>
         )}
 
-        <div className="max-w-7xl mx-auto p-4 md:p-8 flex flex-col lg:flex-row gap-8 items-start">
+        <div className="max-w-7xl mx-auto p-4 md:p-8 flex flex-col lg:flex-row gap-6 md:gap-8 items-start">
             
             {/* LADO ESQUERDO: Painel de Controle (Inputs) */}
             <aside className="w-full lg:w-[380px] flex-shrink-0 space-y-6">
@@ -501,7 +501,7 @@ const CreateStudyPage: React.FC = () => {
             </aside>
 
             {/* LADO DIREITO: O EDITOR (Papel) */}
-            <main className="flex-1 w-full flex flex-col items-center">
+            <main className="flex-1 w-full min-w-0 flex flex-col items-center">
                 
                 {/* Título do Documento */}
                 <input 
@@ -509,11 +509,11 @@ const CreateStudyPage: React.FC = () => {
                     value={title} 
                     onChange={e => setTitle(e.target.value)} 
                     placeholder="Título do seu Estudo..." 
-                    className="w-full max-w-[210mm] text-center text-3xl font-serif font-bold bg-transparent outline-none placeholder-gray-300 dark:placeholder-gray-700 text-gray-800 dark:text-white mb-6"
+                    className="w-full max-w-[210mm] px-2 text-center text-2xl md:text-3xl font-serif font-bold bg-transparent outline-none placeholder-gray-300 dark:placeholder-gray-700 text-gray-800 dark:text-white mb-6"
                 />
 
                 {/* Editor Padronizado */}
-                <div className="w-full max-w-[210mm] min-h-[297mm] shadow-2xl rounded-sm relative flex flex-col bg-white dark:bg-gray-900">
+                <div className="w-full max-w-[210mm] min-h-[70vh] md:min-h-[297mm] shadow-2xl rounded-sm relative flex flex-col bg-white dark:bg-gray-900 overflow-hidden">
                     <RichTextEditor
                         content={editorContent}
                         onChange={setEditorContent}

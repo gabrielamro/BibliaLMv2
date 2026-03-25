@@ -887,6 +887,13 @@ export const dbService = {
     saveHomeConfig: async (config: any) => {
         await supabase.from('settings').upsert({ key: 'home', value: JSON.stringify(config) });
     },
+    getUserScopedSetting: async (key: string) => {
+        const { data } = await supabase.from('settings').select('value').eq('key', key).maybeSingle();
+        return data?.value ? JSON.parse(data.value) : null;
+    },
+    saveUserScopedSetting: async (key: string, value: any) => {
+        await supabase.from('settings').upsert({ key, value: JSON.stringify(value) });
+    },
     getBanners: async (_activeOnly: boolean): Promise<Banner[]> => {
         const { data } = await supabase.from('banners').select('*').order('priority', { ascending: true });
         return data ?? [];
@@ -1030,6 +1037,43 @@ export const dbService = {
 
         return latest ?? null;
     },
+    getRecentDailyDevotionals: async (limitCount = 240) => {
+        const { data } = await supabase
+            .from('daily_devotionals')
+            .select('*')
+            .order('date', { ascending: false })
+            .limit(limitCount);
+        return data ?? [];
+    },
+    getDailyDevotionalsByContentIds: async (contentIds: string[]) => {
+        const uniqueIds = Array.from(new Set(contentIds.filter(Boolean)));
+        if (uniqueIds.length === 0) return [];
+
+        const dateIds = uniqueIds
+            .map(id => {
+                const dailyMatch = id.match(/^daily:(\d{4}-\d{2}-\d{2})$/);
+                if (dailyMatch) return dailyMatch[1];
+                if (/^\d{4}-\d{2}-\d{2}$/.test(id)) return id;
+                return null;
+            })
+            .filter((id): id is string => Boolean(id));
+
+        const rawIds = uniqueIds.filter(id => !dateIds.includes(id));
+        const collected: any[] = [];
+
+        if (dateIds.length > 0) {
+            const { data } = await supabase.from('daily_devotionals').select('*').in('date', dateIds);
+            if (data) collected.push(...data);
+        }
+
+        const uuidLikeIds = rawIds.filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id));
+        if (uuidLikeIds.length > 0) {
+            const { data } = await supabase.from('daily_devotionals').select('*').in('id', uuidLikeIds);
+            if (data) collected.push(...data);
+        }
+
+        return collected;
+    },
     getUserDevotionalHistory: async (uid: string, limitCount = 10) => {
         try {
             const { data, error } = await supabase
@@ -1044,7 +1088,7 @@ export const dbService = {
             return [];
         }
     },
-    saveUserDevotionalAction: async (uid: string, contentId: string, type: 'amen' | 'reflection', value?: string) => {
+    saveUserDevotionalAction: async (uid: string, contentId: string, type: 'amen' | 'reflection' | 'view', value?: string) => {
         try {
             const { data: existing } = await supabase
                 .from('user_devotionals')

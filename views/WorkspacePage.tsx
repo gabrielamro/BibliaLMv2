@@ -15,6 +15,7 @@ import SEO from '../components/SEO';
 import StandardCard from '../components/ui/StandardCard';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { useHeader } from '../contexts/HeaderContext';
+import { getEditDestinationForContent } from '../utils/contentEditing';
 
 // --- TYPES ---
 type ViewMode = 'grid' | 'list';
@@ -119,21 +120,14 @@ const WorkspacePage: React.FC = () => {
 
     // --- ACTIONS ---
     const handleEdit = (item: SavedStudy | CustomPlan | Note) => {
-        if (isPlan(item)) {
-            navigate('/criador-jornada', { state: { planData: item } });
-        } else if (isStudy(item)) {
-            if (item.isFollowed) {
-                // Navega para o visualizador (NotebookAnalysisPage) em vez do editor
-                navigate('/estudo', { state: { studyData: item } });
-            } else {
-                if ('blocks' in item && Array.isArray((item as any).blocks)) {
-                    navigate('/criar-conteudo', { state: { contentId: item.id } });
-                } else {
-                    navigate('/criar-estudo', { state: { id: item.id, prefill: item } });
-                }
-            }
-        } else {
-            // Note edit logic
+        if (isStudy(item) && item.isFollowed) {
+            navigate(`/v/${item.id}`);
+            return;
+        }
+
+        const destination = getEditDestinationForContent(item as any);
+        if (destination) {
+            navigate(destination.path, { state: destination.state });
         }
     };
 

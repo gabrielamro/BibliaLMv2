@@ -11,6 +11,10 @@ export interface PastorConfig {
     audit?: boolean;
 }
 
+export interface DailyDevotionalOptions {
+    excludedVerseReferences?: string[];
+}
+
 export interface PastorResponse<T> {
     data: T;
     audit?: AuditoriaResult;
@@ -43,11 +47,15 @@ export const analyzeUnderstanding = async (userThoughts: string, context: string
     return await bigPickle.analyzeUnderstanding(userThoughts, context);
 };
 
-export const generateDailyDevotional = async (forceNew: boolean = false, provider: AIProvider = 'bigpickle') => {
+export const generateDailyDevotional = async (
+    forceNew: boolean = false,
+    provider: AIProvider = 'bigpickle',
+    options?: DailyDevotionalOptions
+) => {
     if (provider === 'gemini') {
-        return await gemini.generateDailyDevotional(forceNew);
+        return await gemini.generateDailyDevotional(forceNew, options);
     }
-    return await bigPickle.generateDailyDevotional(forceNew);
+    return await bigPickle.generateDailyDevotional(forceNew, options);
 };
 
 export const improveNote = async (content: string, provider: AIProvider = 'bigpickle') => {
@@ -291,4 +299,3 @@ export { type AuditoriaResult } from './pastorAuditor';
 export const generateAIOnePage = async (userPrompt: string, authorName?: string): Promise<any> => {
     return await bigPickle.generateAIOnePage(userPrompt, authorName);
 };
-

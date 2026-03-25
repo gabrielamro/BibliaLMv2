@@ -66,23 +66,28 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const desktopSettingsRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-    const isLanding = location.pathname === '/intro' || location.pathname === '/apresentacao' || location.pathname === '/faith-tech';
+    const isLanding = location.pathname === '/intro' || 
+        location.pathname === '/apresentacao' || 
+        location.pathname === '/faith-tech' ||
+        location.pathname === '/criador-jornada' ||
+        location.pathname === '/criar-conteudo';
     const isCustomHomeShell = location.pathname === '/';
 
-    // Define quais rotas são "Raiz" e NÃO devem ter botão de voltar no mobile
-    // Apenas as abas da MobileBottomNav e páginas de aterrissagem devem estar aqui
     const rootPaths = [
-        '/',                // Santuário (Home)
-        '/biblia',          // Bíblia
-        '/social',          // Reino (Feed)
-        '/social/explore',  // Explorar
-        '/perfil',          // Perfil (Eu)
-        '/intro',           // Landing
-        '/apresentacao',    // Apresentação
-        '/login'            // Login
+        '/',
+        '/biblia',
+        '/social',
+        '/social/explore',
+        '/navegar',
+        '/perfil',
+        '/intro',
+        '/apresentacao',
+        '/login'
     ];
 
     const showBackButton = !rootPaths.includes(location.pathname);
+    const showMobileShell = !isFocusMode && !isCustomHomeShell && !isHeaderHidden;
+    const showMobileNav = !isFocusMode;
 
     const isAdmin = userProfile?.username === 'gabrielamaro' || currentUser?.email === 'gabrielamaro@live.com';
     const isPastor = userProfile?.subscriptionTier === 'pastor';
@@ -109,7 +114,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             const timer = setTimeout(() => {
                 clearNotification();
             }, 5000);
-            return () => clearTimeout(timer);
+            return () => setTimeout(() => clearNotification(), 5000); // Guard redundant
         }
     }, [notification, clearNotification]);
 
@@ -131,7 +136,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         if (path === '/pulpito') return 'Púlpito Digital';
         if (path === '/workspace-pastoral') return 'Workspace Pastoral';
         return 'BíbliaLM';
-    }
+    };
     const pageTitle = getPageTitle();
     
     const navStructure = useMemo(() => {
@@ -189,6 +194,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         }
         return base;
     }, [isPastor, currentUser]);
+
     const toggleSubmenu = (label: string) => {
         setOpenSubmenus(prev => ({ ...prev, [label]: !prev[label] }));
     };
@@ -212,7 +218,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
     const isFreePlan = !userProfile || userProfile.subscriptionTier === 'free';
 
-    // Renderização do Conteúdo do Dropdown (Engrenagem)
     const renderSettingsDropdown = () => (
         <div className="flex flex-col py-2">
             {currentUser && (
@@ -330,10 +335,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return (
         <div className="flex flex-col h-[100dvh] bg-bible-paper dark:bg-black transition-colors duration-300 font-sans overflow-hidden w-full max-w-[100vw]">
 
-            {/* Mobile Header - Hidden in Focus Mode */}
+            {/* Mobile Header - Hidden in Focus Mode / Home */}
             <header
-                className={`md:hidden flex items-center justify-between px-4 py-3 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 absolute top-0 left-0 right-0 z-[60] h-[60px] pt-safe transition-transform duration-300 ease-in-out ${showHeader ? 'translate-y-0' : '-translate-y-full'
-                    } ${isFocusMode || isCustomHomeShell || isHeaderHidden ? '!hidden' : ''}`}
+                className={`md:hidden flex items-center justify-between px-4 py-3 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 absolute top-0 left-0 right-0 z-[60] h-[var(--mobile-header-height)] pt-safe transition-transform duration-300 ease-in-out ${showHeader ? 'translate-y-0' : '-translate-y-full'
+                    } ${showMobileShell ? '' : '!hidden'}`}
             >
                 <div className="flex items-center gap-3 z-10 flex-1 overflow-hidden">
                     {showBackButton ? (
@@ -373,7 +378,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     </div>
                 </div>
 
-                {/* Right Side: Icons */}
                 <div className="flex items-center gap-1 z-10 flex-shrink-0">
                     {isFreePlan && (
                         <button onClick={() => setIsSupportModalOpen(true)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors">
@@ -429,7 +433,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </div>
             </header>
 
-            <div className="flex flex-1 overflow-hidden relative w-full">
+            <div className="flex flex-1 overflow-hidden relative w-full"> {/* REMOVED pt-safe from here to fix top bar on desktop */}
 
                 {/* Desktop Sidebar - Hidden in Focus Mode and Home Shell */}
                 <aside className={`hidden lg:flex flex-col w-64 bg-white dark:bg-[#0a0a0a] border-r border-gray-200 dark:border-gray-800 relative z-20 ${isFocusMode || isCustomHomeShell ? 'hidden' : ''}`}>
@@ -500,11 +504,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     </div>
                 </aside>
 
-                {/* Main Content */}
-                <main className={`flex-1 relative flex flex-col w-full overflow-hidden ${isFocusMode ? 'bg-black' : ''}`}>
-
+                {/* Main Content Area */}
+                <main 
+                    ref={scrollContainerRef}
+                    onScroll={handleScroll}
+                    className={`flex-1 overflow-y-auto overflow-x-hidden scroll-smooth relative w-full ${isFocusMode ? 'bg-black' : ''} ${showMobileShell ? 'mobile-header-offset md:pt-0' : 'pt-0'}`}
+                >
                     {notification && (
-                        <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-[110] px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 fade-in duration-300 border ${notification.type === 'error' ? 'bg-red-500 text-white border-red-600' :
+                        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[110] px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 fade-in duration-300 border ${notification.type === 'error' ? 'bg-red-500 text-white border-red-600' :
                                 notification.type === 'success' ? 'bg-green-600 text-white border-green-700' :
                                     notification.type === 'badge' ? 'bg-purple-600 text-white border-purple-700' :
                                         'bg-gray-900 text-white border-gray-800'
@@ -520,127 +527,122 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         </div>
                     )}
 
-                    {/* Desktop Header - Hidden in Focus Mode */}
+                    {/* Desktop Header - Hidden in Focus Mode / Home */}
                     <header className={`hidden md:flex items-center justify-between px-8 py-4 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 z-40 shrink-0 h-20 ${isFocusMode || isCustomHomeShell || isHeaderHidden ? '!hidden' : ''}`}>
-                        {/* Left Side & Title */}
-                        <div className="flex items-center gap-4 flex-1">
-                            {showBackButton && (
-                                <button onClick={() => navigate(-1)} className="p-2 mr-2 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shrink-0">
-                                    <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300" />
-                                </button>
-                            )}
-                            
-                            {headerIcon && (
-                                <div className="text-bible-gold shrink-0 scale-[1.3] origin-left mr-2">
-                                    {headerIcon}
-                                </div>
-                            )}
-
-                            <div className="flex flex-col justify-center">
-                                {breadcrumbs.length > 0 ? (
-                                    <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">
-                                        {breadcrumbs.map((crumb, index) => (
-                                            <React.Fragment key={index}>
-                                                {index > 0 && <ChevronRight size={10} className="mx-1" />}
-                                                <span
-                                                    onClick={() => {
-                                                        if (crumb.onClick) crumb.onClick();
-                                                        else if (crumb.path) navigate(crumb.path);
-                                                    }}
-                                                    className={`cursor-pointer hover:text-bible-gold transition-colors ${index === breadcrumbs.length - 1 ? 'text-gray-600 dark:text-gray-300' : ''}`}
-                                                >
-                                                    {crumb.label}
-                                                </span>
-                                            </React.Fragment>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">
-                                        {headerSubtitle || 'BÍBLIA'}
-                                    </p>
-                                )}
-                                <h2 className="text-xl md:text-2xl font-sans font-black tracking-tight text-gray-900 dark:text-white leading-none">
-                                    {headerTitle || pageTitle}
-                                </h2>
-                            </div>
-                        </div>
-
-                        {/* Right Side */}
-                        <div className="flex items-center justify-end gap-4 w-32 flex-shrink-0">
-                            <button onClick={toggleTheme} className="p-2 text-gray-400 hover:text-bible-gold transition-colors">
-                                {settings.theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-                            </button>
-
-                            {currentUser && (
-                                <div className="relative" ref={notifRef}>
-                                    <button onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)} className="p-2 text-gray-400 hover:text-bible-gold transition-colors relative">
-                                        <Bell size={20} />
-                                        {unreadNotificationsCount > 0 && (
-                                            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-black"></span>
-                                        )}
+                            <div className="flex items-center gap-4">
+                                {showBackButton && (
+                                    <button onClick={() => navigate(-1)} className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                                        <ArrowLeft size={20} />
                                     </button>
-                                    {isNotifDropdownOpen && (
-                                        <div className="absolute right-0 mt-4 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50 animate-in fade-in zoom-in-95 origin-top-right">
-                                            <div className="p-4 border-b border-gray-50 dark:border-gray-800 flex justify-between items-center">
-                                                <span className="font-bold text-sm">Notificações</span>
-                                                <button onClick={markNotificationsAsRead} className="text-[10px] text-bible-gold hover:underline font-bold uppercase">Marcar lidas</button>
+                                )}
+                                
+                                {headerIcon && (
+                                    <div className="text-bible-gold shrink-0 scale-[1.3] origin-left mr-2">
+                                        {headerIcon}
+                                    </div>
+                                )}
+
+                                <div className="flex flex-col justify-center">
+                                    {breadcrumbs.length > 0 ? (
+                                        <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">
+                                            {breadcrumbs.map((crumb, index) => (
+                                                <React.Fragment key={index}>
+                                                    {index > 0 && <ChevronRight size={10} className="mx-1" />}
+                                                    <span
+                                                        onClick={() => {
+                                                            if (crumb.onClick) crumb.onClick();
+                                                            else if (crumb.path) navigate(crumb.path);
+                                                        }}
+                                                        className={`cursor-pointer hover:text-bible-gold transition-colors ${index === breadcrumbs.length - 1 ? 'text-gray-600 dark:text-gray-300' : ''}`}
+                                                    >
+                                                        {crumb.label}
+                                                    </span>
+                                                </React.Fragment>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">
+                                            {headerSubtitle || 'BÍBLIA'}
+                                        </p>
+                                    )}
+                                    <h2 className="text-xl md:text-2xl font-sans font-black tracking-tight text-gray-900 dark:text-white leading-none">
+                                        {headerTitle || pageTitle}
+                                    </h2>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-end gap-4 w-32 flex-shrink-0">
+                                <button onClick={toggleTheme} className="p-2 text-gray-400 hover:text-bible-gold transition-colors">
+                                    {settings.theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                                </button>
+
+                                {currentUser && (
+                                    <div className="relative" ref={notifRef}>
+                                        <button onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)} className="p-2 text-gray-400 hover:text-bible-gold transition-colors relative">
+                                            <Bell size={20} />
+                                            {unreadNotificationsCount > 0 && (
+                                                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-black"></span>
+                                            )}
+                                        </button>
+                                        {isNotifDropdownOpen && (
+                                            <div className="absolute right-0 mt-4 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50 animate-in fade-in zoom-in-95 origin-top-right">
+                                                <div className="p-4 border-b border-gray-50 dark:border-gray-800 flex justify-between items-center">
+                                                    <span className="font-bold text-sm">Notificações</span>
+                                                    <button onClick={markNotificationsAsRead} className="text-[10px] text-bible-gold hover:underline font-bold uppercase">Marcar lidas</button>
+                                                </div>
+                                                <div className="max-h-80 overflow-y-auto">
+                                                    {notifications.length === 0 ? (
+                                                        <div className="p-8 text-center text-gray-400 text-xs">Nenhuma nova notificação</div>
+                                                    ) : (
+                                                        notifications.map(notif => (
+                                                            <div key={notif.id} className={`p-4 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${!notif.read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                                                                <p className="text-xs font-bold text-gray-900 dark:text-white mb-1">{notif.title}</p>
+                                                                <p className="text-xs text-gray-500 dark:text-gray-400">{notif.message}</p>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="max-h-80 overflow-y-auto">
-                                                {notifications.length === 0 ? (
-                                                    <div className="p-8 text-center text-gray-400 text-xs">Nenhuma nova notificação</div>
-                                                ) : (
-                                                    notifications.map(notif => (
-                                                        <div key={notif.id} className={`p-4 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${!notif.read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
-                                                            <p className="text-xs font-bold text-gray-900 dark:text-white mb-1">{notif.title}</p>
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400">{notif.message}</p>
-                                                        </div>
-                                                    ))
-                                                )}
-                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                <div className="relative" ref={desktopSettingsRef}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
+                                        className={`p-2 rounded-full transition-colors ${isSettingsMenuOpen ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-bible-gold'}`}
+                                    >
+                                        <Settings size={20} />
+                                    </button>
+                                    {isSettingsMenuOpen && (
+                                        <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[100] animate-in fade-in zoom-in-95 origin-top-right">
+                                            {renderSettingsDropdown()}
                                         </div>
                                     )}
                                 </div>
-                            )}
 
-                            <div className="relative" ref={desktopSettingsRef}>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
-                                    className={`p-2 rounded-full transition-colors ${isSettingsMenuOpen ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-bible-gold'}`}
-                                >
-                                    <Settings size={20} />
-                                </button>
-                                {isSettingsMenuOpen && (
-                                    <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[100] animate-in fade-in zoom-in-95 origin-top-right">
-                                        {renderSettingsDropdown()}
-                                    </div>
+                                {isFreePlan && (
+                                    <button onClick={() => setIsSupportModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-full text-xs font-bold hover:bg-red-100 transition-colors">
+                                        <Heart size={14} fill="currentColor" />
+                                        <span>Ofertar</span>
+                                    </button>
                                 )}
                             </div>
-
-                            {isFreePlan && (
-                                <button onClick={() => setIsSupportModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-full text-xs font-bold hover:bg-red-100 transition-colors">
-                                    <Heart size={14} fill="currentColor" />
-                                    <span>Ofertar</span>
-                                </button>
-                            )}
-                        </div>
                     </header>
 
-                    <div
-                        ref={scrollContainerRef}
-                        className={`flex-1 overflow-y-auto overflow-x-hidden scroll-smooth relative ${isFocusMode || isCustomHomeShell ? 'pt-0' : 'pt-[60px] md:pt-0'}`}
-                        onScroll={handleScroll}
-                    >
+                    <div className={showMobileNav ? 'pb-[var(--mobile-bottom-nav-height)] md:pb-0' : ''}>
                         {children}
                     </div>
 
-                    {!isFocusMode && <MobileBottomNav />}
                     <LoginModal isOpen={isLoginModalOpen} onClose={closeLogin} />
                     <SupportModal isOpen={isSupportModalOpen} onClose={() => setIsSupportModalOpen(false)} />
                     <BuyCreditsModal isOpen={isBuyCreditsModalOpen} onClose={closeBuyCredits} />
                     <SystemTutorialModal isOpen={isTutorialOpen} onClose={() => setIsTutorialOpen(false)} />
                     <ObreiroIAChatbot />
                 </main>
+                
+                {showMobileNav && <MobileBottomNav />}
             </div>
         </div>
     );

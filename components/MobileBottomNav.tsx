@@ -73,7 +73,7 @@ const MobileBottomNav: React.FC = () => {
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 pb-safe">
       {/* Glassmorphism Container */}
       <div className="bg-white/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl border-t border-white/20 dark:border-white/5 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
-        <div className="flex items-center justify-around h-16 px-2">
+        <div className="flex items-center justify-around h-[var(--mobile-bottom-nav-height)] px-2">
           {navItems.map((item) => {
             let isActive = false;
             if (item.id === 'social') {

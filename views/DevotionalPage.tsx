@@ -12,7 +12,8 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import { dbService } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useMana } from '../hooks/useMana';
-import { analyzeUnderstanding, generateDailyDevotional } from '../services/pastorAgent';
+import { analyzeUnderstanding } from '../services/pastorAgent';
+import { resolveUserDailyDevotional } from '../services/devotionalResolver';
 import { DAILY_BREAD } from '../constants';
 import toast from 'react-hot-toast';
 
@@ -53,26 +54,15 @@ const DevotionalPage: React.FC = () => {
   const loadDevotional = useCallback(async (forceNew = false) => {
     setLoading(true);
     try {
-      let raw = await dbService.getDailyDevotional(forceNew);
-
-      // Fallback: banco vazio -> gera via IA
-      if (!raw) {
-        try {
-          raw = await generateDailyDevotional(forceNew);
-        } catch {
-          // Se a IA falhar, usa o devocional estático das constantes
-          raw = DAILY_BREAD as any;
-        }
-      }
+      const uid = currentUser ? (currentUser.id ?? currentUser.uid) : null;
+      const raw = await resolveUserDailyDevotional({ userId: uid });
 
       const data = normalizeDevotional(raw);
       setDevotional(data);
 
       if (currentUser && raw?.id) {
-        const uid = currentUser.id ?? currentUser.uid;
-        const history = await dbService.getUserDevotionalHistory(uid, 1);
-        const today = new Date().toISOString().split('T')[0];
-        const alreadyDone = history.some((h: any) => h.date === today && h.content_id === raw.id);
+        const history = await dbService.getUserDevotionalHistory(uid!, 20);
+        const alreadyDone = history.some((h: any) => h.content_id === raw.id && h.is_amen);
         setHasSaidAmen(alreadyDone);
       }
     } catch (error) {

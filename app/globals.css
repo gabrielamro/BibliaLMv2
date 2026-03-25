@@ -3,11 +3,24 @@
 @source "../views";
 
 @layer base {
+  :root {
+    --mobile-header-height: 60px;
+    --mobile-bottom-nav-height: 64px;
+  }
+
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     overscroll-behavior-y: none;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 }
 
@@ -20,8 +33,34 @@
     padding-top: env(safe-area-inset-top);
   }
 
+  .mobile-header-offset {
+    padding-top: var(--mobile-header-height);
+  }
+
+  .mobile-bottom-nav-offset {
+    padding-bottom: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom) + 1rem);
+  }
+
+  .mobile-fab-offset {
+    bottom: calc(env(safe-area-inset-bottom) + 1.5rem);
+  }
+
   .\[\&_h1\]\:font-black h1 {
     font-size: 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .mobile-header-offset {
+      padding-top: 0;
+    }
+
+    .mobile-bottom-nav-offset {
+      padding-bottom: 0;
+    }
+
+    .mobile-fab-offset {
+      bottom: 1.5rem;
+    }
   }
 }
 
@@ -86,4 +125,4 @@
 .prose, .rich-editor-content {
   max-width: none !important;
 }
-
+

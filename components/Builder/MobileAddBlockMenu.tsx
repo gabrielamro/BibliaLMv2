@@ -19,7 +19,7 @@ export const MobileAddBlockMenu: React.FC<MobileAddBlockMenuProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex flex-col justify-end xl:hidden" onClick={onClose}>
+    <div className="fixed inset-0 z-[120] flex flex-col justify-end lg:hidden" onClick={onClose}>
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in duration-300" />
 

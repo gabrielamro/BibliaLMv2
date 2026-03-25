@@ -1,16 +1,15 @@
 "use client";
 import { useNavigate } from '../../utils/router';
 
-
 import React, { useState, useMemo, useRef } from 'react';
-import { Search, X, BookOpen, ChevronRight, Hash, Sparkles, HandHeart, GraduationCap, Target, Coffee, Palette, Bookmark, PenTool } from 'lucide-react';
+import { Search, X, BookOpen, ChevronRight, Sparkles, GraduationCap, Target, Coffee, Palette, Bookmark } from 'lucide-react';
 import { BIBLE_BOOKS_LIST } from '../../constants';
 import { searchMatch } from '../../utils/textUtils';
+import { resolveBibleSearchNavigation } from '../../utils/bibleSearchNavigation';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { bibleService } from '../../services/bibleService';
 
-// Mapeamento de capítulos para cálculo de progresso
 const BOOK_CHAPTER_COUNTS: { [key: string]: number } = {
     'gn': 50, 'ex': 40, 'lv': 27, 'nm': 36, 'dt': 34, 'js': 24, 'jz': 21, 'rt': 4,
     '1sm': 31, '2sm': 24, '1rs': 22, '2rs': 25, '1cr': 29, '2cr': 36, 'ed': 10, 'ne': 13, 'et': 10,
@@ -24,7 +23,7 @@ const BOOK_CHAPTER_COUNTS: { [key: string]: number } = {
 };
 
 interface LibraryProps {
-    onSelectBook: (bookId: string, chapter?: number, verse?: number) => void;
+    onSelectBook: (bookId: string, chapter?: number, verse?: number | null, highlightVerses?: number[]) => void;
 }
 
 const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
@@ -36,21 +35,19 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
 
     const { bibleMatch, filteredBooks } = useMemo(() => {
         const trimmed = searchTerm.trim();
-        if (trimmed === '') return { bibleMatch: null, filteredBooks: BIBLE_BOOKS_LIST.filter(b => b.testament === activeTab) };
-
-        // 1. Tenta interpretar como referência bíblica (ex: João 3:16)
-        const bibleParsed = bibleService.parseReference(trimmed);
-
-        // 2. Filtra livros por nome/id
-        const filtered = BIBLE_BOOKS_LIST.filter(b => searchMatch(trimmed.toLowerCase(), b.name, b.id));
+        if (trimmed === '') {
+            return {
+                bibleMatch: null,
+                filteredBooks: BIBLE_BOOKS_LIST.filter(b => b.testament === activeTab),
+            };
+        }
 
         return {
-            bibleMatch: bibleParsed,
-            filteredBooks: filtered
+            bibleMatch: bibleService.parseReference(trimmed),
+            filteredBooks: BIBLE_BOOKS_LIST.filter(b => searchMatch(trimmed.toLowerCase(), b.name, b.id)),
         };
     }, [activeTab, searchTerm]);
 
-    // Cálculo de progresso por livro
     const getBookProgress = (bookId: string) => {
         if (!userProfile?.progress?.readChapters) return 0;
         const readCount = (userProfile.progress.readChapters[bookId] || []).length;
@@ -60,18 +57,32 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
 
     const quickActions = [
         { label: 'Pão Diário', icon: <Coffee size={14} />, path: '/devocional', color: 'text-orange-500' },
-        { label: 'Minhas Notas', icon: <Bookmark size={14} />, path: '/notes', color: 'text-yellow-600' }, // Novo Atalho
+        { label: 'Minhas Notas', icon: <Bookmark size={14} />, path: '/notes', color: 'text-yellow-600' },
         { label: 'Metas', icon: <Target size={14} />, path: '/plano', color: 'text-green-500' },
         { label: 'Salas', icon: <GraduationCap size={14} />, path: '/aluno', color: 'text-blue-500' },
         { label: 'Artes', icon: <Palette size={14} />, path: '/estudio-criativo', color: 'text-pink-500' },
     ];
 
+    const handleDirectBibleSelection = async () => {
+        if (!bibleMatch) return;
+
+        const navigationResult = await resolveBibleSearchNavigation(searchTerm);
+        if (navigationResult) {
+            onSelectBook(
+                navigationResult.routeState.bookId,
+                navigationResult.routeState.chapter,
+                navigationResult.routeState.scrollToVerse ?? null,
+                navigationResult.routeState.highlightVerses ?? [],
+            );
+            return;
+        }
+
+        onSelectBook(bibleMatch.bookId, bibleMatch.chapter, bibleMatch.startVerse);
+    };
+
     return (
         <div data-testid="bible-library" className="h-full bg-gray-50 dark:bg-[#0a0a0a] flex flex-col">
-            {/* Dynamic Suggestions & Search Header */}
             <div className="sticky top-0 z-30 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 shadow-sm">
-
-                {/* Compact Suggestions Bar */}
                 <div className="flex items-center gap-2 overflow-x-auto px-4 py-3 no-scrollbar border-b border-gray-50 dark:border-gray-800/50">
                     {quickActions.map((action) => (
                         <button
@@ -89,7 +100,10 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                     <div className="relative group">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-bible-gold transition-colors" size={18} />
                         <input
-                            ref={inputRef} type="text" placeholder="Buscar livro..." value={searchTerm}
+                            ref={inputRef}
+                            type="text"
+                            placeholder="Buscar livro..."
+                            value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full pl-11 pr-10 py-3 bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-bold outline-none focus:ring-2 ring-bible-gold/50 transition-all text-gray-900 dark:text-white"
                         />
@@ -112,12 +126,10 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
 
             <div className="flex-1 overflow-y-auto no-scrollbar">
                 <div className="max-w-4xl mx-auto w-full p-4 md:p-6 pb-32 space-y-8">
-
-                    {/* Resultado Direto da Bíblia */}
                     {bibleMatch && (
                         <div className="animate-in slide-in-from-top-4 duration-300">
                             <button
-                                onClick={() => onSelectBook(bibleMatch.bookId, bibleMatch.chapter, bibleMatch.startVerse)}
+                                onClick={handleDirectBibleSelection}
                                 className="w-full flex items-center justify-between p-6 bg-bible-gold text-white dark:text-black rounded-[2.5rem] hover:scale-[1.02] active:scale-95 transition-all group overflow-hidden relative shadow-xl"
                             >
                                 <div className="flex items-center gap-4 relative z-10">
@@ -137,7 +149,6 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                         </div>
                     )}
 
-                    {/* Grid de Livros */}
                     <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 animate-in fade-in duration-500">
                         {filteredBooks.map((book) => {
                             const progress = getBookProgress(book.id);
@@ -157,7 +168,6 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                                         {book.id.substring(0, 2)}
                                     </div>
 
-                                    {/* Barra de Progresso do Livro */}
                                     {progress > 0 && (
                                         <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gray-100 dark:bg-gray-800">
                                             <div

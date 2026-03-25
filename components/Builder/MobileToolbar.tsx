@@ -34,7 +34,7 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = ({
   canMoveDown
 }) => {
   return (
-    <div className="fixed bottom-20 left-4 right-4 z-[60] xl:hidden animate-in fade-in slide-in-from-bottom duration-300">
+    <div className="fixed bottom-20 left-4 right-4 z-[60] lg:hidden animate-in fade-in slide-in-from-bottom duration-300">
       <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-100 dark:border-gray-800 rounded-3xl shadow-2xl p-2 flex items-center justify-between">
         {/* Info do Bloco */}
         <div className="flex items-center gap-2 pl-3 mr-4">

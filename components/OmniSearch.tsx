@@ -5,9 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 import { Search, X, BookOpen, Zap, User, Church, Loader2, ChevronRight, Command, Layout, ArrowLeft } from 'lucide-react';
 import { dbService } from '../services/supabase';
-import { bibleService } from '../services/bibleService';
-import { BIBLE_BOOKS_LIST } from '../constants';
-import { searchMatch } from '../utils/textUtils';
+import { resolveBibleSearchNavigation } from '../utils/bibleSearchNavigation';
 
 interface SearchResult {
     id: string;
@@ -25,7 +23,7 @@ interface OmniSearchProps {
 
 const FEATURES = [
     { keywords: ['quiz', 'jogo', 'perguntas', 'desafio'], label: 'Desafio da Sabedoria', path: '/quiz', icon: <Zap size={16} /> },
-    { keywords: ['devocional', 'pão', 'dia', 'meditação'], label: 'Pão Diário', path: '/devocional', icon: <BookOpen size={16} /> },
+    { keywords: ['devocional', 'pao', 'pão', 'dia', 'meditacao', 'meditação'], label: 'Pão Diário', path: '/devocional', icon: <BookOpen size={16} /> },
     { keywords: ['estudio', 'arte', 'imagem', 'podcast', 'criar'], label: 'Estúdio Criativo', path: '/estudio-criativo', icon: <Zap size={16} /> },
     { keywords: ['chat', 'ia', 'conselheiro', 'ajuda'], label: 'Conselheiro IA', path: '/chat', icon: <Zap size={16} /> },
     { keywords: ['plano', 'leitura', 'meta', 'anual'], label: 'Meta de Leitura', path: '/plano', icon: <BookOpen size={16} /> },
@@ -77,40 +75,27 @@ const OmniSearch: React.FC<OmniSearchProps> = ({ onClose, mobileMode }) => {
             const lowerText = text.toLowerCase().trim();
             const newResults: SearchResult[] = [];
 
-            // 1. Bíblia Check
-            const bibleParsed = bibleService.parseReference(lowerText);
+            const bibleResult = await resolveBibleSearchNavigation(lowerText);
+            if (bibleResult) {
+                const subtitle = bibleResult.text
+                    ? `${bibleResult.text.substring(0, 60)}${bibleResult.text.length > 60 ? '...' : ''}`
+                    : 'Pressione Enter para ler na Bíblia';
 
-            if (bibleParsed) {
-                const book = BIBLE_BOOKS_LIST.find(b => b.id === bibleParsed.bookId);
-
-                if (book) {
-                    // Busca o texto real para mostrar no resultado (Debounced)
-                    const verseData = await bibleService.getTextByReference(lowerText);
-
-                    newResults.push({
-                        id: `bible-${book.id}-${bibleParsed.chapter}`,
-                        type: 'bible',
-                        title: `Ler ${verseData?.formattedRef || bibleParsed.formatted}`,
-                        subtitle: verseData ? verseData.text.substring(0, 60) + '...' : 'Pressione Enter para ler o capítulo',
-                        icon: <BookOpen size={16} />,
-                        action: () => {
-                            navigate('/biblia', {
-                                state: {
-                                    bookId: book.id,
-                                    chapter: bibleParsed.chapter,
-                                    highlightVerses: verseData?.meta?.verses,
-                                    scrollToVerse: bibleParsed.startVerse
-                                }
-                            });
-                            setIsOpen(false);
-                            setQuery('');
-                            if (onClose) onClose();
-                        }
-                    });
-                }
+                newResults.push({
+                    id: `bible-${bibleResult.routeState.bookId}-${bibleResult.routeState.chapter}`,
+                    type: 'bible',
+                    title: `Ler ${bibleResult.formattedRef}`,
+                    subtitle,
+                    icon: <BookOpen size={16} />,
+                    action: () => {
+                        navigate('/biblia', { state: bibleResult.routeState });
+                        setIsOpen(false);
+                        setQuery('');
+                        if (onClose) onClose();
+                    }
+                });
             }
 
-            // 2. Features Check
             const matchedFeatures = FEATURES.filter(f => f.keywords.some(k => lowerText.includes(k)));
             matchedFeatures.forEach(f => {
                 newResults.push({
@@ -128,8 +113,7 @@ const OmniSearch: React.FC<OmniSearchProps> = ({ onClose, mobileMode }) => {
                 });
             });
 
-            // 3. Async Search (Users & Churches)
-            if (!bibleParsed) {
+            if (!bibleResult) {
                 try {
                     const [users, churches] = await Promise.all([
                         dbService.searchUsersByName(text),
@@ -167,7 +151,6 @@ const OmniSearch: React.FC<OmniSearchProps> = ({ onClose, mobileMode }) => {
                             }
                         });
                     });
-
                 } catch (e) {
                     console.error("OmniSearch Error:", e);
                 }

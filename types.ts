@@ -355,6 +355,8 @@ export interface PlanDayContent {
     formatted: string;
   };
   blocksConfig?: any[];
+  tags?: string[];
+  category?: string;
 }
 
 export interface PlanParticipant {

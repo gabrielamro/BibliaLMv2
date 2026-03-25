@@ -40,7 +40,7 @@ const Reader: React.FC = () => {
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedVerses, setSelectedVerses] = useState<number[]>([]);
-  const [targetVerse, setTargetVerse] = useState<number | null>(null);
+  const [targetVerses, setTargetVerses] = useState<number[]>([]);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
@@ -112,11 +112,19 @@ const Reader: React.FC = () => {
   }, [currentBookId, currentChapterNum, viewMode, currentUser, location.state]);
 
   useEffect(() => {
-    const state = location.state as { bookId?: string, chapter?: number, scrollToVerse?: number, trackId?: string, reset?: boolean };
+    const state = location.state as {
+      bookId?: string;
+      chapter?: number;
+      scrollToVerse?: number;
+      highlightVerses?: number[];
+      trackId?: string;
+      reset?: boolean;
+    };
 
     // 1. Check for Reset (Mobile Nav Double Click)
     if (state?.reset) {
       setActiveTrack(null);
+      setTargetVerses([]);
       setViewMode('library');
       return;
     }
@@ -135,7 +143,12 @@ const Reader: React.FC = () => {
     if (state?.bookId) {
       setCurrentBookId(state.bookId);
       setCurrentChapterNum(state.chapter || 1);
-      if (state.scrollToVerse) setTargetVerse(state.scrollToVerse);
+      const nextTargetVerses = state.highlightVerses?.length
+        ? state.highlightVerses
+        : state.scrollToVerse
+          ? [state.scrollToVerse]
+          : [];
+      setTargetVerses(nextTargetVerses);
       setViewMode('reader');
     } else if (!initialLoadDone) {
       // 4. Fallback to Last Read (Only on initial load)
@@ -221,10 +234,15 @@ const Reader: React.FC = () => {
     });
   };
 
-  const handleSelectBook = (id: string, cap: number = 1, ver: number | null = null) => {
+  const handleSelectBook = (
+    id: string,
+    cap: number = 1,
+    ver: number | null = null,
+    highlightVerses: number[] = [],
+  ) => {
     setCurrentBookId(id);
     setCurrentChapterNum(cap);
-    if (ver) setTargetVerse(ver);
+    setTargetVerses(highlightVerses.length > 0 ? highlightVerses : ver ? [ver] : []);
     setViewMode('reader');
   };
 
@@ -247,6 +265,7 @@ const Reader: React.FC = () => {
           setSelectedVerses={setSelectedVerses}
           onBackToLibrary={() => {
             setActiveTrack(null);
+            setTargetVerses([]);
             setViewMode('library');
           }}
           onToggleNarration={toggleNarrationPlayPause}
@@ -256,8 +275,12 @@ const Reader: React.FC = () => {
           onChapterComplete={() => markChapterCompleted(currentBookId, currentChapterNum)}
           lastReadVerse={userProfile?.lastReadingPosition?.verse || null}
           userIsLogged={!!currentUser}
-          onNavigate={(id, cap) => { setCurrentBookId(id); setCurrentChapterNum(cap); }}
-          highlightedVerse={targetVerse}
+          onNavigate={(id, cap) => {
+            setCurrentBookId(id);
+            setCurrentChapterNum(cap);
+            setTargetVerses([]);
+          }}
+          highlightedVerses={targetVerses}
           popularVerses={popularVersesMock} // Heatmap Mock
         />
       )}

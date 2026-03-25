@@ -7,15 +7,29 @@ import {
   BookOpen, ChevronRight, Share2, Bookmark, Flame, Zap, 
   Search, Bell, Settings, Home, Wand2, User, Play, Pause, 
   Plus, FileText, Image, Mic, History, Trophy, Crown, Target, Heart, ArrowRight, Sun, Moon,
-  Users, MessageSquare, Calendar, Sparkles, CreditCard, HelpCircle, Book, Layout,
+  Users, MessageSquare, Calendar, Sparkles, CreditCard, HelpCircle, Book, Layout, Coffee, Map, Brain,
   LifeBuoy, Scroll, ShieldCheck, Terminal, ShieldAlert, LogOut, UserCircle
 } from 'lucide-react';
 
 import { useSettings } from '../contexts/SettingsContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
-import { dbService } from '../services/supabase';
-import * as pastorAgent from '../services/pastorAgent';
 import { bibleService } from '../services/bibleService';
+import { resolveUserDailyDevotional } from '../services/devotionalResolver';
+import { resolveBibleSearchNavigation } from '../utils/bibleSearchNavigation';
+import { getReadingGoalProgress, INICIO_QUICK_ACCESS_GROUPS, type InicioQuickAccessItem } from '../utils/inicioHome';
+
+const quickAccessIcons: Record<InicioQuickAccessItem['iconKey'], React.ReactNode> = {
+  book: <BookOpen size={16} />,
+  target: <Target size={16} />,
+  'book-marked': <Book size={16} />,
+  wand: <Wand2 size={16} />,
+  message: <MessageSquare size={16} />,
+  history: <History size={16} />,
+  coffee: <Coffee size={16} />,
+  heart: <Heart size={16} />,
+  map: <Map size={16} />,
+  brain: <Brain size={16} />,
+};
 
 const SanctuaryPage: React.FC = () => {
   const navigate = useNavigate();
@@ -44,7 +58,7 @@ const SanctuaryPage: React.FC = () => {
   const dailyReference = dailyDevotional?.reference || dailyDevotional?.verseReference || '';
   
   const readGoal = 365;
-  const readPercent = Math.min(100, Math.round((chaptersRead / readGoal) * 100)) || 0;
+  const { percent: readPercent, strokeDashoffset: readProgressStrokeDashoffset } = getReadingGoalProgress(chaptersRead, readGoal);
 
   const openVerseOfDay = () => {
     const parsed = dailyReference ? bibleService.parseReference(dailyReference) : null;
@@ -65,23 +79,15 @@ const SanctuaryPage: React.FC = () => {
     const delayDebounceFn = setTimeout(async () => {
       const term = searchTerm.trim();
       if (term.length >= 3) {
-        const parsed = bibleService.parseReference(term);
-        if (parsed) {
-           // Procura o versículo ou trecho
-           const verseData = await bibleService.getTextByReference(term) || await bibleService.getVerseText(term);
-           if (verseData) {
+        const bibleResult = await resolveBibleSearchNavigation(term);
+        if (bibleResult) {
+           // Procura o versiculo ou trecho
+           const fallbackVerseData = bibleResult.text ? null : await bibleService.getVerseText(term);
               setSearchPreview({
-                 text: verseData.text,
-                 formattedRef: verseData.formattedRef,
-                 routeState: {
-                   bookId: parsed.bookId,
-                   chapter: parsed.chapter,
-                   scrollToVerse: parsed.startVerse
-                 }
+                 text: bibleResult.text || fallbackVerseData?.text || 'Abrir referencia na Biblia',
+                 formattedRef: fallbackVerseData?.formattedRef || bibleResult.formattedRef,
+                 routeState: bibleResult.routeState
               });
-           } else {
-              setSearchPreview(null);
-           }
         } else {
            setSearchPreview(null);
         }
@@ -99,42 +105,10 @@ const SanctuaryPage: React.FC = () => {
     const loadData = async () => {
       try {
         setLoadingDevotional(true);
-        let devotional = await dbService.getDailyDevotional();
-        
-        // Se não houver devocional hoje no banco, gera via IA e salva
-        // para que os próximos usuários do dia não precisem gerar de novo.
-        if (!devotional) {
-          console.log('[Inicio03] Nenhum devocional para hoje. Gerando via IA...');
-          const generated = await pastorAgent.generateDailyDevotional(true);
-          if (generated) {
-            const todayISO = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-            const payload = {
-              date: todayISO,
-              title: generated.title,
-              verse: generated.verseText,
-              reference: generated.verseReference,
-              text: generated.content,
-              prayer: generated.prayer,
-            };
-            // Salva silenciosamente — erro não bloqueia o display
-            try {
-              await dbService.saveAdminDevotional(payload);
-              console.log('[Inicio03] Devocional salvo no banco com sucesso.');
-              // Reatribui com shape compatível ao que o render espera
-              devotional = { ...payload, id: todayISO };
-            } catch (saveErr) {
-              console.warn('[Inicio03] Não foi possível salvar devocional no banco:', saveErr);
-              devotional = { ...payload, id: todayISO };
-            }
-          }
-        }
+        const uid = currentUser ? (currentUser.id ?? currentUser.uid) : null;
+        const devotional = await resolveUserDailyDevotional({ userId: uid });
         
         setDailyDevotional(devotional);
-
-        // Registra acesso/amen do usuário corrente, se disponível
-        if (currentUser && devotional?.id) {
-          dbService.saveUserDevotionalAction(currentUser.uid, devotional.id, 'amen').catch(() => {});
-        }
       } catch (error) {
         console.error('[Inicio03] Erro ao carregar devocional:', error);
       } finally {
@@ -207,7 +181,7 @@ const SanctuaryPage: React.FC = () => {
               </div>
               <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
                 <div className="relative" ref={notifRef}>
-                  <button className="hover:text-white transition-colors relative" onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}>
+                  <button className={`transition-colors relative ${isLightTheme ? 'hover:text-[#111111]' : 'hover:text-white'}`} onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}>
                     <Bell size={20} />
                     {unreadNotificationsCount > 0 && (
                       <span className={`absolute top-0 right-0 w-2 h-2 rounded-full ${isLightTheme ? 'border border-[#F6F3EE]' : 'border border-[#0E0E0E]'} bg-red-500`}></span>
@@ -242,7 +216,7 @@ const SanctuaryPage: React.FC = () => {
                   )}
                 </div>
                 <div className="relative" ref={settingsRef}>
-                  <button className="hover:text-white transition-colors" onClick={() => setIsSettingsOpen(!isSettingsOpen)}>
+                  <button className={`transition-colors ${isLightTheme ? 'hover:text-[#111111]' : 'hover:text-white'}`} onClick={() => setIsSettingsOpen(!isSettingsOpen)}>
                     <Settings size={20} />
                   </button>
                   {isSettingsOpen && (
@@ -394,7 +368,7 @@ const SanctuaryPage: React.FC = () => {
                 </h2>
                 
                 <div className="flex items-center justify-between">
-                  <span className="text-[#c5a059] font-bold text-lg md:text-xl">— {dailyReference}</span>
+                  <span className="text-[#c5a059] font-bold text-lg md:text-xl">- {dailyReference}</span>
                   <div className="flex items-center gap-3">
                     <button className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); openVerseOfDay(); }}>
                       <Share2 size={18} />
@@ -410,7 +384,7 @@ const SanctuaryPage: React.FC = () => {
             {/* 2. META LIDA & PÃO DIÁRIO */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Meta de Leitura */}
-              <div className="bg-gray-50 dark:bg-[#141414] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex justify-between items-center cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors" onClick={() => navigate('/estudos')}>
+              <div className="bg-gray-50 dark:bg-[#141414] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex justify-between items-center cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors" onClick={() => navigate('/plano')}>
                 <div className="flex flex-col h-full justify-between">
                   <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center mb-6">
                     <Target size={16} className="text-blue-500" />
@@ -431,12 +405,12 @@ const SanctuaryPage: React.FC = () => {
                       stroke="#3b82f6"
                       strokeWidth="6" 
                       strokeDasharray="163.36" 
-                      strokeDashoffset={163.36 - (163.36 * (readPercent || 0)) / 100} 
+                      strokeDashoffset={readProgressStrokeDashoffset} 
                       strokeLinecap="round"
                       style={{ transition: 'stroke-dashoffset 1s ease-out' }}
                     />
                   </svg>
-                  <span className="absolute inset-0 flex items-center justify-center text-gray-900 dark:text-white font-black text-[10px] rotate-90">{readPercent}%</span>
+                  <span className="absolute inset-0 flex items-center justify-center text-gray-900 dark:text-white font-black text-[10px]">{readPercent}%</span>
                 </div>
               </div>
 
@@ -477,7 +451,7 @@ const SanctuaryPage: React.FC = () => {
                   </div>
                   <button 
                     onClick={() => navigate('/workspace-pastoral')}
-                    className="text-[#c5a059] font-black text-[10px] tracking-widest uppercase hover:text-white transition-colors"
+                    className={`text-[#c5a059] font-black text-[10px] tracking-widest uppercase transition-colors ${isLightTheme ? 'hover:text-[#111111]' : 'hover:text-white'}`}
                   >
                     PAINEL DE CONTROLE
                   </button>
@@ -540,7 +514,7 @@ const SanctuaryPage: React.FC = () => {
                 </div>
                 <button 
                   onClick={() => navigate('/estudos')}
-                  className="text-[#c5a059] font-black text-[10px] tracking-widest uppercase hover:text-white transition-colors"
+                  className={`text-[#c5a059] font-black text-[10px] tracking-widest uppercase transition-colors ${isLightTheme ? 'hover:text-[#111111]' : 'hover:text-white'}`}
                 >
                   VER TODOS
                 </button>
@@ -730,7 +704,7 @@ const SanctuaryPage: React.FC = () => {
                   <div className="bg-gray-50 dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
                     <div className="flex justify-between items-center mb-6">
                       <h3 className="text-gray-900 dark:text-white font-bold flex items-center gap-2"><History size={16} className="text-gray-600 dark:text-gray-400"/> Histórico Recente</h3>
-                      <button className="text-[10px] text-[#c5a059] font-bold uppercase tracking-widest hover:text-white transition-colors">Ver Tudo</button>
+                      <button className={`text-[10px] text-[#c5a059] font-bold uppercase tracking-widest transition-colors ${isLightTheme ? 'hover:text-[#111111]' : 'hover:text-white'}`}>Ver Tudo</button>
                     </div>
                     <div className="grid grid-cols-4 gap-3">
                       {[
@@ -820,10 +794,10 @@ const SanctuaryPage: React.FC = () => {
                         <img src="https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800" className="w-full h-full object-cover opacity-80" alt="Culto" />
                       </div>
                       <div className="flex items-center gap-4 border-t border-gray-100 dark:border-[#202020] pt-3 mt-2">
-                        <button className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 hover:text-white text-xs font-bold transition-colors">
+                        <button className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${isLightTheme ? 'text-gray-600 hover:text-[#111111]' : 'text-gray-600 dark:text-gray-400 hover:text-white'}`}>
                            <Heart size={14} /> Amém (45)
                         </button>
-                        <button className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 hover:text-white text-xs font-bold transition-colors">
+                        <button className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${isLightTheme ? 'text-gray-600 hover:text-[#111111]' : 'text-gray-600 dark:text-gray-400 hover:text-white'}`}>
                            <MessageSquare size={14} /> Comentar (12)
                         </button>
                       </div>
@@ -935,48 +909,36 @@ const SanctuaryPage: React.FC = () => {
               </div>
             </button>
 
-            {/* Acesso Rápido Black Box */}
-            <div className="bg-white dark:bg-[#101010] border border-gray-200 dark:border-[#202020] rounded-[2rem] p-6 pb-2">
+            {/* Acesso Rápido */}
+            <div className="bg-white dark:bg-[#101010] border border-gray-200 dark:border-[#202020] rounded-[2rem] p-6">
               <h4 className="text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase tracking-wider mb-6 pl-2">ACESSO RÁPIDO</h4>
-              
-              <div className="space-y-1 mb-6">
-                {[
-                  { icon: <BookOpen size={16} />, label: 'Bíblia Sagrada', color: 'text-blue-500', route: '/biblia' },
-                  { icon: <Target size={16} />, label: 'Planos de Leitura', color: 'text-red-500', route: '/plano' },
-                  { icon: <Book size={16} />, label: 'Meus Estudos', color: 'text-orange-500', route: '/estudos/planos' },
-                  { icon: <Plus size={16} />, label: 'Criar Estudo', color: 'text-green-500', route: '/criar-conteudo' },
-                  { icon: <Trophy size={16} />, label: 'Ranking Global', color: 'text-yellow-500', route: '/quiz' },
-                ].map((item, i) => (
-                  <button key={`core-${i}`} onClick={() => navigate(item.route)} className="w-full flex items-center gap-4 py-3 px-2 hover:bg-gray-50 dark:hover:bg-[#1A1A1A] rounded-xl transition-colors">
-                    <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center bg-gray-50 dark:bg-[#151515] border border-gray-200 dark:border-[#252525]">
-                      <div className={item.color}>{item.icon}</div>
-                    </div>
-                    <span className="text-[13px] text-gray-900 dark:text-white font-bold">{item.label}</span>
-                  </button>
-                ))}
-              </div>
 
-              <div className="h-[1px] bg-gray-200 dark:bg-[#202020] w-full mb-6" />
-
-              <div className="space-y-1 mb-6">
-                {[
-                  { icon: <Image size={16} />, label: 'Gerar Arte Sacra', color: 'text-pink-500', route: '/artes-sacras' },
-                  { icon: <Mic size={16} />, label: 'Gerar Podcast', color: 'text-fuchsia-500', route: '/estudio-criativo', onClick: () => navigate('/estudio-criativo', { state: { tool: 'podcast' } }) },
-                  { icon: <Zap size={16} />, label: 'FaithTech AI', color: 'text-purple-500', route: '/faith-tech' },
-                  { icon: <Users size={16} />, label: 'Comunidade', color: 'text-cyan-500', route: '/social' },
-                  { icon: <Heart size={16} />, label: 'Sala de Oração', color: 'text-rose-500', route: '/oracoes' },
-                  { icon: <MessageSquare size={16} />, label: 'Pedidos de Oração', color: 'text-indigo-500', route: '/oracoes/gerenciar' },
-                  { icon: <FileText size={16} />, label: 'Notas & Insights', color: 'text-amber-500', route: '/notes' },
-                  { icon: <Calendar size={16} />, label: 'Minha Rotina', color: 'text-emerald-500', route: '/rotina' },
-                  { icon: <CreditCard size={16} />, label: 'Assinatura PRO', color: 'text-slate-400', route: '/planos' },
-                  { icon: <HelpCircle size={16} />, label: 'Ajuda & Suporte', color: 'text-gray-400', route: '/suporte' }
-                ].map((item, i) => (
-                  <button key={`tools-${i}`} onClick={() => item.onClick ? item.onClick() : navigate(item.route)} className="w-full flex items-center gap-4 py-3 px-2 hover:bg-gray-50 dark:hover:bg-[#1A1A1A] rounded-xl transition-colors">
-                    <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center bg-gray-50 dark:bg-[#151515] border border-gray-200 dark:border-[#252525]">
-                      <div className={item.color}>{item.icon}</div>
+              <div className="space-y-5">
+                {INICIO_QUICK_ACCESS_GROUPS.map((group, groupIndex) => (
+                  <div key={group.title} className="space-y-2">
+                    <div className="flex items-center gap-2 px-2">
+                      <span className="text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase tracking-[0.22em]">{group.title}</span>
                     </div>
-                    <span className="text-[13px] text-gray-900 dark:text-white font-bold">{item.label}</span>
-                  </button>
+
+                    <div className="space-y-1">
+                      {group.items.map((item) => (
+                        <button
+                          key={item.path}
+                          onClick={() => navigate(item.path)}
+                          className="w-full flex items-center gap-4 py-3 px-2 hover:bg-gray-50 dark:hover:bg-[#1A1A1A] rounded-xl transition-colors"
+                        >
+                          <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center bg-gray-50 dark:bg-[#151515] border border-gray-200 dark:border-[#252525]">
+                            <div className={item.colorClass}>{quickAccessIcons[item.iconKey]}</div>
+                          </div>
+                          <span className="text-[13px] text-gray-900 dark:text-white font-bold">{item.label}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {groupIndex < INICIO_QUICK_ACCESS_GROUPS.length - 1 && (
+                      <div className="h-px bg-gray-200 dark:bg-[#202020] w-full mt-4" />
+                    )}
+                  </div>
                 ))}
               </div>
             </div>

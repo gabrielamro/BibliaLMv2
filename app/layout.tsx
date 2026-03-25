@@ -34,13 +34,32 @@ export const metadata: Metadata = {
     },
 };
 
+const themeInitScript = `
+(() => {
+  try {
+    const saved = localStorage.getItem('bible_app_settings');
+    const parsed = saved ? JSON.parse(saved) : null;
+    const theme = parsed?.theme === 'light' ? 'light' : 'dark';
+    const root = document.documentElement;
+    root.classList.toggle('dark', theme === 'dark');
+    root.style.colorScheme = theme;
+  } catch {
+    document.documentElement.classList.add('dark');
+    document.documentElement.style.colorScheme = 'dark';
+  }
+})();
+`;
+
 export default function RootLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
     return (
-        <html lang="pt-BR" className={`dark h-full ${inter.variable} ${lora.variable} ${greatVibes.variable} ${oswald.variable} ${cinzel.variable} ${playfair.variable} ${merriweather.variable} ${montserrat.variable} ${lato.variable} ${robotoSlab.variable}`}>
+        <html suppressHydrationWarning lang="pt-BR" className={`h-full ${inter.variable} ${lora.variable} ${greatVibes.variable} ${oswald.variable} ${cinzel.variable} ${playfair.variable} ${merriweather.variable} ${montserrat.variable} ${lato.variable} ${robotoSlab.variable}`}>
+            <head>
+                <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+            </head>
             <body className="h-full bg-bible-paper text-bible-ink dark:bg-bible-darkPaper dark:text-bible-darkInk transition-colors duration-300 font-sans">
                 <Providers>
                     <Layout>

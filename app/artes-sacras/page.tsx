@@ -1,28 +1,34 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from '../../utils/router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHeader } from '../../contexts/HeaderContext';
-import { 
-  Image as ImageIcon, Sparkles, Plus, Share2, Download, 
-  Trash2, Heart, Wand2, Lightbulb, Copy,
-  Check, ChevronRight, BookOpen, ArrowLeft
+import {
+  ArrowLeft,
+  BookOpen,
+  Check,
+  Copy,
+  Download,
+  Image as ImageIcon,
+  Lightbulb,
+  Share2,
+  Sparkles,
 } from 'lucide-react';
 
 const imageIdeas = [
-  { prompt: '"Creação do mundo" - estilo realista', verse: 'Gênesis 1:1' },
-  { prompt: '"Mar Vermelho se abrindo" - cinematográfico', verse: 'Êxodo 14:21' },
+  { prompt: '"Criacao do mundo" - estilo realista', verse: 'Genesis 1:1' },
+  { prompt: '"Mar Vermelho se abrindo" - cinematografico', verse: 'Exodo 14:21' },
   { prompt: '"David contra Golias" - heroico', verse: '1 Samuel 17:45' },
-  { prompt: '"Jesus no Getsêmani" - dramático', verse: 'Mateus 26:39' },
+  { prompt: '"Jesus no Getsemani" - dramatico', verse: 'Mateus 26:39' },
   { prompt: '"Pentecostes" - luz dourada', verse: 'Atos 2:3' },
-  { prompt: '"Apocalipse - Nova Jerusalém" - futurista', verse: 'Apocalipse 21:2' },
+  { prompt: '"Apocalipse - Nova Jerusalem" - futurista', verse: 'Apocalipse 21:2' },
 ];
 
 export default function ArtesSacrasPage() {
   const navigate = useNavigate();
   const { showNotification } = useAuth();
   const { setTitle, setBreadcrumbs, resetHeader } = useHeader();
-  
+
   const [gallery, setGallery] = useState<any[]>([]);
   const [loading] = useState(true);
   const [copiedVerse, setCopiedVerse] = useState<string | null>(null);
@@ -30,29 +36,30 @@ export default function ArtesSacrasPage() {
   useEffect(() => {
     setTitle('Arte Sacra');
     setBreadcrumbs([
-      { label: 'Início', path: '/' },
+      { label: 'Inicio', path: '/' },
       { label: 'Criar', path: '/' },
-      { label: 'Arte Sacra' }
+      { label: 'Arte Sacra' },
     ]);
     setGallery([
-      { id: '1', url: 'https://images.unsplash.com/photo-1507692049790-de58290a4334?w=400', title: 'Criação' },
+      { id: '1', url: 'https://images.unsplash.com/photo-1507692049790-de58290a4334?w=400', title: 'Criacao' },
       { id: '2', url: 'https://images.unsplash.com/photo-1508672019048-805c876b67e2?w=400', title: 'Mar Vermelho' },
-      { id: '3', url: 'https://images.unsplash.com/photo-1489549132488-d00b7eee80f1?w=400', title: 'Jerusalém' },
+      { id: '3', url: 'https://images.unsplash.com/photo-1489549132488-d00b7eee80f1?w=400', title: 'Jerusalem' },
       { id: '4', url: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=400', title: 'Daniel' },
     ]);
+
     return () => resetHeader();
-  }, []);
+  }, [resetHeader, setBreadcrumbs, setTitle]);
 
   const handleCreateImage = (verse?: string, prompt?: string) => {
-    navigate('/criar-arte-sacra', { 
-        state: { 
-            verseRef: verse,
-            initialPrompt: prompt || ''
-        } 
+    navigate('/criar-arte-sacra', {
+      state: {
+        verseRef: verse,
+        initialPrompt: prompt || '',
+      },
     });
   };
 
-  const copyPrompt = (idea: typeof imageIdeas[0]) => {
+  const copyPrompt = (idea: (typeof imageIdeas)[0]) => {
     navigator.clipboard.writeText(idea.prompt);
     setCopiedVerse(idea.verse);
     setTimeout(() => setCopiedVerse(null), 2000);
@@ -60,24 +67,24 @@ export default function ArtesSacrasPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0E0E0E] text-white">
-      <header className="sticky top-0 z-50 bg-[#0E0E0E]/90 backdrop-blur-lg border-b border-[#2A2A2A]">
-        <div className="max-w-[1200px] mx-auto px-4 lg:px-6 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-[#F6F3EE] text-[#111111] dark:bg-[#0E0E0E] dark:text-white transition-colors">
+      <header className="sticky top-0 z-50 border-b border-[#E7E2D7] bg-[#F6F3EE]/90 backdrop-blur-lg transition-colors dark:border-[#2A2A2A] dark:bg-[#0E0E0E]/90">
+        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-4 py-4 lg:px-6">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               onClick={() => navigate('/')}
-              className="p-2 hover:bg-[#1A1A1A] rounded-xl transition-colors"
+              className="rounded-xl p-2 transition-colors hover:bg-[#EDE7DA] dark:hover:bg-[#1A1A1A]"
             >
-              <ArrowLeft size={20} className="text-gray-400" />
+              <ArrowLeft size={20} className="text-gray-500 dark:text-gray-400" />
             </button>
             <div>
               <h1 className="text-xl font-bold">Arte Sacra</h1>
-              <p className="text-gray-500 text-xs">Crie imagens inspiradas na Palavra</p>
+              <p className="text-xs text-gray-500">Crie imagens inspiradas na Palavra</p>
             </div>
           </div>
-          <button 
+          <button
             onClick={() => handleCreateImage()}
-            className="flex items-center gap-2 bg-[#c5a059] text-black font-bold px-5 py-3 rounded-xl hover:bg-[#d4b06a] transition-colors"
+            className="flex items-center gap-2 rounded-xl bg-[#c5a059] px-5 py-3 font-bold text-black transition-colors hover:bg-[#d4b06a]"
           >
             <Sparkles size={18} />
             Nova Imagem
@@ -85,52 +92,50 @@ export default function ArtesSacrasPage() {
         </div>
       </header>
 
-      <main className="max-w-[1200px] mx-auto px-4 lg:px-6 py-6 space-y-6 pb-24">
-        
-        {/* Minhas Artes */}
-        <div className="bg-[#141414] rounded-2xl p-5 border border-[#2A2A2A]">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-white font-bold flex items-center gap-2">
+      <main className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 pb-24 lg:px-6">
+        <div className="rounded-2xl border border-[#E7E2D7] bg-white p-5 transition-colors dark:border-[#2A2A2A] dark:bg-[#141414]">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 font-bold text-[#111111] dark:text-white">
               <ImageIcon size={18} className="text-green-500" />
               Minhas Artes
             </h2>
-            <span className="text-gray-500 text-xs">{gallery.length} imagens</span>
+            <span className="text-xs text-gray-500">{gallery.length} imagens</span>
           </div>
-          
+
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[1,2,3,4].map(i => (
-                <div key={i} className="aspect-square bg-[#1A1A1A] rounded-xl animate-pulse" />
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="aspect-square rounded-xl bg-[#F2EEE5] animate-pulse dark:bg-[#1A1A1A]" />
               ))}
             </div>
           ) : gallery.length === 0 ? (
-            <div className="text-center py-12">
-              <ImageIcon size={48} className="mx-auto text-gray-600 mb-4" />
-              <p className="text-gray-400">Você ainda não criou nenhuma imagem</p>
-              <button 
+            <div className="py-12 text-center">
+              <ImageIcon size={48} className="mx-auto mb-4 text-gray-400 dark:text-gray-600" />
+              <p className="text-gray-500 dark:text-gray-400">Voce ainda nao criou nenhuma imagem</p>
+              <button
                 onClick={() => handleCreateImage()}
-                className="mt-4 px-6 py-3 bg-[#c5a059] text-black font-bold rounded-xl"
+                className="mt-4 rounded-xl bg-[#c5a059] px-6 py-3 font-bold text-black"
               >
                 Criar Primeira Imagem
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {gallery.map(img => (
-                <div key={img.id} className="group relative aspect-square rounded-xl overflow-hidden bg-[#1A1A1A]">
-                  <img 
-                    src={img.url} 
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              {gallery.map((img) => (
+                <div key={img.id} className="group relative aspect-square overflow-hidden rounded-xl bg-[#F2EEE5] transition-colors dark:bg-[#1A1A1A]">
+                  <img
+                    src={img.url}
                     alt={img.title}
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent opacity-0 transition-opacity group-hover:opacity-100">
                     <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="text-white font-bold text-sm">{img.title}</p>
-                      <div className="flex gap-2 mt-2">
-                        <button className="p-2 bg-white/20 rounded-lg hover:bg-white/30">
+                      <p className="text-sm font-bold text-white">{img.title}</p>
+                      <div className="mt-2 flex gap-2">
+                        <button className="rounded-lg bg-white/20 p-2 hover:bg-white/30">
                           <Share2 size={12} />
                         </button>
-                        <button className="p-2 bg-white/20 rounded-lg hover:bg-white/30">
+                        <button className="rounded-lg bg-white/20 p-2 hover:bg-white/30">
                           <Download size={12} />
                         </button>
                       </div>
@@ -142,27 +147,29 @@ export default function ArtesSacrasPage() {
           )}
         </div>
 
-        {/* Ideias para Criar */}
-        <div className="bg-[#141414] rounded-2xl p-5 border border-[#2A2A2A]">
-          <div className="flex items-center gap-2 mb-5">
+        <div className="rounded-2xl border border-[#E7E2D7] bg-white p-5 transition-colors dark:border-[#2A2A2A] dark:bg-[#141414]">
+          <div className="mb-5 flex items-center gap-2">
             <Lightbulb size={18} className="text-[#c5a059]" />
-            <h2 className="text-white font-bold">Ideias para Criar</h2>
+            <h2 className="font-bold text-[#111111] dark:text-white">Ideias para Criar</h2>
           </div>
-          
+
           <div className="space-y-3">
             {imageIdeas.map((idea, i) => (
-              <div key={i} className="flex items-center gap-4 p-4 bg-[#1A1A1A] rounded-xl hover:bg-[#252525] transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-[#c5a059]/20 flex items-center justify-center flex-shrink-0">
+              <div
+                key={i}
+                className="flex items-center gap-4 rounded-xl bg-[#F8F4EA] p-4 transition-colors hover:bg-[#EFE8D6] dark:bg-[#1A1A1A] dark:hover:bg-[#252525]"
+              >
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#c5a059]/20">
                   <BookOpen size={18} className="text-[#c5a059]" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm">{idea.prompt}</p>
-                  <p className="text-gray-500 text-[11px] mt-1">{idea.verse}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-[#111111] dark:text-white">{idea.prompt}</p>
+                  <p className="mt-1 text-[11px] text-gray-500">{idea.verse}</p>
                 </div>
-                <div className="flex gap-2 flex-shrink-0">
-                  <button 
+                <div className="flex flex-shrink-0 gap-2">
+                  <button
                     onClick={() => copyPrompt(idea)}
-                    className="p-2 bg-[#2A2A2A] rounded-lg hover:bg-[#3A3A3A] transition-colors"
+                    className="rounded-lg border border-[#E7E2D7] bg-white p-2 transition-colors hover:bg-[#F2EEE5] dark:border-transparent dark:bg-[#2A2A2A] dark:hover:bg-[#3A3A3A]"
                   >
                     {copiedVerse === idea.verse ? (
                       <Check size={14} className="text-green-500" />
@@ -170,9 +177,9 @@ export default function ArtesSacrasPage() {
                       <Copy size={14} className="text-gray-400" />
                     )}
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleCreateImage(idea.verse, idea.prompt)}
-                    className="flex items-center gap-1 px-3 py-2 bg-[#c5a059] text-black font-bold text-xs rounded-lg hover:bg-[#d4b06a] transition-colors"
+                    className="flex items-center gap-1 rounded-lg bg-[#c5a059] px-3 py-2 text-xs font-bold text-black transition-colors hover:bg-[#d4b06a]"
                   >
                     <Sparkles size={12} />
                     Criar
@@ -182,7 +189,6 @@ export default function ArtesSacrasPage() {
             ))}
           </div>
         </div>
-
       </main>
     </div>
   );
