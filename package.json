@@ -7,6 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "capture:catalog": "playwright test tests/routeCatalogCapture.spec.ts --project=chromium --workers=1",
+    "flow:catalog": "node scripts/generate-route-flow-html.mjs",
+    "visual:map": "node scripts/generate-visual-map-html.mjs",
     "make-admin": "ts-node scripts/make_admin.ts",
     "check-profile": "ts-node scripts/check_profile.ts"
   },

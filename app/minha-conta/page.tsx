@@ -1,15 +1,11 @@
 'use client';
-import ProfilePage from '../../views/ProfilePage';
+import PublicUserProfilePage from '../../views/public/PublicUserProfilePage';
 import { Suspense } from 'react';
-
-function ProfileContent() {
-  return <ProfilePage />;
-}
 
 export default function MinhaContaPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center">Carregando...</div>}>
-      <ProfileContent />
+    <Suspense fallback={<div className="p-8 text-center text-bible-gold animate-pulse italic font-serif">Preparando seu Reino...</div>}>
+      <PublicUserProfilePage />
     </Suspense>
   );
 }

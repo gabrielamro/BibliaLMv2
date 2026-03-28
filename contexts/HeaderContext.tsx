@@ -52,16 +52,21 @@ export const HeaderProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setIsHeaderHidden(false);
   }, []);
 
+  const value = React.useMemo(() => ({
+    title, setTitle,
+    subtitle, setSubtitle,
+    icon, setIcon,
+    breadcrumbs, setBreadcrumbs,
+    actions, setActions,
+    isHeaderHidden, setIsHeaderHidden,
+    resetHeader
+  }), [
+    title, subtitle, icon, breadcrumbs, actions, 
+    isHeaderHidden, resetHeader
+  ]);
+
   return (
-    <HeaderContext.Provider value={{ 
-      title, setTitle, 
-      subtitle, setSubtitle, 
-      icon, setIcon, 
-      breadcrumbs, setBreadcrumbs, 
-      actions, setActions,
-      isHeaderHidden, setIsHeaderHidden, 
-      resetHeader 
-    }}>
+    <HeaderContext.Provider value={value}>
       {children}
     </HeaderContext.Provider>
   );

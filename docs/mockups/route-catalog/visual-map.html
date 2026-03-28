@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapa Visual - BibliaLM</title>
+  <style>
+    :root{
+      --bg:#07070a;
+      --panel:#111118;
+      --panel2:#161622;
+      --text:#f6f2eb;
+      --muted:#a39db1;
+      --line:rgba(255,255,255,.08);
+      --gold:#d5a44c;
+      --gold2:#8a6420;
+      --violet:#7d58ff;
+      --violet2:#4e39a6;
+      --blue:#3a7dff;
+      --blue2:#2446a3;
+      --rose:#ff6b8b;
+      --rose2:#9a3651;
+      --shadow:0 18px 55px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter,Segoe UI,Arial,sans-serif;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(213,164,76,.14), transparent 24%),
+        radial-gradient(circle at 100% 0%, rgba(125,88,255,.12), transparent 26%),
+        radial-gradient(circle at 50% 100%, rgba(58,125,255,.10), transparent 26%),
+        var(--bg);
+      color:var(--text);
+    }
+    .wrap{width:min(1500px,94vw);margin:22px auto 54px}
+    .hero{
+      background:linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+      border:1px solid var(--line);
+      border-radius:30px;
+      padding:24px;
+      box-shadow:var(--shadow);
+      position:sticky;
+      top:10px;
+      backdrop-filter:blur(18px);
+      z-index:10;
+    }
+    .hero-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+    .hero h1{
+      margin:0;
+      font-size:clamp(1.7rem,3vw,3.25rem);
+      letter-spacing:-.04em;
+      line-height:1.05;
+    }
+    .hero p{
+      margin:10px 0 0;
+      max-width:920px;
+      color:var(--muted);
+      line-height:1.55;
+    }
+    .badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+    .badge{
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      border-radius:999px;
+      padding:7px 11px;
+      font-size:11px;
+      font-weight:800;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
+      margin-top:16px;
+    }
+    .summary{
+      border-radius:18px;
+      border:1px solid var(--line);
+      padding:12px 14px;
+      background:rgba(255,255,255,.05);
+    }
+    .summary span{display:block;color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+    .summary strong{display:block;font-size:1.5rem;margin-top:4px}
+    .summary-gold{box-shadow:inset 0 0 0 1px rgba(213,164,76,.18)}
+    .summary-violet{box-shadow:inset 0 0 0 1px rgba(125,88,255,.18)}
+    .summary-blue{box-shadow:inset 0 0 0 1px rgba(58,125,255,.18)}
+    .summary-rose{box-shadow:inset 0 0 0 1px rgba(255,107,139,.18)}
+
+    .spine{
+      margin-top:14px;
+      background:rgba(255,255,255,.04);
+      border:1px solid var(--line);
+      border-radius:24px;
+      padding:18px;
+      box-shadow:var(--shadow);
+    }
+    .spine h2{margin:0 0 8px}
+    .spine-row{
+      display:grid;
+      grid-template-columns:repeat(7, minmax(0,1fr));
+      gap:10px;
+      align-items:center;
+      margin-top:12px;
+    }
+    .spine-node{
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      padding:10px;
+      text-align:center;
+      display:grid;
+      gap:8px;
+      min-height:100%;
+    }
+    .spine-index{
+      width:26px;height:26px;border-radius:999px;margin:0 auto;
+      background:linear-gradient(135deg,var(--gold),var(--gold2));
+      color:#1a140a;font-weight:900;font-size:12px;display:grid;place-items:center;
+    }
+    .spine-node img{
+      width:100%;height:118px;object-fit:cover;border-radius:12px;border:1px solid rgba(255,255,255,.08)
+    }
+    .spine-node span{font-size:11px;color:var(--muted);font-weight:700}
+    .spine-arrow{
+      text-align:center;
+      font-size:24px;
+      color:rgba(255,255,255,.32);
+      font-weight:900;
+    }
+
+    .section{
+      margin-top:16px;
+      border-radius:26px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .section-head{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+      padding:18px 18px 0;
+    }
+    .section-head h2{margin:0;font-size:1.12rem}
+    .section-head p{margin:6px 0 0;color:var(--muted);max-width:780px;line-height:1.45}
+    .count{
+      width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-weight:900;font-size:1rem;
+      background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.08);
+    }
+    .grid{
+      padding:18px;
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+      gap:12px;
+    }
+    .card{
+      text-decoration:none;color:inherit;
+      border-radius:20px;
+      overflow:hidden;
+      background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+      border:1px solid rgba(255,255,255,.08);
+      display:grid;
+      min-height:100%;
+      transition:transform .18s ease, border-color .18s ease;
+    }
+    .card:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.2)}
+    .card img{width:100%;height:220px;object-fit:cover;background:#fff;display:block}
+    .meta{padding:12px;display:grid;gap:4px}
+    .meta .route{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+    .meta strong{font-size:.95rem}
+    .meta .url{font-size:12px;color:var(--muted);word-break:break-all}
+
+    .section-gold .count{background:rgba(213,164,76,.16)}
+    .section-violet .count{background:rgba(125,88,255,.16)}
+    .section-blue .count{background:rgba(58,125,255,.16)}
+    .section-rose .count{background:rgba(255,107,139,.16)}
+
+    @media (max-width:1100px){
+      .summary-grid{grid-template-columns:repeat(2,1fr)}
+      .spine-row{grid-template-columns:1fr 40px 1fr 40px 1fr 40px 1fr}
+    }
+    @media (max-width:760px){
+      .summary-grid{grid-template-columns:1fr}
+      .spine-row{grid-template-columns:1fr}
+      .spine-arrow{display:none}
+      .hero{position:static}
+      .section-head{flex-direction:column}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="hero-top">
+        <div>
+          <h1>Mapa visual do BibliaLM</h1>
+          <p>As 69 screenshots foram organizadas em uma leitura visual por categoria: telas usadas no fluxo principal, rotas que redirecionam, mocks/demos e páginas que hoje não aparecem como entrada clara do fluxo.</p>
+          <div class="badges">
+            <span class="badge">Usada</span>
+            <span class="badge">Redireciona</span>
+            <span class="badge">Mock / Demo</span>
+            <span class="badge">Nao usada</span>
+          </div>
+        </div>
+      </div>
+      <div class="summary-grid"><div class="summary summary-gold"><span>Usada</span><strong>20</strong></div><div class="summary summary-violet"><span>Redireciona</span><strong>31</strong></div><div class="summary summary-blue"><span>Mock / Demo</span><strong>6</strong></div><div class="summary summary-rose"><span>Nao usada no fluxo principal</span><strong>1</strong></div></div>
+    </header>
+
+    <section class="spine">
+      <h2>Fluxo central</h2>
+      <p style="margin:0;color:var(--muted);line-height:1.5">Uma linha de leitura para mostrar a navegacao principal: entrada, continuidade, leitura, social e perfil.</p>
+      <div class="spine-row">
+        
+    <div class="spine-node">
+      <div class="spine-index">1</div>
+      <a href="./home.png" target="_blank" rel="noreferrer">
+        <img src="./home.png" alt="/" />
+      </a>
+      <span>/</span>
+    </div><div class="spine-arrow">→</div>
+    <div class="spine-node">
+      <div class="spine-index">2</div>
+      <a href="./intro.png" target="_blank" rel="noreferrer">
+        <img src="./intro.png" alt="/intro" />
+      </a>
+      <span>/intro</span>
+    </div><div class="spine-arrow">→</div>
+    <div class="spine-node">
+      <div class="spine-index">3</div>
+      <a href="./navegar.png" target="_blank" rel="noreferrer">
+        <img src="./navegar.png" alt="/navegar" />
+      </a>
+      <span>/navegar</span>
+    </div><div class="spine-arrow">→</div>
+    <div class="spine-node">
+      <div class="spine-index">4</div>
+      <a href="./biblia.png" target="_blank" rel="noreferrer">
+        <img src="./biblia.png" alt="/biblia" />
+      </a>
+      <span>/biblia</span>
+    </div><div class="spine-arrow">→</div>
+    <div class="spine-node">
+      <div class="spine-index">5</div>
+      <a href="./social.png" target="_blank" rel="noreferrer">
+        <img src="./social.png" alt="/social" />
+      </a>
+      <span>/social</span>
+    </div><div class="spine-arrow">→</div>
+    <div class="spine-node">
+      <div class="spine-index">6</div>
+      <a href="./perfil.png" target="_blank" rel="noreferrer">
+        <img src="./perfil.png" alt="/perfil" />
+      </a>
+      <span>/perfil</span>
+    </div>
+      </div>
+    </section>
+
+    
+    <section class="section section-gold">
+      <div class="section-head">
+        <div>
+          <h2>Usada</h2>
+          <p>Telas que hoje entregam UI propria e aparecem no fluxo principal.</p>
+        </div>
+        <div class="count">20</div>
+      </div>
+      <div class="grid">
+        
+    <a class="card" href="./aluno.png" target="_blank" rel="noreferrer">
+      <img src="./aluno.png" alt="/aluno" loading="lazy" />
+      <div class="meta">
+        <span class="route">/aluno</span>
+        <strong>aluno</strong>
+        <span class="url">/aluno</span>
+      </div>
+    </a>
+
+    <a class="card" href="./artes-sacras.png" target="_blank" rel="noreferrer">
+      <img src="./artes-sacras.png" alt="/artes-sacras" loading="lazy" />
+      <div class="meta">
+        <span class="route">/artes-sacras</span>
+        <strong>artes-sacras</strong>
+        <span class="url">/artes-sacras</span>
+      </div>
+    </a>
+
+    <a class="card" href="./biblia.png" target="_blank" rel="noreferrer">
+      <img src="./biblia.png" alt="/biblia" loading="lazy" />
+      <div class="meta">
+        <span class="route">/biblia</span>
+        <strong>biblia</strong>
+        <span class="url">/biblia</span>
+      </div>
+    </a>
+
+    <a class="card" href="./chat.png" target="_blank" rel="noreferrer">
+      <img src="./chat.png" alt="/chat" loading="lazy" />
+      <div class="meta">
+        <span class="route">/chat</span>
+        <strong>chat</strong>
+        <span class="url">/chat</span>
+      </div>
+    </a>
+
+    <a class="card" href="./criar-arte-sacra.png" target="_blank" rel="noreferrer">
+      <img src="./criar-arte-sacra.png" alt="/criar-arte-sacra" loading="lazy" />
+      <div class="meta">
+        <span class="route">/criar-arte-sacra</span>
+        <strong>criar-arte-sacra</strong>
+        <span class="url">/criar-arte-sacra</span>
+      </div>
+    </a>
+
+    <a class="card" href="./criar-conteudo.png" target="_blank" rel="noreferrer">
+      <img src="./criar-conteudo.png" alt="/criar-conteudo" loading="lazy" />
+      <div class="meta">
+        <span class="route">/criar-conteudo</span>
+        <strong>criar-conteudo</strong>
+        <span class="url">/criar-conteudo</span>
+      </div>
+    </a>
+
+    <a class="card" href="./criar-podcast.png" target="_blank" rel="noreferrer">
+      <img src="./criar-podcast.png" alt="/criar-podcast" loading="lazy" />
+      <div class="meta">
+        <span class="route">/criar-podcast</span>
+        <strong>criar-podcast</strong>
+        <span class="url">/criar-podcast</span>
+      </div>
+    </a>
+
+    <a class="card" href="./devocional.png" target="_blank" rel="noreferrer">
+      <img src="./devocional.png" alt="/devocional" loading="lazy" />
+      <div class="meta">
+        <span class="route">/devocional</span>
+        <strong>devocional</strong>
+        <span class="url">/devocional</span>
+      </div>
+    </a>
+
+    <a class="card" href="./faith-tech.png" target="_blank" rel="noreferrer">
+      <img src="./faith-tech.png" alt="/faith-tech" loading="lazy" />
+      <div class="meta">
+        <span class="route">/faith-tech</span>
+        <strong>faith-tech</strong>
+        <span class="url">/faith-tech</span>
+      </div>
+    </a>
+
+    <a class="card" href="./fonte-conhecimento.png" target="_blank" rel="noreferrer">
+      <img src="./fonte-conhecimento.png" alt="/fonte-conhecimento" loading="lazy" />
+      <div class="meta">
+        <span class="route">/fonte-conhecimento</span>
+        <strong>fonte-conhecimento</strong>
+        <span class="url">/fonte-conhecimento</span>
+      </div>
+    </a>
+
+    <a class="card" href="./intro.png" target="_blank" rel="noreferrer">
+      <img src="./intro.png" alt="/intro" loading="lazy" />
+      <div class="meta">
+        <span class="route">/intro</span>
+        <strong>intro</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./intro-v2.png" target="_blank" rel="noreferrer">
+      <img src="./intro-v2.png" alt="/intro-v2" loading="lazy" />
+      <div class="meta">
+        <span class="route">/intro-v2</span>
+        <strong>intro-v2</strong>
+        <span class="url">/intro-v2</span>
+      </div>
+    </a>
+
+    <a class="card" href="./navegar.png" target="_blank" rel="noreferrer">
+      <img src="./navegar.png" alt="/navegar" loading="lazy" />
+      <div class="meta">
+        <span class="route">/navegar</span>
+        <strong>navegar</strong>
+        <span class="url">/navegar</span>
+      </div>
+    </a>
+
+    <a class="card" href="./oracoes.png" target="_blank" rel="noreferrer">
+      <img src="./oracoes.png" alt="/oracoes" loading="lazy" />
+      <div class="meta">
+        <span class="route">/oracoes</span>
+        <strong>oracoes</strong>
+        <span class="url">/oracoes</span>
+      </div>
+    </a>
+
+    <a class="card" href="./planos.png" target="_blank" rel="noreferrer">
+      <img src="./planos.png" alt="/planos" loading="lazy" />
+      <div class="meta">
+        <span class="route">/planos</span>
+        <strong>planos</strong>
+        <span class="url">/planos</span>
+      </div>
+    </a>
+
+    <a class="card" href="./privacidade.png" target="_blank" rel="noreferrer">
+      <img src="./privacidade.png" alt="/privacidade" loading="lazy" />
+      <div class="meta">
+        <span class="route">/privacidade</span>
+        <strong>privacidade</strong>
+        <span class="url">/privacidade</span>
+      </div>
+    </a>
+
+    <a class="card" href="./regras.png" target="_blank" rel="noreferrer">
+      <img src="./regras.png" alt="/regras" loading="lazy" />
+      <div class="meta">
+        <span class="route">/regras</span>
+        <strong>regras</strong>
+        <span class="url">/regras</span>
+      </div>
+    </a>
+
+    <a class="card" href="./social.png" target="_blank" rel="noreferrer">
+      <img src="./social.png" alt="/social" loading="lazy" />
+      <div class="meta">
+        <span class="route">/social</span>
+        <strong>social</strong>
+        <span class="url">/social</span>
+      </div>
+    </a>
+
+    <a class="card" href="./suporte.png" target="_blank" rel="noreferrer">
+      <img src="./suporte.png" alt="/suporte" loading="lazy" />
+      <div class="meta">
+        <span class="route">/suporte</span>
+        <strong>suporte</strong>
+        <span class="url">/suporte</span>
+      </div>
+    </a>
+
+    <a class="card" href="./termos.png" target="_blank" rel="noreferrer">
+      <img src="./termos.png" alt="/termos" loading="lazy" />
+      <div class="meta">
+        <span class="route">/termos</span>
+        <strong>termos</strong>
+        <span class="url">/termos</span>
+      </div>
+    </a>
+      </div>
+    </section>
+
+    <section class="section section-violet">
+      <div class="section-head">
+        <div>
+          <h2>Redireciona</h2>
+          <p>Rotas que hoje caem em outra tela por redirect direto ou protecao.</p>
+        </div>
+        <div class="count">31</div>
+      </div>
+      <div class="grid">
+        
+    <a class="card" href="./home.png" target="_blank" rel="noreferrer">
+      <img src="./home.png" alt="/" loading="lazy" />
+      <div class="meta">
+        <span class="route">/</span>
+        <strong>home</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./admin.png" target="_blank" rel="noreferrer">
+      <img src="./admin.png" alt="/admin" loading="lazy" />
+      <div class="meta">
+        <span class="route">/admin</span>
+        <strong>admin</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./apresentacao.png" target="_blank" rel="noreferrer">
+      <img src="./apresentacao.png" alt="/apresentacao" loading="lazy" />
+      <div class="meta">
+        <span class="route">/apresentacao</span>
+        <strong>apresentacao</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./biblia-dashboard.png" target="_blank" rel="noreferrer">
+      <img src="./biblia-dashboard.png" alt="/biblia-dashboard" loading="lazy" />
+      <div class="meta">
+        <span class="route">/biblia-dashboard</span>
+        <strong>biblia-dashboard</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./complete-profile.png" target="_blank" rel="noreferrer">
+      <img src="./complete-profile.png" alt="/complete-profile" loading="lazy" />
+      <div class="meta">
+        <span class="route">/complete-profile</span>
+        <strong>complete-profile</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./criador-jornada.png" target="_blank" rel="noreferrer">
+      <img src="./criador-jornada.png" alt="/criador-jornada" loading="lazy" />
+      <div class="meta">
+        <span class="route">/criador-jornada</span>
+        <strong>criador-jornada</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./criar-estudo.png" target="_blank" rel="noreferrer">
+      <img src="./criar-estudo.png" alt="/criar-estudo" loading="lazy" />
+      <div class="meta">
+        <span class="route">/criar-estudo</span>
+        <strong>criar-estudo</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./estudio-criativo.png" target="_blank" rel="noreferrer">
+      <img src="./estudio-criativo.png" alt="/estudio-criativo" loading="lazy" />
+      <div class="meta">
+        <span class="route">/estudio-criativo</span>
+        <strong>estudio-criativo</strong>
+        <span class="url">/navegar</span>
+      </div>
+    </a>
+
+    <a class="card" href="./estudos.png" target="_blank" rel="noreferrer">
+      <img src="./estudos.png" alt="/estudos" loading="lazy" />
+      <div class="meta">
+        <span class="route">/estudos</span>
+        <strong>estudos</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./estudos-livro-genesis.png" target="_blank" rel="noreferrer">
+      <img src="./estudos-livro-genesis.png" alt="/estudos/livro/genesis" loading="lazy" />
+      <div class="meta">
+        <span class="route">/estudos/livro/genesis</span>
+        <strong>estudos · livro · genesis</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./estudos-planos.png" target="_blank" rel="noreferrer">
+      <img src="./estudos-planos.png" alt="/estudos/planos" loading="lazy" />
+      <div class="meta">
+        <span class="route">/estudos/planos</span>
+        <strong>estudos · planos</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./grupo-celula-central.png" target="_blank" rel="noreferrer">
+      <img src="./grupo-celula-central.png" alt="/grupo/celula-central" loading="lazy" />
+      <div class="meta">
+        <span class="route">/grupo/celula-central</span>
+        <strong>grupo · celula-central</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./historico.png" target="_blank" rel="noreferrer">
+      <img src="./historico.png" alt="/historico" loading="lazy" />
+      <div class="meta">
+        <span class="route">/historico</span>
+        <strong>historico</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./login.png" target="_blank" rel="noreferrer">
+      <img src="./login.png" alt="/login" loading="lazy" />
+      <div class="meta">
+        <span class="route">/login</span>
+        <strong>login</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./minha-conta.png" target="_blank" rel="noreferrer">
+      <img src="./minha-conta.png" alt="/minha-conta" loading="lazy" />
+      <div class="meta">
+        <span class="route">/minha-conta</span>
+        <strong>minha-conta</strong>
+        <span class="url">/minha-conta</span>
+      </div>
+    </a>
+
+    <a class="card" href="./notes.png" target="_blank" rel="noreferrer">
+      <img src="./notes.png" alt="/notes" loading="lazy" />
+      <div class="meta">
+        <span class="route">/notes</span>
+        <strong>notes</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./oracoes-gerenciar.png" target="_blank" rel="noreferrer">
+      <img src="./oracoes-gerenciar.png" alt="/oracoes/gerenciar" loading="lazy" />
+      <div class="meta">
+        <span class="route">/oracoes/gerenciar</span>
+        <strong>oracoes · gerenciar</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./perfil.png" target="_blank" rel="noreferrer">
+      <img src="./perfil.png" alt="/perfil" loading="lazy" />
+      <div class="meta">
+        <span class="route">/perfil</span>
+        <strong>perfil</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./plano.png" target="_blank" rel="noreferrer">
+      <img src="./plano.png" alt="/plano" loading="lazy" />
+      <div class="meta">
+        <span class="route">/plano</span>
+        <strong>plano</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./plano-leitura.png" target="_blank" rel="noreferrer">
+      <img src="./plano-leitura.png" alt="/plano/leitura" loading="lazy" />
+      <div class="meta">
+        <span class="route">/plano/leitura</span>
+        <strong>plano · leitura</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./pulpito.png" target="_blank" rel="noreferrer">
+      <img src="./pulpito.png" alt="/pulpito" loading="lazy" />
+      <div class="meta">
+        <span class="route">/pulpito</span>
+        <strong>pulpito</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./pulpito-editor.png" target="_blank" rel="noreferrer">
+      <img src="./pulpito-editor.png" alt="/pulpito/editor" loading="lazy" />
+      <div class="meta">
+        <span class="route">/pulpito/editor</span>
+        <strong>pulpito · editor</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./rotina.png" target="_blank" rel="noreferrer">
+      <img src="./rotina.png" alt="/rotina" loading="lazy" />
+      <div class="meta">
+        <span class="route">/rotina</span>
+        <strong>rotina</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./s-demo-token.png" target="_blank" rel="noreferrer">
+      <img src="./s-demo-token.png" alt="/s/demo-token" loading="lazy" />
+      <div class="meta">
+        <span class="route">/s/demo-token</span>
+        <strong>s · demo-token</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./social-church.png" target="_blank" rel="noreferrer">
+      <img src="./social-church.png" alt="/social/church" loading="lazy" />
+      <div class="meta">
+        <span class="route">/social/church</span>
+        <strong>social · church</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./social-profile.png" target="_blank" rel="noreferrer">
+      <img src="./social-profile.png" alt="/social/profile" loading="lazy" />
+      <div class="meta">
+        <span class="route">/social/profile</span>
+        <strong>social · profile</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./social-u-pastor.png" target="_blank" rel="noreferrer">
+      <img src="./social-u-pastor.png" alt="/social/u/pastor" loading="lazy" />
+      <div class="meta">
+        <span class="route">/social/u/pastor</span>
+        <strong>social · u · pastor</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./system-integrity.png" target="_blank" rel="noreferrer">
+      <img src="./system-integrity.png" alt="/system-integrity" loading="lazy" />
+      <div class="meta">
+        <span class="route">/system-integrity</span>
+        <strong>system-integrity</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./trilhas.png" target="_blank" rel="noreferrer">
+      <img src="./trilhas.png" alt="/trilhas" loading="lazy" />
+      <div class="meta">
+        <span class="route">/trilhas</span>
+        <strong>trilhas</strong>
+        <span class="url">/aluno</span>
+      </div>
+    </a>
+
+    <a class="card" href="./workspace.png" target="_blank" rel="noreferrer">
+      <img src="./workspace.png" alt="/workspace" loading="lazy" />
+      <div class="meta">
+        <span class="route">/workspace</span>
+        <strong>workspace</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+
+    <a class="card" href="./workspace-pastoral.png" target="_blank" rel="noreferrer">
+      <img src="./workspace-pastoral.png" alt="/workspace-pastoral" loading="lazy" />
+      <div class="meta">
+        <span class="route">/workspace-pastoral</span>
+        <strong>workspace-pastoral</strong>
+        <span class="url">/intro</span>
+      </div>
+    </a>
+      </div>
+    </section>
+
+    <section class="section section-blue">
+      <div class="section-head">
+        <div>
+          <h2>Mock / Demo</h2>
+          <p>Telas de validacao, iframe, demo ou conteudo de exemplo.</p>
+        </div>
+        <div class="count">6</div>
+      </div>
+      <div class="grid">
+        
+    <a class="card" href="./jornada-plano-demo.png" target="_blank" rel="noreferrer">
+      <img src="./jornada-plano-demo.png" alt="/jornada/plano-demo" loading="lazy" />
+      <div class="meta">
+        <span class="route">/jornada/plano-demo</span>
+        <strong>jornada · plano-demo</strong>
+        <span class="url">/jornada/plano-demo</span>
+      </div>
+    </a>
+
+    <a class="card" href="./landing-demo.png" target="_blank" rel="noreferrer">
+      <img src="./landing-demo.png" alt="/landing/demo" loading="lazy" />
+      <div class="meta">
+        <span class="route">/landing/demo</span>
+        <strong>landing · demo</strong>
+        <span class="url">/landing/demo</span>
+      </div>
+    </a>
+
+    <a class="card" href="./mockinicio1.png" target="_blank" rel="noreferrer">
+      <img src="./mockinicio1.png" alt="/mockinicio1" loading="lazy" />
+      <div class="meta">
+        <span class="route">/mockinicio1</span>
+        <strong>mockinicio1</strong>
+        <span class="url">/mockinicio1</span>
+      </div>
+    </a>
+
+    <a class="card" href="./mocsantuario.png" target="_blank" rel="noreferrer">
+      <img src="./mocsantuario.png" alt="/mocsantuario" loading="lazy" />
+      <div class="meta">
+        <span class="route">/mocsantuario</span>
+        <strong>mocsantuario</strong>
+        <span class="url">/mocsantuario</span>
+      </div>
+    </a>
+
+    <a class="card" href="./p-post-demo.png" target="_blank" rel="noreferrer">
+      <img src="./p-post-demo.png" alt="/p/post-demo" loading="lazy" />
+      <div class="meta">
+        <span class="route">/p/post-demo</span>
+        <strong>p · post-demo</strong>
+        <span class="url">/p/post-demo</span>
+      </div>
+    </a>
+
+    <a class="card" href="./v-estudo-demo.png" target="_blank" rel="noreferrer">
+      <img src="./v-estudo-demo.png" alt="/v/estudo-demo" loading="lazy" />
+      <div class="meta">
+        <span class="route">/v/estudo-demo</span>
+        <strong>v · estudo-demo</strong>
+        <span class="url">/v/estudo-demo</span>
+      </div>
+    </a>
+      </div>
+    </section>
+
+    <section class="section section-rose">
+      <div class="section-head">
+        <div>
+          <h2>Nao usada no fluxo principal</h2>
+          <p>Rotas reais, mas sem entrada clara na navegacao principal atual.</p>
+        </div>
+        <div class="count">1</div>
+      </div>
+      <div class="grid">
+        
+    <a class="card" href="./social-igreja-igreja-central.png" target="_blank" rel="noreferrer">
+      <img src="./social-igreja-igreja-central.png" alt="/social/igreja/igreja-central" loading="lazy" />
+      <div class="meta">
+        <span class="route">/social/igreja/igreja-central</span>
+        <strong>social · igreja · igreja-central</strong>
+        <span class="url">/social/igreja/igreja-central</span>
+      </div>
+    </a>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

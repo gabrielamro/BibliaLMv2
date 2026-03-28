@@ -204,8 +204,8 @@ const PlanBuilderPage: React.FC = () => {
             setGlobalTitle(aulLabel);
             setBreadcrumbs([
                 { label: 'Criador de Jornada', path: '/workspace-pastoral' },
-                { label: planTitle, path: `/criar-jornada?id=${savedPlanId}`, onClick: () => setEditingDayId(null) },
-                { label: 'Conteúdo', path: `/criar-jornada?id=${savedPlanId}`, onClick: () => { setEditingDayId(null); setCurrentStep(2); } },
+                { label: planTitle, path: `/criador-jornada?id=${savedPlanId}`, onClick: () => window.location.assign(`/criador-jornada?id=${savedPlanId}`) },
+                { label: 'Conteúdo', path: `/criador-jornada?id=${savedPlanId}`, onClick: () => { setEditingDayId(null); setCurrentStep(2); } },
                 { label: aulLabel }
             ]);
             return;
@@ -215,7 +215,7 @@ const PlanBuilderPage: React.FC = () => {
              setGlobalTitle(planTitle);
              setBreadcrumbs([
                  { label: 'Criador de Jornada', path: '/workspace-pastoral' },
-                 { label: planTitle, path: `/criar-jornada?id=${savedPlanId}`, onClick: () => setCurrentStep(1) },
+                 { label: planTitle, path: `/criador-jornada?id=${savedPlanId}`, onClick: () => window.location.assign(`/criador-jornada?id=${savedPlanId}`) },
                  { label: 'Conteúdo' }
              ]);
              return;
@@ -224,9 +224,9 @@ const PlanBuilderPage: React.FC = () => {
         setGlobalTitle(planTitle);
         setBreadcrumbs([
             { label: 'Criador de Jornada', path: '/workspace-pastoral' },
-            { label: planTitle, path: `/criar-jornada?id=${savedPlanId}` }
+            { label: planTitle, path: `/criador-jornada?id=${savedPlanId}` }
         ]);
-    }, [plan.title, editingDayId, editingDayTitle, currentStep, setGlobalTitle, setBreadcrumbs, navigate, savedPlanId]);
+    }, [plan.title, editingDayId, editingDayTitle, currentStep, setGlobalTitle, setBreadcrumbs, savedPlanId, setEditingDayId, setCurrentStep]);
 
     // Load Pastor Teams
     useEffect(() => {
@@ -702,7 +702,13 @@ const PlanBuilderPage: React.FC = () => {
             {!editingDayId && (
             <div className="sticky top-0 z-40 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 px-4 md:px-8 py-2 flex flex-col md:flex-row justify-between items-center shadow-sm gap-2 h-auto md:h-20 shrink-0">
                 <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-                    {/* Redundant back button and title removed to prevent duplication with global header */}
+                    <button 
+                        onClick={() => navigate('/workspace-pastoral')}
+                        className="flex items-center gap-2 p-2 pr-4 text-gray-500 hover:text-bible-gold hover:bg-gray-50 dark:hover:bg-gray-900 rounded-xl transition-all"
+                    >
+                        <ArrowLeft size={18} />
+                        <span className="text-xs font-bold uppercase tracking-widest hidden md:inline">Voltar</span>
+                    </button>
                     {!editingDayId && isPlanPublished && <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse hidden md:block" title="Sala Ativa"></div>}
                 </div>
 

@@ -7,7 +7,7 @@ import React from 'react';
 // Custom useNavigate matching React Router signature
 export function useNavigate() {
     const router = useNextRouter();
-    return (path: string | number, options?: { state?: any, replace?: boolean }) => {
+    return React.useCallback((path: string | number, options?: { state?: any, replace?: boolean }) => {
         if (typeof path === 'number') {
             if (path === -1) {
                 router.back();
@@ -27,7 +27,7 @@ export function useNavigate() {
         } else {
             router.push(path);
         }
-    };
+    }, [router]);
 }
 
 // Custom useLocation
@@ -52,11 +52,11 @@ export function useLocation(): { pathname: string, search: string, state: any } 
         return () => window.removeEventListener('rn_state_change', checkState);
     }, [pathname]);
 
-    return {
+    return React.useMemo(() => ({
         pathname: pathname || '',
         search: searchParams?.toString() ? '?' + searchParams.toString() : '',
         state
-    };
+    }), [pathname, searchParams, state]);
 }
 
 // Custom useSearchParams
@@ -64,9 +64,10 @@ export function useSearchParams() {
     const router = useNextRouter();
     const pathname = usePathname();
     const sp = useNextSearchParams();
-    const q = new URLSearchParams(sp?.toString() || "");
+    
+    const q = React.useMemo(() => new URLSearchParams(sp?.toString() || ""), [sp]);
 
-    const setSp = (params: any, options?: { replace?: boolean }) => {
+    const setSp = React.useCallback((params: any, options?: { replace?: boolean }) => {
         const nextSp = new URLSearchParams(q.toString());
         if (params instanceof URLSearchParams) {
             params.forEach((v, k) => nextSp.set(k, v));
@@ -85,8 +86,9 @@ export function useSearchParams() {
         } else {
             router.push(url);
         }
-    };
-    return [q, setSp] as const;
+    }, [pathname, q, router]);
+
+    return React.useMemo(() => [q, setSp] as const, [q, setSp]);
 }
 
 // Custom useParams

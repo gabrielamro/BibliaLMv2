@@ -55,13 +55,19 @@ const WorkspacePage: React.FC = () => {
             if (!currentUser) return;
             setLoading(true);
             try {
-                // Fetch parallel
-                const [studiesData, publicStudiesData, plansData, notesData] = await Promise.all([
+                // Fetch parallel base data
+                const [studiesData, publicStudiesData, notesData, profileData] = await Promise.all([
                     dbService.getAll(currentUser.uid, 'studies'),
                     dbService.getAll(currentUser.uid, 'public_studies'),
-                    dbService.getAll(currentUser.uid, 'custom_plans'), // Assuming this method exists or similar
-                    dbService.getAll(currentUser.uid, 'notes')
+                    dbService.getAll(currentUser.uid, 'notes'),
+                    dbService.getUserProfile(currentUser.uid)
                 ]);
+
+                // Fetch enrolled plans (only those the user is following/viewing)
+                const enrolledPlanIds = profileData?.enrolledPlans || [];
+                const plansData = enrolledPlanIds.length > 0 
+                    ? await dbService.getEnrolledPlans(enrolledPlanIds)
+                    : [];
 
                 // Normalize data
                 const normalizedStudies = (studiesData as any[]).map(s => ({ ...s, type: 'study' }));
@@ -78,7 +84,7 @@ const WorkspacePage: React.FC = () => {
             }
         };
         fetchData();
-    }, [currentUser]);
+    }, [currentUser, showNotification]);
 
     // --- FILTERING ---
     const filteredContent = useMemo(() => {
@@ -120,8 +126,15 @@ const WorkspacePage: React.FC = () => {
 
     // --- ACTIONS ---
     const handleEdit = (item: SavedStudy | CustomPlan | Note) => {
+        // Se for um estudo seguido, vai para a visualização
         if (isStudy(item) && item.isFollowed) {
             navigate(`/v/${item.id}`);
+            return;
+        }
+
+        // Se for um plano que não sou o autor (apenas visualizando), vai para a jornada
+        if (isPlan(item) && item.authorId !== currentUser.uid) {
+            navigate(`/jornada/${item.id}`);
             return;
         }
 
@@ -134,12 +147,24 @@ const WorkspacePage: React.FC = () => {
     const handleDelete = async () => {
         if (!currentUser || !deleteId || !deleteType) return;
         try {
+            if (deleteType === 'plan') {
+                const plan = content.find(c => c.id === deleteId) as CustomPlan;
+                if (plan && plan.authorId !== currentUser.uid) {
+                    // Unenroll if not the author
+                    const updatedEnrolled = (currentUser as any).enrolledPlans?.filter((id: string) => id !== deleteId) || [];
+                    await dbService.updateUserProfile(currentUser.uid, { enrolledPlans: updatedEnrolled });
+                    setContent(prev => prev.filter(c => c.id !== deleteId));
+                    showNotification("Plano removido da sua lista.", "success");
+                    return;
+                }
+            }
+
             const collection = deleteType === 'plan' ? 'custom_plans' : (deleteType === 'note' ? 'notes' : ('blocks' in (content.find(c => c.id === deleteId) || {}) ? 'public_studies' : 'studies'));
             await dbService.delete(currentUser.uid, collection, deleteId);
             setContent(prev => prev.filter(c => c.id !== deleteId));
             showNotification("Item excluído.", "success");
         } catch (e) {
-            showNotification("Erro ao excluir.", "error");
+            showNotification("Erro ao processar exclusão.", "error");
         } finally {
             setDeleteId(null);
             setDeleteType(null);
@@ -257,7 +282,8 @@ const WorkspacePage: React.FC = () => {
                             const description = isStudy(item) ? item.sourceText : (isPlan(item) ? item.description : item.content);
                             const itemType = isPlan(item) ? 'plan' : (isNote(item) ? 'note' : 'study');
                             const isFollowedStudy = isStudy(item) && item.isFollowed;
-                            const actionLabel = isFollowedStudy ? 'Visualizar' : 'Editar';
+                            const isThirdPartyPlan = isPlan(item) && item.authorId !== currentUser.uid;
+                            const actionLabel = (isFollowedStudy || isThirdPartyPlan) ? 'Visualizar' : 'Editar';
 
                             return viewMode === 'grid' ? (
                                 <StandardCard
@@ -300,7 +326,13 @@ const WorkspacePage: React.FC = () => {
                                         <button onClick={() => handleEdit(item)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-500">
                                             {isFollowedStudy ? <Eye size={16} /> : <Edit3 size={16} />}
                                         </button>
-                                        <button onClick={() => { setDeleteId(item.id); setDeleteType(itemType); }} className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-red-500"><Trash2 size={16} /></button>
+                                        <button 
+                                            onClick={() => { setDeleteId(item.id); setDeleteType(itemType); }} 
+                                            className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-red-500"
+                                            title={isPlan(item) && item.authorId !== currentUser.uid ? "Remover da lista" : "Excluir"}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </div>
                                 </div>
                             );

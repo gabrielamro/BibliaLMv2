@@ -26,6 +26,7 @@ Transformar pedidos amplos em uma abordagem segura, incremental e coerente com a
 3. Verificar se a proposta respeita a separacao entre UI e `services/`.
 4. Confirmar se as mudancas preservam fluxo de dados, seguranca e custo de IA.
 5. Sinalizar quando outra skill local deve ser usada em conjunto.
+6. **Demanda Técnica**: Atuar como orquestrador técnico, sabendo exatamente para qual skill demandar cada subtarefa (ex: @Front-end para UI, @code-analyzer para revisão, @prd para escopo).
 
 ## Checklist
 

@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapa de Fluxo - BibliaLM</title>
+  <style>
+    :root{
+      --bg:#0b0b0d;
+      --panel:#131318;
+      --panel-2:#181822;
+      --text:#f5f1ea;
+      --muted:#a8a2b7;
+      --gold:#d1a24c;
+      --gold-2:#8d6b2e;
+      --line:rgba(255,255,255,.08);
+      --shadow:0 20px 60px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter,Segoe UI,Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(209,162,76,.16), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(81,79,180,.18), transparent 22%),
+        var(--bg);
+    }
+    .wrap{width:min(1480px,94vw);margin:22px auto 56px}
+    .hero{
+      background:linear-gradient(135deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+      border:1px solid var(--line);
+      border-radius:30px;
+      padding:24px;
+      box-shadow:var(--shadow);
+      position:sticky;
+      top:12px;
+      backdrop-filter:blur(16px);
+      z-index:10;
+    }
+    .hero h1{
+      margin:0;
+      font-size:clamp(1.6rem,2.5vw,3rem);
+      letter-spacing:-.03em;
+    }
+    .hero p{margin:10px 0 0;color:var(--muted);max-width:980px;line-height:1.55}
+    .pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+    .pill{
+      border:1px solid rgba(255,255,255,.13);
+      border-radius:999px;
+      padding:7px 11px;
+      font-size:11px;
+      font-weight:800;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:#fff;
+      background:rgba(255,255,255,.05);
+    }
+    .timeline{
+      margin-top:16px;
+      display:grid;
+      gap:12px;
+    }
+    .section{
+      background:rgba(255,255,255,.04);
+      border:1px solid var(--line);
+      border-radius:24px;
+      padding:18px;
+      box-shadow:var(--shadow);
+    }
+    .section-head{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:end;
+      margin-bottom:12px;
+    }
+    .section-head h2{margin:0;font-size:1.05rem}
+    .section-head p{margin:0;color:var(--muted);font-size:.88rem}
+    .track{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+      gap:12px;
+    }
+    .shot{
+      margin:0;
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border:1px solid rgba(255,255,255,.1);
+      border-radius:20px;
+      overflow:hidden;
+      display:grid;
+      min-height:100%;
+    }
+    .shot a{display:block;line-height:0}
+    .shot img{
+      width:100%;
+      height:240px;
+      object-fit:cover;
+      background:#fff;
+      display:block;
+    }
+    .shot figcaption{
+      padding:12px;
+      display:grid;
+      gap:5px;
+    }
+    .shot strong{font-size:.92rem}
+    .shot span,.shot code{font-size:.78rem;color:var(--muted)}
+    .shot code{word-break:break-all}
+    .shot.fail{outline:1px solid rgba(255,90,90,.3)}
+    .legend{
+      margin-top:14px;
+      display:grid;
+      gap:10px;
+      grid-template-columns:repeat(4,1fr);
+    }
+    .legend .box{
+      background:rgba(255,255,255,.05);
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:12px;
+    }
+    .legend .box strong{display:block;margin-bottom:4px}
+    .legend .box span{color:var(--muted);font-size:.88rem}
+    @media (max-width:1024px){
+      .legend{grid-template-columns:repeat(2,1fr)}
+      .track{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+      .shot img{height:220px}
+    }
+    @media (max-width:720px){
+      .legend{grid-template-columns:1fr}
+      .section-head{flex-direction:column;align-items:start}
+      .hero{position:static}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <h1>Mapa de Fluxo visual do BibliaLM</h1>
+      <p>69 screenshots reais organizadas por jornada. Abra este arquivo para percorrer o sistema por etapas, com as telas agrupadas na ordem mais natural de uso.</p>
+      <div class="pills">
+        <span class="pill">Entrada</span>
+        <span class="pill">Leitura</span>
+        <span class="pill">Criação</span>
+        <span class="pill">Comunidade</span>
+        <span class="pill">Perfil</span>
+        <span class="pill">Admin</span>
+      </div>
+      <div class="legend">
+        <div class="box"><strong>Como usar</strong><span>Clique em qualquer screenshot para abrir em tamanho real.</span></div>
+        <div class="box"><strong>Leitura</strong><span>Mostra o caminho do visitante até o estudo e a leitura diária.</span></div>
+        <div class="box"><strong>Criação</strong><span>Conecta o centro de IA, estudo, imagem e podcast.</span></div>
+        <div class="box"><strong>Comunidade</strong><span>Organiza social, igreja, grupos e perfis públicos.</span></div>
+      </div>
+    </header>
+    <main class="timeline">
+      
+    <section class="section">
+      <div class="section-head">
+        <h2>Entrada e Onboarding</h2>
+        <p>69 tela(s)</p>
+      </div>
+      <div class="track">
+        
+    <figure class="shot ">
+      <a href="./home.png" target="_blank" rel="noreferrer">
+        <img src="./home.png" alt="/" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/</strong>
+        <span>home</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./pastor.png" target="_blank" rel="noreferrer">
+        <img src="./pastor.png" alt="/pastor" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/pastor</strong>
+        <span>pastor</span>
+        <code>/pastor</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./acervo.png" target="_blank" rel="noreferrer">
+        <img src="./acervo.png" alt="/acervo" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/acervo</strong>
+        <span>acervo</span>
+        <code>/acervo</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./admin.png" target="_blank" rel="noreferrer">
+        <img src="./admin.png" alt="/admin" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/admin</strong>
+        <span>admin</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./aluno.png" target="_blank" rel="noreferrer">
+        <img src="./aluno.png" alt="/aluno" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/aluno</strong>
+        <span>aluno</span>
+        <code>/aluno</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./apresentacao.png" target="_blank" rel="noreferrer">
+        <img src="./apresentacao.png" alt="/apresentacao" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/apresentacao</strong>
+        <span>apresentacao</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./artes-sacras.png" target="_blank" rel="noreferrer">
+        <img src="./artes-sacras.png" alt="/artes-sacras" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/artes-sacras</strong>
+        <span>artes sacras</span>
+        <code>/artes-sacras</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./biblia.png" target="_blank" rel="noreferrer">
+        <img src="./biblia.png" alt="/biblia" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/biblia</strong>
+        <span>biblia</span>
+        <code>/biblia</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./biblia-dashboard.png" target="_blank" rel="noreferrer">
+        <img src="./biblia-dashboard.png" alt="/biblia-dashboard" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/biblia-dashboard</strong>
+        <span>biblia dashboard</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./chat.png" target="_blank" rel="noreferrer">
+        <img src="./chat.png" alt="/chat" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/chat</strong>
+        <span>chat</span>
+        <code>/chat</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./complete-profile.png" target="_blank" rel="noreferrer">
+        <img src="./complete-profile.png" alt="/complete-profile" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/complete-profile</strong>
+        <span>complete profile</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./criador-jornada.png" target="_blank" rel="noreferrer">
+        <img src="./criador-jornada.png" alt="/criador-jornada" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/criador-jornada</strong>
+        <span>criador jornada</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./criar-arte-sacra.png" target="_blank" rel="noreferrer">
+        <img src="./criar-arte-sacra.png" alt="/criar-arte-sacra" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/criar-arte-sacra</strong>
+        <span>criar arte sacra</span>
+        <code>/criar-arte-sacra</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./criar-conteudo.png" target="_blank" rel="noreferrer">
+        <img src="./criar-conteudo.png" alt="/criar-conteudo" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/criar-conteudo</strong>
+        <span>criar conteudo</span>
+        <code>/criar-conteudo</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./criar-estudo.png" target="_blank" rel="noreferrer">
+        <img src="./criar-estudo.png" alt="/criar-estudo" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/criar-estudo</strong>
+        <span>criar estudo</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./criar-podcast.png" target="_blank" rel="noreferrer">
+        <img src="./criar-podcast.png" alt="/criar-podcast" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/criar-podcast</strong>
+        <span>criar podcast</span>
+        <code>/criar-podcast</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./devocional.png" target="_blank" rel="noreferrer">
+        <img src="./devocional.png" alt="/devocional" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/devocional</strong>
+        <span>devocional</span>
+        <code>/devocional</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./estudio-criativo.png" target="_blank" rel="noreferrer">
+        <img src="./estudio-criativo.png" alt="/estudio-criativo" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/estudio-criativo</strong>
+        <span>estudio criativo</span>
+        <code>/navegar</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./estudo-modulo-modulo-1.png" target="_blank" rel="noreferrer">
+        <img src="./estudo-modulo-modulo-1.png" alt="/estudo/modulo/modulo-1" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/estudo/modulo/modulo-1</strong>
+        <span>estudo · modulo · modulo 1</span>
+        <code>/aluno</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./estudos.png" target="_blank" rel="noreferrer">
+        <img src="./estudos.png" alt="/estudos" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/estudos</strong>
+        <span>estudos</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./estudos-livro-genesis.png" target="_blank" rel="noreferrer">
+        <img src="./estudos-livro-genesis.png" alt="/estudos/livro/genesis" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/estudos/livro/genesis</strong>
+        <span>estudos · livro · genesis</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./estudos-planos.png" target="_blank" rel="noreferrer">
+        <img src="./estudos-planos.png" alt="/estudos/planos" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/estudos/planos</strong>
+        <span>estudos · planos</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./faith-tech.png" target="_blank" rel="noreferrer">
+        <img src="./faith-tech.png" alt="/faith-tech" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/faith-tech</strong>
+        <span>faith tech</span>
+        <code>/faith-tech</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./fonte-conhecimento.png" target="_blank" rel="noreferrer">
+        <img src="./fonte-conhecimento.png" alt="/fonte-conhecimento" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/fonte-conhecimento</strong>
+        <span>fonte conhecimento</span>
+        <code>/fonte-conhecimento</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./grupo-celula-central.png" target="_blank" rel="noreferrer">
+        <img src="./grupo-celula-central.png" alt="/grupo/celula-central" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/grupo/celula-central</strong>
+        <span>grupo · celula central</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./historico.png" target="_blank" rel="noreferrer">
+        <img src="./historico.png" alt="/historico" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/historico</strong>
+        <span>historico</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./igreja-igreja-central.png" target="_blank" rel="noreferrer">
+        <img src="./igreja-igreja-central.png" alt="/igreja/igreja-central" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/igreja/igreja-central</strong>
+        <span>igreja · igreja central</span>
+        <code>/igreja/igreja-central</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./inicio03.png" target="_blank" rel="noreferrer">
+        <img src="./inicio03.png" alt="/inicio03" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/inicio03</strong>
+        <span>inicio03</span>
+        <code>/inicio03</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./intro.png" target="_blank" rel="noreferrer">
+        <img src="./intro.png" alt="/intro" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/intro</strong>
+        <span>intro</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./intro-v2.png" target="_blank" rel="noreferrer">
+        <img src="./intro-v2.png" alt="/intro-v2" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/intro-v2</strong>
+        <span>intro v2</span>
+        <code>/intro-v2</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./jornada-plano-demo.png" target="_blank" rel="noreferrer">
+        <img src="./jornada-plano-demo.png" alt="/jornada/plano-demo" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/jornada/plano-demo</strong>
+        <span>jornada · plano demo</span>
+        <code>/jornada/plano-demo</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./landing-demo.png" target="_blank" rel="noreferrer">
+        <img src="./landing-demo.png" alt="/landing/demo" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/landing/demo</strong>
+        <span>landing · demo</span>
+        <code>/landing/demo</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./login.png" target="_blank" rel="noreferrer">
+        <img src="./login.png" alt="/login" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/login</strong>
+        <span>login</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./minha-conta.png" target="_blank" rel="noreferrer">
+        <img src="./minha-conta.png" alt="/minha-conta" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/minha-conta</strong>
+        <span>minha conta</span>
+        <code>/minha-conta</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./mockinicio1.png" target="_blank" rel="noreferrer">
+        <img src="./mockinicio1.png" alt="/mockinicio1" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/mockinicio1</strong>
+        <span>mockinicio1</span>
+        <code>/mockinicio1</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./mocsantuario.png" target="_blank" rel="noreferrer">
+        <img src="./mocsantuario.png" alt="/mocsantuario" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/mocsantuario</strong>
+        <span>mocsantuario</span>
+        <code>/mocsantuario</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./navegar.png" target="_blank" rel="noreferrer">
+        <img src="./navegar.png" alt="/navegar" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/navegar</strong>
+        <span>navegar</span>
+        <code>/navegar</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./notes.png" target="_blank" rel="noreferrer">
+        <img src="./notes.png" alt="/notes" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/notes</strong>
+        <span>notes</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./oracoes.png" target="_blank" rel="noreferrer">
+        <img src="./oracoes.png" alt="/oracoes" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/oracoes</strong>
+        <span>oracoes</span>
+        <code>/oracoes</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./oracoes-gerenciar.png" target="_blank" rel="noreferrer">
+        <img src="./oracoes-gerenciar.png" alt="/oracoes/gerenciar" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/oracoes/gerenciar</strong>
+        <span>oracoes · gerenciar</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./p-post-demo.png" target="_blank" rel="noreferrer">
+        <img src="./p-post-demo.png" alt="/p/post-demo" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/p/post-demo</strong>
+        <span>p · post demo</span>
+        <code>/p/post-demo</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./perfil.png" target="_blank" rel="noreferrer">
+        <img src="./perfil.png" alt="/perfil" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/perfil</strong>
+        <span>perfil</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./plano.png" target="_blank" rel="noreferrer">
+        <img src="./plano.png" alt="/plano" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/plano</strong>
+        <span>plano</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./plano-leitura.png" target="_blank" rel="noreferrer">
+        <img src="./plano-leitura.png" alt="/plano/leitura" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/plano/leitura</strong>
+        <span>plano · leitura</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./planos.png" target="_blank" rel="noreferrer">
+        <img src="./planos.png" alt="/planos" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/planos</strong>
+        <span>planos</span>
+        <code>/planos</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./privacidade.png" target="_blank" rel="noreferrer">
+        <img src="./privacidade.png" alt="/privacidade" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/privacidade</strong>
+        <span>privacidade</span>
+        <code>/privacidade</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./pulpito.png" target="_blank" rel="noreferrer">
+        <img src="./pulpito.png" alt="/pulpito" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/pulpito</strong>
+        <span>pulpito</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./pulpito-editor.png" target="_blank" rel="noreferrer">
+        <img src="./pulpito-editor.png" alt="/pulpito/editor" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/pulpito/editor</strong>
+        <span>pulpito · editor</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./quiz.png" target="_blank" rel="noreferrer">
+        <img src="./quiz.png" alt="/quiz" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/quiz</strong>
+        <span>quiz</span>
+        <code>/quiz</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./regras.png" target="_blank" rel="noreferrer">
+        <img src="./regras.png" alt="/regras" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/regras</strong>
+        <span>regras</span>
+        <code>/regras</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./rotina.png" target="_blank" rel="noreferrer">
+        <img src="./rotina.png" alt="/rotina" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/rotina</strong>
+        <span>rotina</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./s-demo-token.png" target="_blank" rel="noreferrer">
+        <img src="./s-demo-token.png" alt="/s/demo-token" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/s/demo-token</strong>
+        <span>s · demo token</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./social.png" target="_blank" rel="noreferrer">
+        <img src="./social.png" alt="/social" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/social</strong>
+        <span>social</span>
+        <code>/social</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./social-artigos.png" target="_blank" rel="noreferrer">
+        <img src="./social-artigos.png" alt="/social/artigos" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/social/artigos</strong>
+        <span>social · artigos</span>
+        <code>/social/artigos</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./social-church.png" target="_blank" rel="noreferrer">
+        <img src="./social-church.png" alt="/social/church" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/social/church</strong>
+        <span>social · church</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./social-explore.png" target="_blank" rel="noreferrer">
+        <img src="./social-explore.png" alt="/social/explore" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/social/explore</strong>
+        <span>social · explore</span>
+        <code>/social/explore</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./social-ferramentas.png" target="_blank" rel="noreferrer">
+        <img src="./social-ferramentas.png" alt="/social/ferramentas" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/social/ferramentas</strong>
+        <span>social · ferramentas</span>
+        <code>/social/ferramentas</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./social-igreja-igreja-central.png" target="_blank" rel="noreferrer">
+        <img src="./social-igreja-igreja-central.png" alt="/social/igreja/igreja-central" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/social/igreja/igreja-central</strong>
+        <span>social · igreja · igreja central</span>
+        <code>/social/igreja/igreja-central</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./social-oracao.png" target="_blank" rel="noreferrer">
+        <img src="./social-oracao.png" alt="/social/oracao" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/social/oracao</strong>
+        <span>social · oracao</span>
+        <code>/social/oracao</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./social-profile.png" target="_blank" rel="noreferrer">
+        <img src="./social-profile.png" alt="/social/profile" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/social/profile</strong>
+        <span>social · profile</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./social-u-pastor.png" target="_blank" rel="noreferrer">
+        <img src="./social-u-pastor.png" alt="/social/u/pastor" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/social/u/pastor</strong>
+        <span>social · u · pastor</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./suporte.png" target="_blank" rel="noreferrer">
+        <img src="./suporte.png" alt="/suporte" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/suporte</strong>
+        <span>suporte</span>
+        <code>/suporte</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./system-integrity.png" target="_blank" rel="noreferrer">
+        <img src="./system-integrity.png" alt="/system-integrity" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/system-integrity</strong>
+        <span>system integrity</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./termos.png" target="_blank" rel="noreferrer">
+        <img src="./termos.png" alt="/termos" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/termos</strong>
+        <span>termos</span>
+        <code>/termos</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./trilhas.png" target="_blank" rel="noreferrer">
+        <img src="./trilhas.png" alt="/trilhas" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/trilhas</strong>
+        <span>trilhas</span>
+        <code>/aluno</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./u-pastor.png" target="_blank" rel="noreferrer">
+        <img src="./u-pastor.png" alt="/u/pastor" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/u/pastor</strong>
+        <span>u · pastor</span>
+        <code>/u/pastor</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./v-estudo-demo.png" target="_blank" rel="noreferrer">
+        <img src="./v-estudo-demo.png" alt="/v/estudo-demo" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/v/estudo-demo</strong>
+        <span>v · estudo demo</span>
+        <code>/v/estudo-demo</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./workspace.png" target="_blank" rel="noreferrer">
+        <img src="./workspace.png" alt="/workspace" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/workspace</strong>
+        <span>workspace</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+
+    <figure class="shot ">
+      <a href="./workspace-pastoral.png" target="_blank" rel="noreferrer">
+        <img src="./workspace-pastoral.png" alt="/workspace-pastoral" loading="lazy" />
+      </a>
+      <figcaption>
+        <strong>/workspace-pastoral</strong>
+        <span>workspace pastoral</span>
+        <code>/intro</code>
+      </figcaption>
+    </figure>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Home e Continuidade</h2>
+        <p>0 tela(s)</p>
+      </div>
+      <div class="track">
+        
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Leitura e Estudos</h2>
+        <p>0 tela(s)</p>
+      </div>
+      <div class="track">
+        
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Criação com IA</h2>
+        <p>0 tela(s)</p>
+      </div>
+      <div class="track">
+        
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Comunidade e Social</h2>
+        <p>0 tela(s)</p>
+      </div>
+      <div class="track">
+        
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Perfil e Sistema</h2>
+        <p>0 tela(s)</p>
+      </div>
+      <div class="track">
+        
+      </div>
+    </section>
+      
+    </main>
+  </div>
+</body>
+</html>
