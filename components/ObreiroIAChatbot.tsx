@@ -211,7 +211,7 @@ const ObreiroIAChatbot: React.FC = () => {
 
     const isKingdomMode = location.pathname.startsWith('/social');
 
-    if (!isVisible || isKingdomMode) return null;
+    if (!isVisible || isKingdomMode || isFocusMode) return null;
 
     return (
         <>

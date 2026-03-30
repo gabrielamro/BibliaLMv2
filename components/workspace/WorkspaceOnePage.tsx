@@ -122,53 +122,6 @@ const WorkspaceOnePage: React.FC = () => {
   return (
     <div className="space-y-6 pb-20 animate-in fade-in">
 
-      {/* ATALHOS DE CRIAÇÃO RÁPIDA (O que você deseja criar?) */}
-      <section className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-800">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">O que você deseja criar?</h2>
-        <p className="text-sm text-gray-500 mb-8">Escolha o formato ideal para o novo conteúdo na Área do Pastor.</p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-          {/* Sala Interativa */}
-          <div
-            onClick={() => navigate('/criador-jornada?type=sala')}
-            className="bg-gray-50 dark:bg-gray-900/50 p-8 rounded-[2rem] border-2 border-transparent hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 cursor-pointer transition-all flex flex-col items-center justify-center text-center group"
-          >
-            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mb-6 text-blue-600 group-hover:scale-110 transition-transform">
-              <Users size={32} />
-            </div>
-            <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-2">Nova Sala</h3>
-            <p className="text-sm text-gray-500 line-clamp-3">Crie salas fechadas ou abertas para sua igreja ou célula, contendo fórum, rankings.</p>
-          </div>
-
-          {/* Trilha de Estudos (DESATIVADO)
-          <div
-            onClick={() => navigate('/trilhas/gerenciar?action=new')}
-            className="bg-gray-50 dark:bg-gray-900/50 p-8 rounded-[2rem] border-2 border-transparent hover:border-bible-gold hover:bg-bible-gold/5 cursor-pointer transition-all flex flex-col items-center justify-center text-center group"
-          >
-            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center mb-6 text-amber-600 group-hover:scale-110 transition-transform">
-              <BookOpen size={32} />
-            </div>
-            <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-2">Trilha de Estudo</h3>
-            <p className="text-sm text-gray-500 line-clamp-3">Aulas estruturadas com leitura guiada, vídeos e quizzes passo a passo.</p>
-          </div>
-          */}
-
-          {/* Orações */}
-          <div
-            onClick={() => navigate('/oracoes/gerenciar?action=new')}
-            className="bg-gray-50 dark:bg-gray-900/50 p-8 rounded-[2rem] border-2 border-transparent hover:border-purple-500 hover:bg-purple-50/50 dark:hover:bg-purple-900/10 cursor-pointer transition-all flex flex-col items-center justify-center text-center group"
-          >
-            <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center mb-6 text-purple-600 group-hover:scale-110 transition-transform">
-              <HandHeart size={32} />
-            </div>
-            <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-2">Oração Guiada</h3>
-            <p className="text-sm text-gray-500 line-clamp-3">Devocionais com foco em meditação, propósitos e oração interativa.</p>
-          </div>
-
-        </div>
-      </section>
-
       {/* Visão Geral */}
       <section>
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">

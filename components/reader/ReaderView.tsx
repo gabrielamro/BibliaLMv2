@@ -49,6 +49,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({
 }) => {
     const { settings, updateSettings, isFocusMode, setIsFocusMode } = useSettings();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [expandedVerseStart, setExpandedVerseStart] = useState<number | null>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const highlightedVersesKey = highlightedVerses.join(',');
     const firstHighlightedVerse = highlightedVerses[0] ?? null;
@@ -56,20 +57,41 @@ const ReaderView: React.FC<ReaderViewProps> = ({
     const maxChapters = BOOK_CHAPTER_COUNTS[bookMetadata.id] || 1;
     const isLastChapter = currentChapterNum >= maxChapters;
 
+    // 1. Efeito de Scroll Inicial e Mudança de Conteúdo
+    useEffect(() => {
+        if (chapterContent && !isLoading && contentRef.current) {
+            contentRef.current.scrollTo({ top: 0, behavior: 'instant' });
+        }
+    }, [currentChapterNum, bookMetadata.id, isLoading, chapterContent]);
+
+    // 2. Efeito de Scroll para Versículos Destacados
     useEffect(() => {
         if (chapterContent && highlightedVerses.length > 0 && firstHighlightedVerse) {
             setSelectedVerses(highlightedVerses);
-            setTimeout(() => {
+            const timer = setTimeout(() => {
                 const el = document.getElementById(`verse-${firstHighlightedVerse}`);
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 500);
-        } else if (chapterContent && !isLoading && contentRef.current) {
-            contentRef.current.scrollTo({ top: 0, behavior: 'instant' });
+            return () => clearTimeout(timer);
         }
-    }, [currentChapterNum, bookMetadata.id, highlightedVersesKey, firstHighlightedVerse, highlightedVerses, chapterContent, isLoading, setSelectedVerses]);
+    }, [highlightedVersesKey, firstHighlightedVerse, chapterContent, setSelectedVerses]);
+
+    // 3. Efeito de Scroll ao Expandir/Trocar Modo (Garantir Topo)
+    useEffect(() => {
+        if (isFocusMode && contentRef.current) {
+            // Tentativa instantânea de zerar
+            contentRef.current.scrollTop = 0;
+            // Delay de segurança maior para assegurar pós-renderização em mobile
+            const timer = setTimeout(() => {
+                if (contentRef.current) {
+                    contentRef.current.scrollTop = 0;
+                }
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [isFocusMode, expandedVerseStart]);
 
     const getFontSizeClass = (size: number) => {
-        // Escala de fontes ajustada para o modo foco
         if (isFocusMode) {
             const sizes = ['text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl'];
             return sizes[size - 1] || 'text-2xl';
@@ -81,7 +103,6 @@ const ReaderView: React.FC<ReaderViewProps> = ({
     const handleVerseClick = (e: React.MouseEvent, verseNum: number) => {
         if (isFocusMode) return;
         e.stopPropagation();
-
         setSelectedVerses(prev =>
             prev.includes(verseNum) ? prev.filter(v => v !== verseNum) : [...prev, verseNum].sort((a, b) => a - b)
         );
@@ -92,14 +113,8 @@ const ReaderView: React.FC<ReaderViewProps> = ({
 
     return (
         <div className={`flex-1 flex flex-col h-full relative overflow-hidden transition-colors duration-700 ${isFocusMode ? 'bg-black' : 'bg-bible-paper dark:bg-[#0f0d0b]'}`}>
-
-            {/* 
-        HEADER AREA 
-        - Standard: Toolbar com controles completos.
-        - Focus: Minimalista e Sólido (sem sobreposição).
-      */}
             {isFocusMode ? (
-                <div className="w-full z-50 px-6 py-4 flex justify-between items-center bg-black border-b border-white/10 select-none">
+                <div className="sticky top-0 w-full z-50 px-6 py-4 flex justify-between items-center bg-black/90 backdrop-blur-sm border-b border-white/10 select-none">
                     <div className="flex items-center gap-2 text-lg md:text-xl font-serif animate-in fade-in slide-in-from-top-2 text-gray-400">
                         <span className="font-bold text-bible-gold">{bookMetadata.name}</span>
                         <span className="text-gray-600 mx-1">/</span>
@@ -107,63 +122,41 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                     </div>
 
                     <button
-                        onClick={() => setIsFocusMode(false)}
-                        className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white/70 hover:text-white transition-all border border-white/5"
+                        onClick={() => {
+                            setIsFocusMode(false);
+                            setExpandedVerseStart(null);
+                        }}
+                        className="p-3 bg-bible-gold hover:bg-bible-gold/80 rounded-full text-black transition-all shadow-xl shadow-bible-gold/20"
                         title="Sair do Modo Foco"
                     >
-                        <Minimize2 size={20} />
+                        <X size={20} />
                     </button>
                 </div>
             ) : (
                 <div className="sticky top-0 z-40 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 bg-white/95 dark:bg-[#0a0a0a]/95 flex flex-col transition-all">
                     <div className="h-12 px-6 flex items-center justify-between">
-                        {/* Breadcrumbs Left */}
                         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
-                            <button
-                                onClick={onBackToLibrary}
-                                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:border-bible-gold/40 hover:text-bible-gold dark:border-gray-700 dark:text-gray-300"
-                                title="Voltar"
-                                aria-label="Voltar"
-                            >
-                                <ArrowLeft size={14} />
-                            </button>
+                            <button onClick={onBackToLibrary} className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:border-bible-gold/40 hover:text-bible-gold dark:border-gray-700 dark:text-gray-300" title="Voltar"><ArrowLeft size={14} /></button>
                             <span className="hover:text-bible-gold cursor-pointer transition-colors" onClick={onBackToLibrary}>{bookMetadata.name.toUpperCase()}</span>
                             <ChevronRight size={10} className="text-gray-300" />
                             <span className="text-gray-600 dark:text-gray-300">CAPÍTULO {currentChapterNum}</span>
                         </div>
-
-                        {/* Actions Right */}
                         <div className="flex items-center gap-4">
                             {isLoading && <Loader2 size={14} className="animate-spin text-bible-gold" />}
-
-                            <button onClick={() => onGenerateChapterPodcast()} className="text-gray-400 hover:text-purple-500 transition-colors" title="Podcast">
-                                <Headphones size={18} />
-                            </button>
-
-                            <button onClick={onToggleNarration} className={`transition-colors ${isNarrationPlaying ? 'text-bible-gold' : 'text-gray-400 hover:text-bible-gold'}`} title="Ouvir">
-                                <Volume2 size={18} />
-                            </button>
-
-                            <button onClick={() => setIsFocusMode(true)} className="text-gray-400 hover:text-bible-gold transition-colors" title="Expandir">
-                                <Maximize2 size={18} />
-                            </button>
-
-                            <button onClick={() => setIsSettingsOpen(true)} className="text-gray-400 hover:text-bible-gold transition-colors" title="Aparência">
-                                <SettingsIcon size={18} />
-                            </button>
+                            <button onClick={() => onGenerateChapterPodcast()} className="text-gray-400 hover:text-purple-500 transition-colors" title="Podcast"><Headphones size={18} /></button>
+                            <button onClick={onToggleNarration} className={`transition-colors ${isNarrationPlaying ? 'text-bible-gold' : 'text-gray-400 hover:text-bible-gold'}`} title="Ouvir"><Volume2 size={18} /></button>
+                            <button onClick={() => setIsFocusMode(true)} className="text-gray-400 hover:text-bible-gold transition-colors" title="Expandir"><Maximize2 size={18} /></button>
+                            <button onClick={() => setIsSettingsOpen(true)} className="text-gray-400 hover:text-bible-gold transition-colors" title="Aparência"><SettingsIcon size={18} /></button>
                         </div>
                     </div>
-                    {/* Progress line */}
                     <div className="h-0.5 w-full bg-gray-100 dark:bg-gray-800">
                         <div className="h-full bg-bible-gold transition-all duration-500" style={{ width: `${bookProgress}%` }}></div>
                     </div>
                 </div>
             )}
 
-            {/* CONTENT AREA */}
-            <div ref={contentRef} className="flex-1 overflow-y-auto scroll-smooth">
+            <div ref={contentRef} className="flex-1 overflow-y-auto">
                 <div className={`mx-auto transition-all duration-500 ${isFocusMode ? 'max-w-3xl px-8 py-12' : 'max-w-2xl md:max-w-3xl xl:max-w-4xl px-6 py-10 md:py-16 pb-40'}`}>
-
                     {isLoading && !chapterContent ? (
                         <div className="flex flex-col items-center justify-center py-40">
                             <Loader2 size={40} className="animate-spin text-bible-gold mb-4" />
@@ -171,8 +164,6 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                         </div>
                     ) : (
                         <div className={`space-y-6 ${settings.fontFamily === 'serif' ? 'font-serif' : 'font-sans'}`}>
-
-                            {/* Chapter Header Card - Only in Standard Mode */}
                             {!isFocusMode && (
                                 <div className="text-center mb-12">
                                     <span className="text-[10px] font-black uppercase text-bible-gold tracking-[0.3em] mb-2 block">Capítulo</span>
@@ -180,87 +171,68 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                                     <div className="h-1 w-12 bg-bible-gold/30 mx-auto -mt-4 rounded-full"></div>
                                 </div>
                             )}
-
-                            {/* Verses */}
-                            <div className={`leading-relaxed ${getFontSizeClass(settings.fontSize)} ${isFocusMode ? 'space-y-8 text-gray-300' : 'space-y-4 text-gray-800 dark:text-gray-200'}`}>
-                                {chapterContent?.verses.map((verse) => {
+                            <div className={`leading-relaxed ${getFontSizeClass(settings.fontSize)} ${isFocusMode ? 'space-y-12 text-gray-300' : 'space-y-4 text-gray-800 dark:text-gray-200'}`}>
+                                {chapterContent?.verses
+                                    .filter(v => !isFocusMode || !expandedVerseStart || v.number >= expandedVerseStart)
+                                    .map((verse) => {
                                     const isSelected = selectedVerses.includes(verse.number);
                                     const isPopular = popularVerses.includes(verse.number);
                                     const hasNote = versesWithNotes.includes(verse.number);
                                     const hasFriendNote = verse.number % 7 === 0;
                                     const verseLead = !isFocusMode ? extractVerseLead(verse.text) : null;
-
                                     return (
                                         <div key={verse.number} className={`relative group ${isFocusMode ? 'transition-opacity duration-500' : ''}`}>
-                                            {/* Social Avatar (Phase 3) - Only Standard Mode */}
                                             {hasFriendNote && !isFocusMode && (
                                                 <div className="absolute -left-6 top-1.5 opacity-50 group-hover:opacity-100 transition-opacity" title="Anotação de amigo">
                                                     <div className="w-4 h-4 rounded-full bg-purple-500 border border-white dark:border-black flex items-center justify-center text-[6px] text-white font-bold">AB</div>
                                                 </div>
                                             )}
-
-                                            <span
-                                                id={`verse-${verse.number}`}
-                                                onClick={(e) => handleVerseClick(e, verse.number)}
-                                                className={`
-                                            inline-block rounded-lg transition-all duration-300 cursor-pointer select-none
-                                            ${isFocusMode
-                                                        ? 'hover:text-white'
-                                                        : `${isSelected ? 'bg-bible-gold/20 ring-1 ring-bible-gold/30' : 'hover:bg-bible-gold/5 active:bg-bible-gold/10'} p-1 mb-1`
-                                                    }
-                                            ${isPopular && !isFocusMode ? 'decoration-red-300/50 dark:decoration-red-900/50 underline decoration-dotted underline-offset-4 decoration-2' : ''}
-                                            ${hasNote && !isFocusMode ? 'border-l-4 border-yellow-500 pl-2 bg-yellow-50/50 dark:bg-yellow-900/10' : ''}
-                                        `}
-                                            >
-                                                {!isFocusMode && (
-                                                    <sup className={`text-[10px] font-sans font-black mr-1.5 select-none flex items-center gap-0.5 inline-flex ${isPopular ? 'text-red-400' : 'text-bible-gold/60'}`}>
-                                                        {verse.number}
-                                                        {hasNote && <PenLine size={8} className="text-yellow-600 dark:text-yellow-400" />}
-                                                    </sup>
-                                                )}
-
+                                            <span id={`verse-${verse.number}`} onClick={(e) => handleVerseClick(e, verse.number)} className={`inline-block rounded-lg transition-all duration-300 cursor-pointer select-none ${isFocusMode ? 'hover:text-white' : `${isSelected ? 'bg-bible-gold/20 ring-1 ring-bible-gold/30' : 'hover:bg-bible-gold/5 active:bg-bible-gold/10'} p-1 mb-1`} ${isPopular && !isFocusMode ? 'decoration-red-300/50 dark:decoration-red-900/50 underline decoration-dotted underline-offset-4 decoration-2' : ''} ${hasNote && !isFocusMode ? 'border-l-4 border-yellow-500 pl-2 bg-yellow-50/50 dark:bg-yellow-900/10' : ''}`}>
+                                                <sup className={`text-[10px] font-sans font-black mr-1.5 select-none flex items-center gap-1.5 inline-flex ${isPopular ? 'text-red-400' : 'text-bible-gold/60'}`}>
+                                                    {verse.number}
+                                                    {hasNote && !isFocusMode && <PenLine size={8} className="text-yellow-600 dark:text-yellow-400" />}
+                                                </sup>
                                                 {verseLead ? (
                                                     <>
                                                         {verseLead.prefix && <span>{verseLead.prefix}</span>}
-                                                        <span className="text-bible-gold/75 dark:text-bible-gold/85 md:text-[1.55em] md:leading-none md:align-[-0.06em] md:mr-0.5 md:font-serif md:font-black">
-                                                            {verseLead.initial}
-                                                        </span>
+                                                        <span className="text-bible-gold/75 dark:text-bible-gold/85 md:text-[1.55em] md:leading-none md:align-[-0.06em] md:mr-0.5 md:font-serif md:font-black">{verseLead.initial}</span>
                                                         {verseLead.rest ? <SmartText text={verseLead.rest} enabled={settings.smartReadingMode || false} /> : null}
                                                     </>
                                                 ) : (
                                                     <SmartText text={verse.text} enabled={settings.smartReadingMode || false} />
+                                                )}
+                                                {!isFocusMode && (
+                                                    <button 
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            setExpandedVerseStart(verse.number); 
+                                                            setIsFocusMode(true);
+                                                        }} 
+                                                        className="ml-2 inline-flex items-center justify-center p-1.5 rounded-full bg-bible-leather/5 dark:bg-bible-gold/5 text-bible-gold md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-all hover:bg-bible-gold/20" 
+                                                        title="Expandir a partir deste versículo"
+                                                    >
+                                                        <Maximize2 size={12} />
+                                                    </button>
                                                 )}
                                             </span>
                                         </div>
                                     );
                                 })}
                             </div>
-
-                            {/* Heatmap Legend - Only Standard Mode */}
                             {!isFocusMode && popularVerses.length > 0 && (
                                 <div className="flex items-center justify-center gap-2 mt-8 opacity-50 text-[10px] font-bold uppercase tracking-widest text-gray-400">
                                     <Flame size={12} className="text-red-400" /> Versículos Populares na Comunidade
                                 </div>
                             )}
-
-                            {/* Navigation Footer */}
                             <div className={`pt-20 flex flex-col items-center gap-8 ${isFocusMode ? 'opacity-30 hover:opacity-100 transition-opacity' : ''}`}>
                                 <div className="flex items-center gap-4 w-full">
-                                    <button
-                                        onClick={() => currentChapterNum > 1 && onNavigate(bookMetadata.id, currentChapterNum - 1)}
-                                        disabled={currentChapterNum === 1}
-                                        className={`flex-1 py-4 border rounded-2xl disabled:opacity-30 transition-all flex items-center justify-center gap-2 ${isFocusMode ? 'border-white/10 text-white hover:bg-white/10' : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800 text-gray-400 hover:text-bible-gold'}`}
-                                    >
+                                    <button onClick={() => currentChapterNum > 1 && onNavigate(bookMetadata.id, currentChapterNum - 1)} disabled={currentChapterNum === 1} className={`flex-1 py-4 border rounded-2xl disabled:opacity-30 transition-all flex items-center justify-center gap-2 ${isFocusMode ? 'border-white/10 text-white hover:bg-white/10' : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800 text-gray-400 hover:text-bible-gold'}`}>
                                         <ChevronLeft size={20} /> <span className="text-xs font-bold uppercase tracking-widest">Anterior</span>
                                     </button>
-                                    <button
-                                        onClick={() => !isLastChapter ? onNavigate(bookMetadata.id, currentChapterNum + 1) : onChapterComplete()}
-                                        className="flex-[2] py-4 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-2xl font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
-                                    >
+                                    <button onClick={() => !isLastChapter ? onNavigate(bookMetadata.id, currentChapterNum + 1) : onChapterComplete()} className="flex-[2] py-4 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-2xl font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
                                         {isLastChapter ? 'Concluir Livro' : 'Próximo Capítulo'} <ChevronRight size={20} />
                                     </button>
                                 </div>
-
                                 {!isFocusMode && (
                                     <div className="flex items-center gap-3 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                                         <BookOpen size={14} />
@@ -272,15 +244,21 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                     )}
                 </div>
             </div>
+            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={settings} updateSettings={updateSettings} isFocusMode={isFocusMode} onToggleFocus={() => setIsFocusMode(!isFocusMode)} />
 
-            <SettingsModal
-                isOpen={isSettingsOpen}
-                onClose={() => setIsSettingsOpen(false)}
-                settings={settings}
-                updateSettings={updateSettings}
-                isFocusMode={isFocusMode}
-                onToggleFocus={() => setIsFocusMode(!isFocusMode)}
-            />
+            {/* Floating Exit Focus Button */}
+            {isFocusMode && (
+                <button
+                    onClick={() => {
+                        setIsFocusMode(false);
+                        setExpandedVerseStart(null);
+                    }}
+                    className="fixed bottom-10 right-6 z-[100] w-14 h-14 bg-bible-gold hover:bg-bible-gold/90 text-black rounded-full shadow-2xl shadow-bible-gold/30 hover:scale-110 active:scale-90 transition-all flex items-center justify-center border-4 border-black animate-in fade-in zoom-in duration-300"
+                    title="Sair do Modo Foco"
+                >
+                    <Minimize2 size={24} strokeWidth={3} />
+                </button>
+            )}
         </div>
     );
 };
