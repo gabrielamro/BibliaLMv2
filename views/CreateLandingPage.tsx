@@ -1057,18 +1057,39 @@ const CreateLandingPage: React.FC = () => {
 
         {/* Mobile Fixed Add Button (Phase 4) */}
         {!selectedBlockData && currentStep === 'create' && (
-          <div className="fixed bottom-6 right-6 z-[110] xl:hidden">
-            <button
-              onClick={() => setIsMobileAddMenuOpen(true)}
-              className="w-16 h-16 bg-bible-gold text-white rounded-2xl shadow-2xl flex items-center justify-center active:scale-95 transition-transform hover:bg-bible-gold/90 border-4 border-white dark:border-gray-900 group"
-              aria-label="Adicionar Bloco"
-            >
-              <div className="relative">
-                <Plus size={32} className="group-hover:rotate-90 transition-transform duration-300" />
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full animate-ping" />
-              </div>
-            </button>
-          </div>
+          <>
+            <div className="fixed bottom-6 left-6 z-[110] xl:hidden flex gap-2">
+              <button
+                onClick={handleUndo}
+                disabled={historyIndex <= 0}
+                className="w-12 h-12 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl flex items-center justify-center text-gray-600 dark:text-gray-300 disabled:opacity-30 transition-all active:scale-95"
+                title="Desfazer"
+              >
+                <Undo2 size={20} />
+              </button>
+              <button
+                onClick={handleRedo}
+                disabled={historyIndex >= history.length - 1}
+                className="w-12 h-12 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl flex items-center justify-center text-gray-600 dark:text-gray-300 disabled:opacity-30 transition-all active:scale-95"
+                title="Refazer"
+              >
+                <Redo2 size={20} />
+              </button>
+            </div>
+            
+            <div className="fixed bottom-6 right-6 z-[110] xl:hidden">
+              <button
+                onClick={() => setIsMobileAddMenuOpen(true)}
+                className="w-16 h-16 bg-bible-gold text-white rounded-2xl shadow-2xl flex items-center justify-center active:scale-95 transition-transform hover:bg-bible-gold/90 border-4 border-white dark:border-gray-900 group"
+                aria-label="Adicionar Bloco"
+              >
+                <div className="relative">
+                  <Plus size={32} className="group-hover:rotate-90 transition-transform duration-300" />
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full animate-ping" />
+                </div>
+              </button>
+            </div>
+          </>
         )}
 
         <MobileAddBlockMenu

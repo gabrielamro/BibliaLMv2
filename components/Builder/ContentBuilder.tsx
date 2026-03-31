@@ -256,8 +256,7 @@ export const ContentBuilder: React.FC<ContentBuilderProps> = ({
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); onRemoveBlock(block.id); }}
-                    disabled={['hero', 'footer'].includes(block.type)}
-                    className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl disabled:opacity-20 transition-colors"
+                    className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
                     title="Excluir"
                   >
                     <Trash2 size={18} />
