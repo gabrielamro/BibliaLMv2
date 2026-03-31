@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Play, Pause, ImagePlus, X, Minimize2, Square, Maximize2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play, Pause, ImagePlus, X, Minimize2, Square, Maximize2, ImageIcon } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { ImageUploadButton } from '../ImageUploadButton';
 
 interface SlideBlockProps {
   data: any;
@@ -95,9 +96,9 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
   };
 
   return (
-    <div className="relative">
+    <div className="relative group/slide-main">
       {/* Slide Container */}
-      <div className={`relative ${heightClasses[data.height] || 'h-80 md:h-96'} overflow-hidden rounded-lg`} style={bgStyle}>
+      <div className={`relative ${heightClasses[data.height] || 'h-80 md:h-96'} overflow-hidden rounded-lg group`} style={bgStyle}>
         {/* Overlay */}
         <div className="absolute inset-0" style={overlayStyle} />
 
@@ -108,6 +109,29 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
             dangerouslySetInnerHTML={{ __html: currentSlideData.content || '<p>Adicione conteúdo ao slide</p>' }}
           />
         </div>
+
+        {isEditing && (
+          <div className="absolute top-4 right-4 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur p-2.5 rounded-2xl shadow-2xl flex flex-col gap-2 scale-90 origin-top-right">
+                <div className="flex items-center gap-2">
+                  <ImageIcon size={14} className="text-bible-gold" />
+                  <input 
+                    type="text" 
+                    value={currentSlideData.backgroundImage || ''} 
+                    onChange={(e) => updateSlide(currentSlideData.id, { backgroundImage: e.target.value })}
+                    placeholder="URL fundo slide..."
+                    className="w-36 px-2 py-1 bg-gray-100 dark:bg-gray-800 border-none rounded-lg text-[10px] outline-none"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <ImageUploadButton 
+                  onUpload={(url: string) => updateSlide(currentSlideData.id, { backgroundImage: url })} 
+                  label="Mudar Fundo"
+                  className="w-full"
+                />
+            </div>
+          </div>
+        )}
 
         {/* Controls */}
         <div className="absolute inset-0 z-20 flex items-center justify-between px-4 opacity-0 hover:opacity-100 transition-opacity">

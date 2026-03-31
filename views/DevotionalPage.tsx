@@ -55,7 +55,7 @@ const DevotionalPage: React.FC = () => {
     setLoading(true);
     try {
       const uid = currentUser ? (currentUser.id ?? currentUser.uid) : null;
-      const raw = await resolveUserDailyDevotional({ userId: uid });
+      const raw = await resolveUserDailyDevotional({ userId: uid, forceNew });
 
       const data = normalizeDevotional(raw);
       setDevotional(data);

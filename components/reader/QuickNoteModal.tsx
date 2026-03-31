@@ -67,28 +67,26 @@ const QuickNoteModal: React.FC<QuickNoteModalProps> = ({
       await dbService.add(currentUser.uid, 'notes', {
         bookId,
         chapter,
-        verse: selectedVerses[0], // Mantido para compatibilidade legado
-        verses: selectedVerses,   // Grava todos os versículos selecionados
+        verse: selectedVerses[0],
         content: noteContent,
-        sourceText: verseText,
-        title: `Nota em ${verseRef}`,
-        userThoughts: noteContent 
       });
 
-      // INTEGRAÇÃO UNIVERSO DE LEITURA
-      // Ao criar uma nota, consideramos que o usuário interagiu profundamente com o capítulo
-      if (bookId !== 'geral') {
-         await markChapterCompleted(bookId, chapter);
+      // Ações Secundárias (não-críticas)
+      try {
+        if (bookId !== 'geral') {
+           await markChapterCompleted(bookId, chapter);
+        }
+        await earnMana('create_note');
+      } catch (secError) {
+        console.warn("Erro em ações secundárias (não-crítico):", secError);
       }
-
-      await earnMana('create_note');
       
       setNoteContent('');
       onSuccess();
-      onClose(); // Fecha o modal para continuar a leitura
-    } catch (error) {
-      console.error("Erro ao salvar nota:", error);
-      showNotification("Erro ao salvar sua anotação. Tente novamente.", "error");
+      onClose();
+    } catch (error: any) {
+      console.error("[QuickNoteModal] Erro ao salvar nota:", error);
+      showNotification(`Erro ao salvar: ${error.message || 'Erro de conexão'}`, "error");
     } finally {
       setIsSaving(false);
     }

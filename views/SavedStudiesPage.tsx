@@ -45,7 +45,15 @@ const SavedStudiesPage: React.FC = () => {
           dbService.getAll(currentUser.uid, 'public_studies'),
           dbService.getAll(currentUser.uid, 'notes'),
         ]);
-        setStudies([...(studiesData as SavedStudy[]), ...(publicStudiesData as SavedStudy[])]);
+        const normalize = (data: any[]) => data.map(s => {
+          let blocks = s.blocks;
+          let meta = s.meta;
+          try { if (typeof blocks === 'string') blocks = JSON.parse(blocks); } catch(e) { blocks = []; }
+          try { if (typeof meta === 'string') meta = JSON.parse(meta); } catch(e) { meta = {}; }
+          return { ...s, blocks, meta };
+        });
+
+        setStudies([...normalize(studiesData as any[]), ...normalize(publicStudiesData as any[])]);
         setNotes(notesData as Note[]);
       } catch (e) {
         console.error(e);
@@ -198,6 +206,8 @@ const SavedStudiesPage: React.FC = () => {
                 key={item.id}
                 title={item.title || 'Sem titulo'}
                 subtitle={activeTab === 'notes' ? item.content : (item.sourceText || 'Sem descricao')}
+                imageUrl={item.meta?.coverImage || item.coverUrl}
+                visibility={item.meta?.visibility}
                 badges={activeTab !== 'notes'
                   ? [
                       { label: getSourceLabel(item.source), color: 'bg-blue-50 text-blue-600' },

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from '../utils/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
@@ -15,6 +15,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { bibleService } from '../services/bibleService';
 import { resolveUserDailyDevotional } from '../services/devotionalResolver';
+import { DAILY_BIBLE_VERSES } from '../constants';
 import { resolveBibleSearchNavigation } from '../utils/bibleSearchNavigation';
 import { getReadingGoalProgress, INICIO_QUICK_ACCESS_GROUPS, type InicioQuickAccessItem } from '../utils/inicioHome';
 
@@ -45,6 +46,12 @@ const SanctuaryPage: React.FC = () => {
   const [dailyDevotional, setDailyDevotional] = useState<any>(null);
   const [loadingDevotional, setLoadingDevotional] = useState(true);
   const [searchPreview, setSearchPreview] = useState<{ text: string, formattedRef: string, routeState: any } | null>(null);
+
+  // Versículo do dia: seleção aleatória local, sem IA
+  const verseOfTheDay = useMemo(() => {
+    const idx = Math.floor(Math.random() * DAILY_BIBLE_VERSES.length);
+    return DAILY_BIBLE_VERSES[idx];
+  }, []);
   const settingsRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -55,23 +62,23 @@ const SanctuaryPage: React.FC = () => {
   const chaptersRead = userProfile?.stats?.totalChaptersRead || 0;
   const isAdmin = userProfile?.username === 'gabrielamaro' || currentUser?.email === 'gabrielamaro@live.com';
   const isLightTheme = settings.theme === 'light';
-  const dailyReference = dailyDevotional?.reference || dailyDevotional?.verseReference || '';
+  // Referência do Hero sempre é a randômica instantânea
+  const heroReference = verseOfTheDay.ref;
   
   const readGoal = 365;
   const { percent: readPercent, strokeDashoffset: readProgressStrokeDashoffset } = getReadingGoalProgress(chaptersRead, readGoal);
 
   const openVerseOfDay = () => {
-    const parsed = dailyReference ? bibleService.parseReference(dailyReference) : null;
+    console.log('[Inicio03] heroReference:', heroReference);
+    const parsed = heroReference ? bibleService.parseReference(heroReference) : null;
+    console.log('[Inicio03] parsed:', parsed);
     if (parsed) {
-      navigate('/biblia', {
-        state: {
-          bookId: parsed.bookId,
-          chapter: parsed.chapter,
-          scrollToVerse: parsed.startVerse
-        }
-      });
+      const url = `/biblia?book=${parsed.bookId}&cap=${parsed.chapter}&vs=${parsed.startVerse}`;
+      console.log('[Inicio03] Navigating to:', url);
+      navigate(url);
       return;
     }
+    console.log('[Inicio03] Could not parse, going to /biblia');
     navigate('/biblia');
   };
 
@@ -101,28 +108,27 @@ const SanctuaryPage: React.FC = () => {
 
   useEffect(() => {
     setIsHeaderHidden(true);
-    
-    const loadData = async () => {
-      try {
-        setLoadingDevotional(true);
-        const uid = currentUser ? (currentUser.id ?? currentUser.uid) : null;
-        const devotional = await resolveUserDailyDevotional({ userId: uid });
-        
-        setDailyDevotional(devotional);
-      } catch (error) {
-        console.error('[Inicio03] Erro ao carregar devocional:', error);
-      } finally {
-        setLoadingDevotional(false);
-      }
-    };
-
-    loadData();
-
     return () => {
       setIsHeaderHidden(false);
       resetHeader();
     };
-  }, [setIsHeaderHidden, resetHeader, currentUser]);
+  }, [setIsHeaderHidden, resetHeader]);
+
+  useEffect(() => {
+    const loadDevotional = async () => {
+      try {
+        setLoadingDevotional(true);
+        const uid = currentUser ? (currentUser.id ?? currentUser.uid) : null;
+        const devotional = await resolveUserDailyDevotional({ userId: uid });
+        setDailyDevotional(devotional);
+      } catch (error) {
+        console.error('[Inicio03] Erro ao carregar devotional:', error);
+      } finally {
+        setLoadingDevotional(false);
+      }
+    };
+    loadDevotional();
+  }, [currentUser]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -364,11 +370,11 @@ const SanctuaryPage: React.FC = () => {
                 </div>
                 
                 <h2 className="text-2xl md:text-[32px] font-bold text-white leading-tight mb-8 max-w-3xl line-clamp-3">
-                  "{dailyDevotional?.verse || dailyDevotional?.verseText || 'Carregando palavra de vida...'}"
+                  "{verseOfTheDay.text}"
                 </h2>
                 
                 <div className="flex items-center justify-between">
-                  <span className="text-[#c5a059] font-bold text-lg md:text-xl">- {dailyReference}</span>
+                  <span className="text-[#c5a059] font-bold text-lg md:text-xl">- {verseOfTheDay.ref}</span>
                   <div className="flex items-center gap-3">
                     <button className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); openVerseOfDay(); }}>
                       <Share2 size={18} />
@@ -434,9 +440,11 @@ const SanctuaryPage: React.FC = () => {
                     <span className="text-[9px] font-black tracking-widest uppercase">DEVOCIONAL DO DIA</span>
                   </div>
                   <p className="text-gray-900 dark:text-white text-xs font-serif italic mb-2 leading-snug pr-4 line-clamp-3">
-                    "{dailyDevotional?.verse || dailyDevotional?.verseText || 'Hoje, enquanto meditamos nas palavras do Senhor...'}"
+                    "{loadingDevotional ? 'Carregando porção diária...' : (dailyDevotional?.verse || dailyDevotional?.verseText || 'Hoje, enquanto meditamos nas palavras do Senhor...')}"
                   </p>
-                  <span className="text-[#c5a059] font-bold text-[9px] uppercase tracking-widest">{dailyReference}</span>
+                  <span className="text-[#c5a059] font-bold text-[9px] uppercase tracking-widest">
+                    {loadingDevotional ? '...' : (dailyDevotional?.reference || dailyDevotional?.verseReference || '')}
+                  </span>
                 </div>
               </div>
             </div>
@@ -472,27 +480,31 @@ const SanctuaryPage: React.FC = () => {
                   {plans.length > 0 ? plans.map(plan => (
                     <div 
                       key={plan.id}
-                      className="min-w-[200px] h-[190px] rounded-2xl p-5 bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-between cursor-pointer hover:border-gray-400 dark:hover:border-[#4A4A4A] transition-colors shrink-0"
+                      className="min-w-[200px] h-[190px] rounded-2xl overflow-hidden bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#2A2A2A] flex flex-col cursor-pointer hover:border-[#c5a059]/50 transition-all shrink-0 group"
                       onClick={() => navigate(`/plano/${plan.id}`)}
                     >
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="bg-[#1a4a35] text-emerald-400 font-bold text-[8px] px-2 py-1 rounded tracking-widest">EM ANDAMENTO</span>
-                          <span className="text-gray-500 dark:text-gray-500 font-bold text-[9px]">{new Date(plan.createdAt || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                      <div className="h-24 bg-gray-100 dark:bg-[#252525] relative overflow-hidden shrink-0">
+                        {plan.coverUrl ? (
+                          <img src={plan.coverUrl} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={plan.title} />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center opacity-20">
+                            <BookOpen size={30} className="text-[#c5a059]" />
+                          </div>
+                        )}
+                        <div className="absolute top-2 left-2">
+                          <span className="bg-emerald-500 text-white font-bold text-[7px] px-1.5 py-0.5 rounded tracking-widest uppercase">ATIVA</span>
                         </div>
-                        <h3 className="text-gray-900 dark:text-white font-bold text-sm truncate">{plan.title}</h3>
                       </div>
                       
-                      <div>
-                        <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-500 font-bold mb-1">
-                          <User size={12} /> {plan.teams && plan.teams.length > 0 ? 'SALA EM TIME' : 'SALA INDIVIDUAL'}
+                      <div className="p-4 flex flex-col justify-between flex-1">
+                        <h3 className="text-gray-900 dark:text-white font-bold text-[13px] line-clamp-2 leading-tight group-hover:text-[#c5a059] transition-colors">{plan.title}</h3>
+                        
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="flex items-center gap-1 text-[9px] text-gray-500 font-bold uppercase tracking-tighter">
+                             <Users size={10} /> {plan.subscribersCount || 0}
+                          </div>
+                          <span className="text-gray-400 text-[8px] font-bold">{new Date(plan.createdAt || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-500 font-bold mb-4">
-                          <BookOpen size={12} /> {plan.planningFrequency === 'daily' ? 'DIÁRIO' : 'LIVRE'}
-                        </div>
-                        <button className="w-full bg-gray-100 dark:bg-[#2A2A2A] hover:bg-gray-200 dark:hover:bg-[#3A3A3A] transition-colors text-gray-900 dark:text-white font-bold text-[10px] py-2 rounded-lg flex items-center justify-center gap-2">
-                          GERENCIAR SALA <ArrowRight size={14} className="text-gray-600 dark:text-gray-400" />
-                        </button>
                       </div>
                     </div>
                   )) : (

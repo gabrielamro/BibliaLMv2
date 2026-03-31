@@ -1,6 +1,9 @@
 import React from 'react';
 import { 
   Plus, 
+  Minus,
+  Maximize2,
+  ChevronsUpDown,
   ChevronUp, 
   ChevronDown, 
   Copy, 
@@ -24,6 +27,70 @@ interface ContentBuilderProps {
   canvasWidth: 'mobile' | 'tablet' | 'desktop' | 'full';
   authorName?: string;
 }
+
+const SectionResizer = ({ 
+  value, 
+  onChange, 
+  position 
+}: { 
+  value: number; 
+  onChange: (val: number) => void; 
+  position: 'top' | 'bottom'
+}) => {
+  const [isDragging, setIsDragging] = React.useState(false);
+  const startYRef = React.useRef(0);
+  const startValueRef = React.useRef(0);
+
+  React.useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaY = (e.clientY - startYRef.current) * (position === 'top' ? 1 : -1);
+      const newValue = Math.floor((startValueRef.current + deltaY) / 4) * 4;
+      // Padding interno nunca deve ser negativo para não quebrar o layout
+      onChange(Math.max(0, newValue));
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, position, onChange]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+    startYRef.current = e.clientY;
+    startValueRef.current = value;
+  };
+
+  return (
+    <div 
+      className={`absolute left-0 right-0 h-12 z-50 cursor-ns-resize group/resizer flex items-center justify-center transition-all ${position === 'top' ? 'top-0' : 'bottom-0'}`}
+      onMouseDown={handleMouseDown}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className={`w-full h-[3px] bg-bible-gold transition-all duration-300 rounded-full ${isDragging ? 'opacity-100 h-[6px] scale-x-105 shadow-[0_0_20px_rgba(234,179,8,0.7)]' : 'opacity-0 group-hover/resizer:opacity-60 h-[3px]'}`} />
+      
+      <div className={`absolute left-1/2 -translate-x-1/2 px-3 py-1.5 bg-bible-gold text-white text-[10px] font-black uppercase rounded-2xl shadow-2xl pointer-events-none transition-all flex items-center gap-2 ${isDragging ? 'opacity-100 scale-110' : 'opacity-0 group-hover/resizer:opacity-100'} ${position === 'top' ? 'top-10' : 'bottom-10'}`}>
+        <ChevronsUpDown size={14} className={isDragging ? 'animate-bounce' : ''} />
+        {position === 'top' ? 'Padding Superior' : 'Padding Inferior'}: <span className="font-mono text-sm ml-1">{value}px</span>
+      </div>
+      
+      <div className={`absolute w-14 h-8 bg-white dark:bg-gray-900 border-2 border-bible-gold rounded-xl flex items-center justify-center shadow-2xl transition-all duration-200 ${isDragging ? 'scale-125' : 'opacity-0 group-hover/resizer:opacity-100 translate-y-0'}`}>
+        <ChevronsUpDown size={16} className="text-bible-gold" />
+      </div>
+    </div>
+  );
+};
 
 export const ContentBuilder: React.FC<ContentBuilderProps> = ({
   blocks,
@@ -120,6 +187,42 @@ export const ContentBuilder: React.FC<ContentBuilderProps> = ({
             }`}
             onClick={() => isEditing && onSelectBlock(block.id)}
           >
+            {/* Nome do Bloco (Sempre visível em edição) */}
+            {isEditing && (
+              <div className="absolute -top-3 left-6 z-30 pointer-events-none">
+                <div className={`${blockLabels[block.type].color} px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-md border border-white/20`}>
+                  {blockLabels[block.type].label}
+                </div>
+              </div>
+            )}
+            {/* Dimensionador de Seção (Top) */}
+            {isEditing && selectedBlockId === block.id && (
+              <SectionResizer 
+                position="top"
+                value={typeof block.data.padding === 'number' ? block.data.padding : (block.data.padding?.top ?? 0)}
+                onChange={(val: number) => onUpdateBlock(block.id, { 
+                  padding: { 
+                    ...(typeof block.data.padding === 'object' ? block.data.padding : { top: typeof block.data.padding === 'number' ? block.data.padding : 0, bottom: typeof block.data.padding === 'number' ? block.data.padding : 0 }), 
+                    top: val 
+                  } 
+                })}
+              />
+            )}
+
+            {/* Dimensionador de Seção (Bottom) */}
+            {isEditing && selectedBlockId === block.id && (
+              <SectionResizer 
+                position="bottom"
+                value={typeof block.data.padding === 'number' ? block.data.padding : (block.data.padding?.bottom ?? 0)}
+                onChange={(val: number) => onUpdateBlock(block.id, { 
+                  padding: { 
+                    ...(typeof block.data.padding === 'object' ? block.data.padding : { top: typeof block.data.padding === 'number' ? block.data.padding : 0, bottom: typeof block.data.padding === 'number' ? block.data.padding : 0 }), 
+                    bottom: val 
+                  } 
+                })}
+              />
+            )}
+
             {/* Controles de Bloco (Apenas em edição - Desktop) */}
             {isEditing && (
               <div className={`absolute right-4 top-4 items-center gap-1 z-30 transition-all duration-300 hidden lg:flex ${

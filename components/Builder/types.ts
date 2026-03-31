@@ -15,6 +15,8 @@ export interface ContentData {
   meta: {
     title: string;
     description: string;
+    coverImage?: string;
+    visibility?: 'public' | 'invitation';
     tags: string[];
   };
   stats: {

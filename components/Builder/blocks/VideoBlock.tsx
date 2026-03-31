@@ -13,7 +13,7 @@ export const VideoBlock: React.FC<VideoBlockProps> = ({ data, onUpdate, isEditin
   };
 
   return (
-    <div className="w-full py-12 px-6">
+    <div className="w-full py-4 px-6">
       <div className="w-full relative group">
         {data.url ? (
           <div className="aspect-video bg-gray-900 rounded-2xl overflow-hidden shadow-2xl relative">
@@ -60,6 +60,42 @@ export const VideoBlock: React.FC<VideoBlockProps> = ({ data, onUpdate, isEditin
         >
           {data.title || 'Título do Vídeo'}
         </h3>
+
+        {/* CTA Button */}
+        {isEditing && (data.showCta === false || !data.ctaText) ? (
+          <div className="mt-8 flex justify-center">
+            <button 
+              onClick={() => onUpdate?.({ ...data, showCta: true, ctaText: 'Quero Assistir Mais' })}
+              className="px-6 py-2 border-2 border-dashed border-bible-gold/40 text-bible-gold/60 text-xs font-bold rounded-xl hover:border-bible-gold hover:text-bible-gold transition-all"
+            >
+              + Adicionar Botão (CTA)
+            </button>
+          </div>
+        ) : (data.showCta !== false && data.ctaText) && (
+          <div className="relative group/cta mt-8 flex justify-center">
+             <button 
+               className="px-8 py-3 bg-bible-gold text-white font-bold rounded-xl shadow-lg hover:bg-bible-gold/90 transition-all hover:scale-105"
+               style={{ 
+                 backgroundColor: data.ctaColor || 'var(--bible-gold)',
+                 color: data.ctaTextColor || '#ffffff'
+               }}
+               contentEditable={isEditing}
+               suppressContentEditableWarning={true}
+               onBlur={(e) => onUpdate?.({ ...data, ctaText: e.currentTarget.textContent || '' })}
+             >
+               {data.ctaText}
+             </button>
+             {isEditing && (
+                <button 
+                  onClick={() => onUpdate?.({ ...data, showCta: false })}
+                  className="absolute -top-2 translate-x-[60px] w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/cta:opacity-100 transition-opacity shadow-lg text-[10px] z-20"
+                  title="Remover botão"
+                >
+                  ×
+                </button>
+             )}
+          </div>
+        )}
       </div>
     </div>
   );

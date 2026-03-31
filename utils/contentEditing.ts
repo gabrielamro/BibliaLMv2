@@ -7,14 +7,14 @@ type EditableContent = {
 export const getEditDestinationForContent = (item: EditableContent) => {
   if (item.type === 'plan') {
     return {
-      path: '/criador-jornada',
+      path: `/criador-jornada?id=${item.id}`,
       state: { planData: item },
     };
   }
 
   if (item.type === 'study') {
     return {
-      path: '/criar-conteudo',
+      path: `/criar-conteudo?id=${item.id}`,
       state: { contentId: item.id, studyData: item },
     };
   }

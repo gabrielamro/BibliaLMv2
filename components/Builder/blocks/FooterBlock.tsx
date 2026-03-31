@@ -7,7 +7,7 @@ interface FooterBlockProps {
 }
 
 export const FooterBlock: React.FC<FooterBlockProps> = ({ data, isEditing }) => (
-  <div className="w-full py-12 px-6">
+  <div className="w-full py-4 px-6">
     <div className="text-center">
       {data.tagline && (
         <p className="text-bible-gold font-bold text-lg mb-6 tracking-wide uppercase">{data.tagline}</p>

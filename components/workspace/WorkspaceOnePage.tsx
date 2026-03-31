@@ -186,45 +186,55 @@ const WorkspaceOnePage: React.FC = () => {
                 if ((e.target as HTMLElement).closest('button')) return;
                 navigate(`/jornada/${plan.id}`);
               }}
-              className="bg-white dark:bg-bible-darkPaper p-5 rounded-[1.5rem] border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col justify-between min-h-[200px] hover:shadow-md transition-shadow cursor-pointer hover:border-bible-gold group"
+              className="bg-white dark:bg-bible-darkPaper rounded-[1.5rem] border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col overflow-hidden hover:shadow-md transition-shadow cursor-pointer hover:border-bible-gold group h-full"
             >
-
-              <div>
-                <div className="flex justify-between items-start mb-3 relative">
-                  <div className="flex flex-col gap-1">
-                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider w-fit ${plan.status === 'published' ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
-                      {plan.status === 'published' ? 'Em Andamento' : 'Rascunho'}
-                    </span>
-                    {plan.createdAt && <span className="text-[9px] text-gray-400 font-bold ml-1">Criação: {formatDate(plan.createdAt)}</span>}
+              <div className="h-28 bg-gray-100 dark:bg-gray-800 relative overflow-hidden shrink-0">
+                {plan.coverUrl ? (
+                  <img src={plan.coverUrl} className="w-full h-full object-cover transition-transform group-hover:scale-105" alt={plan.title} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-bible-gold/5">
+                    <BookOpen className="text-bible-gold/20" size={32} />
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === plan.id ? null : plan.id); }} className="text-gray-400 hover:text-gray-600 p-1 bg-gray-50 dark:bg-gray-800 rounded-lg"><MoreVertical size={16} /></button>
-                  {activeMenuId === plan.id && <ActionMenu id={plan.id} type="plan" currentStatus={plan.status} />}
+                )}
+                
+                <div className="absolute top-2 left-2 flex flex-col gap-1">
+                  <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider shadow-sm text-white ${plan.status === 'published' ? 'bg-green-500' : 'bg-gray-500'}`}>
+                    {plan.status === 'published' ? 'Ativa' : 'Rascunho'}
+                  </span>
                 </div>
 
-                <h3 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-2 leading-tight mb-2">
-                  {plan.title}
-                </h3>
-
-                <div className="flex flex-col gap-1.5 mt-3">
-                  <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 font-medium">
-                    <Users size={14} className="mr-1.5 opacity-70" />
-                    {plan.subscribersCount || 0} alunos inscritos
-                  </div>
-                  <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 font-medium">
-                    <BookOpen size={14} className="mr-1.5 opacity-70" />
-                    {plan.weeks?.length || 0} módulos selecionados
-                  </div>
+                <div className="absolute top-2 right-2">
+                   <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === plan.id ? null : plan.id); }} className="text-white bg-black/20 hover:bg-black/40 backdrop-blur-md p-1 rounded-lg transition-colors"><MoreVertical size={14} /></button>
+                   {activeMenuId === plan.id && <div className="absolute top-full right-0 mt-1"><ActionMenu id={plan.id} type="plan" currentStatus={plan.status} /></div>}
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-gray-50 dark:border-gray-800/50 flex justify-between items-center">
-                <button
-                  className="bg-gray-50 dark:bg-gray-800 group-hover:bg-bible-gold group-hover:text-white text-gray-700 dark:text-gray-300 font-bold px-3 py-1.5 text-xs rounded-lg flex items-center transition-colors w-full justify-center"
-                >
-                  Gerenciar Sala <ArrowRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
-                </button>
-              </div>
+              <div className="p-4 flex flex-col justify-between flex-1">
+                <div>
+                  <h3 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-2 leading-tight mb-2 group-hover:text-bible-gold transition-colors">
+                    {plan.title}
+                  </h3>
 
+                  <div className="flex flex-col gap-1.5 mt-3">
+                    <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 font-medium">
+                      <Users size={14} className="mr-1.5 opacity-70" />
+                      {plan.subscribersCount || 0} alunos inscritos
+                    </div>
+                    <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 font-medium">
+                      <BookOpen size={14} className="mr-1.5 opacity-70" />
+                      {plan.weeks?.length || 0} módulos selecionados
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-gray-50 dark:border-gray-800/50 flex justify-between items-center">
+                  <button
+                    className="bg-gray-50 dark:bg-gray-800 group-hover:bg-bible-gold group-hover:text-white text-gray-700 dark:text-gray-300 font-bold px-3 py-1.5 text-xs rounded-lg flex items-center transition-colors w-full justify-center"
+                  >
+                    Gerenciar Sala <ArrowRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </div>
+              </div>
             </div>
           ))}
         </div>

@@ -1,12 +1,12 @@
-
-import React, { useState, useEffect, useRef } from 'react';
-import { Settings as SettingsIcon, Volume2, ChevronRight, ChevronLeft, Loader2, ArrowLeft, Moon, Sun, Headphones, CheckCircle2, BookOpen, Sparkles, X, MousePointerClick, Flame, Users, PenLine, Bookmark, Maximize2, Minimize2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Settings as SettingsIcon, Volume2, ChevronRight, ChevronLeft, Loader2, ArrowLeft, Moon, Sun, Headphones, CheckCircle2, BookOpen, Sparkles, X, MousePointerClick, Flame, Users, PenLine, Bookmark, Maximize2, Minimize2, Search } from 'lucide-react';
 import { Chapter, Note } from '../../types';
 import SettingsModal from '../SettingsModal';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 import SmartText from './SmartText';
 import { extractVerseLead } from '../../utils/verseTypography';
+import { BIBLE_BOOKS_LIST } from '../../constants';
 
 const BOOK_CHAPTER_COUNTS: { [key: string]: number } = {
     'gn': 50, 'ex': 40, 'lv': 27, 'nm': 36, 'dt': 34, 'js': 24, 'jz': 21, 'rt': 4,
@@ -41,11 +41,12 @@ export interface ReaderViewProps {
     highlightedVerses?: number[];
     onViewNotes?: (verseNum: number) => void;
     onNavigate: (bookId: string, chapter: number, verse?: number) => void;
+    onQuickNote?: (verseNum: number) => void;
     popularVerses?: number[];
 }
 
 const ReaderView: React.FC<ReaderViewProps> = ({
-    isLoading, chapterContent, chapterNotes = [], bookMetadata, currentChapterNum, selectedVerses, setSelectedVerses, onBackToLibrary, onToggleNarration, isNarrationPlaying, onChapterComplete, isChapterRead, lastReadVerse, highlightedVerses = [], onNavigate, onGenerateChapterPodcast, popularVerses = []
+    isLoading, chapterContent, chapterNotes = [], bookMetadata, currentChapterNum, selectedVerses, setSelectedVerses, onBackToLibrary, onToggleNarration, isNarrationPlaying, onChapterComplete, isChapterRead, lastReadVerse, highlightedVerses = [], onNavigate, onGenerateChapterPodcast, onQuickNote, popularVerses = []
 }) => {
     const { settings, updateSettings, isFocusMode, setIsFocusMode } = useSettings();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -53,6 +54,51 @@ const ReaderView: React.FC<ReaderViewProps> = ({
     const contentRef = useRef<HTMLDivElement>(null);
     const highlightedVersesKey = highlightedVerses.join(',');
     const firstHighlightedVerse = highlightedVerses[0] ?? null;
+
+    // Smart Header: hide on scroll down, show on scroll up
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showSearchBar, setShowSearchBar] = useState(false);
+    const [searchBarVisible, setSearchBarVisible] = useState(true);
+    const lastScrollY = useRef(0);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const el = contentRef.current;
+        if (!el) return;
+        const handleScroll = () => {
+            const currentY = el.scrollTop;
+            const scrollingUp = currentY < lastScrollY.current;
+            const scrolledEnough = Math.abs(currentY - lastScrollY.current) > 5;
+            if (scrolledEnough) {
+                setSearchBarVisible(scrollingUp || currentY < 60);
+            }
+            lastScrollY.current = currentY;
+        };
+        el.addEventListener('scroll', handleScroll, { passive: true });
+        return () => el.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    // Filter books for search
+    const searchResults = useMemo(() => {
+        if (!searchQuery.trim()) return [];
+        const q = searchQuery.toLowerCase().trim();
+        // Parse "João 3" or "salmos" patterns
+        const parts = q.split(/\s+/);
+        const namePart = parts.slice(0, parts.length > 1 && !isNaN(Number(parts[parts.length - 1])) ? -1 : undefined).join(' ');
+        const chapterPart = parts.length > 1 && !isNaN(Number(parts[parts.length - 1])) ? Number(parts[parts.length - 1]) : null;
+
+        return BIBLE_BOOKS_LIST
+            .filter(b => b.name.toLowerCase().includes(namePart))
+            .slice(0, 5)
+            .map(b => ({ book: b, chapter: chapterPart }));
+    }, [searchQuery]);
+
+    const handleSearchNavigate = (bookId: string, chapter: number) => {
+        onNavigate(bookId, chapter);
+        setSearchQuery('');
+        setShowSearchBar(false);
+        if (searchInputRef.current) searchInputRef.current.blur();
+    };
 
     const maxChapters = BOOK_CHAPTER_COUNTS[bookMetadata.id] || 1;
     const isLastChapter = currentChapterNum >= maxChapters;
@@ -110,6 +156,15 @@ const ReaderView: React.FC<ReaderViewProps> = ({
 
     const bookProgress = (currentChapterNum / maxChapters) * 100;
     const versesWithNotes = chapterNotes.map(n => n.verse);
+    const notesCountByVerse = useMemo(() => {
+        const map = new Map<number, number>();
+        chapterNotes.forEach(note => {
+            if (note.verse) {
+                map.set(note.verse, (map.get(note.verse) || 0) + 1);
+            }
+        });
+        return map;
+    }, [chapterNotes]);
 
     return (
         <div className={`flex-1 flex flex-col h-full relative overflow-hidden transition-colors duration-700 ${isFocusMode ? 'bg-black' : 'bg-bible-paper dark:bg-[#0f0d0b]'}`}>
@@ -134,21 +189,78 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                 </div>
             ) : (
                 <div className="sticky top-0 z-40 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 bg-white/95 dark:bg-[#0a0a0a]/95 flex flex-col transition-all">
-                    <div className="h-12 px-6 flex items-center justify-between">
+                    <div className="h-12 px-4 md:px-6 flex items-center justify-between">
                         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
                             <button onClick={onBackToLibrary} className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:border-bible-gold/40 hover:text-bible-gold dark:border-gray-700 dark:text-gray-300" title="Voltar"><ArrowLeft size={14} /></button>
                             <span className="hover:text-bible-gold cursor-pointer transition-colors" onClick={onBackToLibrary}>{bookMetadata.name.toUpperCase()}</span>
                             <ChevronRight size={10} className="text-gray-300" />
-                            <span className="text-gray-600 dark:text-gray-300">CAPÍTULO {currentChapterNum}</span>
+                            <span className="text-gray-600 dark:text-gray-300">CAP. {currentChapterNum}</span>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                             {isLoading && <Loader2 size={14} className="animate-spin text-bible-gold" />}
-                            <button onClick={() => onGenerateChapterPodcast()} className="text-gray-400 hover:text-purple-500 transition-colors" title="Podcast"><Headphones size={18} /></button>
+                            {/* Botão de busca: apenas mobile */}
+                            <button
+                                onClick={() => { setShowSearchBar(v => !v); setTimeout(() => searchInputRef.current?.focus(), 100); }}
+                                className="md:hidden text-gray-400 hover:text-bible-gold transition-colors"
+                                title="Buscar"
+                            >
+                                <Search size={18} />
+                            </button>
+                            <button onClick={() => onGenerateChapterPodcast()} className="hidden md:block text-gray-400 hover:text-purple-500 transition-colors" title="Podcast"><Headphones size={18} /></button>
                             <button onClick={onToggleNarration} className={`transition-colors ${isNarrationPlaying ? 'text-bible-gold' : 'text-gray-400 hover:text-bible-gold'}`} title="Ouvir"><Volume2 size={18} /></button>
                             <button onClick={() => setIsFocusMode(true)} className="text-gray-400 hover:text-bible-gold transition-colors" title="Expandir"><Maximize2 size={18} /></button>
                             <button onClick={() => setIsSettingsOpen(true)} className="text-gray-400 hover:text-bible-gold transition-colors" title="Aparência"><SettingsIcon size={18} /></button>
                         </div>
                     </div>
+
+                    {/* Smart Search Bar — visível apenas no mobile, desliza com o scroll */}
+                    <div
+                        className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${
+                            showSearchBar && searchBarVisible ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
+                        }`}
+                    >
+                        <div className="px-4 pb-2 pt-1 relative">
+                            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl px-3 py-2">
+                                <Search size={14} className="text-bible-gold flex-shrink-0" />
+                                <input
+                                    ref={searchInputRef}
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    placeholder="Ex: João 3, Salmos 23..."
+                                    className="flex-1 bg-transparent outline-none text-sm text-gray-700 dark:text-gray-200 placeholder-gray-400"
+                                />
+                                {searchQuery && (
+                                    <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-gray-600">
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+                            {/* Resultados da busca */}
+                            {searchResults.length > 0 && (
+                                <div className="absolute left-4 right-4 top-full mt-0.5 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50">
+                                    {searchResults.map(({ book, chapter }) => {
+                                        const bookChapters = BOOK_CHAPTER_COUNTS[book.id] || 1;
+                                        const targetChapter = chapter && chapter >= 1 && chapter <= bookChapters ? chapter : 1;
+                                        return (
+                                            <button
+                                                key={book.id}
+                                                onClick={() => handleSearchNavigate(book.id, targetChapter)}
+                                                className="w-full px-4 py-3 text-left hover:bg-bible-gold/10 dark:hover:bg-bible-gold/10 transition-colors flex items-center justify-between border-b border-gray-50 dark:border-gray-800 last:border-0"
+                                            >
+                                                <div>
+                                                    <span className="font-bold text-sm text-gray-800 dark:text-gray-200">{book.name}</span>
+                                                    {chapter && <span className="ml-2 text-xs text-bible-gold font-bold">Cap. {targetChapter}</span>}
+                                                </div>
+                                                <ChevronRight size={14} className="text-gray-400" />
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     <div className="h-0.5 w-full bg-gray-100 dark:bg-gray-800">
                         <div className="h-full bg-bible-gold transition-all duration-500" style={{ width: `${bookProgress}%` }}></div>
                     </div>
@@ -202,17 +314,34 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                                                     <SmartText text={verse.text} enabled={settings.smartReadingMode || false} />
                                                 )}
                                                 {!isFocusMode && (
-                                                    <button 
-                                                        onClick={(e) => { 
-                                                            e.stopPropagation(); 
-                                                            setExpandedVerseStart(verse.number); 
-                                                            setIsFocusMode(true);
-                                                        }} 
-                                                        className="ml-2 inline-flex items-center justify-center p-1.5 rounded-full bg-bible-leather/5 dark:bg-bible-gold/5 text-bible-gold md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-all hover:bg-bible-gold/20" 
-                                                        title="Expandir a partir deste versículo"
-                                                    >
-                                                        <Maximize2 size={12} />
-                                                    </button>
+                                                    <span className="ml-2 inline-flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-all">
+                                                        <button 
+                                                            onClick={(e) => { 
+                                                                e.stopPropagation(); 
+                                                                onQuickNote?.(verse.number);
+                                                            }} 
+                                                            className="relative inline-flex items-center justify-center p-1.5 rounded-full bg-bible-leather/5 dark:bg-bible-gold/5 text-gray-500 dark:text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-all" 
+                                                            title={notesCountByVerse.get(verse.number) ? `Ver nota (${notesCountByVerse.get(verse.number)})` : 'Criar nota'}
+                                                        >
+                                                            <PenLine size={12} />
+                                                            {notesCountByVerse.get(verse.number) && (
+                                                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 dark:bg-yellow-400 text-black text-[8px] font-black rounded-full flex items-center justify-center">
+                                                                    {notesCountByVerse.get(verse.number)}
+                                                                </span>
+                                                            )}
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { 
+                                                                e.stopPropagation(); 
+                                                                setExpandedVerseStart(verse.number); 
+                                                                setIsFocusMode(true);
+                                                            }} 
+                                                            className="inline-flex items-center justify-center p-1.5 rounded-full bg-bible-leather/5 dark:bg-bible-gold/5 text-bible-gold hover:bg-bible-gold/20 transition-all" 
+                                                            title="Expandir a partir deste versículo"
+                                                        >
+                                                            <Maximize2 size={12} />
+                                                        </button>
+                                                    </span>
                                                 )}
                                             </span>
                                         </div>

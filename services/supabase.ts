@@ -164,6 +164,17 @@ export const dbService = {
         return data ?? [];
     },
 
+    /** Mapeia camelCase para snake_case para o Supabase */
+    _toSnake: (obj: any) => {
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+        const result: any = {};
+        for (const key in obj) {
+            const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            result[snakeKey] = obj[key];
+        }
+        return result;
+    },
+
     // ── CRUD GENÉRICO (subcoleções do Firebase → tabelas flat) ───────────────
     getAll: async (uid: string, tableName: string) => {
         const userColumn = ['custom_plans', 'reading_tracks', 'guided_prayers', 'custom_quizzes', 'evaluations'].includes(tableName)
@@ -179,16 +190,21 @@ export const dbService = {
         return (data ?? []).map((d: any) => ({ ...d, id: d.id, createdAt: d.created_at, updatedAt: d.updated_at }));
     },
     add: async (uid: string, tableName: string, data: any) => {
-        const userColumn = ['custom_plans', 'reading_tracks', 'guided_prayers', 'custom_quizzes', 'evaluations', 'studies'].includes(tableName)
+        const userColumn = ['custom_plans', 'reading_tracks', 'guided_prayers', 'custom_quizzes', 'evaluations'].includes(tableName)
             ? 'author_id'
             : 'user_id';
 
+        const cleanedData = dbService._toSnake(clean(data));
+
         const { data: result, error } = await supabase
             .from(tableName)
-            .insert({ ...clean(data), [userColumn]: uid })
+            .insert({ ...cleanedData, [userColumn]: uid })
             .select()
             .single();
-        if (error) throw error;
+        if (error) {
+            console.error(`[dbService] Erro em ${tableName}:`, error);
+            throw error;
+        }
         return { id: result.id, ...result };
     },
     delete: async (uid: string, tableName: string, id: string) => {
@@ -1013,6 +1029,34 @@ export const dbService = {
     },
     updateTicketStatus: async (id: string, status: string) => {
         await supabase.from('support_tickets').update({ status }).eq('id', id);
+    },
+
+    // ── ANALYTICS & LOGS ─────────────────────────────────────────────────────
+    logStudyAccess: async (studyId: string, user: any | null) => {
+        // Incrementa o contador geral (views_count)
+        const { data: study } = await supabase.from('public_studies').select('views_count').eq('id', studyId).single();
+        if (study) {
+            await supabase.from('public_studies').update({ views_count: (study.views_count || 0) + 1 }).eq('id', studyId);
+        }
+
+        // Registra o log individual
+        await supabase.from('public_study_logs').insert({
+            study_id: studyId,
+            user_id: user?.uid || null,
+            user_name: user?.displayName || 'Visitante Anônimo',
+            user_photo: user?.photoURL || null,
+            accessed_at: now()
+        });
+    },
+
+    getStudyAccessLogs: async (studyId: string) => {
+        const { data, error } = await supabase
+            .from('public_study_logs')
+            .select('*')
+            .eq('study_id', studyId)
+            .order('accessed_at', { ascending: false });
+        if (error) console.error(error);
+        return data || [];
     },
 
     // ── DEVOTIONALS ──────────────────────────────────────────────────────────

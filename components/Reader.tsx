@@ -1,5 +1,5 @@
 "use client";
-import { useNavigate, useLocation, useSearchParams } from '../utils/router';
+import { useNavigate, useLocation } from '../utils/router';
 
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -43,6 +43,7 @@ const Reader: React.FC = () => {
   const [targetVerses, setTargetVerses] = useState<number[]>([]);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const skipUrlUpdateRef = React.useRef(false);
 
   // Track Session Context (Fases 3 e 4)
   const [activeTrack, setActiveTrack] = useState<any>(null);
@@ -112,6 +113,31 @@ const Reader: React.FC = () => {
   }, [currentBookId, currentChapterNum, viewMode, currentUser, location.state]);
 
   useEffect(() => {
+    // 1. Check for URL parameters (book, cap, vs)
+    // Note: we use window.location.search here because the Next.js App Router
+    // useSearchParams requires Suspense and may return stale/empty values.
+    // Reading it inside the effect after pathname change is always accurate.
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookParam = urlParams.get('book');
+    const capParam = urlParams.get('cap');
+    const vsParam = urlParams.get('vs');
+
+    if (bookParam) {
+      skipUrlUpdateRef.current = true; // prevent URL update effect from overwriting
+      setCurrentBookId(bookParam);
+      if (capParam) {
+        setCurrentChapterNum(parseInt(capParam, 10));
+      }
+      if (vsParam) {
+        setTargetVerses([parseInt(vsParam, 10)]);
+      } else {
+        setTargetVerses([]);
+      }
+      setViewMode('reader');
+      if (!initialLoadDone) setInitialLoadDone(true);
+      return;
+    }
+
     const state = location.state as {
       bookId?: string;
       chapter?: number;
@@ -121,25 +147,16 @@ const Reader: React.FC = () => {
       reset?: boolean;
     };
 
-    // 1. Check for Reset (Mobile Nav Double Click)
+    // 2. Check for Reset (Mobile Nav Double Click)
     if (state?.reset) {
       setActiveTrack(null);
       setTargetVerses([]);
       setViewMode('library');
+      if (!initialLoadDone) setInitialLoadDone(true);
       return;
     }
 
-    // 2. Check for Track Start
-    // DESATIVADO
-    /*
-    if (state?.trackId) {
-      dbService.getPublicTracks().then(publicTracks => {
-        // Mock temporary pra achar local tracks também
-      }).catch(() => { });
-    }
-    */
-
-    // 3. Process Book/Chapter Navigation
+    // 3. Process Book/Chapter Navigation via state
     if (state?.bookId) {
       setCurrentBookId(state.bookId);
       setCurrentChapterNum(state.chapter || 1);
@@ -166,7 +183,19 @@ const Reader: React.FC = () => {
     if (!initialLoadDone) {
       setInitialLoadDone(true);
     }
-  }, [location.state, initialLoadDone]);
+  }, [location.pathname, location.state, initialLoadDone]);
+
+  // Keep URL in sync when user navigates chapters within the reader
+  useEffect(() => {
+    if (!initialLoadDone || viewMode !== 'reader' || !currentBookId) return;
+    if (skipUrlUpdateRef.current) {
+      skipUrlUpdateRef.current = false;
+      return;
+    }
+    const url = `/biblia?book=${currentBookId}&cap=${currentChapterNum}`;
+    window.history.replaceState(null, '', url);
+  }, [viewMode, currentBookId, currentChapterNum, initialLoadDone]);
+
 
   useEffect(() => {
     loadData();
@@ -291,7 +320,6 @@ const Reader: React.FC = () => {
           setSelectedVerses={setSelectedVerses}
           getSelectedContent={getSelectedContent}
           onGeneratePodcast={handleNavigateToStudio}
-          onAddNote={() => setIsNoteModalOpen(true)}
           onGenerateImage={handleNavigateToImage}
           bookId={currentBookId}
           chapter={currentChapterNum}

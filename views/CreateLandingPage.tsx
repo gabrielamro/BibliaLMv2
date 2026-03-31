@@ -35,6 +35,8 @@ import {
   buildWrittenContentHtml,
   buildStudyGuideHtml
 } from '../components/Builder';
+import { ImageUploadButton } from '../components/Builder/ImageUploadButton';
+import ObreiroIAChatbot from '../components/ObreiroIAChatbot';
 
 // Tipos locais
 type ContentType = 'article' | 'devotional' | 'series';
@@ -51,6 +53,7 @@ interface ContentData {
     title: string;
     description: string;
     coverImage?: string;
+    visibility?: 'public' | 'invitation';
     tags: string[];
   };
   stats: {
@@ -92,7 +95,7 @@ const CreateLandingPage: React.FC = () => {
   const { currentUser, earnMana, showNotification } = useAuth();
   const { setTitle, setBreadcrumbs, resetHeader, setIsHeaderHidden } = useHeader();
 
-  const [currentStep, setCurrentStep] = useState<'type' | 'create' | 'preview' | 'publish'>('type');
+  const [currentStep, setCurrentStep] = useState<'type' | 'create' | 'preview' | 'publish'>('create');
   const [contentType, setContentType] = useState<ContentType>('article');
   const [creationMode, setCreationMode] = useState<CreationMode>('manual');
   const [pendingAutoGenerate, setPendingAutoGenerate] = useState(false);
@@ -104,7 +107,7 @@ const CreateLandingPage: React.FC = () => {
     status: 'draft',
     slug: '',
     blocks: [],
-    meta: { title: '', description: '', tags: [] },
+    meta: { title: '', description: '', tags: [], visibility: 'public' },
     stats: { views: 0, comments: 0, shares: 0 },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -118,6 +121,10 @@ const CreateLandingPage: React.FC = () => {
   const [canvasWidth, setCanvasWidth] = useState<'mobile' | 'tablet' | 'desktop' | 'full'>('desktop');
   const [isMobilePropertiesOpen, setIsMobilePropertiesOpen] = useState(false);
   const [isMobileAddMenuOpen, setIsMobileAddMenuOpen] = useState(false);
+  const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'config' | 'access'>('config');
+  const [accessLogs, setAccessLogs] = useState<any[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
   // AI Auto-Builder (Fase 3)
   const [showAIBuilderModal, setShowAIBuilderModal] = useState(false);
@@ -132,6 +139,24 @@ const CreateLandingPage: React.FC = () => {
   const [isSearchingVerse, setIsSearchingVerse] = useState(false);
   const [category, setCategory] = useState('Geral');
   const searchTimeoutRef = useRef<any>(null);
+
+  // Carregar Logs de Acesso quando abrir a aba de acessos
+  useEffect(() => {
+    if (showSettingsOverlay && settingsTab === 'access' && content.id) {
+      const fetchLogs = async () => {
+        setIsLoadingLogs(true);
+        try {
+          const logs = await dbService.getStudyAccessLogs(content.id as string);
+          setAccessLogs(logs);
+        } catch (e) {
+          console.error("Erro ao carregar logs:", e);
+        } finally {
+          setIsLoadingLogs(false);
+        }
+      };
+      fetchLogs();
+    }
+  }, [showSettingsOverlay, settingsTab, content.id]);
 
   // Header
   useEffect(() => {
@@ -155,9 +180,11 @@ const CreateLandingPage: React.FC = () => {
   useEffect(() => {
     const loadContent = async () => {
       const state = location.state as any;
+      const urlParams = new URLSearchParams(location.search);
+      const targetId = state?.contentId || urlParams.get('id');
       
       // Se vier de "Meus Estudos" ou criar novo, inicializar com template de estudo
-      if (!state?.contentId) {
+      if (!targetId && !state?.studyData) {
         const blocks = buildBaseBlocks(contentTemplates.article);
         setContent(prev => ({
           ...prev,
@@ -172,17 +199,27 @@ const CreateLandingPage: React.FC = () => {
       // Carregar conteúdo existente
       setIsLoading(true);
       try {
-        const data = await dbService.getPublicStudyById(state.contentId);
+        const data = targetId ? await dbService.getPublicStudyById(targetId) : null;
         if (data) {
+          const parsedBlocks = typeof data.blocks === 'string' ? JSON.parse(data.blocks) : (data.blocks || []);
+          const parsedMeta = typeof data.meta === 'string' ? JSON.parse(data.meta) : (data.meta || { title: '', description: '', tags: [], visibility: 'public' });
+          if (!parsedMeta.visibility) parsedMeta.visibility = 'public';
+          
           setContent({
             ...data,
-            blocks: data.blocks || []
+            blocks: parsedBlocks,
+            meta: parsedMeta
           });
           setContentType(data.type || 'article');
-        } else if (state.studyData) {
+          setCurrentStep('create');
+        } else if (state?.studyData) {
           // Fallback para estudo legado ou draft da tabela studies
           const legacyData = state.studyData;
-          let blocks = legacyData.blocks || [];
+          const parsedBlocks = typeof legacyData.blocks === 'string' ? JSON.parse(legacyData.blocks) : (legacyData.blocks || []);
+          const parsedMeta = typeof legacyData.meta === 'string' ? JSON.parse(legacyData.meta) : (legacyData.meta || { visibility: 'public' });
+          if (!parsedMeta.visibility) parsedMeta.visibility = 'public';
+          
+          let blocks = parsedBlocks;
           
           // Se não tem blocos estruturados mas tem conteudo (analysis), cria base blocks
           if (blocks.length === 0 && legacyData.analysis) {
@@ -206,8 +243,9 @@ const CreateLandingPage: React.FC = () => {
             status: legacyData.status || 'draft',
             meta: { 
               ...prev.meta, 
-              title: legacyData.title || 'Novo Estudo', 
-              description: legacyData.sourceText?.substring(0, 150) || '' 
+              ...parsedMeta,
+              title: legacyData.title || parsedMeta.title || 'Novo Estudo', 
+              description: legacyData.sourceText?.substring(0, 150) || parsedMeta.description || '' 
             },
             blocks
           }));
@@ -219,7 +257,7 @@ const CreateLandingPage: React.FC = () => {
       setIsLoading(false);
     };
     loadContent();
-  }, [location.state]);
+  }, [location.state, location.search]);
 
   // Busca automática de versículo
   useEffect(() => {
@@ -492,144 +530,7 @@ const CreateLandingPage: React.FC = () => {
     }
   };
 
-  // Gerar com IA
-  const handleGenerateWithAI = async () => {
-    if (!currentUser) {
-      showNotification('Faça login para usar a IA', 'error');
-      return;
-    }
-    setIsGeneratingAI(true);
-    try {
-      let generatedHtml = '';
-      let devotionalData: any = null;
-      const requestedReference = (mainVerse || verseRef || '').trim();
-
-      if (content.type === 'devotional') {
-        devotionalData = await generateDailyDevotional(true);
-        if (!devotionalData) {
-          throw new Error('Devocional não retornou conteúdo');
-        }
-        generatedHtml = `
-<h2>1. Introdução</h2>
-<p>${devotionalData.content || ''}</p>
-<h2>4. Oração</h2>
-<p class="bible-prayer">${devotionalData.prayer || ''}</p>
-<h2>5. Conclusão</h2>
-<p>Permaneça firme na Palavra e viva este versículo ao longo do dia.</p>
-`.trim();
-      } else {
-        const aiTheme = content.meta.title?.trim() || category || 'Estudo Bíblico';
-        const aiAudience = category || 'Geral';
-        generatedHtml = await generateStructuredStudy(aiTheme, requestedReference || 'João 3:16', aiAudience, 'deep');
-      }
-
-      if (!generatedHtml?.trim()) {
-        throw new Error('IA não retornou conteúdo válido');
-      }
-
-      const parsed = extractStudyPayload(generatedHtml);
-      const aiTitle = devotionalData?.title || parsed.title || content.meta.title || `Estudo em ${requestedReference || 'João 3:16'}`;
-      const aiSubtitle = devotionalData?.verseReference || parsed.subtitle || `Reflexão em ${requestedReference || 'João 3:16'}`;
-      const aiVerseRef = devotionalData?.verseReference || verseRef || requestedReference || parsed.subtitle || 'João 3:16';
-      const aiVerseText = devotionalData?.verseText || verseText || parsed.quote || '';
-      const studyGuideHtml = buildWrittenContentHtml({
-        introduction: parsed.introduction || undefined,
-        context: parsed.context || undefined,
-        application: parsed.application || undefined,
-        prayer: parsed.prayer || undefined,
-        conclusion: parsed.conclusion || undefined
-      });
-      const slug = `${aiTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'content'}-${Date.now().toString(36)}`;
-
-      if (aiVerseRef) setVerseRef(aiVerseRef);
-      if (aiVerseText) setVerseText(aiVerseText);
-
-      setContent(prev => ({
-        ...prev,
-        meta: { ...prev.meta, title: aiTitle, description: aiSubtitle },
-        slug,
-        blocks: prev.blocks.map((b) => {
-          if (b.type === 'hero') {
-            return {
-              ...b,
-              data: {
-                ...b.data,
-                title: aiTitle,
-                subtitle: aiSubtitle,
-                authorName: currentUser.displayName || b.data.authorName || ''
-              }
-            };
-          }
-          if (b.type === 'biblical') {
-            return {
-              ...b,
-              data: {
-                ...b.data,
-                reference: aiVerseRef,
-                verse: aiVerseRef,
-                text: aiVerseText || b.data.text
-              }
-            };
-          }
-          if (b.type === 'study-content') {
-            return {
-              ...b,
-              data: {
-                ...b.data,
-                content: studyGuideHtml,
-                introduction: parsed.introduction || b.data.introduction || '',
-                context: parsed.context || b.data.context || '',
-                application: parsed.application || b.data.application || '',
-                prayer: parsed.prayer || b.data.prayer || '',
-                conclusion: parsed.conclusion || b.data.conclusion || ''
-              }
-            };
-          }
-          if (b.type === 'authority' && currentUser) {
-            return {
-              ...b,
-              data: {
-                ...b.data,
-                name: currentUser.displayName || 'Autor',
-                photo: currentUser.photoURL || '',
-                bio: b.data.bio || 'Conteúdo gerado com auxílio da IA pastoral e pronto para edição.'
-              }
-            };
-          }
-          if (b.type === 'footer') {
-            return {
-              ...b,
-              data: {
-                ...b.data,
-                tagline: content.type === 'devotional'
-                  ? 'Uma leitura devocional pronta para tocar e orientar'
-                  : 'Uma one page pronta para editar, publicar e compartilhar'
-              }
-            };
-          }
-          return b;
-        })
-      }));
-      
-      showNotification('Conteúdo gerado pela IA e aplicado aos blocos!', 'success');
-    } catch (e) {
-      console.error('Erro IA:', e);
-      showNotification('Erro ao gerar com IA no Pastor Agent', 'error');
-    } finally {
-      setIsGeneratingAI(false);
-    }
-  };
-
-  useEffect(() => {
-    if (currentStep !== 'create' || !pendingAutoGenerate || isGeneratingAI) {
-      return;
-    }
-
-    setPendingAutoGenerate(false);
-    handleGenerateWithAI();
-  }, [currentStep, pendingAutoGenerate, isGeneratingAI]);
-
-  // Salvar
+  // Salvar alterações
   const handleSave = async (asStatus?: ContentStatus) => {
     if (!currentUser) return;
 
@@ -671,20 +572,45 @@ const CreateLandingPage: React.FC = () => {
 
   // Publicar
   const handlePublish = async () => {
-    if (!content.slug) {
-      showNotification('Gere um slug primeiro', 'error');
-      return;
+    let finalSlug = content.slug;
+    
+    // Se não tiver slug, gera a partir do título
+    if (!finalSlug) {
+      if (!content.meta?.title?.trim()) {
+        showNotification('Adicione um título para gerar o link de compartilhamento', 'error');
+        return;
+      }
+
+      finalSlug = content.meta.title
+        .toLowerCase()
+        .normalize('NFD') // Remove acentos
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\w\s-]/g, '') // Remove caracteres especiais
+        .trim()
+        .replace(/[\s_-]+/g, '-') // Espaços para hifens
+        .replace(/^-+|-+$/g, ''); // Remove hifens no início/fim
+      
+      // Garante que o slug não fique vazio
+      if (!finalSlug) {
+        finalSlug = `estudo-${Math.random().toString(36).substring(2, 8)}`;
+      } else {
+        // Adiciona um sufixo curto para evitar colisões
+        finalSlug += `-${Math.random().toString(36).substring(2, 6)}`;
+      }
+
+      setContent(prev => ({ ...prev, slug: finalSlug }));
     }
+
     setIsSaving(true);
     try {
-      await dbService.publishPublicStudy(content.id || '', content.slug);
-      setContent(prev => ({ ...prev, status: 'published' }));
+      await dbService.publishPublicStudy(content.id || '', finalSlug);
+      setContent(prev => ({ ...prev, status: 'published', slug: finalSlug }));
       await earnMana('create_study');
       showNotification('Publicado com sucesso!', 'success');
       setCurrentStep('publish');
     } catch (e) {
       console.error('Erro ao publicar:', e);
-      showNotification('Erro ao publicar', 'error');
+      showNotification('Erro ao publicar: O link gerado pode já estar em uso. Tente outro no painel lateral.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -701,70 +627,12 @@ const CreateLandingPage: React.FC = () => {
 
   const selectedBlockData = content.blocks.find(b => b.id === selectedBlock);
 
-  // RENDER: Seletor de tipo
-  if (currentStep === 'type') {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-bible-darkPaper">
-        <SEO title="Criar Conteúdo" />
-        <SocialNavigation activeTab="explore" />
-        
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold text-bible-ink dark:text-white mb-2">
-            Criar Novo Conteúdo
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mb-8">
-            Escolha o tipo de conteúdo que deseja criar
-          </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {(Object.keys(typeLabels) as ContentType[]).map(type => (
-              <div
-                key={type}
-                className="group p-8 bg-white dark:bg-bible-darkPaper rounded-2xl border-2 border-gray-100 dark:border-gray-800 hover:border-bible-gold transition-all text-left"
-              >
-                <div className="w-16 h-16 bg-bible-gold/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  {type === 'article' && <Type size={32} className="text-bible-gold" />}
-                  {type === 'devotional' && <Sun size={32} className="text-bible-gold" />}
-                  {type === 'series' && <Layers size={32} className="text-bible-gold" />}
-                </div>
-                <h3 className="text-xl font-bold text-bible-ink dark:text-white mb-2">
-                  {typeLabels[type].singular}
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {typeLabels[type].description}
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {contentTemplates[type].map(t => (
-                    <span key={t} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-[10px] font-medium text-gray-600 dark:text-gray-300">
-                      {blockLabels[t].label}
-                    </span>
-                  ))}
-                </div>
-                <div className="mt-6 grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => handleSelectType(type, 'manual')}
-                    className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-bible-ink dark:text-white hover:border-bible-gold hover:bg-bible-gold/5 transition-colors"
-                  >
-                    Manual
-                  </button>
-                  <button
-                    onClick={() => handleSelectType(type, 'ai')}
-                    className="px-4 py-2.5 rounded-xl bg-bible-gold text-white text-sm font-bold hover:bg-bible-gold/90 transition-colors"
-                  >
-                    Gerar com IA
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // RENDER: Editor
   if (currentStep === 'create') {
     return (
+      <>
       <div className="h-screen flex flex-col bg-gray-100 dark:bg-bible-darkPaper overflow-hidden">
         <SEO title="Editor de Conteúdo" />
         
@@ -773,7 +641,7 @@ const CreateLandingPage: React.FC = () => {
           <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
             <div className="flex items-center gap-4">
               <button 
-                onClick={() => setCurrentStep('type')}
+                onClick={() => navigate(-1)}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
               >
                 <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300" />
@@ -797,16 +665,7 @@ const CreateLandingPage: React.FC = () => {
                 <Sparkles size={16} />
                 <span className="hidden sm:inline">IA Auto-Builder</span>
               </button>
-              <button
-                onClick={handleGenerateWithAI}
-                disabled={isGeneratingAI}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg font-medium text-sm hover:bg-purple-600 transition-colors disabled:opacity-50"
-              >
-                {isGeneratingAI ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
-                <span className="hidden sm:inline">Gerar com IA</span>
-              </button>
               
-              {/* Canvas Width Controls */}
               <div className="hidden sm:flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-0.5">
                 {([
                   { key: 'mobile' as const, icon: <Minimize2 size={14} />, label: 'Mobile (375px)' },
@@ -829,6 +688,13 @@ const CreateLandingPage: React.FC = () => {
                 ))}
               </div>
 
+              <button
+                onClick={() => setShowSettingsOverlay(true)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
+                title="Configurações do Estudo"
+              >
+                <Settings size={20} />
+              </button>
 
               <button
                 onClick={() => handleSave('draft')}
@@ -1123,6 +989,221 @@ const CreateLandingPage: React.FC = () => {
           onAIBuild={() => setShowAIBuilderModal(true)}
         />
 
+        {/* ======== ESTUDIO SETTINGS OVERLAY (CAPA / THUMBNAIL) ======== */}
+        {showSettingsOverlay && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-end" onClick={() => setShowSettingsOverlay(false)}>
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" />
+
+            {/* Panel */}
+            <div 
+              className="relative w-full max-w-md h-full bg-white dark:bg-gray-900 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-bible-ink dark:text-white flex items-center gap-2">
+                    <Settings className="text-bible-gold" size={20} />
+                    Ajustes do Estudo
+                  </h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl flex">
+                    <button 
+                      onClick={() => setSettingsTab('config')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${settingsTab === 'config' ? 'bg-white dark:bg-gray-900 text-bible-gold shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                      Ajustes
+                    </button>
+                    <button 
+                      onClick={() => setSettingsTab('access')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${settingsTab === 'access' ? 'bg-white dark:bg-gray-900 text-bible-gold shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                      Acessos
+                    </button>
+                  </div>
+                  <button 
+                    onClick={() => setShowSettingsOverlay(false)}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                
+                {settingsTab === 'config' ? (
+                  <div className="space-y-8">
+                    {/* Capa do Estudo */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2 px-1">Capa do Estudo (Thumbnail)</label>
+                  <div className="relative group aspect-video rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center transition-all hover:border-bible-gold/50">
+                    {content.meta.coverImage ? (
+                      <>
+                        <img src={content.meta.coverImage} className="w-full h-full object-cover transition-transform group-hover:scale-105" alt="Capa" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <ImageUploadButton 
+                            onUpload={(url) => updateMeta('coverImage', url)} 
+                            label="Trocar" 
+                            className="bg-white/20 hover:bg-white/40 text-white border-white/60"
+                          />
+                          <button 
+                            onClick={() => updateMeta('coverImage', '')}
+                            className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-lg text-xs font-bold border border-red-500/40 transition-colors"
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center gap-3 p-6 text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-bible-gold/10 flex items-center justify-center text-bible-gold">
+                          <ImageIcon size={24} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-gray-700 dark:text-gray-200">Nenhuma capa definida</p>
+                          <p className="text-[10px] text-gray-500 mt-1">Essa imagem aparecerá nos cards de estudo.</p>
+                        </div>
+                        <ImageUploadButton onUpload={(url) => updateMeta('coverImage', url)} label="Escolher Capa" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Metadados Básicos */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5 px-1">Título do Estudo</label>
+                    <input 
+                      type="text" 
+                      value={content.meta.title}
+                      onChange={(e) => updateMeta('title', e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-2xl text-sm font-bold placeholder:text-gray-400 focus:ring-2 ring-bible-gold/30 transition-all"
+                      placeholder="Título Principal"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5 px-1">Descrição SEO / Resumo</label>
+                    <textarea 
+                      value={content.meta.description}
+                      onChange={(e) => updateMeta('description', e.target.value)}
+                      rows={3}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-2xl text-sm font-medium placeholder:text-gray-400 focus:ring-2 ring-bible-gold/30 transition-all resize-none"
+                      placeholder="Breve descrição do conteúdo..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5 px-1">Link Personalizado (Slug)</label>
+                    <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-transparent focus-within:border-bible-gold/30 transition-all">
+                      <Globe size={14} className="text-gray-400" />
+                      <span className="text-xs text-gray-400">/p/</span>
+                      <input 
+                        type="text" 
+                        value={content.slug}
+                        onChange={(e) => setContent(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') }))}
+                        className="flex-1 bg-transparent border-none p-0 text-sm font-mono focus:ring-0"
+                        placeholder="link-do-estudo"
+                      />
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-2 px-1">
+                      Deixe vazio para gerar automaticamente na publicação.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2 px-1">Privacidade / Visibilidade</label>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button 
+                            onClick={() => updateMeta('visibility', 'public')}
+                            className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${content.meta.visibility === 'public' || !content.meta.visibility ? 'border-bible-gold bg-bible-gold/5 text-bible-gold' : 'border-gray-100 dark:border-gray-800 text-gray-500 bg-white dark:bg-gray-800/50 hover:bg-gray-50'}`}
+                        >
+                            <Globe size={18} />
+                            <span className="text-[11px] font-bold">Público</span>
+                        </button>
+                        <button 
+                            onClick={() => updateMeta('visibility', 'invitation')}
+                            className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${content.meta.visibility === 'invitation' ? 'border-bible-gold bg-bible-gold/5 text-bible-gold' : 'border-gray-100 dark:border-gray-800 text-gray-500 bg-white dark:bg-gray-800/50 hover:bg-gray-50'}`}
+                        >
+                            <Lock size={18} />
+                            <span className="text-[11px] font-bold">Por Convite</span>
+                        </button>
+                    </div>
+                  </div>
+                </div>
+
+                    <button
+                      onClick={() => {
+                          handleSave('draft');
+                          setShowSettingsOverlay(false);
+                      }}
+                      className="w-full py-4 bg-bible-gold text-white rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-bible-gold/20 active:scale-95 transition-all text-xs"
+                    >
+                      Salvar Alterações
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between mb-2">
+                         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Histórico de Quem Acessou</h3>
+                         <span className="text-[10px] font-bold bg-bible-gold/10 text-bible-gold px-2 py-0.5 rounded-full">
+                            {accessLogs.length} acessos
+                         </span>
+                    </div>
+
+                    {isLoadingLogs ? (
+                      <div className="py-12 flex flex-col items-center justify-center text-gray-400 gap-3">
+                         <Loader2 className="animate-spin" size={24} />
+                         <p className="text-xs italic">Carregando nomes...</p>
+                      </div>
+                    ) : accessLogs.length > 0 ? (
+                      <div className="space-y-3">
+                        {accessLogs.map((log) => (
+                           <div key={log.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-transparent hover:border-bible-gold/20 transition-all">
+                              <div className="w-10 h-10 rounded-xl bg-bible-gold/10 flex items-center justify-center overflow-hidden flex-shrink-0 border border-white dark:border-gray-700 shadow-sm">
+                                 {log.user_photo ? (
+                                    <img src={log.user_photo} alt={log.user_name} className="w-full h-full object-cover" />
+                                 ) : (
+                                    <User size={20} className="text-bible-gold" />
+                                 )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                 <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{log.user_name}</p>
+                                 <p className="text-[10px] text-gray-500 flex items-center gap-1">
+                                    <Clock size={10} />
+                                    {new Date(log.accessed_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                 </p>
+                              </div>
+                              {log.user_id && (
+                                 <div className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[8px] font-bold rounded-full uppercase">
+                                    Membro
+                                 </div>
+                              )}
+                           </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-12 flex flex-col items-center justify-center text-gray-400 gap-4 text-center px-4">
+                         <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+                            <User size={32} className="opacity-20" />
+                         </div>
+                         <div>
+                            <p className="text-sm font-bold">Nenhum acesso detalhado</p>
+                            <p className="text-[10px] mt-1 italic">Compartilhe o link de convite para começar a receber alunos!</p>
+                         </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ======== AI AUTO-BUILDER MODAL (Fase 3) ======== */}
         {showAIBuilderModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowAIBuilderModal(false)}>
@@ -1131,7 +1212,7 @@ const CreateLandingPage: React.FC = () => {
 
             {/* Modal */}
             <div
-              className="relative w-full max-w-2xl bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden"
+              className="relative w-full max-w-2xl max-h-[90vh] bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-y-auto"
               onClick={e => e.stopPropagation()}
             >
               {/* Gradient header */}
@@ -1157,20 +1238,47 @@ const CreateLandingPage: React.FC = () => {
               {/* Body */}
               <div className="p-8 space-y-6">
 
-                {/* Referência Bíblica detectada */}
-                {verseRef && (
+                {/* Referência Bíblica detectada ou busca */}
+                {verseRef ? (
                   <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl">
                     <div className="w-8 h-8 bg-bible-gold/20 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
                       <BookOpen size={16} className="text-bible-gold" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-bible-gold uppercase tracking-wider mb-0.5">Referência bíblica detectada</p>
+                      <div className="flex justify-between items-start">
+                        <p className="text-xs font-bold text-bible-gold uppercase tracking-wider mb-0.5">Referência bíblica detectada</p>
+                        <button onClick={() => { setMainVerse(''); setVerseRef(''); setVerseText(''); }} className="text-gray-400 hover:text-red-500">
+                          <X size={14} />
+                        </button>
+                      </div>
                       <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{verseRef}</p>
                       {verseText && (
                         <p className="text-xs text-gray-500 dark:text-gray-400 italic mt-1 line-clamp-2">"{verseText}"</p>
                       )}
                       <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5">A IA vai usar esta referência como base principal da one-page.</p>
                     </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
+                      Referência Bíblica (Opcional, mas recomendado)
+                    </label>
+                    <div className="relative">
+                      <BookOpen className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <input
+                        type="text"
+                        value={mainVerse}
+                        onChange={e => setMainVerse(e.target.value)}
+                        placeholder="Ex: João 3:16 ou Romanos 12"
+                        className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm outline-none focus:border-bible-gold focus:ring-2 focus:ring-bible-gold/20 transition-all font-medium placeholder-gray-400"
+                      />
+                      {isSearchingVerse && (
+                        <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-bible-gold" size={16} />
+                      )}
+                    </div>
+                    {mainVerse && !isSearchingVerse && !verseRef && mainVerse.length > 2 && (
+                      <p className="text-xs text-gray-400 mt-2 ml-1">Procurando referência... Padrão: Livro X:Y.</p>
+                    )}
                   </div>
                 )}
 
@@ -1264,12 +1372,15 @@ const CreateLandingPage: React.FC = () => {
           </div>
         )}
       </div>
+      <ObreiroIAChatbot />
+      </>
     );
   }
 
   // RENDER: Preview
   if (currentStep === 'preview') {
     return (
+      <>
       <div className="min-h-screen bg-gray-100 dark:bg-bible-darkPaper">
         <SEO title="Preview" />
         
@@ -1319,11 +1430,14 @@ const CreateLandingPage: React.FC = () => {
           </div>
         </main>
       </div>
+      <ObreiroIAChatbot />
+      </>
     );
   }
 
   // RENDER: Publish Success
   return (
+    <>
     <div className="min-h-screen bg-gradient-to-br from-bible-gold/20 to-purple-500/10 flex items-center justify-center p-4">
       <SEO title="Publicado!" />
       
@@ -1362,32 +1476,45 @@ const CreateLandingPage: React.FC = () => {
             href={`/l/${content.slug}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-bible-gold text-white rounded-xl font-bold hover:bg-bible-gold/90 transition-colors"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-bible-gold text-white rounded-xl font-bold hover:bg-bible-gold/90 transition-all active:scale-95"
           >
             <ExternalLink size={18} />
             Ver Página Pública
           </a>
-          <button
-            onClick={() => {
-              setContent({
-                type: 'article',
-                status: 'draft',
-                slug: '',
-                blocks: [],
-                meta: { title: '', description: '', tags: [] },
-                stats: { views: 0, comments: 0, shares: 0 },
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-              });
-              setCurrentStep('type');
-            }}
-            className="px-6 py-3 border border-gray-300 dark:border-gray-700 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-          >
-            Criar Novo Conteúdo
-          </button>
-        </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => {
+                setContent({
+                  type: 'article',
+                  status: 'draft',
+                  slug: '',
+                  blocks: [],
+                  meta: { title: '', description: '', tags: [] },
+                  stats: { views: 0, comments: 0, shares: 0 },
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString()
+                });
+                setCurrentStep('create');
+              }}
+              className="px-4 py-3 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-all border border-gray-200 dark:border-gray-700 text-sm"
+            >
+              Novo Conteúdo
+            </button>
+            <button
+              onClick={() => navigate('/estudos')}
+              className="px-4 py-3 bg-white dark:bg-bible-darkPaper text-bible-gold rounded-xl font-bold hover:bg-bible-gold/5 transition-all border-2 border-bible-gold text-sm flex items-center justify-center gap-2"
+            >
+              <ArrowLeft size={16} />
+              Meus Estudos
+            </button>
+          </div>
+         </div>
       </div>
     </div>
+    {/* Ícone flutuante do Obreiro IA */}
+    <ObreiroIAChatbot />
+    </>
   );
 };
 

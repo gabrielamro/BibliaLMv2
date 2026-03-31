@@ -2,7 +2,7 @@
 import { useNavigate } from '../utils/router';
 
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 
 import { useWisdomStream } from '../hooks/useWisdomStream';
 import { StudyModule, HomeConfig, CustomPlan } from '../types';
@@ -16,7 +16,8 @@ import { FeedPostCard } from './social/FeedPostCard';
 import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { dbService } from '../services/supabase';
-import { INSPIRATIONAL_VERSES } from '../constants';
+import { INSPIRATIONAL_VERSES, BIBLE_BOOKS_LIST } from '../constants';
+import { normalizeText } from '../utils/textUtils';
 // O componente ActiveJourneys foi movido para o backlog (desativados)
 
 
@@ -78,6 +79,29 @@ const HomeDashboard: React.FC = () => {
         return INSPIRATIONAL_VERSES[dayOfYear % INSPIRATIONAL_VERSES.length];
     }, []);
 
+    // Função para navegar para o versículo do dia
+    const navigateToVerseOfDay = useCallback(() => {
+        const ref = verseOfTheDay.ref;
+        // Ex: "Salmos 23:1", "João 3:16", "Filipenses 4:13"
+        const parsed = ref.match(/^(.+?)\s+(\d+):(\d+)$/);
+        if (!parsed) {
+            navigate('/biblia');
+            return;
+        }
+        const [, bookName, chapterStr, verseStr] = parsed;
+        const chapter = parseInt(chapterStr, 10);
+        const verse = parseInt(verseStr, 10);
+
+        // Busca o ID do livro na lista (ignora acentos/maiúsculas)
+        const normalizedBookName = normalizeText(bookName.trim());
+        const found = BIBLE_BOOKS_LIST.find(b =>
+            normalizeText(b.name) === normalizedBookName
+        );
+        const bookId = found?.id || normalizeText(bookName.trim());
+
+        navigate(`/biblia?book=${bookId}&cap=${chapter}&vs=${verse}`);
+    }, [verseOfTheDay.ref, navigate]);
+
     const lastScrollYList = useRef(0);
 
     if (loading) {
@@ -127,7 +151,7 @@ const HomeDashboard: React.FC = () => {
                         </div>
                     </section>
                 ) : (
-                    <section className="relative group cursor-pointer" onClick={() => navigate('/biblia', { state: { search: verseOfTheDay.ref } })}>
+                    <section className="relative group cursor-pointer" onClick={navigateToVerseOfDay}>
                         <div className="bg-gradient-to-br from-bible-leather to-[#3d2b25] dark:from-[#1a1a1a] dark:to-black p-8 md:p-10 rounded-[2.5rem] text-white relative overflow-hidden shadow-xl border border-white/5 transition-transform duration-500 hover:scale-[1.01]">
                             <div className="absolute top-0 right-0 p-10 opacity-10 rotate-12 group-hover:rotate-0 transition-transform duration-700"><Quote size={180} /></div>
                             <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">

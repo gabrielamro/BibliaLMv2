@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Share2, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
+import { Eye, Share2, Image as ImageIcon, CheckCircle2, Lock } from 'lucide-react';
 
 export interface CardBadge {
     label: string;
@@ -24,8 +24,10 @@ export interface StandardCardProps {
     onAction: (e: React.MouseEvent) => void;
     onSecondaryAction?: (e: React.MouseEvent) => void;
     secondaryIcon?: React.ReactNode;
+    onShare?: (e: React.MouseEvent) => void;
     statusLabel?: string; // e.g. "Rascunho", "Publicado"
     statusColor?: string; // e.g. "bg-green-500"
+    visibility?: 'public' | 'invitation';
     onClick?: () => void;
 }
 
@@ -42,8 +44,10 @@ const StandardCard: React.FC<StandardCardProps> = ({
     onAction,
     onSecondaryAction,
     secondaryIcon,
+    onShare,
     statusLabel,
     statusColor,
+    visibility,
     onClick
 }) => {
     const displayImage = coverUrl || imageUrl;
@@ -62,14 +66,19 @@ const StandardCard: React.FC<StandardCardProps> = ({
                     </div>
                 )}
                 
-                {/* Top Status Badge */}
-                {statusLabel && (
-                    <div className="absolute top-3 right-3 flex gap-2">
+                {/* Top Status Badge & Visibility */}
+                <div className="absolute top-3 right-3 flex gap-2">
+                    {visibility === 'invitation' && (
+                        <div className="w-6 h-6 rounded-lg bg-black/40 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shadow-sm" title="Apenas convite">
+                            <Lock size={12} />
+                        </div>
+                    )}
+                    {statusLabel && (
                         <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase backdrop-blur-md shadow-sm text-white ${statusColor || 'bg-gray-900/50'}`}>
                             {statusLabel}
                         </span>
-                    </div>
-                )}
+                    )}
+                </div>
 
                 {/* Progress Bar Overlay (If provided) */}
                 {progress !== undefined && (
@@ -133,6 +142,11 @@ const StandardCard: React.FC<StandardCardProps> = ({
                     </div>
 
                     <div className="flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                        {onShare && (
+                            <button onClick={(e) => { e.stopPropagation(); onShare(e); }} className="p-1.5 bg-bible-gold/10 text-bible-gold rounded hover:bg-bible-gold hover:text-white transition-colors" title="Compartilhar link">
+                                <Share2 size={14} />
+                            </button>
+                        )}
                         {onSecondaryAction && (
                             <button onClick={(e) => { e.stopPropagation(); onSecondaryAction(e); }} className="p-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded hover:bg-bible-gold hover:text-white transition-colors">
                                 {secondaryIcon || <Share2 size={14} />}

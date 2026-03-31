@@ -22,6 +22,7 @@ import {
   Play
 } from 'lucide-react';
 import { Block, BlockType } from './types';
+import { ImageUploadButton } from './ImageUploadButton';
 
 interface BlockPropertiesProps {
   block: Block;
@@ -146,8 +147,11 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
             <label htmlFor="showBibImage" className="text-sm text-gray-600 dark:text-gray-400">Mostrar imagem</label>
           </div>
           {localData.showImage !== false && (
-            <div>
-              <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1 px-1">URL da Imagem</label>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1 px-1">Img. do Versículo</label>
+                <ImageUploadButton onUpload={(url) => handleChange('imageUrl', url)} label="Anexar" />
+              </div>
               <input type="text" value={localData.imageUrl || ''} onChange={(e) => handleChange('imageUrl', e.target.value)} className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-800 border-none rounded-xl text-xs" placeholder="URL da imagem..." />
             </div>
           )}
@@ -172,9 +176,12 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
             <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1 px-1">Biografia Curta</label>
             <textarea value={localData.bio || ''} onChange={(e) => handleChange('bio', e.target.value)} rows={3} className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-800 border-none rounded-xl text-xs resize-none" />
           </div>
-          <div>
-            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1 px-1">URL da Foto</label>
-            <input type="text" value={localData.photo || ''} onChange={(e) => handleChange('photo', e.target.value)} className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-800 border-none rounded-xl text-xs" />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1 px-1">Foto do Autor</label>
+              <ImageUploadButton onUpload={(url) => handleChange('photo', url)} label="Anexar" />
+            </div>
+            <input type="text" value={localData.photo || ''} onChange={(e) => handleChange('photo', e.target.value)} className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-800 border-none rounded-xl text-xs" placeholder="URL da foto..." />
           </div>
         </div>
       )}
@@ -342,12 +349,54 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
             </div>
 
             <div className="space-y-4 pt-2">
-               <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase">Padding Interno</span>
-                    <span className="text-xs font-mono text-bible-gold">{localData.padding || 0}px</span>
-                  </div>
-                  <input type="range" min="0" max="100" step="4" value={localData.padding || 0} onChange={e => handleChange('padding', parseInt(e.target.value))} className="w-full accent-bible-gold h-1" />
+               <div className="grid grid-cols-2 gap-4">
+                 <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[9px] font-bold text-gray-500 uppercase">Margem Superior</span>
+                      <span className="text-[10px] font-mono text-bible-gold">{(typeof localData.margin === 'object' ? localData.margin?.top : (localData.margin ?? 0))}px</span>
+                    </div>
+                    <input type="range" min="0" max="160" step="4" value={(typeof localData.margin === 'object' ? localData.margin?.top : (localData.margin ?? 0))} onChange={e => {
+                      const val = parseInt(e.target.value);
+                      const current = typeof localData.margin === 'object' ? localData.margin : { top: localData.margin ?? 0, bottom: localData.margin ?? 0 };
+                      handleChange('margin', { ...current, top: val });
+                    }} className="w-full accent-bible-gold h-1" />
+                 </div>
+                 <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[9px] font-bold text-gray-500 uppercase">Margem Inferior</span>
+                      <span className="text-[10px] font-mono text-bible-gold">{(typeof localData.margin === 'object' ? localData.margin?.bottom : (localData.margin ?? 0))}px</span>
+                    </div>
+                    <input type="range" min="0" max="160" step="4" value={(typeof localData.margin === 'object' ? localData.margin?.bottom : (localData.margin ?? 0))} onChange={e => {
+                      const val = parseInt(e.target.value);
+                      const current = typeof localData.margin === 'object' ? localData.margin : { top: localData.margin ?? 0, bottom: localData.margin ?? 0 };
+                      handleChange('margin', { ...current, bottom: val });
+                    }} className="w-full accent-bible-gold h-1" />
+                 </div>
+               </div>
+
+               <div className="grid grid-cols-2 gap-4">
+                 <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[9px] font-bold text-gray-500 uppercase">Espaçamento Topo</span>
+                      <span className="text-[10px] font-mono text-bible-gold">{(typeof localData.padding === 'object' ? localData.padding?.top : (localData.padding ?? 0))}px</span>
+                    </div>
+                    <input type="range" min="0" max="160" step="4" value={(typeof localData.padding === 'object' ? localData.padding?.top : (localData.padding ?? 0))} onChange={e => {
+                      const val = parseInt(e.target.value);
+                      const current = typeof localData.padding === 'object' ? localData.padding : { top: localData.padding ?? 0, bottom: localData.padding ?? 0 };
+                      handleChange('padding', { ...current, top: val });
+                    }} className="w-full accent-bible-gold h-1" />
+                 </div>
+                 <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[9px] font-bold text-gray-500 uppercase">Espaçamento Base</span>
+                      <span className="text-[10px] font-mono text-bible-gold">{(typeof localData.padding === 'object' ? localData.padding?.bottom : (localData.padding ?? 0))}px</span>
+                    </div>
+                    <input type="range" min="0" max="160" step="4" value={(typeof localData.padding === 'object' ? localData.padding?.bottom : (localData.padding ?? 0))} onChange={e => {
+                      const val = parseInt(e.target.value);
+                      const current = typeof localData.padding === 'object' ? localData.padding : { top: localData.padding ?? 0, bottom: localData.padding ?? 0 };
+                      handleChange('padding', { ...current, bottom: val });
+                    }} className="w-full accent-bible-gold h-1" />
+                 </div>
                </div>
 
                <div>
@@ -371,10 +420,13 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
             </div>
           </div>
 
-          <div>
-            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-2 px-1 flex items-center gap-1">
-              <ImageIcon size={12} /> Imagem de Fundo
-            </label>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <label className="text-[10px] font-bold text-gray-500 uppercase block mb-2 px-1 flex items-center gap-1">
+                <ImageIcon size={12} /> Imagem de Fundo
+              </label>
+              <ImageUploadButton onUpload={(url) => handleChange('backgroundImage', url)} label="Anexar" />
+            </div>
             <input type="text" value={localData.backgroundImage || ''} onChange={e => handleChange('backgroundImage', e.target.value)} className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-800 border-none rounded-xl text-xs" placeholder="URL da imagem (ex: Unsplash)" />
           </div>
           

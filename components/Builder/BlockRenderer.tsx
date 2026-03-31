@@ -78,10 +78,10 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   const styles: React.CSSProperties = {
     backgroundColor: data.backgroundColor || 'transparent',
     color: data.textColor || 'inherit',
-    paddingTop: (data.padding?.top ?? 0) * 4,
-    paddingBottom: (data.padding?.bottom ?? 0) * 4,
-    marginTop: (data.margin?.top ?? 0) * 4,
-    marginBottom: (data.margin?.bottom ?? 0) * 4,
+    paddingTop: (typeof data.padding === 'number' ? data.padding : (data.padding?.top ?? 0)) * 4,
+    paddingBottom: (typeof data.padding === 'number' ? data.padding : (data.padding?.bottom ?? 0)) * 4,
+    marginTop: (typeof data.margin === 'object' ? (data.margin?.top ?? 0) : (data.margin ?? 0)) * 4,
+    marginBottom: (typeof data.margin === 'object' ? (data.margin?.bottom ?? 0) : (data.margin ?? 0)) * 4,
   };
 
   // Se houver imagem de fundo no bloco

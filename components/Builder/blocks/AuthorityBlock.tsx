@@ -17,7 +17,7 @@ export const AuthorityBlock: React.FC<AuthorityBlockProps> = ({ data, onUpdate, 
   };
 
   return (
-    <div className="w-full h-full flex items-center justify-center py-12 px-6">
+    <div className="w-full h-full flex items-center justify-center py-4 px-6">
       <div className="text-center max-w-2xl bg-gray-50 dark:bg-gray-800/50 p-8 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm relative group">
         <div className="w-24 h-24 rounded-full bg-gray-200 mx-auto mb-6 overflow-hidden ring-4 ring-bible-gold/20 relative group/photo">
           {data.photo ? (
@@ -62,6 +62,42 @@ export const AuthorityBlock: React.FC<AuthorityBlockProps> = ({ data, onUpdate, 
         >
           {data.bio || 'Uma breve bio sobre o autor...'}
         </p>
+
+        {/* CTA Button */}
+        {isEditing && (data.showCta === false || !data.ctaText) ? (
+          <div className="mt-8 flex justify-center">
+            <button 
+              onClick={() => onUpdate?.({ ...data, showCta: true, ctaText: 'Conheça Mais' })}
+              className="px-6 py-2 border-2 border-dashed border-bible-gold/40 text-bible-gold/60 text-xs font-bold rounded-xl hover:border-bible-gold hover:text-bible-gold transition-all"
+            >
+              + Adicionar Botão (CTA)
+            </button>
+          </div>
+        ) : (data.showCta !== false && data.ctaText) && (
+          <div className="relative group/cta mt-8 flex justify-center">
+             <button 
+               className="px-8 py-3 bg-bible-gold text-white font-bold rounded-xl shadow-lg hover:bg-bible-gold/90 transition-all hover:scale-105"
+               style={{ 
+                 backgroundColor: data.ctaColor || 'var(--bible-gold)',
+                 color: data.ctaTextColor || '#ffffff'
+               }}
+               contentEditable={isEditing}
+               suppressContentEditableWarning={true}
+               onBlur={(e) => onUpdate?.({ ...data, ctaText: e.currentTarget.textContent || '' })}
+             >
+               {data.ctaText}
+             </button>
+             {isEditing && (
+                <button 
+                  onClick={() => onUpdate?.({ ...data, showCta: false })}
+                  className="absolute -top-2 translate-x-[60px] w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/cta:opacity-100 transition-opacity shadow-lg text-[10px] z-20"
+                  title="Remover botão"
+                >
+                  ×
+                </button>
+             )}
+          </div>
+        )}
       </div>
     </div>
   );

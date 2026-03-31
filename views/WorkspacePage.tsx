@@ -9,7 +9,7 @@ import { SavedStudy, CustomPlan, Note, ContentStatus, ContentType } from '../typ
 import {
     PlusCircle, BookOpen, Trash2, Search, Loader2,
     PenTool, FileText, Globe, Lock, MoreHorizontal, Eye, Edit3,
-    LayoutGrid, List, Filter, Calendar, Layers, Sparkles, MessageSquare, Coffee
+    LayoutGrid, List, Filter, Calendar, Layers, Sparkles, MessageSquare, Coffee, Share2, Copy
 } from 'lucide-react';
 import SEO from '../components/SEO';
 import StandardCard from '../components/ui/StandardCard';
@@ -30,6 +30,7 @@ const WorkspacePage: React.FC = () => {
     const { currentUser, showNotification } = useAuth();
     const { setTitle, setIcon, resetHeader } = useHeader();
     const navigate = useNavigate();
+    const isFirstRender = React.useRef(true);
 
     // --- STATE ---
     const [content, setContent] = useState<(SavedStudy | CustomPlan | Note)[]>([]);
@@ -51,6 +52,13 @@ const WorkspacePage: React.FC = () => {
 
     // --- DATA FETCHING ---
     useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+        } else if (content.length > 0) {
+            // Skip fetch if we already have content (avoids refetch after delete)
+            return;
+        }
+        
         const fetchData = async () => {
             if (!currentUser) return;
             setLoading(true);
@@ -70,8 +78,20 @@ const WorkspacePage: React.FC = () => {
                     : [];
 
                 // Normalize data
-                const normalizedStudies = (studiesData as any[]).map(s => ({ ...s, type: 'study' }));
-                const normalizedPublicStudies = (publicStudiesData as any[]).map(s => ({ ...s, type: 'study' }));
+                const normalizedStudies = (studiesData as any[]).map(s => {
+                    let blocks = s.blocks;
+                    let meta = s.meta;
+                    try { if (typeof blocks === 'string') blocks = JSON.parse(blocks); } catch(e) { blocks = []; }
+                    try { if (typeof meta === 'string') meta = JSON.parse(meta); } catch(e) { meta = {}; }
+                    return { ...s, type: 'study', blocks, meta };
+                });
+                const normalizedPublicStudies = (publicStudiesData as any[]).map(s => {
+                    let blocks = s.blocks;
+                    let meta = s.meta;
+                    try { if (typeof blocks === 'string') blocks = JSON.parse(blocks); } catch(e) { blocks = []; }
+                    try { if (typeof meta === 'string') meta = JSON.parse(meta); } catch(e) { meta = {}; }
+                    return { ...s, type: 'study', blocks, meta };
+                });
                 const normalizedPlans = (plansData as any[]).map(p => ({ ...p, type: 'plan' }));
                 const normalizedNotes = (notesData as any[]).map(n => ({ ...n, type: 'note', title: n.title || 'Anotação sem título' }));
 
@@ -144,26 +164,52 @@ const WorkspacePage: React.FC = () => {
         }
     };
 
+    const handleShare = (item: any) => {
+        const slug = (item as any).slug;
+        if (!slug) {
+            showNotification("Este item ainda não tem um link público. Publique-o primeiro.", "info");
+            return;
+        }
+        
+        const url = `${window.location.origin}/l/${slug}`;
+        navigator.clipboard.writeText(url);
+        showNotification("Link de compartilhamento copiado!", "success");
+    };
+
     const handleDelete = async () => {
         if (!currentUser || !deleteId || !deleteType) return;
+        
+        const idToDelete = deleteId;
+        
         try {
             if (deleteType === 'plan') {
-                const plan = content.find(c => c.id === deleteId) as CustomPlan;
-                if (plan && plan.authorId !== currentUser.uid) {
-                    // Unenroll if not the author
-                    const updatedEnrolled = (currentUser as any).enrolledPlans?.filter((id: string) => id !== deleteId) || [];
-                    await dbService.updateUserProfile(currentUser.uid, { enrolledPlans: updatedEnrolled });
-                    setContent(prev => prev.filter(c => c.id !== deleteId));
-                    showNotification("Plano removido da sua lista.", "success");
-                    return;
-                }
-            }
-
-            const collection = deleteType === 'plan' ? 'custom_plans' : (deleteType === 'note' ? 'notes' : ('blocks' in (content.find(c => c.id === deleteId) || {}) ? 'public_studies' : 'studies'));
-            await dbService.delete(currentUser.uid, collection, deleteId);
-            setContent(prev => prev.filter(c => c.id !== deleteId));
+                 const plan = content.find(c => String(c.id) === String(idToDelete)) as CustomPlan;
+                 if (plan && plan.authorId !== currentUser.uid) {
+                     const updatedEnrolled = (currentUser as any).enrolledPlans?.filter((id: string) => String(id) !== String(idToDelete)) || [];
+                     await dbService.updateUserProfile(currentUser.uid, { enrolledPlans: updatedEnrolled });
+                     setContent(prev => prev.filter(c => String(c.id) !== String(idToDelete)));
+                     showNotification("Plano removido da sua lista.", "success");
+                     return;
+                 }
+                 await dbService.delete(currentUser.uid, 'custom_plans', idToDelete);
+             } else if (deleteType === 'note') {
+                 await dbService.delete(currentUser.uid, 'notes', idToDelete);
+             } else if (deleteType === 'study') {
+                 // Tenta deletar de ambas as tabelas pois um estudo pode estar em qualquer uma delas (legado vs novo)
+                 await Promise.allSettled([
+                     dbService.delete(currentUser.uid, 'public_studies', idToDelete),
+                     dbService.delete(currentUser.uid, 'studies', idToDelete)
+                 ]);
+             }
+            
+            // Remove from content state
+            const newContent = content.filter(c => String(c.id) !== String(idToDelete));
+            console.log('[DELETE] Removed item:', idToDelete, 'from', content.length, 'to', newContent.length);
+            setContent(newContent);
+            
             showNotification("Item excluído.", "success");
         } catch (e) {
+            console.error('[DELETE] Error:', e);
             showNotification("Erro ao processar exclusão.", "error");
         } finally {
             setDeleteId(null);
@@ -297,13 +343,18 @@ const WorkspacePage: React.FC = () => {
                                     ]}
                                     metrics={isPlan(item) || isStudy(item) ? item.metrics : undefined}
                                     actionLabel={actionLabel}
+                                    coverUrl={item.coverUrl}
                                     onAction={() => handleEdit(item)}
+                                    // Adiciona Share para itens publicados que tenham slug
+                                    onShare={item.status === 'published' && (item as any).slug ? (e) => {
+                                        e.stopPropagation();
+                                        handleShare(item);
+                                    } : undefined}
                                     onSecondaryAction={() => {
                                         setDeleteId(item.id);
                                         setDeleteType(itemType);
                                     }}
                                     secondaryIcon={<Trash2 size={14} />}
-                                    coverUrl={item.coverUrl}
                                 />
                             ) : (
                                 <div key={item.id} className="bg-white dark:bg-bible-darkPaper p-4 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-between hover:border-bible-gold/30 transition-all group">
@@ -323,6 +374,15 @@ const WorkspacePage: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {item.status === 'published' && (item as any).slug && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleShare(item); }} 
+                                                className="p-2 hover:bg-bible-gold/10 rounded-lg text-bible-gold"
+                                                title="Copiar Link de Compartilhamento"
+                                            >
+                                                <Share2 size={16} />
+                                            </button>
+                                        )}
                                         <button onClick={() => handleEdit(item)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-500">
                                             {isFollowedStudy ? <Eye size={16} /> : <Edit3 size={16} />}
                                         </button>

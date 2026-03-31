@@ -49,14 +49,16 @@ export const defaultBlockData: Record<BlockType, any> = {
     showAuthor: true,
     backgroundColor: '#0f172a',
     textColor: '#ffffff',
-    overlayOpacity: 0.5
+    overlayOpacity: 0.5,
+    padding: 16
   },
   authority: {
     name: 'Nome do Autor',
     photo: '',
     bio: 'Uma breve descrição sobre o autor e sua autoridade no tema.',
     badges: [],
-    socials: { instagram: '', youtube: '', website: '' }
+    socials: { instagram: '', youtube: '', website: '' },
+    padding: 12
   },
   biblical: {
     verse: 'João 3:16',
@@ -64,20 +66,23 @@ export const defaultBlockData: Record<BlockType, any> = {
     reference: 'João 3:16',
     style: 'elegant',
     showImage: true,
-    imageStyle: 'realistic'
+    imageStyle: 'realistic',
+    padding: 12
   },
   video: {
     url: '',
     title: 'Vídeo Introdutório',
     description: '',
-    thumbnail: ''
+    thumbnail: '',
+    padding: 12
   },
   footer: {
     logo: '',
     tagline: 'Transformando vidas através da Palavra',
     links: [],
     copyright: `© ${new Date().getFullYear()} Todos os direitos reservados`,
-    showSocial: true
+    showSocial: true,
+    padding: 12
   },
   'study-content': {
     content: '',
@@ -85,7 +90,8 @@ export const defaultBlockData: Record<BlockType, any> = {
     context: '',
     application: '',
     prayer: '',
-    conclusion: ''
+    conclusion: '',
+    padding: 12
   },
   slide: {
     slides: [
@@ -99,6 +105,7 @@ export const defaultBlockData: Record<BlockType, any> = {
     height: 'medium',
     autoplay: false,
     autoplayInterval: 5000,
-    showNavigation: true
+    showNavigation: true,
+    padding: 0
   }
 };

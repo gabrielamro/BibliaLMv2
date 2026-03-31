@@ -1,4 +1,4 @@
-
+import { GoogleGenAI } from "@google/genai";
 import { DAILY_BREAD } from "../constants";
 
 const BIGPICKLE_API_KEY = process.env.NEXT_PUBLIC_BIGPICKLE_API_KEY;
@@ -26,6 +26,7 @@ const callBigPickle = async (prompt: string, systemInstruction?: string, respons
                 { role: "system", content: systemInstruction || SYSTEM_INSTRUCTION },
                 { role: "user", content: prompt }
             ],
+            max_tokens: 4096,
             ...(responseFormat === 'json' && { response_format: { type: "json_object" } })
         })
     });
@@ -50,6 +51,7 @@ const callGroq = async (prompt: string, systemInstruction?: string, responseForm
                 { role: "system", content: systemInstruction || SYSTEM_INSTRUCTION },
                 { role: "user", content: prompt }
             ],
+            max_tokens: 4096,
             ...(responseFormat === 'json' && { response_format: { type: "json_object" } })
         })
     });
@@ -76,6 +78,7 @@ const callOpenRouter = async (prompt: string, systemInstruction?: string, respon
                 { role: "system", content: systemInstruction || SYSTEM_INSTRUCTION },
                 { role: "user", content: prompt }
             ],
+            max_tokens: 4096,
             ...(responseFormat === 'json' && { response_format: { type: "json_object" } })
         })
     });
@@ -85,14 +88,44 @@ const callOpenRouter = async (prompt: string, systemInstruction?: string, respon
     return data.choices?.[0]?.message?.content || "";
 };
 
+const callGemini = async (prompt: string, systemInstruction?: string, responseFormat?: "json" | "text"): Promise<string> => {
+    const apiKey = process.env.NEXT_PUBLIC_API_KEY || (process.env as any).GEMINI_API_KEY;
+    if (!apiKey) throw new Error("Gemini API Key não configurada");
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+    
+    const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+            generationConfig: {
+                responseMimeType: responseFormat === 'json' ? "application/json" : undefined,
+                maxOutputTokens: 4096
+            }
+        })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.error?.message || `Erro no Gemini (HTTP ${response.status})`);
+    }
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error("Gemini não retornou texto");
+    return text;
+};
+
 export const callAI = async (prompt: string, systemInstruction?: string, responseFormat?: "json" | "text"): Promise<string> => {
     const providers = [
         { name: 'BigPickle', fn: () => callBigPickle(prompt, systemInstruction, responseFormat) },
+        { name: 'Gemini', fn: () => callGemini(prompt, systemInstruction, responseFormat) },
         { name: 'Groq', fn: () => callGroq(prompt, systemInstruction, responseFormat) },
         { name: 'OpenRouter', fn: () => callOpenRouter(prompt, systemInstruction, responseFormat) }
     ];
 
-    let lastError = null;
+    const errors: string[] = [];
     for (const provider of providers) {
         try {
             console.log(`[AI] Tentando ${provider.name}...`);
@@ -100,13 +133,16 @@ export const callAI = async (prompt: string, systemInstruction?: string, respons
             console.log(`[AI] Sucesso com ${provider.name}`);
             return result;
         } catch (e: any) {
-            console.warn(`[AI] ${provider.name} falhou:`, e.message);
-            lastError = e;
-            continue;
+            let msg = e.message || 'Erro Desconhecido';
+            if (e.name === 'TypeError' && msg.includes('fetch')) {
+                msg = "Falha de Rede/CORS (Verifique sua internet ou desative o AdBlock para este site)";
+            }
+            console.warn(`[AI] ${provider.name} falhou:`, msg);
+            errors.push(`${provider.name}: ${msg}`);
         }
     }
 
-    throw new Error(`Todos os provedores de IA falharam. Último erro: ${lastError?.message}`);
+    throw new Error(`Todos os provedores de IA falharam. Detalhes: ${errors.join('; ')}`);
 };
 
 export const checkBigPickleHealth = async (): Promise<boolean> => {
@@ -362,74 +398,50 @@ ${context ? `CONTEXTO: ${context}` : ''}`;
 };
 
 export const generateAIOnePage = async (userPrompt: string, authorName?: string): Promise<any> => {
-    const systemInstruction = `Você é Dr. Marcos Teológico, o melhor escritor pastoral e designer editorial bíblico do Brasil.
-Sua especialidade é criar conteúdo bíblico EXTRAORDINARIAMENTE RICO, profundo, elegante e completo.
-
-PERSONALIDADE: Erudito, pastoral, criativo, eloquente. Combina profundidade teológica com linguagem acessível.
-
-REGRAS ABSOLUTAS:
-1. Gere conteúdo LONGO E DETALHADO em cada seção - nunca texto curto ou genérico
-2. Cada seção do estudo deve ter 2-4 parágrafos ricos com insights teológicos reais
-3. Use HTML completo: <h2>, <h3>, <p>, <strong>, <em>, <blockquote>, <ul>, <li>
-4. Escolha versículos REAIS e RELEVANTES ao tema
-5. Inclua CONTEXTO HISTÓRICO real da passagem bíblica
-6. Aplique interpretação PASTORAL com exemplos práticos concretos de vida real
-7. Use cores elegantes para destaques, mas NÃO use cores fixas (como preto ou cinza escuro) no texto base para garantir compatibilidade com o modo escuro (Dark Mode).
-8. Seja CRIATIVO e ÚNICO - nunca use um template genérico.
-9. Responda SOMENTE com JSON válido, sem markdown.
-10. O campo studyContent.content deve ter PELO MENOS 1500 caracteres de HTML rico, profundo e sem placeholders.
-11. REVISÃO DE PORTUGUÊS: Garanta ortografia e gramática IMPECÁVEIS. Use o padrão da norma culta com tom pastoral.`;
+    const systemInstruction = `Atue como Dr. Marcos, teólogo e designer editorial. 
+Crie conteúdo bíblico profundo, elegante e visualmente rico.
+DIRETRIZES:
+1. Use HTML: <h2>, <h3>, <p>, <strong>, blockquote, ul, li.
+2. Estudo profundo (450-600 palavras totais) com contexto histórico e aplicação prática real.
+3. Não use cores fixas em textos base (suporte ao Dark Mode).
+4. Responda APENAS com JSON válido.`;
 
     const prompt = `PEDIDO: "${userPrompt}"
 AUTOR: "${authorName || 'Pr. Gabriel'}"
 
-Crie uma one-page pastoral bíblica COMPLETA, PROFUNDA E ELEGANTE. Retorne JSON com esta estrutura EXATA:
-
+Gere uma one-page pastoral completa em JSON:
 {
-  "meta": {
-    "title": "TÍTULO IMPACTANTE E ESPECÍFICO (não genérico)",
-    "description": "Subtítulo pastoral profundo de 15-25 palavras que inspira e contextualiza"
-  },
-  "slug": "slug-especifico-sobre-o-tema",
+  "meta": { "title": "Título Impactante", "description": "Subtítulo pastoral (15-20 palavras)" },
+  "slug": "link-amigavel",
   "blocks": {
     "hero": {
-      "title": "TÍTULO PRINCIPAL PODEROSO (máx 8 palavras)",
-      "subtitle": "Frase pastoral profunda e inspiradora de 15 a 25 palavras",
-      "backgroundColor": "#1a2744",
-      "textColor": "#ffffff",
-      "backgroundImage": "",
-      "showCta": true,
-      "ctaText": "Mergulhe nesta mensagem",
-      "ctaLink": "#estudo",
-      "alignment": "center",
-      "showSubtitle": true
+      "title": "Chamada Curta", "subtitle": "Frase inspiradora (20 palavras)",
+      "backgroundColor": "#1a2744", "textColor": "#ffffff", "alignment": "center"
     },
-    "biblical": {
-      "verse": "Livro X:Y",
-      "reference": "Livro X:Y",
-      "text": "TEXTO COMPLETO E REAL do versículo escolhido, sem abreviação",
-      "style": "elegant"
-    },
+    "biblical": { "verse": "Ref", "reference": "Ref", "text": "Texto do versículo", "style": "elegant" },
     "studyContent": {
-      "content": "<p><span style='color:#C9A227;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;'>Guia de Estudo Bíblico</span></p>\n<h2><strong>1. Introdução — O Chamado que Muda Tudo</strong></h2>\n<p>[PARÁGRAFO LONGO ≥120 palavras: contextualize o tema com riqueza, mostre por que essa mensagem é urgente hoje, conecte com a vida real do leitor com exemplos concretos]</p>\n<p>[SEGUNDO PARÁGRAFO ≥80 palavras: aprofunde a introdução com reflexão teológica acessível]</p>\n<h2><strong>2. Contexto Bíblico — O Pano de Fundo da Mensagem</strong></h2>\n<p>[PARÁGRAFO LONGO ≥150 palavras: explique o contexto histórico, geográfico e cultural da passagem. Quem escreveu? Para quem? Em que momento? O que estava acontecendo? Use detalhes históricos reais]</p>\n<p>[SEGUNDO PARÁGRAFO ≥100 palavras: explique o significado teológico profundo do texto no contexto do plano redentor de Deus]</p>\n<blockquote style='border-left:4px solid #C9A227;padding-left:1rem;margin:1rem 0;font-style:italic;'><p>[Destaque uma frase-chave do versículo com comentário pastoral breve]</p></blockquote>\n<h2><strong>3. Aplicação Prática — Vivendo esta Verdade Hoje</strong></h2>\n<p>[PARÁGRAFO LONGO ≥120 palavras: mostre como aplicar esta verdade na vida diária com 3-4 passos ou princípios concretos e práticos]</p>\n<ul style='padding-left:1.5rem;'><li style='margin-bottom:0.5rem;'>[Princípio prático 1 com exemplo real]</li><li style='margin-bottom:0.5rem;'>[Princípio prático 2 com exemplo real]</li><li style='margin-bottom:0.5rem;'>[Princípio prático 3 com exemplo real]</li></ul>\n<h2><strong>4. Oração — Um Coração que Responde</strong></h2>\n<p>[ORAÇÃO PASTORAL LONGA ≥80 palavras: primeira pessoa, fervorosa, conectada ao tema, com petições específicas, finaliza com louvor]</p>\n<h2><strong>5. Conclusão — O Chamado Continua</strong></h2>\n<p>[PARÁGRAFO DE FECHAMENTO ≥100 palavras: recapitule a mensagem central, faça um chamado à ação transformador, termine com esperança e comissão]</p>"
+      "content": "<h2>1. Introdução</h2><p>[Reflexão profunda ~100 palavras]</p><h2>2. Contexto e Teologia</h2><p>[Contexto histórico e significado ~150 palavras]</p><blockquote>Frase de impacto</blockquote><h2>3. Aplicação para a Vida</h2><p>[3 princípios práticos ~150 palavras]</p><h2>4. Oração Pastoral</h2><p>[Oração fervorosa ~60 palavras]</p><h2>5. Conclusão</h2><p>[Fechamento inspirador ~60 palavras]</p>"
     },
-    "authority": {
-      "name": "${authorName || 'Pr. Gabriel'}",
-      "bio": "BIO PASTORAL ESPECÍFICA E INSPIRADORA de 2-3 frases: mencione chamado, paixão bíblica e ministério específico do autor. Seja criativo e pastoral."
-    },
-    "footer": {
-      "tagline": "TAGLINE MEMORÁVEL E ESPECÍFICA ao tema (não genérica) de 8-12 palavras",
-      "showSocial": true
-    }
+    "authority": { "name": "${authorName || 'Pr. Gabriel'}", "bio": "Bio pastoral breve (2 frases)." },
+    "footer": { "tagline": "Frase de encerramento (10 palavras)", "showSocial": true }
   }
 }
-
-ATENÇÃO: O campo studyContent.content deve ser HTML RICO E LONGO com todo o conteúdo real preenchido (não placeholders entre colchetes). Mínimo de 1500 caracteres.`;
+Importante: O campo studyContent.content deve ter conteúdo real, rico e bíblico.`;
 
     try {
         const raw = await callAI(prompt, systemInstruction, "json");
-        // Strip any potential markdown wrappers
-        const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        // Strip any potential markdown wrappers or artifacts
+        let cleaned = raw;
+        if (cleaned.includes('```')) {
+            cleaned = cleaned.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        }
+        // If there's garbage before or after the JSON, try to extract the main object
+        const firstBrace = cleaned.indexOf('{');
+        const lastBrace = cleaned.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1) {
+            cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+        }
+        
         return JSON.parse(cleaned);
     } catch (e: any) {
         throw new Error(`Falha ao gerar one-page com IA: ${e.message}`);

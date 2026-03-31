@@ -2,12 +2,12 @@ import { generateDailyDevotional } from './pastorAgent';
 import { dbService } from './supabase';
 import {
   normalizeVerseReference,
-  pickResolvedDevotional,
   type ResolvedDevotionalCandidate,
 } from './devotionalResolverCore';
 
 interface ResolveUserDailyDevotionalInput {
   userId?: string | null;
+  forceNew?: boolean;
 }
 
 const USER_DEVOTIONAL_SETTING_PREFIX = 'user_devotional_resolution';
@@ -118,21 +118,73 @@ const generateUniqueFallback = async (date: string, seenVerseReferences: string[
   return null;
 };
 
-export const resolveUserDailyDevotional = async ({ userId }: ResolveUserDailyDevotionalInput) => {
-  let officialRaw = await dbService.getDailyDevotional();
+export const resolveUserDailyDevotional = async ({ userId, forceNew }: ResolveUserDailyDevotionalInput) => {
+  const todayDate = toDateId(new Date().toISOString());
 
-  if (!officialRaw) {
-    const todayDate = toDateId(new Date().toISOString());
-    const generatedOfficial = await generateDailyDevotional(true);
+  // Se o usuário pediu para atualizar, gera um exclusivo para ele
+  if (forceNew && userId) {
+      const seenVerseReferences = await collectSeenVerseReferences(userId);
+      const fallback = await generateUniqueFallback(todayDate, seenVerseReferences);
+      
+      let candidate = fallback;
+      if (!candidate) {
+          const generated = await generateDailyDevotional(true);
+          candidate = createGeneratedCandidate(generated, todayDate);
+      }
+      
+      if (candidate) {
+          await persistUserResolution(userId, candidate);
+          return candidate;
+      }
+  }
+
+  // Verificar se O USUÁRIO já tem um devocional (oficial gerado localmente ou um personalizado que foi gerado em sessões anteriores) para hoje! 
+  // Isso previne chamadas infinitas caso o ADMIN DEVOTIONAL DB falhe em salvar o novo gerado.
+  if (userId) {
+     const settingsKey = getUserResolutionKey(userId, todayDate);
+     // 1. Tenta recuperar do localStorage (cache relâmpago local infalível)
+     if (typeof window !== 'undefined') {
+         const localCached = localStorage.getItem(settingsKey);
+         if (localCached) {
+             const parsed = normalizeDevotionalCandidate(JSON.parse(localCached), todayDate);
+             if (parsed) return parsed;
+         }
+     }
+     
+     // 2. Se não tem no localStorage, tenta do DB (pode falhar se a tabela não existir)
+     const persisted = normalizeDevotionalCandidate(
+        await dbService.getUserScopedSetting(settingsKey),
+        todayDate
+     );
+     if (persisted) {
+         if (typeof window !== 'undefined') localStorage.setItem(settingsKey, JSON.stringify(persisted));
+         return persisted; // Se tem, usa ele e nem tenta gerar um oficial novo!
+     }
+  }
+
+  // Tenta puxar o oficial do banco
+  let officialRaw = await dbService.getDailyDevotional();
+  const isFromToday = officialRaw?.date === todayDate;
+
+  // Se o banco está atrasado, a IA gera um pra hoje
+  if (!officialRaw || !isFromToday) {
+    // Busca devocionais do último ano para não repetir referências
+    const pastYearDevotionals = await dbService.getRecentDailyDevotionals(365);
+    const seenReferences = pastYearDevotionals
+        .map((d: any) => d.reference || d.verseReference)
+        .filter(Boolean);
+
+    const generatedOfficial = await generateDailyDevotional(true, 'bigpickle', { excludedVerseReferences: seenReferences });
     if (generatedOfficial) {
       officialRaw = {
         date: todayDate,
         title: generatedOfficial.title,
-        verseReference: generatedOfficial.verseReference,
-        verseText: generatedOfficial.verseText,
-        content: generatedOfficial.content,
+        reference: generatedOfficial.verseReference || generatedOfficial.reference,
+        verse: generatedOfficial.verseText || generatedOfficial.verse,
+        text: generatedOfficial.content || generatedOfficial.text,
         prayer: generatedOfficial.prayer,
       };
+      // Tenta salvar no banco como "oficial do dia"
       await dbService.saveAdminDevotional(officialRaw);
     }
   }
@@ -143,41 +195,18 @@ export const resolveUserDailyDevotional = async ({ userId }: ResolveUserDailyDev
     return null;
   }
 
-  if (!userId) {
-    return official;
+  if (userId) {
+     // Primeira vez do dia pra esse usuario, gravar o "view"
+     const picked = { ...official, source: 'official' } as ResolvedDevotionalCandidate;
+     await persistUserResolution(userId, picked);
+     
+     // Força no cache local para blindar contra falha silenciosa de DB (RLS ou tabela inexistente)
+     if (typeof window !== 'undefined') {
+         localStorage.setItem(getUserResolutionKey(userId, todayDate), JSON.stringify(picked));
+     }
+     
+     return picked;
   }
 
-  const persisted = normalizeDevotionalCandidate(
-    await dbService.getUserScopedSetting(getUserResolutionKey(userId, official.date)),
-    official.date,
-  );
-
-  const seenVerseReferences = await collectSeenVerseReferences(userId);
-  const fallbackPool = (await dbService.getRecentDailyDevotionals(240))
-    .map((item: any) => normalizeDevotionalCandidate(item))
-    .filter(Boolean)
-    .filter((candidate): candidate is ResolvedDevotionalCandidate => Boolean(candidate))
-    .filter((candidate) => candidate.id !== official.id);
-
-  const picked = pickResolvedDevotional({
-    official: { ...official, source: 'official' },
-    persistedForToday: persisted,
-    fallbackPool,
-    seenVerseReferences,
-  });
-
-  if (picked) {
-    if (!persisted) {
-      await persistUserResolution(userId, picked);
-    }
-    return picked;
-  }
-
-  const generated = await generateUniqueFallback(official.date, seenVerseReferences);
-  if (!generated) {
-    return official;
-  }
-
-  await persistUserResolution(userId, generated);
-  return generated;
+  return official;
 };
