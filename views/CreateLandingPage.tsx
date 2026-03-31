@@ -375,16 +375,20 @@ const CreateLandingPage: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || 
+                      target.tagName === 'TEXTAREA' || 
+                      target.isContentEditable || 
+                      target.closest('[contenteditable="true"]');
+
+      if (isInput) return; // Permite o undo/redo nativo do navegador para o texto.
+
       // Ctrl+Z or Cmd+Z
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        // Only prevent default if we are not actively typing inside a text element to avoid breaking native browser undo completely
-        // BUT controlled components require custom handling.
-        // We will execute our custom block state undo/redo.
+        e.preventDefault();
         if (e.shiftKey) {
-          e.preventDefault();
           handleRedo();
         } else {
-          e.preventDefault();
           handleUndo();
         }
       }
