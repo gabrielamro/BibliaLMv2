@@ -16,7 +16,7 @@ import {
   MessageSquare, Share2, Clock, Globe, Lock, Check, Copy,
   Sun, MessageCircle, LayoutTemplate, Wand2, Layers, Bold, Italic,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Link, Mail, ExternalLink, Search, Sparkle,
-  Play, Pause, ImagePlus, Wand, FolderOpen, Maximize2, Minimize2, Square,
+  Play, Pause, ImagePlus, Wand, FolderOpen, Maximize2, Minimize2, Square, Undo2, Redo2,
   Baseline, Maximize, Move, Palette, Sliders, Type as TextIcon
 } from 'lucide-react';
 import SEO from '../components/SEO';
@@ -125,6 +125,11 @@ const CreateLandingPage: React.FC = () => {
   const [settingsTab, setSettingsTab] = useState<'config' | 'access'>('config');
   const [accessLogs, setAccessLogs] = useState<any[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+
+  // Histórico (Undo/Redo)
+  const [history, setHistory] = useState<Block[][]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isUndoing, setIsUndoing] = useState(false);
 
   // AI Auto-Builder (Fase 3)
   const [showAIBuilderModal, setShowAIBuilderModal] = useState(false);
@@ -326,6 +331,72 @@ const CreateLandingPage: React.FC = () => {
       });
     }
   }, [verseRef, verseText]);
+
+  // --- UNDO / REDO ---
+  useEffect(() => {
+    if (isUndoing) {
+      setIsUndoing(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setHistory(prev => {
+        const lastBlocks = prev[historyIndex];
+        const currentBlocksStr = JSON.stringify(content.blocks);
+        const lastBlocksStr = JSON.stringify(lastBlocks || []);
+        if (currentBlocksStr === lastBlocksStr) return prev;
+        
+        const newHistory = prev.slice(0, historyIndex + 1);
+        newHistory.push(content.blocks);
+        if (newHistory.length > 50) newHistory.shift();
+        setHistoryIndex(newHistory.length - 1);
+        return newHistory;
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [content.blocks, historyIndex, isUndoing]);
+
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      setIsUndoing(true);
+      const prevIndex = historyIndex - 1;
+      setHistoryIndex(prevIndex);
+      setContent(curr => ({ ...curr, blocks: history[prevIndex] }));
+    }
+  }, [history, historyIndex]);
+
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      setIsUndoing(true);
+      const nextIndex = historyIndex + 1;
+      setHistoryIndex(nextIndex);
+      setContent(curr => ({ ...curr, blocks: history[nextIndex] }));
+    }
+  }, [history, historyIndex]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+Z or Cmd+Z
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        // Only prevent default if we are not actively typing inside a text element to avoid breaking native browser undo completely
+        // BUT controlled components require custom handling.
+        // We will execute our custom block state undo/redo.
+        if (e.shiftKey) {
+          e.preventDefault();
+          handleRedo();
+        } else {
+          e.preventDefault();
+          handleUndo();
+        }
+      }
+      // Ctrl+Y or Cmd+Y
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
 
   // Seletor de tipo
   const handleSelectType = (type: ContentType, mode: CreationMode) => {
@@ -667,6 +738,25 @@ const CreateLandingPage: React.FC = () => {
               </button>
               
               <div className="hidden sm:flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-0.5">
+                <button
+                  onClick={handleUndo}
+                  disabled={historyIndex <= 0}
+                  className="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-md text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                  title="Desfazer (Ctrl+Z)"
+                >
+                  <Undo2 size={16} />
+                </button>
+                <button
+                  onClick={handleRedo}
+                  disabled={historyIndex >= history.length - 1}
+                  className="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-md text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                  title="Refazer (Ctrl+Shift+Z)"
+                >
+                  <Redo2 size={16} />
+                </button>
+              </div>
+
+              <div className="hidden lg:flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-0.5">
                 {([
                   { key: 'mobile' as const, icon: <Minimize2 size={14} />, label: 'Mobile (375px)' },
                   { key: 'tablet' as const, icon: <Square size={14} />, label: 'Tablet (768px)' },
