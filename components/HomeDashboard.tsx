@@ -494,7 +494,7 @@ const HomeDashboard: React.FC = () => {
                             <div className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm">
                                 <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Acesso Rápido</h3>
                                 <div className="space-y-2">
-                                    <button onClick={() => navigate('/estudos/planos')} className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
+                                    <button onClick={() => navigate('/estudos')} className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
                                         <div className="flex items-center gap-3">
                                             <div className="p-2 bg-blue-100 dark:bg-blue-900/20 text-blue-600 rounded-lg"><BookMarked size={16} /></div>
                                             <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Meus Estudos</span>

@@ -148,7 +148,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 colorClass: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400',
                 items: [
                     { label: 'Santuário', path: '/', icon: <Home size={18} />, type: 'personal' as NavType, description: 'Seu painel principal' },
-                    { label: 'Meus Estudos', path: '/estudos/planos', icon: <BookMarked size={18} />, protected: true, type: 'personal' as NavType, description: 'Seus sermões e notas' },
+                    { label: 'Meus Estudos', path: '/estudos', icon: <BookMarked size={18} />, protected: true, type: 'personal' as NavType, description: 'Seus sermões e notas' },
                     { label: 'Cursos & Trilhas', path: '/aluno', icon: <GraduationCap size={18} />, type: 'personal' as NavType, description: 'Salas e Trilhas' },
                     { label: 'Estúdio Criativo', path: '/estudio-criativo', icon: <Wand2 size={18} />, protected: true, type: 'personal' as NavType, description: 'Crie imagens e podcasts' },
                     { label: 'Conselheiro IA', path: '/chat', icon: <MessageCircle size={18} />, type: 'personal' as NavType, description: 'Tire dúvidas com a IA' },

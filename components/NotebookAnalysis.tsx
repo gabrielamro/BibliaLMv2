@@ -225,7 +225,7 @@ const NotebookAnalysis: React.FC = () => {
       try {
           await dbService.delete(currentUser.uid, 'studies', studyId);
           showNotification("Estudo excluído.", "info");
-          navigate('/estudos/planos');
+          navigate('/estudos');
       } catch (e) {
           showNotification("Erro ao excluir.", "error");
       }

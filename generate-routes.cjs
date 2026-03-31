@@ -48,7 +48,7 @@ const routesConfig = `
                   <Route path="/estudo/tematico" element={<ProtectedRoute><ThematicStudiesPage /></ProtectedRoute>} />
                   <Route path="/estudo/modulo/:moduleId" element={<ProtectedRoute><ModulePlayerPage /></ProtectedRoute>} />
                   <Route path="/criar-estudo" element={<ProtectedRoute><CreateStudyPage /></ProtectedRoute>} />
-                  <Route path="/estudos/planos" element={<ProtectedRoute><WorkspacePage /></ProtectedRoute>} />
+                  <Route path="/estudos" element={<ProtectedRoute><WorkspacePage /></ProtectedRoute>} />
                   <Route path="/workspace" element={<ProtectedRoute><WorkspacePage /></ProtectedRoute>} />
                   <Route path="/estudos/livro/:bookId" element={<ProtectedRoute><BookStudyPage /></ProtectedRoute>} />
                   <Route path="/perfil" element={<ProtectedRoute><PublicUserProfilePage /></ProtectedRoute>} />

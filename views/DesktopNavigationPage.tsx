@@ -265,7 +265,7 @@ const DesktopNavigationPage: React.FC = () => {
           title: "Meus Estudos", 
           desc: "Biblioteca pessoal com notas e sermões salvos.", 
           icon: <GraduationCap />, 
-          path: "/estudos/planos", 
+          path: "/estudos", 
           color: "text-amber-600",
           bgGradient: "bg-amber-100 dark:bg-amber-900/50"
         },

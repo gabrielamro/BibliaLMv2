@@ -85,7 +85,7 @@ const CreateStudyPage: React.FC = () => {
   useEffect(() => {
       setHeaderTitle(title || 'Novo Estudo');
       setBreadcrumbs([
-          { label: 'Estudos', path: '/estudos/planos' },
+          { label: 'Estudos', path: '/estudos' },
           { label: title || 'Novo Estudo' }
       ]);
       return () => resetHeader();
@@ -233,7 +233,7 @@ const CreateStudyPage: React.FC = () => {
           await dbService.add(currentUser.uid, 'studies', studyData);
           await earnMana('create_sermon');
           showNotification(targetStatus === 'draft' ? "Rascunho salvo." : "Estudo publicado com sucesso!", "success");
-          navigate('/estudos/planos');
+          navigate('/estudos');
       } catch (e) {
           console.error(e);
           showNotification("Erro ao salvar projeto.", "error");

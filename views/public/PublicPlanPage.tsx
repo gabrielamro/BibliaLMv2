@@ -410,7 +410,7 @@ const PublicPlanPage: React.FC = () => {
                 setIsHeaderHidden(true); // Oculta o topo global para não duplicar com a barra de leitura
                 setTitle(dayLabel || readingDay.title);
                 setBreadcrumbs([
-                    { label: 'Planos', path: '/estudos/planos' },
+                    { label: 'Planos', path: '/estudos' },
                     { label: plan.title, onClick: () => setReadingDay(null) },
                     { label: dayLabel || 'Leitura' }
                 ]);
@@ -418,7 +418,7 @@ const PublicPlanPage: React.FC = () => {
                 setIsHeaderHidden(false);
                 setTitle(plan.title);
                 setBreadcrumbs([
-                    { label: 'Planos', path: '/estudos/planos' },
+                    { label: 'Planos', path: '/estudos' },
                     { label: plan.title }
                 ]);
             }
