@@ -130,7 +130,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         if (path === '/estudio-criativo') return 'Estúdio Criativo';
         if (path === '/plano') return 'Meta de Leitura';
         if (path === '/devocional') return 'Pão Diário';
-        if (path === '/aluno') return 'Área do Aluno';
         if (path === '/quiz') return 'Desafio da Sabedoria';
         if (path === '/historico') return 'Minhas Atividades';
         if (path === '/pulpito') return 'Púlpito Digital';
@@ -149,7 +148,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 items: [
                     { label: 'Santuário', path: '/', icon: <Home size={18} />, type: 'personal' as NavType, description: 'Seu painel principal' },
                     { label: 'Meus Estudos', path: '/estudos', icon: <BookMarked size={18} />, protected: true, type: 'personal' as NavType, description: 'Seus sermões e notas' },
-                    { label: 'Cursos & Trilhas', path: '/aluno', icon: <GraduationCap size={18} />, type: 'personal' as NavType, description: 'Salas e Trilhas' },
                     { label: 'Estúdio Criativo', path: '/estudio-criativo', icon: <Wand2 size={18} />, protected: true, type: 'personal' as NavType, description: 'Crie imagens e podcasts' },
                     { label: 'Conselheiro IA', path: '/chat', icon: <MessageCircle size={18} />, type: 'personal' as NavType, description: 'Tire dúvidas com a IA' },
                     { label: 'Atividades', path: '/historico', icon: <History size={18} />, protected: true, type: 'personal' as NavType, description: 'Seu histórico' },

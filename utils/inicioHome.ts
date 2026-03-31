@@ -17,7 +17,6 @@ export const INICIO_QUICK_ACCESS_GROUPS: InicioQuickAccessGroup[] = [
     title: 'Pessoal',
     items: [
       { label: 'Meus Estudos', path: '/estudos', iconKey: 'book-marked', colorClass: 'text-orange-500' },
-      { label: 'Cursos & Trilhas', path: '/aluno', iconKey: 'target', colorClass: 'text-red-500' },
       { label: 'Estúdio Criativo', path: '/estudio-criativo', iconKey: 'wand', colorClass: 'text-pink-500' },
       { label: 'Conselheiro IA', path: '/chat', iconKey: 'message', colorClass: 'text-purple-500' },
       { label: 'Atividades', path: '/historico', iconKey: 'history', colorClass: 'text-sky-500' },

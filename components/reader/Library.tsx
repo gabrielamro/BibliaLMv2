@@ -59,7 +59,6 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
         { label: 'Pão Diário', icon: <Coffee size={14} />, path: '/devocional', color: 'text-orange-500' },
         { label: 'Minhas Notas', icon: <Bookmark size={14} />, path: '/notes', color: 'text-yellow-600' },
         { label: 'Metas', icon: <Target size={14} />, path: '/plano', color: 'text-green-500' },
-        { label: 'Salas', icon: <GraduationCap size={14} />, path: '/aluno', color: 'text-blue-500' },
         { label: 'Artes', icon: <Palette size={14} />, path: '/estudio-criativo', color: 'text-pink-500' },
     ];
 

@@ -28,7 +28,6 @@ const routesConfig = `
                   <Route path="/:username" element={<PublicUserProfilePage />} />
                   <Route path="/igreja/:churchSlug" element={<ChurchProfilePage />} />
                   <Route path="/social/igreja/:churchSlug" element={<ChurchProfilePage />} />
-                  <Route path="/aluno" element={<StudentWorkspacePage />} />
                   <Route path="/oracoes" element={<GuidedPrayersPage />} />
                   <Route path="/trilhas" element={<TracksPage />} />
                   <Route path="/fonte-conhecimento" element={<KnowledgeSourcePage />} />
@@ -121,7 +120,7 @@ const importMap = {
     FaithTechAIPage: 'views/FaithTechAIPage',
     CommunityArticlesPage: 'views/CommunityArticlesPage',
     PrayerRoomPage: 'views/PrayerRoomPage',
-    StudentWorkspacePage: 'views/StudentWorkspacePage',
+
     TracksManagerPage: 'views/TracksManagerPage',
     GuidedPrayersPage: 'views/GuidedPrayersPage',
     TracksPage: 'views/TracksPage',
