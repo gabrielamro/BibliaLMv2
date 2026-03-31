@@ -740,8 +740,7 @@ const CreateLandingPage: React.FC = () => {
                 <Sparkles size={16} />
                 <span className="hidden sm:inline">IA Auto-Builder</span>
               </button>
-              
-              <div className="hidden sm:flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-0.5">
+              <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-0.5">
                 <button
                   onClick={handleUndo}
                   disabled={historyIndex <= 0}
