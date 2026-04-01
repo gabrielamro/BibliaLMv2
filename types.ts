@@ -184,6 +184,7 @@ export interface SavedStudy extends UserContent {
   isFollowed?: boolean;
   refDayId?: string; // ID da aula/dia associado
   planId?: string; // ID do plano original
+  coverImage?: string; // Capa do estudo (da coluna cover_image ou meta)
 }
 
 export interface PlanComment {

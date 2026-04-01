@@ -83,14 +83,26 @@ const WorkspacePage: React.FC = () => {
                     let meta = s.meta;
                     try { if (typeof blocks === 'string') blocks = JSON.parse(blocks); } catch(e) { blocks = []; }
                     try { if (typeof meta === 'string') meta = JSON.parse(meta); } catch(e) { meta = {}; }
-                    return { ...s, type: 'study', blocks, meta };
+                    return { 
+                        ...s, 
+                        type: 'study', 
+                        blocks, 
+                        meta, 
+                        coverUrl: s.cover_image || meta?.coverImage || s.coverUrl 
+                    };
                 });
                 const normalizedPublicStudies = (publicStudiesData as any[]).map(s => {
                     let blocks = s.blocks;
                     let meta = s.meta;
                     try { if (typeof blocks === 'string') blocks = JSON.parse(blocks); } catch(e) { blocks = []; }
                     try { if (typeof meta === 'string') meta = JSON.parse(meta); } catch(e) { meta = {}; }
-                    return { ...s, type: 'study', blocks, meta };
+                    return { 
+                        ...s, 
+                        type: 'study', 
+                        blocks, 
+                        meta, 
+                        coverUrl: s.cover_image || meta?.coverImage || s.coverUrl 
+                    };
                 });
                 const normalizedPlans = (plansData as any[]).map(p => ({ ...p, type: 'plan' }));
                 const normalizedNotes = (notesData as any[]).map(n => ({ ...n, type: 'note', title: n.title || 'Anotação sem título' }));

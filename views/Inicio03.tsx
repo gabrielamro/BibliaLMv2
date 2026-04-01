@@ -146,7 +146,7 @@ const SanctuaryPage: React.FC = () => {
 
   return (
     <div className={`min-h-screen selection:bg-[#c5a059]/30 font-sans pb-24 ${isLightTheme ? 'bg-[#F6F3EE] text-[#111111]' : 'bg-[#0E0E0E] text-white'}`}>
-      <main className="max-w-[1200px] mx-auto px-4 lg:px-6 pt-6 space-y-6">
+      <main className="w-full max-w-[1600px] mx-auto px-4 md:px-6 lg:px-12 xl:px-20 2xl:px-32 pt-6 space-y-10">
         
         {/* ========================================================= */}
         {/* CABEÇALHO EXATO DO ANEXO */}
@@ -347,10 +347,10 @@ const SanctuaryPage: React.FC = () => {
         {/* ========================================================= */}
         {/* GRID DO CONTEÚDO */}
         {/* ========================================================= */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 mt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 lg:gap-10 mt-10">
           
           {/* COLUNA ESQUERDA (Principal) - ocupa 8 colunas no grid baseado no anexo */}
-          <div className="lg:col-span-8 space-y-4 lg:space-y-6">
+          <div className="lg:col-span-8 space-y-6 md:space-y-8 lg:space-y-12">
             
             {activeTab === 'inicio' && (
               <>
@@ -360,7 +360,7 @@ const SanctuaryPage: React.FC = () => {
                 <img src="https://images.unsplash.com/photo-1525286102666-b3281abadd14?auto=format&fit=crop&q=80&w=1600" alt="" className="w-full h-full object-cover transition-transform duration-[20s] group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0E0E0E] via-[#0E0E0E]/80 to-[#0E0E0E]/30" />
                 <div className="absolute top-10 left-0 w-full text-center pointer-events-none opacity-80">
-                  <h1 className="text-[120px] md:text-[180px] font-black text-white/10 tracking-tighter leading-none select-none">JESUS</h1>
+                  <h1 className="text-[120px] md:text-[180px] lg:text-[220px] xl:text-[280px] font-black text-white/10 tracking-tighter leading-none select-none">JESUS</h1>
                 </div>
               </div>
               
@@ -369,7 +369,7 @@ const SanctuaryPage: React.FC = () => {
                   <BookOpen size={14} /> Versículo do Dia
                 </div>
                 
-                <h2 className="text-2xl md:text-[32px] font-bold text-white leading-tight mb-8 max-w-3xl line-clamp-3">
+                <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-white leading-tight mb-8 max-w-4xl line-clamp-3">
                   "{verseOfTheDay.text}"
                 </h2>
                 
@@ -439,7 +439,7 @@ const SanctuaryPage: React.FC = () => {
                     <Zap size={10} fill="currentColor" />
                     <span className="text-[9px] font-black tracking-widest uppercase">DEVOCIONAL DO DIA</span>
                   </div>
-                  <p className="text-gray-900 dark:text-white text-xs font-serif italic mb-2 leading-snug pr-4 line-clamp-3">
+                  <p className="text-gray-900 dark:text-white text-fluid-body font-serif italic mb-2 leading-relaxed pr-4 line-clamp-3">
                     "{loadingDevotional ? 'Carregando porção diária...' : (dailyDevotional?.verse || dailyDevotional?.verseText || 'Hoje, enquanto meditamos nas palavras do Senhor...')}"
                   </p>
                   <span className="text-[#c5a059] font-bold text-[9px] uppercase tracking-widest">
@@ -455,7 +455,7 @@ const SanctuaryPage: React.FC = () => {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2 text-gray-900 dark:text-white">
                     <BookOpen size={18} className="text-[#c5a059]" />
-                    <h2 className="font-bold text-base">Planos & Salas</h2>
+                    <h2 className="font-bold text-lg md:text-xl lg:text-2xl">Planos & Salas</h2>
                   </div>
                   <button 
                     onClick={() => navigate('/workspace-pastoral')}
@@ -522,7 +522,7 @@ const SanctuaryPage: React.FC = () => {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2 text-gray-900 dark:text-white">
                   <FileText size={18} className="text-[#c5a059]" />
-                  <h2 className="font-bold text-base">Meus Estudos</h2>
+                  <h2 className="font-bold text-lg md:text-xl lg:text-2xl">Meus Estudos</h2>
                 </div>
                 <button 
                   onClick={() => navigate('/estudos')}
@@ -581,8 +581,8 @@ const SanctuaryPage: React.FC = () => {
                   <Wand2 size={24} className="text-gray-900 dark:text-white" />
                 </div>
                 <div>
-                  <h2 className="text-gray-900 dark:text-white font-bold text-[20px] leading-tight">Estúdio Criativo com IA</h2>
-                  <p className="text-gray-600 dark:text-gray-400 text-[13px] mt-1 pr-4">Transforme sua fé em arte e áudio. Gere imagens sagradas e podcasts inspiradores com inteligência artificial.</p>
+                  <h2 className="text-gray-900 dark:text-white font-bold text-xl md:text-2xl lg:text-3xl leading-tight">Estúdio Criativo com IA</h2>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base mt-2 pr-4">Transforme sua fé em arte e áudio. Gere imagens sagradas e podcasts inspiradores com inteligência artificial.</p>
                 </div>
               </div>
 
@@ -639,7 +639,7 @@ const SanctuaryPage: React.FC = () => {
                     <Sparkles size={32} className="text-gray-900 dark:text-white" />
                   </div>
                   <div className="relative z-10 flex-1">
-                    <h2 className="text-gray-900 dark:text-white font-bold text-[24px] leading-tight mb-2">Seu Estúdio Criativo</h2>
+                    <h2 className="text-gray-900 dark:text-white font-bold text-2xl md:text-3xl lg:text-4xl leading-tight mb-2">Seu Estúdio Criativo</h2>
                     <p className="text-gray-600 dark:text-gray-400 text-[14px] leading-relaxed">
                       Você pode gerar imagens bíblicas, criar episódios de podcast curtos e planejar esboços utilizando os assistentes de IA especializados.
                     </p>
@@ -767,7 +767,7 @@ const SanctuaryPage: React.FC = () => {
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 md:p-8 flex items-center justify-between relative overflow-hidden">
                   <div className="absolute top-[-50%] right-[-10%] w-64 h-64 bg-white/10 blur-3xl rounded-full pointer-events-none" />
                   <div className="relative z-10">
-                    <h2 className="text-white font-bold text-2xl flex items-center gap-2 mb-2">
+                    <h2 className="text-white font-bold text-2xl md:text-3xl lg:text-4xl flex items-center gap-2 mb-2">
                        <Users size={24} /> Comunidade do Reino
                     </h2>
                     <p className="text-blue-100 text-sm max-w-lg">
@@ -903,7 +903,7 @@ const SanctuaryPage: React.FC = () => {
           {/* ========================================================= */}
           {/* COLUNA DIREITA (Sidebar) - ocupa 4 colunas no grid baseado no anexo */}
           {/* ========================================================= */}
-          <div className="lg:col-span-4 space-y-4 lg:space-y-6">
+          <div className="lg:col-span-4 space-y-6 md:space-y-8 lg:space-y-10">
             
             {/* Minhas Atividades Button */}
             <button 

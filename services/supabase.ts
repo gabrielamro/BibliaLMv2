@@ -940,8 +940,15 @@ export const dbService = {
     },
     publishStudy: async (uid: string, id: string, profile: any, data: any) => {
         await supabase.from('public_studies').upsert({
-            id, user_id: uid, user_name: profile.displayName, user_photo: profile.photoURL,
-            ...clean(data), published_at: now(), views_count: 0, shares_count: 0
+            id, 
+            user_id: uid, 
+            user_name: profile.displayName, 
+            user_photo: profile.photoURL,
+            cover_image: data.meta?.coverImage || data.coverImage || data.coverUrl || null,
+            ...clean(data), 
+            published_at: now(), 
+            views_count: 0, 
+            shares_count: 0
         });
         await supabase.from('studies').update({ status: 'published' }).eq('id', id).eq('user_id', uid);
     },
@@ -968,6 +975,7 @@ export const dbService = {
                 slug,
                 blocks: JSON.stringify(data.blocks || []),
                 meta: JSON.stringify(data.meta || {}),
+                cover_image: data.meta?.coverImage || null,
                 status: data.status || 'draft',
                 published_at: data.status === 'published' ? now() : null,
                 views_count: 0,
@@ -981,19 +989,35 @@ export const dbService = {
         return { id: result.id };
     },
     updatePublicStudy: async (id: string, data: any): Promise<void> => {
-        const { error } = await supabase
+        // Tenta atualizar na tabela pública
+        const updateData = {
+            title: data.meta?.title,
+            description: data.meta?.description,
+            blocks: typeof data.blocks === 'string' ? data.blocks : JSON.stringify(data.blocks || []),
+            meta: typeof data.meta === 'string' ? data.meta : JSON.stringify(data.meta || {}),
+            cover_image: data.meta?.coverImage || null,
+            status: data.status,
+            published_at: data.status === 'published' ? (data.published_at || now()) : null,
+            updated_at: now()
+        };
+
+        const { error: publicError, data: publicResult } = await supabase
             .from('public_studies')
-            .update({
-                title: data.meta?.title,
-                description: data.meta?.description,
-                blocks: JSON.stringify(data.blocks || []),
-                meta: JSON.stringify(data.meta || {}),
-                status: data.status,
-                published_at: data.status === 'published' ? now() : null,
-                updated_at: now()
-            })
-            .eq('id', id);
-        if (error) throw error;
+            .update(updateData)
+            .eq('id', id)
+            .select();
+
+        // Se falhar ou não encontrar na pública, tenta na privada
+        if (publicError || !publicResult || publicResult.length === 0) {
+            const { error: privateError } = await supabase
+                .from('studies')
+                .update(updateData)
+                .eq('id', id);
+            
+            if (privateError && !publicError) throw privateError;
+        }
+
+        if (publicError) throw publicError;
     },
     publishPublicStudy: async (id: string, slug: string): Promise<void> => {
         const { error } = await supabase
@@ -1415,6 +1439,7 @@ function mapStudy(d: any): SavedStudy {
         authorId: d.user_id ?? d.author_id ?? '',
         title: d.title ?? '',
         description: d.description ?? undefined,
+        coverImage: d.cover_image || safeJson(d.meta)?.coverImage || undefined,
         status: d.status ?? 'draft',
         createdAt: d.created_at,
         updatedAt: d.updated_at ?? d.created_at,

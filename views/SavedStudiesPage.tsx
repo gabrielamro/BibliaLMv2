@@ -50,7 +50,12 @@ const SavedStudiesPage: React.FC = () => {
           let meta = s.meta;
           try { if (typeof blocks === 'string') blocks = JSON.parse(blocks); } catch(e) { blocks = []; }
           try { if (typeof meta === 'string') meta = JSON.parse(meta); } catch(e) { meta = {}; }
-          return { ...s, blocks, meta };
+          return { 
+            ...s, 
+            blocks, 
+            meta,
+            coverUrl: s.cover_image || meta?.coverImage || s.coverUrl 
+          };
         });
 
         setStudies([...normalize(studiesData as any[]), ...normalize(publicStudiesData as any[])]);
@@ -206,7 +211,7 @@ const SavedStudiesPage: React.FC = () => {
                 key={item.id}
                 title={item.title || 'Sem titulo'}
                 subtitle={activeTab === 'notes' ? item.content : (item.sourceText || 'Sem descricao')}
-                imageUrl={item.meta?.coverImage || item.coverUrl}
+                imageUrl={item.cover_image || item.meta?.coverImage || item.coverUrl}
                 visibility={item.meta?.visibility}
                 badges={activeTab !== 'notes'
                   ? [

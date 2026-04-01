@@ -17,6 +17,7 @@
 
   html {
     color-scheme: light;
+    font-size: clamp(14px, 0.8vw, 18px);
   }
 
   html.dark {
@@ -62,6 +63,16 @@
       bottom: 1.5rem;
     }
   }
+
+  .text-fluid-title {
+    font-size: clamp(1.8rem, 2vw, 3.5rem);
+    line-height: 1.1;
+  }
+
+  .text-fluid-body {
+    font-size: clamp(0.9rem, 1.2vw, 1.2rem);
+    line-height: 1.5;
+  }
 }
 
 /* Custom Scrollbar */
@@ -85,20 +96,6 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
-}
-
-@layer base {
-  @media (min-width: 1280px) {
-    html {
-      font-size: 14px;
-    }
-  }
-
-  @media (min-width: 1536px) {
-    html {
-      font-size: 13px;
-    }
-  }
 }
 
 /* Editor Simulation Proportions (Canvas Viewport Overrides) */
@@ -125,4 +122,3 @@
 .prose, .rich-editor-content {
   max-width: none !important;
 }
-

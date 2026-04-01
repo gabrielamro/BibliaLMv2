@@ -15,7 +15,7 @@ import {
     GraduationCap, BookMarked, Layers, LayoutGrid, Zap, FileText, Layout as LayoutIcon,
     PenTool, LibraryBig, MonitorPlay, UserCircle, Book, Palette, Wand2, Activity, Target, Map,
     Briefcase, Bell, Clock, Trophy, Info, X, Trash2, Check, MoreHorizontal, LifeBuoy, Scroll, ShieldAlert,
-    History
+    History, Menu
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -60,6 +60,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     });
 
     const [showHeader, setShowHeader] = useState(true);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const lastScrollY = useRef(0);
     const notifRef = useRef<HTMLDivElement>(null);
     const settingsRef = useRef<HTMLDivElement>(null);
@@ -434,16 +435,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="flex flex-1 overflow-hidden relative w-full"> {/* REMOVED pt-safe from here to fix top bar on desktop */}
 
                 {/* Desktop Sidebar - Hidden in Focus Mode and Home Shell */}
-                <aside className={`hidden lg:flex flex-col w-64 bg-white dark:bg-[#0a0a0a] border-r border-gray-200 dark:border-gray-800 relative z-20 ${isFocusMode || isCustomHomeShell ? 'hidden' : ''}`}>
-                    <div onClick={() => navigate('/')} className="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                        <LogoIcon className="w-8 h-8 text-bible-gold" />
-                        <div>
-                            <h1 className="font-serif font-bold text-xl text-gray-900 dark:text-white leading-none">BíbliaLM</h1>
-                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Soli Deo Gloria</span>
-                        </div>
+                <aside className={`hidden lg:flex flex-col transition-all duration-300 ease-in-out bg-white dark:bg-[#0a0a0a] border-r border-gray-200 dark:border-gray-800 relative z-20 ${isSidebarCollapsed ? 'w-20' : 'w-64'} ${isFocusMode || isCustomHomeShell ? 'hidden' : ''}`}>
+                    <div onClick={() => navigate('/')} className={`p-6 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors ${isSidebarCollapsed ? 'p-4 justify-center' : ''}`}>
+                        <LogoIcon className="w-8 h-8 text-bible-gold shrink-0" />
+                        {!isSidebarCollapsed && (
+                            <div className="animate-in fade-in duration-500 truncate">
+                                <h1 className="font-serif font-bold text-xl text-gray-900 dark:text-white leading-none">BíbliaLM</h1>
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Soli Deo Gloria</span>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="p-4">
+                    <div className={`transition-all ${isSidebarCollapsed ? 'p-2' : 'p-4'}`}>
                         <OmniSearch />
                     </div>
 
@@ -452,13 +455,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                             <div key={idx}>
                                 <button
                                     onClick={() => toggleSubmenu(group.groupLabel)}
-                                    className="w-full flex items-center justify-between text-xs font-black uppercase text-gray-400 tracking-widest mb-2 hover:text-gray-600 dark:hover:text-gray-300 px-2 py-1 transition-colors"
+                                    className={`w-full flex items-center text-xs font-black uppercase text-gray-400 tracking-widest mb-2 hover:text-gray-600 dark:hover:text-gray-300 px-2 py-1 transition-colors ${isSidebarCollapsed ? 'justify-center mb-4' : 'justify-between'}`}
                                 >
-                                    {group.groupLabel}
-                                    <ChevronDown size={12} className={`transition-transform duration-200 ${openSubmenus[group.groupLabel] ? 'rotate-180' : ''}`} />
+                                    {!isSidebarCollapsed ? (
+                                        <>
+                                            {group.groupLabel}
+                                            <ChevronDown size={12} className={`transition-transform duration-200 ${openSubmenus[group.groupLabel] ? 'rotate-180' : ''}`} />
+                                        </>
+                                    ) : (
+                                        <div className="p-1 opacity-50">{group.icon}</div>
+                                    )}
                                 </button>
 
-                                {openSubmenus[group.groupLabel] && (
+                                {(!isSidebarCollapsed ? openSubmenus[group.groupLabel] : true) && (
                                     <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
                                         {group.items.map((item: any) => {
                                             const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
@@ -467,13 +476,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                                                     key={item.path}
                                                     href={item.path}
                                                     onClick={(e) => handleNavClick(e, item)}
-                                                    className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all group ${isActive ? 'bg-bible-gold/10 text-bible-leather dark:text-bible-gold font-bold' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'}`}
+                                                    className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all group ${isActive ? 'bg-bible-gold/10 text-bible-leather dark:text-bible-gold font-bold' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'} ${isSidebarCollapsed ? 'justify-center p-2' : ''}`}
+                                                    title={isSidebarCollapsed ? item.label : undefined}
                                                 >
-                                                    <div className={`${isActive ? 'text-bible-gold' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
+                                                    <div className={`shrink-0 ${isActive ? 'text-bible-gold' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
                                                         {item.icon}
                                                     </div>
-                                                    <span className="text-sm">{item.label}</span>
-                                                    {item.protected && !currentUser && <Lock size={12} className="ml-auto text-gray-300" />}
+                                                    {!isSidebarCollapsed && <span className="text-sm truncate animate-in fade-in slide-in-from-left-2 duration-300">{item.label}</span>}
+                                                    {!isSidebarCollapsed && item.protected && !currentUser && <Lock size={12} className="ml-auto text-gray-300" />}
                                                 </Link>
                                             );
                                         })}
@@ -483,20 +493,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         ))}
                     </div>
 
-                    <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-black/20">
+                    <div className={`p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-black/20 ${isSidebarCollapsed ? 'flex justify-center' : ''}`}>
                         {currentUser ? (
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden border border-gray-200 dark:border-gray-600">
-                                    {userProfile?.photoURL ? <img src={userProfile.photoURL} alt="Profile" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center font-bold text-gray-500">{userProfile?.displayName?.substring(0, 2)}</div>}
+                                <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden border border-gray-200 dark:border-gray-600 shrink-0">
+                                    {userProfile?.photoURL ? <img src={userProfile.photoURL} alt="Profile" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center font-bold text-gray-500 text-xs">{(userProfile?.displayName || 'U').substring(0, 1)}</div>}
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{userProfile?.displayName}</p>
-                                    <p className="text-[10px] text-gray-500 font-medium truncate uppercase tracking-tighter">{userProfile?.subscriptionTier}</p>
-                                </div>
+                                {!isSidebarCollapsed && (
+                                    <div className="flex-1 min-w-0 animate-in fade-in duration-300">
+                                        <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{userProfile?.displayName}</p>
+                                        <p className="text-[10px] text-gray-500 font-medium truncate uppercase tracking-tighter">{userProfile?.subscriptionTier}</p>
+                                    </div>
+                                )}
                             </div>
                         ) : (
-                            <button onClick={() => openLogin()} className="w-full py-3 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-xl font-bold text-sm shadow-md hover:scale-[1.02] transition-transform">
-                                Entrar na Conta
+                            <button onClick={() => openLogin()} className={`bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-xl font-bold text-sm shadow-md hover:scale-[1.02] transition-all duration-300 ${isSidebarCollapsed ? 'w-10 h-10 flex items-center justify-center p-0' : 'w-full py-3'}`}>
+                                {isSidebarCollapsed ? <UserIcon size={18} /> : 'Entrar na Conta'}
                             </button>
                         )}
                     </div>
@@ -528,6 +540,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     {/* Desktop Header - Hidden in Focus Mode / Home */}
                     <header className={`hidden md:flex items-center justify-between px-8 py-4 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 z-40 shrink-0 h-20 ${isFocusMode || isCustomHomeShell || isHeaderHidden ? '!hidden' : ''}`}>
                             <div className="flex items-center gap-4">
+                                <button 
+                                    type="button"
+                                    onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                                    className="p-2 text-gray-500 hover:text-bible-gold hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all"
+                                    title={isSidebarCollapsed ? "Expandir" : "Recolher"}
+                                >
+                                    <Menu size={20} />
+                                </button>
+
                                 {showBackButton && (
                                     <button onClick={() => navigate(-1)} className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                                         <ArrowLeft size={20} />

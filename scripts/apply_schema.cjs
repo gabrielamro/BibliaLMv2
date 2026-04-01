@@ -64,7 +64,7 @@ create index if not exists bible_verses_book_chapter_verse_idx on public.bible_v
 
 -- 4. CONTEÚDO GERADO PELO USUÁRIO (UGC)
 
--- Estudos Privados
+-- Estudos Privados (Drafts)
 create table if not exists public.studies (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) not null,
@@ -74,8 +74,11 @@ create table if not exists public.studies (
   source_text text,
   analysis text,
   source text default 'geral',
-  status text default 'draft',
   category text,
+  status text default 'draft',
+  blocks text default '[]',
+  meta text default '{}',
+  cover_image text,
   is_public boolean default false,
   tags text[] default '{}',
   metrics jsonb default '{}',
@@ -85,7 +88,7 @@ create table if not exists public.studies (
 
 -- Estudos Públicos (Vitrine)
 create table if not exists public.public_studies (
-  id uuid primary key,
+  id uuid primary key default gen_random_uuid(),
   user_id uuid references public.profiles(id) not null,
   user_name text,
   user_photo text,
@@ -96,11 +99,19 @@ create table if not exists public.public_studies (
   analysis text,
   source text default 'geral',
   category text,
+  type text default 'article',
+  slug text,
+  blocks text default '[]',
+  meta text default '{}',
+  cover_image text,
+  status text default 'draft',
   tags text[] default '{}',
   views_count int default 0,
   shares_count int default 0,
   likes_count int default 0,
-  published_at timestamptz default now()
+  published_at timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
 
 -- Anotações Pessoais
@@ -416,6 +427,8 @@ create policy "Usuários editam próprios estudos" on public.studies for all usi
 -- Estudos Públicos: Qualquer um vê
 create policy "Estudos públicos são visíveis" on public.public_studies for select using (true);
 create policy "Usuários postam estudos públicos" on public.public_studies for insert with check (auth.uid() = user_id);
+create policy "Usuários editam próprios estudos públicos" on public.public_studies for update using (auth.uid() = user_id);
+create policy "Usuários deletam próprios estudos públicos" on public.public_studies for delete using (auth.uid() = user_id);
 
 -- Posts: Qualquer um vê, dono edita
 create policy "Posts são públicos" on public.posts for select using (true);
@@ -439,10 +452,10 @@ create policy "Usuários atualizam próprio progresso" on public.plan_participan
 async function applySchema() {
   const client = new Client({
     user: 'postgres',
-    host: 'db.sewwhyxrvkcptchakocc.supabase.co',
+    host: 'aws-0-sa-east-1.pooler.supabase.com',
     database: 'postgres',
     password: '[$3curityAmr550903]',
-    port: 5432,
+    port: 6543,
     ssl: {
       rejectUnauthorized: false
     }

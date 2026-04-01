@@ -25,6 +25,7 @@ As mensagens de commit devem ser semânticas:
 | :--- | :--- | :--- | :--- | :--- |
 | 2026-03-10 | feat | components/Layout.tsx | Implementação inicial do Header Centrado | Antigravity |
 | 2026-03-17 | chore | .agents/ | Setup completo dos Agentes Pastor, CPO e Arquiteto | Antigravity |
+| 2026-04-01 | fix | app/, components/, views/ | Persistência de imagem de capa de estudos | Antigravity |
 
 ---
 
