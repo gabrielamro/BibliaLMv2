@@ -175,14 +175,11 @@ const WorkspacePage: React.FC = () => {
     };
 
     const handlePreview = (item: any) => {
-        const slug = (item as any).slug;
-        if (slug) {
-            navigate(`/l/${slug}`);
-            return;
-        }
-        
         if (isStudy(item)) {
-            navigate(`/v/${item.id}`);
+            const destination = getEditDestinationForContent(item as any);
+            if (destination) {
+                navigate(`${destination.path}&step=preview`, { state: destination.state });
+            }
             return;
         }
 

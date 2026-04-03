@@ -237,7 +237,6 @@ const CreateLandingPage: React.FC = () => {
             meta: parsedMeta
           });
           setContentType(data.type || 'article');
-          setCurrentStep('create');
         } else if (state?.studyData) {
           // Fallback para estudo legado ou draft da tabela studies
           const legacyData = state.studyData;
@@ -248,7 +247,7 @@ const CreateLandingPage: React.FC = () => {
           let blocks = parsedBlocks;
           
           // Se não tem blocos estruturados mas tem conteudo (analysis), cria base blocks
-          if (blocks.length === 0 && legacyData.analysis) {
+          if ((!blocks || blocks.length === 0) && legacyData.analysis) {
             blocks = buildBaseBlocks(contentTemplates.article).map(b => {
               if (b.type === 'hero') {
                 return { ...b, data: { ...b.data, title: legacyData.title || 'Estudo', subtitle: legacyData.sourceText?.substring(0, 120) } };
@@ -275,6 +274,14 @@ const CreateLandingPage: React.FC = () => {
             },
             blocks
           }));
+          setContentType(legacyData.type || 'article');
+        }
+
+        // Se houver um parâmetro 'step' na URL, utiliza-o (Preview)
+        const targetStep = urlParams.get('step');
+        if (targetStep === 'preview') {
+          setCurrentStep('preview');
+        } else if (targetId || state?.studyData) {
           setCurrentStep('create');
         }
       } catch (e) {
