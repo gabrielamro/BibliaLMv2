@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Share2, Image as ImageIcon, CheckCircle2, Lock } from 'lucide-react';
+import { Eye, Share2, Image as ImageIcon, CheckCircle2, Lock, Calendar } from 'lucide-react';
 
 export interface CardBadge {
     label: string;
@@ -28,6 +28,8 @@ export interface StandardCardProps {
     statusLabel?: string; // e.g. "Rascunho", "Publicado"
     statusColor?: string; // e.g. "bg-green-500"
     visibility?: 'public' | 'invitation';
+    date?: string;
+    onPreview?: (e: React.MouseEvent) => void;
     onClick?: () => void;
 }
 
@@ -48,13 +50,18 @@ const StandardCard: React.FC<StandardCardProps> = ({
     statusLabel,
     statusColor,
     visibility,
+    date,
+    onPreview,
     onClick
 }) => {
     const displayImage = coverUrl || imageUrl;
     return (
         <div 
-            onClick={onClick}
-            className="bg-white dark:bg-bible-darkPaper rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-800 hover:border-bible-gold transition-all group cursor-pointer relative overflow-hidden flex flex-col h-full animate-in fade-in"
+            onClick={(e) => {
+                if (onPreview) onPreview(e);
+                else if (onClick) onClick();
+            }}
+            className="bg-white dark:bg-bible-darkPaper rounded-[3rem] shadow-sm border border-gray-100 dark:border-gray-800 hover:border-bible-gold transition-all group cursor-pointer relative overflow-hidden flex flex-col h-full animate-in fade-in"
         >
             {/* Thumbnail Area */}
             <div className="h-40 bg-gray-100 dark:bg-gray-900 relative overflow-hidden">
@@ -117,6 +124,13 @@ const StandardCard: React.FC<StandardCardProps> = ({
                          Por: <span className="text-bible-gold">{author}</span>
                      </p>
                 )}
+                 
+                {date && (
+                    <div className="flex items-center gap-1 text-[10px] text-gray-400 font-medium mb-4">
+                        <Calendar size={12} className="shrink-0" />
+                        <span>Criado em {date}</span>
+                    </div>
+                )}
 
                 {/* Footer Metrics & Actions */}
                 <div className="mt-auto pt-4 border-t border-gray-50 dark:border-gray-800 flex items-center justify-between text-xs text-gray-400">
@@ -142,6 +156,11 @@ const StandardCard: React.FC<StandardCardProps> = ({
                     </div>
 
                     <div className="flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                        {onPreview && (
+                            <button onClick={(e) => { e.stopPropagation(); onPreview(e); }} className="p-1.5 bg-bible-gold/10 text-bible-gold rounded hover:bg-bible-gold hover:text-white transition-colors" title="Visualizar">
+                                <Eye size={14} />
+                            </button>
+                        )}
                         {onShare && (
                             <button onClick={(e) => { e.stopPropagation(); onShare(e); }} className="p-1.5 bg-bible-gold/10 text-bible-gold rounded hover:bg-bible-gold hover:text-white transition-colors" title="Compartilhar link">
                                 <Share2 size={14} />

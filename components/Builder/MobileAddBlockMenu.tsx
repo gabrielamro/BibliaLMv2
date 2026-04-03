@@ -45,22 +45,6 @@ export const MobileAddBlockMenu: React.FC<MobileAddBlockMenuProps> = ({
           </button>
         </div>
 
-        {/* AI Action */}
-        <button
-          onClick={() => {
-            onAIBuild();
-            onClose();
-          }}
-          className="w-full p-4 mb-6 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl text-white flex items-center gap-4 active:scale-95 transition-transform shadow-xl shadow-indigo-500/20"
-        >
-          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-            <Sparkles size={24} />
-          </div>
-          <div className="text-left">
-            <p className="font-bold">Gerar com IA</p>
-            <p className="text-xs text-indigo-100 opacity-80">A IA monta tudo para você</p>
-          </div>
-        </button>
 
         {/* Grids de Blocos */}
         <div className="grid grid-cols-2 gap-3 pb-8">

@@ -104,10 +104,9 @@ const WorkspacePage: React.FC = () => {
                         coverUrl: s.cover_image || meta?.coverImage || s.coverUrl 
                     };
                 });
-                const normalizedPlans = (plansData as any[]).map(p => ({ ...p, type: 'plan' }));
                 const normalizedNotes = (notesData as any[]).map(n => ({ ...n, type: 'note', title: n.title || 'Anotação sem título' }));
 
-                setContent([...normalizedStudies, ...normalizedPublicStudies, ...normalizedPlans, ...normalizedNotes]);
+                setContent([...normalizedStudies, ...normalizedPublicStudies, ...normalizedNotes]);
             } catch (e) {
                 console.error(e);
                 showNotification("Erro ao carregar workspace.", "error");
@@ -126,7 +125,6 @@ const WorkspacePage: React.FC = () => {
         if (activeFilter !== 'all') {
             filtered = filtered.filter(c => {
                 if (activeFilter === 'note') return isNote(c);
-                if (activeFilter === 'plan') return isPlan(c);
                 if (activeFilter === 'study') return isStudy(c);
                 return false;
             });
@@ -174,6 +172,26 @@ const WorkspacePage: React.FC = () => {
         if (destination) {
             navigate(destination.path, { state: destination.state });
         }
+    };
+
+    const handlePreview = (item: any) => {
+        const slug = (item as any).slug;
+        if (slug) {
+            navigate(`/l/${slug}`);
+            return;
+        }
+        
+        if (isStudy(item)) {
+            navigate(`/v/${item.id}`);
+            return;
+        }
+
+        if (isPlan(item)) {
+            navigate(`/jornada/${item.id}`);
+            return;
+        }
+        
+        showNotification("Visualização não disponível para este item.", "info");
     };
 
     const handleShare = (item: any) => {
@@ -287,7 +305,6 @@ const WorkspacePage: React.FC = () => {
                     {[
                         { id: 'all', label: 'Tudo', icon: <Layers size={14} /> },
                         { id: 'study', label: 'Estudos', icon: <BookOpen size={14} /> },
-                        { id: 'plan', label: 'Planos', icon: <Calendar size={14} /> },
                         { id: 'note', label: 'Notas', icon: <FileText size={14} /> }
                     ].map(f => (
                         <button
@@ -355,14 +372,23 @@ const WorkspacePage: React.FC = () => {
                                     ]}
                                     metrics={isPlan(item) || isStudy(item) ? item.metrics : undefined}
                                     actionLabel={actionLabel}
+                                    onAction={(e) => {
+                                        e.stopPropagation();
+                                        handleEdit(item);
+                                    }}
+                                    onPreview={(e) => {
+                                        e.stopPropagation();
+                                        handlePreview(item);
+                                    }}
+                                    date={new Date(item.updatedAt || item.createdAt).toLocaleDateString('pt-BR')}
                                     coverUrl={item.coverUrl}
-                                    onAction={() => handleEdit(item)}
                                     // Adiciona Share para itens publicados que tenham slug
                                     onShare={item.status === 'published' && (item as any).slug ? (e) => {
                                         e.stopPropagation();
                                         handleShare(item);
                                     } : undefined}
-                                    onSecondaryAction={() => {
+                                    onSecondaryAction={(e) => {
+                                        e.stopPropagation();
                                         setDeleteId(item.id);
                                         setDeleteType(itemType);
                                     }}
@@ -370,8 +396,11 @@ const WorkspacePage: React.FC = () => {
                                 />
                             ) : (
                                 <div key={item.id} className="bg-white dark:bg-bible-darkPaper p-4 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-between hover:border-bible-gold/30 transition-all group">
-                                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isPlan(item) ? 'bg-purple-50 text-purple-600' : (isFollowedStudy ? 'bg-bible-gold/10 text-bible-gold' : 'bg-blue-50 text-blue-600')}`}>
+                                    <div 
+                                        className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
+                                        onClick={() => handlePreview(item)}
+                                    >
+                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isFollowedStudy ? 'bg-bible-gold/10 text-bible-gold' : 'bg-blue-50 text-blue-600'}`}>
                                             {getIconForType(item)}
                                         </div>
                                         <div className="min-w-0">
@@ -381,11 +410,18 @@ const WorkspacePage: React.FC = () => {
                                             </div>
                                             <div className="flex items-center gap-2 text-xs text-gray-400">
                                                 <span className={`w-2 h-2 rounded-full ${item.status === 'published' ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                                                <span>{new Date(item.updatedAt || item.createdAt).toLocaleDateString()}</span>
+                                                <span>{new Date(item.updatedAt || item.createdAt).toLocaleDateString('pt-BR')}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handlePreview(item); }} 
+                                            className="p-2 hover:bg-bible-gold/10 rounded-lg text-bible-gold"
+                                            title="Visualizar"
+                                        >
+                                            <Eye size={16} />
+                                        </button>
                                         {item.status === 'published' && (item as any).slug && (
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleShare(item); }} 
@@ -395,8 +431,8 @@ const WorkspacePage: React.FC = () => {
                                                 <Share2 size={16} />
                                             </button>
                                         )}
-                                        <button onClick={() => handleEdit(item)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-500">
-                                            {isFollowedStudy ? <Eye size={16} /> : <Edit3 size={16} />}
+                                        <button onClick={() => handleEdit(item)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-500" title="Editar">
+                                            <Edit3 size={16} />
                                         </button>
                                         <button 
                                             onClick={() => { setDeleteId(item.id); setDeleteType(itemType); }} 

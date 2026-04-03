@@ -1820,15 +1820,20 @@ const PlanBuilderPage: React.FC = () => {
                                 </button>
                             </div>
                             
-                            <button
-                                onClick={() => setIsMobileAddMenuOpen(true)}
-                                className="fixed bottom-6 right-6 z-[110] w-16 h-16 bg-bible-gold text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all lg:hidden group"
-                            >
-                                <div className="relative">
-                                    <Plus size={32} className="group-hover:rotate-90 transition-transform duration-300" />
-                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full animate-ping" />
-                                </div>
-                            </button>
+                            {/* Botão Central de Adicionar Bloco */}
+                            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] lg:hidden flex flex-col items-center">
+                                <button
+                                    onClick={() => setIsMobileAddMenuOpen(true)}
+                                    className="w-20 h-20 bg-gradient-to-br from-indigo-600 to-violet-700 text-white rounded-full shadow-[0_10px_30px_-5px_rgba(79,70,229,0.5)] flex items-center justify-center active:scale-90 transition-all hover:scale-105 border-4 border-white dark:border-gray-900 group"
+                                    aria-label="Adicionar Bloco"
+                                >
+                                    <div className="relative">
+                                        <Plus size={36} className="group-hover:rotate-90 transition-transform duration-500" />
+                                        <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-white rounded-full animate-ping" />
+                                    </div>
+                                </button>
+                                <span className="text-[10px] font-black uppercase tracking-widest mt-2 text-bible-gold drop-shadow-sm font-sans">Novo Bloco</span>
+                            </div>
                         </>
                     )}
 

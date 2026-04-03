@@ -44,8 +44,9 @@ const SectionResizer = ({
   React.useEffect(() => {
     if (!isDragging) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const deltaY = (e.clientY - startYRef.current) * (position === 'top' ? 1 : -1);
+    const handleMouseMove = (e: MouseEvent | TouchEvent) => {
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const deltaY = (clientY - startYRef.current) * (position === 'top' ? 1 : -1);
       const newValue = Math.floor((startValueRef.current + deltaY) / 4) * 4;
       // Padding interno nunca deve ser negativo para não quebrar o layout
       onChange(Math.max(0, newValue));
@@ -55,27 +56,39 @@ const SectionResizer = ({
       setIsDragging(false);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', handleMouseMove, { passive: false });
+      document.addEventListener('touchend', handleMouseUp);
+    }
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleMouseMove);
+      document.removeEventListener('touchend', handleMouseUp);
     };
   }, [isDragging, position, onChange]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleStart = (clientY: number, valueAtStart: number) => {
     setIsDragging(true);
-    startYRef.current = e.clientY;
-    startValueRef.current = value;
+    startYRef.current = clientY;
+    startValueRef.current = valueAtStart;
   };
 
   return (
     <div 
-      className={`absolute left-0 right-0 h-12 z-50 cursor-ns-resize group/resizer flex items-center justify-center transition-all ${position === 'top' ? 'top-0' : 'bottom-0'}`}
-      onMouseDown={handleMouseDown}
+      className={`absolute left-0 right-0 h-10 z-50 cursor-ns-resize group/resizer flex items-center justify-center transition-all ${position === 'top' ? 'top-0' : 'bottom-0'}`}
+      onMouseDown={(e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleStart(e.clientY, value);
+      }}
+      onTouchStart={(e: React.TouchEvent) => {
+        e.stopPropagation();
+        handleStart(e.touches[0].clientY, value);
+      }}
       onClick={(e) => e.stopPropagation()}
     >
       <div className={`w-full h-[3px] bg-bible-gold transition-all duration-300 rounded-full ${isDragging ? 'opacity-100 h-[6px] scale-x-105 shadow-[0_0_20px_rgba(234,179,8,0.7)]' : 'opacity-0 group-hover/resizer:opacity-60 h-[3px]'}`} />
@@ -278,7 +291,7 @@ export const ContentBuilder: React.FC<ContentBuilderProps> = ({
             <BlockRenderer 
               block={block} 
               isEditing={isEditing && selectedBlockId === block.id} 
-              onUpdate={(data) => onUpdateBlock(block.id, data)}
+              onUpdate={onUpdateBlock}
               authorName={authorName}
               canvasWidth={canvasWidth}
             />

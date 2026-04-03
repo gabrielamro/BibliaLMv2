@@ -131,6 +131,9 @@ const CreateLandingPage: React.FC = () => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isUndoing, setIsUndoing] = useState(false);
 
+  const [showCreationInfo, setShowCreationInfo] = useState(true);
+  const [showCreationHelper, setShowCreationHelper] = useState(true);
+
   // AI Auto-Builder (Fase 3)
   const [showAIBuilderModal, setShowAIBuilderModal] = useState(false);
   const [aiBuilderPrompt, setAIBuilderPrompt] = useState('');
@@ -144,6 +147,24 @@ const CreateLandingPage: React.FC = () => {
   const [isSearchingVerse, setIsSearchingVerse] = useState(false);
   const [category, setCategory] = useState('Geral');
   const searchTimeoutRef = useRef<any>(null);
+
+  // Controle do Header no scroll
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  const handleMainScroll = useCallback((e: React.UIEvent<HTMLElement>) => {
+    const currentScrollY = e.currentTarget.scrollTop;
+    
+    // Ocultar ao rolar para baixo, mostrar ao rolar sutilmente para cima
+    if (currentScrollY > lastScrollY.current && currentScrollY > 60) {
+      setIsHeaderVisible(false); // Rolou para baixo
+    } else if (currentScrollY < lastScrollY.current - 5 || currentScrollY <= 60) {
+      setIsHeaderVisible(true);  // Rolou sutilmente para cima
+    }
+    
+    lastScrollY.current = currentScrollY;
+  }, []);
+
 
   // Carregar Logs de Acesso quando abrir a aba de acessos
   useEffect(() => {
@@ -708,58 +729,77 @@ const CreateLandingPage: React.FC = () => {
   if (currentStep === 'create') {
     return (
       <>
-      <div className="h-screen flex flex-col bg-gray-100 dark:bg-bible-darkPaper overflow-hidden">
+      {/* pt-[xx] will offset the fixed header */}
+      <div className="h-screen w-full flex flex-col bg-gray-100 dark:bg-bible-darkPaper overflow-hidden pt-[120px] lg:pt-[76px]">
         <SEO title="Editor de Conteúdo" />
         
         {/* Header do Editor */}
-        <header className="flex-shrink-0 bg-white dark:bg-bible-darkPaper border-b border-gray-200 dark:border-gray-800 px-4 py-3">
-          <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={() => navigate(-1)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-              >
-                <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300" />
-              </button>
-              <div>
-                <h1 className="font-bold text-bible-ink dark:text-white">
-                  {content.meta.title || `Novo ${typeLabels[content.type].singular}`}
-                </h1>
-                <p className="text-xs text-gray-500">
-                  {typeLabels[content.type].singular} • Rascunho
-                </p>
+        <header className={`fixed top-0 left-0 right-0 z-50 bg-white dark:bg-bible-darkPaper/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-3 md:px-4 py-3 transition-transform duration-300 shadow-sm ${isHeaderVisible ? 'translate-y-0' : '-translate-y-full'}`}>
+          <div className="flex flex-col lg:flex-row justify-between w-full mx-auto gap-3">
+            
+            {/* Top row mobile / Left desktop */}
+            <div className="flex items-center justify-between w-full lg:w-auto gap-4">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <button 
+                  onClick={() => navigate(-1)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300 flex-shrink-0"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+                <div className="flex-1 min-w-0 pr-2">
+                  <h1 className="text-lg font-bold text-bible-ink dark:text-white truncate">
+                    {content.meta.title || `Novo ${typeLabels[content.type].singular}`}
+                  </h1>
+                  <p className="text-[10px] sm:text-xs font-bold text-bible-gold mt-0.5 truncate">
+                    {typeLabels[content.type].singular} • Rascunho
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-2">
-              {/* AI Auto-Builder button (Phase 3) */}
-              <button
-                onClick={() => { setShowAIBuilderModal(true); setTimeout(() => aiBuilderTextareaRef.current?.focus(), 100); }}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg font-bold text-sm hover:from-violet-700 hover:to-purple-700 transition-all shadow-md shadow-purple-200 dark:shadow-purple-900/30"
-              >
-                <Sparkles size={16} />
-                <span className="hidden sm:inline">IA Auto-Builder</span>
-              </button>
-              <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-0.5">
+              {/* Quick Actions (Undo/Redo, Settings, Save) */}
+              <div className="flex items-center bg-gray-50 dark:bg-gray-800/80 rounded-xl p-0.5 sm:p-1 gap-0.5 sm:gap-1 flex-shrink-0">
                 <button
                   onClick={handleUndo}
                   disabled={historyIndex <= 0}
-                  className="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-md text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-                  title="Desfazer (Ctrl+Z)"
+                  className="p-1.5 sm:p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors disabled:opacity-30"
+                  title="Desfazer"
                 >
                   <Undo2 size={16} />
                 </button>
                 <button
                   onClick={handleRedo}
                   disabled={historyIndex >= history.length - 1}
-                  className="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-md text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-                  title="Refazer (Ctrl+Shift+Z)"
+                  className="p-1.5 sm:p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors disabled:opacity-30"
+                  title="Refazer"
                 >
                   <Redo2 size={16} />
                 </button>
+                
+                <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
+                
+                <button
+                  onClick={() => setShowSettingsOverlay(true)}
+                  className="p-1.5 sm:p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
+                  title="Configurações"
+                >
+                  <Settings size={18} />
+                </button>
+                <button
+                  onClick={() => handleSave('draft')}
+                  disabled={isSaving}
+                  className="p-1.5 sm:p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300 transition-colors disabled:opacity-50"
+                  title="Salvar Rascunho"
+                >
+                  <Save size={18} />
+                </button>
               </div>
+            </div>
 
-              <div className="hidden lg:flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-0.5">
+            {/* Bottom row mobile / Right desktop shrink */}
+            <div className="flex items-center gap-2 w-full lg:w-auto">
+              
+              {/* Responsive layout preview buttons (hidden on mobile) */}
+              <div className="hidden lg:flex items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-1 gap-0.5 mr-2">
                 {([
                   { key: 'mobile' as const, icon: <Minimize2 size={14} />, label: 'Mobile (375px)' },
                   { key: 'tablet' as const, icon: <Square size={14} />, label: 'Tablet (768px)' },
@@ -770,9 +810,9 @@ const CreateLandingPage: React.FC = () => {
                     key={opt.key}
                     title={opt.label}
                     onClick={() => setCanvasWidth(opt.key)}
-                    className={`p-1.5 rounded-md transition-colors ${
+                    className={`p-1.5 rounded-lg transition-colors ${
                       canvasWidth === opt.key
-                        ? 'bg-white dark:bg-gray-900 text-bible-gold shadow-sm'
+                        ? 'bg-white dark:bg-gray-700 text-bible-gold shadow-sm'
                         : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                     }`}
                   >
@@ -781,32 +821,27 @@ const CreateLandingPage: React.FC = () => {
                 ))}
               </div>
 
-              <button
-                onClick={() => setShowSettingsOverlay(true)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
-                title="Configurações do Estudo"
-              >
-                <Settings size={20} />
-              </button>
+              {/* Big Buttons */}
+              <div className="flex flex-1 items-center gap-2">
+                <button
+                  onClick={() => { setShowAIBuilderModal(true); setTimeout(() => aiBuilderTextareaRef.current?.focus(), 100); }}
+                  className="flex-1 lg:flex-none flex justify-center items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:from-violet-700 hover:to-purple-700 transition-all shadow-xl shadow-purple-200/50 dark:shadow-purple-900/30 active:scale-95 whitespace-nowrap"
+                >
+                  <Sparkles size={18} />
+                  <span>Gerar Build c/ IA</span>
+                </button>
 
-              <button
-                onClick={() => handleSave('draft')}
-                disabled={isSaving}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
-              >
-                <Save size={16} />
-                <span className="hidden sm:inline">Salvar</span>
-              </button>
-
-              <button
-                onClick={() => handleSave('preview')}
-                disabled={isSaving}
-                className="flex items-center gap-2 px-4 py-2 bg-bible-gold text-white rounded-lg font-bold text-sm hover:bg-bible-gold/90 transition-colors disabled:opacity-50"
-              >
-                {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Eye size={16} />}
-                Preview
-              </button>
+                <button
+                  onClick={() => handleSave('preview')}
+                  disabled={isSaving}
+                  className="flex-1 lg:flex-none flex justify-center items-center gap-2 px-4 py-2.5 bg-bible-gold text-white rounded-xl font-bold text-sm hover:bg-bible-gold/90 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Eye size={18} />}
+                  <span>Preview</span>
+                </button>
+              </div>
             </div>
+
           </div>
         </header>
 
@@ -948,18 +983,30 @@ const CreateLandingPage: React.FC = () => {
           </aside>
 
           {/* Canvas Principal */}
-          <main className="flex-1 overflow-y-auto p-4 lg:p-8">
-            <div className="max-w-3xl mx-auto mb-4">
-              <div className="rounded-2xl border border-bible-gold/20 bg-white/80 dark:bg-black/20 px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                <strong className="text-bible-gold">
-                  {creationMode === 'ai' ? 'Fluxo com IA' : 'Fluxo manual'}
-                </strong>{' '}
-                {creationMode === 'ai'
-                  ? 'A IA monta a estrutura da one page com os blocos principais, e depois você edita texto, fonte, imagem e destaques.'
-                  : 'A estrutura da one page já está pronta. Você só precisa preencher e editar o conteúdo dos blocos.'}
+          <main className="flex-1 overflow-y-auto p-4 lg:p-8" onScroll={handleMainScroll}>
+            {showCreationHelper && (
+              <div className="max-w-3xl mx-auto mb-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="relative rounded-3xl border border-bible-gold/20 bg-white/60 dark:bg-black/40 backdrop-blur-md px-6 py-4 text-sm text-gray-700 dark:text-gray-300 shadow-xl shadow-bible-gold/5 flex items-center justify-between">
+                  <div className="flex-1 pr-8">
+                    <strong className="text-bible-gold font-black uppercase tracking-widest text-[10px] block mb-1">
+                      {creationMode === 'ai' ? 'Fluxo com IA' : 'Fluxo manual'}
+                    </strong>
+                    <p className="leading-relaxed">
+                      {creationMode === 'ai'
+                        ? 'A IA monta a estrutura da one page com os blocos principais, e depois você edita texto, fonte, imagem e destaques.'
+                        : 'A estrutura da one page já está pronta. Você só precisa preencher e editar o conteúdo dos blocos.'}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setShowCreationHelper(false)}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors text-gray-400 hover:text-red-500 absolute top-3 right-3"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className={`mx-auto bg-white dark:bg-bible-darkPaper rounded-2xl shadow-xl overflow-hidden transition-all duration-300 canvas-${canvasWidth} ${
+            )}
+            <div className={`mx-auto bg-white dark:bg-bible-darkPaper rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 pt-6 canvas-${canvasWidth} ${
               canvasWidth === 'mobile' ? 'max-w-[375px] border-4 border-bible-gold'
               : canvasWidth === 'tablet' ? 'max-w-[768px]'
               : canvasWidth === 'full' ? 'w-full'
@@ -1077,17 +1124,19 @@ const CreateLandingPage: React.FC = () => {
               </button>
             </div>
             
-            <div className="fixed bottom-6 right-6 z-[110] xl:hidden">
+            {/* Botão Central de Adicionar Bloco */}
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] xl:hidden flex flex-col items-center">
               <button
                 onClick={() => setIsMobileAddMenuOpen(true)}
-                className="w-16 h-16 bg-bible-gold text-white rounded-2xl shadow-2xl flex items-center justify-center active:scale-95 transition-transform hover:bg-bible-gold/90 border-4 border-white dark:border-gray-900 group"
+                className="w-20 h-20 bg-gradient-to-br from-indigo-600 to-violet-700 text-white rounded-full shadow-[0_10px_30px_-5px_rgba(79,70,229,0.5)] flex items-center justify-center active:scale-90 transition-all hover:scale-105 border-4 border-white dark:border-gray-900 group"
                 aria-label="Adicionar Bloco"
               >
                 <div className="relative">
-                  <Plus size={32} className="group-hover:rotate-90 transition-transform duration-300" />
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full animate-ping" />
+                  <Plus size={36} className="group-hover:rotate-90 transition-transform duration-500" />
+                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-white rounded-full animate-ping" />
                 </div>
               </button>
+              <span className="text-[10px] font-black uppercase tracking-widest mt-2 text-bible-gold drop-shadow-sm">Novo Bloco</span>
             </div>
           </>
         )}
