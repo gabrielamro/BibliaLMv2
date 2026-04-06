@@ -1,4 +1,4 @@
-import { callAI } from './bigPickleService';
+import { callAi } from './geminiService';
 
 export interface AuditoriaResult {
     approved: boolean;
@@ -40,7 +40,7 @@ export const auditarConteudo = async (content: string, type: 'chat' | 'study' | 
     try {
         const prompt = `Tipo de conteúdo: ${type}\n\nConteúdo a auditar:\n${content}\n\n${PASTOR_AUDITOR_PROMPT}`;
         
-        const text = await callAI(prompt, "Você é o Pastor Auditor do BibliaLM. Revise o conteúdo com rigor teológico e retorne APENAS JSON válido.", "json");
+        const text = await callAi(prompt, "Você é o Pastor Auditor do BibliaLM. Revise o conteúdo com rigor teológico e retorne APENAS JSON válido.", "json");
         const result = JSON.parse(text || "{}");
         
         return {

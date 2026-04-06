@@ -136,7 +136,8 @@ export interface AppSettings {
   fontSize: number;
   fontFamily: 'serif' | 'sans';
   lineHeight: 'normal' | 'relaxed';
-  smartReadingMode?: boolean; // Novo campo
+  smartReadingMode?: boolean;
+  bibleVersion?: string; // ex: 'ara', 'arc', 'nvi'
 }
 
 // --- WORKSPACE & CONTENT TYPES (GENESIS PROJECT) ---
@@ -153,6 +154,20 @@ export interface UserContent {
   tags?: string[];
   isPublic: boolean;
   coverUrl?: string;
+}
+
+export interface SacredArtImage {
+  id: string;
+  userId: string;
+  url: string;
+  thumbnailUrl?: string;
+  prompt: string;
+  category: string;
+  style: string;
+  verseText: string;
+  verseReference: string;
+  createdAt: string;
+  metadata?: any;
 }
 
 // --- STUDIOS / ARTICLES (Esboços) ---

@@ -277,10 +277,29 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                     ) : (
                         <div className={`space-y-6 ${settings.fontFamily === 'serif' ? 'font-serif' : 'font-sans'}`}>
                             {!isFocusMode && (
-                                <div className="text-center mb-12">
-                                    <span className="text-[10px] font-black uppercase text-bible-gold tracking-[0.3em] mb-2 block">Capítulo</span>
-                                    <h2 className="text-5xl md:text-7xl font-black text-gray-900 dark:text-white opacity-10">{currentChapterNum}</h2>
-                                    <div className="h-1 w-12 bg-bible-gold/30 mx-auto -mt-4 rounded-full"></div>
+                                <div className="flex items-center justify-center gap-6 md:gap-12 mb-12 select-none group/chapterNav">
+                                    <button 
+                                        onClick={() => currentChapterNum > 1 && onNavigate(bookMetadata.id, currentChapterNum - 1)}
+                                        disabled={currentChapterNum === 1}
+                                        className="p-3 rounded-full hover:bg-bible-leather/5 dark:hover:bg-bible-gold/5 text-gray-300 hover:text-bible-leather dark:hover:text-bible-gold transition-all disabled:opacity-0"
+                                        title="Capítulo Anterior"
+                                    >
+                                        <ChevronLeft size={32} strokeWidth={2.5} />
+                                    </button>
+
+                                    <div className="text-center flex flex-col items-center">
+                                        <span className="text-[10px] font-black uppercase text-bible-gold tracking-[0.3em] mb-2 block">Capítulo</span>
+                                        <h2 className="text-6xl md:text-8xl font-black text-gray-900 dark:text-white opacity-[0.08] transition-opacity group-hover/chapterNav:opacity-10">{currentChapterNum}</h2>
+                                        <div className="h-1 w-12 bg-bible-gold/30 -mt-4 rounded-full"></div>
+                                    </div>
+
+                                    <button 
+                                        onClick={() => !isLastChapter ? onNavigate(bookMetadata.id, currentChapterNum + 1) : onChapterComplete()}
+                                        className="p-3 rounded-full hover:bg-bible-leather/5 dark:hover:bg-bible-gold/5 text-gray-300 hover:text-bible-leather dark:hover:text-bible-gold transition-all"
+                                        title="Próximo Capítulo"
+                                    >
+                                        <ChevronRight size={32} strokeWidth={2.5} />
+                                    </button>
                                 </div>
                             )}
                             <div className={`leading-relaxed ${getFontSizeClass(settings.fontSize)} ${isFocusMode ? 'space-y-12 text-gray-300' : 'space-y-4 text-gray-800 dark:text-gray-200'}`}>
@@ -300,14 +319,14 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                                                 </div>
                                             )}
                                             <span id={`verse-${verse.number}`} onClick={(e) => handleVerseClick(e, verse.number)} className={`inline-block rounded-lg transition-all duration-300 cursor-pointer select-none ${isFocusMode ? 'hover:text-white' : `${isSelected ? 'bg-bible-gold/20 ring-1 ring-bible-gold/30' : 'hover:bg-bible-gold/5 active:bg-bible-gold/10'} p-1 mb-1`} ${isPopular && !isFocusMode ? 'decoration-red-300/50 dark:decoration-red-900/50 underline decoration-dotted underline-offset-4 decoration-2' : ''} ${hasNote && !isFocusMode ? 'border-l-4 border-yellow-500 pl-2 bg-yellow-50/50 dark:bg-yellow-900/10' : ''}`}>
-                                                <sup className={`text-[10px] font-sans font-black mr-1.5 select-none flex items-center gap-1.5 inline-flex ${isPopular ? 'text-red-400' : 'text-bible-gold/60'}`}>
+                                                <sup className={`text-[10px] font-sans font-black mr-2.5 select-none flex items-center gap-1.5 inline-flex ${isPopular ? 'text-red-400' : 'text-bible-gold/60'}`}>
                                                     {verse.number}
                                                     {hasNote && !isFocusMode && <PenLine size={8} className="text-yellow-600 dark:text-yellow-400" />}
                                                 </sup>
                                                 {verseLead ? (
                                                     <>
                                                         {verseLead.prefix && <span>{verseLead.prefix}</span>}
-                                                        <span className="text-bible-gold/75 dark:text-bible-gold/85 md:text-[1.55em] md:leading-none md:align-[-0.06em] md:mr-0.5 md:font-serif md:font-black">{verseLead.initial}</span>
+                                                        <span className="text-bible-gold/75 dark:text-bible-gold/85 text-[1.4em] md:text-[1.55em] leading-none md:leading-none align-[-0.03em] md:align-[-0.06em] mr-0.5 md:mr-0.5 font-serif font-black">{verseLead.initial}</span>
                                                         {verseLead.rest ? <SmartText text={verseLead.rest} enabled={settings.smartReadingMode || false} /> : null}
                                                     </>
                                                 ) : (
@@ -320,10 +339,10 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                                                                 e.stopPropagation(); 
                                                                 onQuickNote?.(verse.number);
                                                             }} 
-                                                            className="relative inline-flex items-center justify-center p-1.5 rounded-full bg-bible-leather/5 dark:bg-bible-gold/5 text-gray-500 dark:text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-all" 
+                                                            className="relative inline-flex items-center justify-center p-2 rounded-full bg-bible-leather/5 dark:bg-bible-gold/5 text-gray-500 dark:text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-all" 
                                                             title={notesCountByVerse.get(verse.number) ? `Ver nota (${notesCountByVerse.get(verse.number)})` : 'Criar nota'}
                                                         >
-                                                            <PenLine size={12} />
+                                                            <PenLine size={16} />
                                                             {notesCountByVerse.get(verse.number) && (
                                                                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 dark:bg-yellow-400 text-black text-[8px] font-black rounded-full flex items-center justify-center">
                                                                     {notesCountByVerse.get(verse.number)}
@@ -336,10 +355,10 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                                                                 setExpandedVerseStart(verse.number); 
                                                                 setIsFocusMode(true);
                                                             }} 
-                                                            className="inline-flex items-center justify-center p-1.5 rounded-full bg-bible-leather/5 dark:bg-bible-gold/5 text-bible-gold hover:bg-bible-gold/20 transition-all" 
+                                                            className="inline-flex items-center justify-center p-2 rounded-full bg-bible-leather/5 dark:bg-bible-gold/5 text-bible-gold hover:bg-bible-gold/20 transition-all" 
                                                             title="Expandir a partir deste versículo"
                                                         >
-                                                            <Maximize2 size={12} />
+                                                            <Maximize2 size={16} />
                                                         </button>
                                                     </span>
                                                 )}

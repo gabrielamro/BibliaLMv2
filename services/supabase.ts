@@ -801,6 +801,54 @@ export const dbService = {
     updateTeam: async (uid: string, id: string, data: any) => {
         await supabase.from('user_teams').update(clean(data)).eq('id', id).eq('user_id', uid);
     },
+    
+    // ── GALERIA DE ARTES SACRAS ─────────────────────────────────────────────
+    saveSacredArtImage: async (uid: string, data: Partial<SacredArtImage>) => {
+        // Mapeia camelCase para snake_case manualmente para esta tabela específica
+        const mapped = {
+            user_id: uid,
+            url: data.url,
+            thumbnail_url: data.thumbnailUrl,
+            prompt: data.prompt,
+            category: data.category,
+            style: data.style,
+            verse_text: data.verseText,
+            verse_reference: data.verseReference,
+            metadata: data.metadata ? JSON.stringify(data.metadata) : null,
+            created_at: now()
+        };
+        const { data: res, error } = await supabase
+            .from('sacred_art_gallery')
+            .insert(mapped)
+            .select().single();
+        if (error) throw error;
+        return res;
+    },
+    getSacredArtGallery: async (uid: string, category?: string): Promise<SacredArtImage[]> => {
+        let q = supabase.from('sacred_art_gallery').select('*').eq('user_id', uid);
+        if (category && category !== 'Todas') {
+            q = q.eq('category', category);
+        }
+        const { data, error } = await q.order('created_at', { ascending: false });
+        if (error) throw error;
+        return (data ?? []).map(d => ({
+            id: d.id,
+            userId: d.user_id,
+            url: d.url,
+            thumbnailUrl: d.thumbnail_url,
+            prompt: d.prompt,
+            category: d.category,
+            style: d.style,
+            verseText: d.verse_text,
+            verseReference: d.verse_reference,
+            createdAt: d.created_at,
+            metadata: d.metadata ? JSON.parse(d.metadata) : undefined
+        }));
+    },
+    deleteSacredArtImage: async (uid: string, id: string) => {
+        const { error } = await supabase.from('sacred_art_gallery').delete().eq('id', id).eq('user_id', uid);
+        if (error) throw error;
+    },
     autoEnrollTeamMembers: async (_planId: string, _teams: any[]) => { /* implementar se necessário */ },
     getEnrolledPlans: async (ids: string[]): Promise<CustomPlan[]> => {
         if (!ids.length) return [];

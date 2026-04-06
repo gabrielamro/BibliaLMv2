@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Type, X, AlignJustify, Maximize2, Sparkles } from 'lucide-react';
+import { Type, X, AlignJustify, Maximize2, Sparkles, BookOpen } from 'lucide-react';
 import { AppSettings } from '../types';
 
 interface SettingsModalProps {
@@ -42,6 +41,42 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
             </div>
         )}
 
+        {/* Bible Version Selector */}
+        <div className="pb-4 border-b border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-2 mb-3 text-sm text-gray-600 dark:text-gray-400">
+            <BookOpen size={16} className="text-bible-gold" />
+            <span>Versão da BíBlia</span>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {[
+              { id: 'ara', label: 'ARA', desc: 'Rev. e Atualizada' },
+              { id: 'arc', label: 'ARC', desc: 'Rev. e Corrigida' },
+              { id: 'nvi', label: 'NVI', desc: 'Nova Versão Int.' },
+              { id: 'acf', label: 'ACF', desc: 'Corrigida Fiel' },
+              { id: 'almeida1917', label: '1917', desc: 'Almeida Clássica' },
+            ].map(v => (
+              <button
+                key={v.id}
+                onClick={() => updateSettings({ bibleVersion: v.id })}
+                className={`flex flex-col items-center p-2 rounded-xl border-2 text-center transition-all ${
+                  (settings.bibleVersion || 'ara') === v.id
+                    ? 'border-bible-gold bg-bible-gold/10 text-bible-gold'
+                    : 'border-gray-100 dark:border-gray-700 text-gray-500 hover:border-bible-gold/40'
+                }`}
+                title={v.desc}
+              >
+                <span className="text-[11px] font-black leading-none">{v.label}</span>
+                <span className="text-[8px] mt-0.5 opacity-60 leading-tight">{v.desc.split(' ')[0]}</span>
+              </button>
+            ))}
+          </div>
+          {(settings.bibleVersion && settings.bibleVersion !== 'ara') && (
+            <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1">
+              <Sparkles size={10} />
+              Versão gerada por IA sob demanda
+            </p>
+          )}
+        </div>
         {/* Smart Reading Toggle */}
         <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">

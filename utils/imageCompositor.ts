@@ -10,6 +10,10 @@ export interface CompositionOptions {
   alignment: 'center' | 'left' | 'right';
   filter: 'none' | 'bw' | 'sepia' | 'darken' | 'blur' | 'warm' | 'cool'; // Novos filtros
   overlayOpacity: number; // 0.0 a 0.9
+  aspectRatio?: 'feed' | 'story'; // Novo
+  textX?: number; // 0 a 100
+  textY?: number; // 0 a 100
+  shadowColor?: string; // Cor da sombra customizável
 }
 
 /**
@@ -27,7 +31,11 @@ export const composeImageWithText = (
         alignment: 'center',
         fontFamily: 'Lora',
         filter: 'none',
-        overlayOpacity: 0.4
+        overlayOpacity: 0.4,
+        aspectRatio: 'feed',
+        textX: 50,
+        textY: 50,
+        shadowColor: 'rgba(0,0,0,0.8)'
     }
   ): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -52,9 +60,10 @@ export const composeImageWithText = (
               return;
             }
       
-            // Resolução Padrão Retrato 4:5
+            // Resolução Dinâmica baseada no Aspect Ratio
+            // Feed: 1080x1080 | Story: 1080x1920
             const width = 1080;
-            const height = 1350;
+            const height = options.aspectRatio === 'story' ? 1920 : 1080;
             canvas.width = width;
             canvas.height = height;
       
@@ -153,13 +162,15 @@ export const composeImageWithText = (
             lines.push(line.trim());
             lines[lines.length-1] += '”';
       
-            // Calcular Posição Y
+            // Calcular Altura Total do Bloco de Texto
             const textBlockHeight = lines.length * lineHeight;
-            const safeAreaHeight = height - 400; 
-            const relativeY = (safeAreaHeight * (options.verticalPosition / 100)) + 200;
-            const startY = relativeY - (textBlockHeight / 2);
+
+            // Calcular Posição Dinâmica (0 a 100%)
+            const finalX = (options.textX ?? 50) / 100 * width;
+            const finalY = (options.textY ?? options.verticalPosition ?? 50) / 100 * height;
             
-            const textX = options.alignment === 'left' ? 100 : options.alignment === 'right' ? width - 100 : width / 2;
+            const startY = finalY - (textBlockHeight / 2);
+            const textX = finalX;
       
             lines.forEach((l, i) => {
               ctx.fillText(l, textX, startY + (i * lineHeight));

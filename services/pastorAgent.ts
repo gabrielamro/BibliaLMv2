@@ -1,9 +1,8 @@
-
-import * as bigPickle from './bigPickleService';
+"use client";
 import * as gemini from './geminiService';
 import { auditarConteudo, AuditoriaResult } from './pastorAuditor';
 
-export type AIProvider = 'bigpickle' | 'gemini' | 'auto';
+export type AIProvider = 'gemini' | 'auto';
 
 export interface PastorConfig {
     provider: AIProvider;
@@ -20,161 +19,88 @@ export interface PastorResponse<T> {
     audit?: AuditoriaResult;
 }
 
-const PASTOR_SYSTEM_INSTRUCTION = `Você é o Pastor Auditor (Obreiro IA) do BibliaLM.
-DIRETRIZES FUNDAMENTAIS:
-1. TOM: Pastoral, acolhedor, sábio e humilde.
-2. FUNDAMENTAÇÃO: Baseie-se estritamente na verdade bíblica e cite referências (Capítulo e Versículo).
-3. TRANSPARÊNCIA: Diferencie claramente fatos bíblicos de incentivos ou interpretações pastorais.
-4. VERACIDADE: Evite alucinações teológicas. Se algo não estiver na Bíblia, sinalize como interpretação ou admita não saber.
-
-O usuário está em um contexto de estudo: `;
-
 export const checkHealth = async (provider: AIProvider = 'auto'): Promise<boolean> => {
-    if (provider === 'bigpickle' || provider === 'auto') {
-        const bpHealth = await bigPickle.checkBigPickleHealth();
-        if (bpHealth) return true;
-    }
-    if (provider === 'gemini' || provider === 'auto') {
-        return await gemini.checkAiHealth();
-    }
-    return false;
+    return await gemini.checkAiHealth();
 };
 
-export const analyzeUnderstanding = async (userThoughts: string, context: string, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.analyzeUnderstanding(userThoughts, context);
-    }
-    return await bigPickle.analyzeUnderstanding(userThoughts, context);
+export const analyzeUnderstanding = async (userThoughts: string, context: string, provider: AIProvider = 'gemini') => {
+    return await gemini.analyzeUnderstanding(userThoughts, context);
 };
 
 export const generateDailyDevotional = async (
     forceNew: boolean = false,
-    provider: AIProvider = 'bigpickle',
+    provider: AIProvider = 'gemini',
     options?: DailyDevotionalOptions
 ) => {
-    if (provider === 'gemini') {
-        return await gemini.generateDailyDevotional(forceNew, options);
-    }
-    return await bigPickle.generateDailyDevotional(forceNew, options);
+    return await gemini.generateDailyDevotional(forceNew, options);
 };
 
-export const improveNote = async (content: string, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.improveNote(content);
-    }
-    return await bigPickle.improveNote(content);
+export const improveNote = async (content: string, provider: AIProvider = 'gemini') => {
+    return await gemini.improveNote(content);
 };
 
-export const summarizeNoteForSocial = async (content: string, bookName: string, chapter: number, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.summarizeNoteForSocial(content, bookName, chapter);
-    }
-    return await bigPickle.summarizeNoteForSocial(content, bookName, chapter);
+export const summarizeNoteForSocial = async (content: string, bookName: string, chapter: number, provider: AIProvider = 'gemini') => {
+    return await gemini.summarizeNoteForSocial(content, bookName, chapter);
 };
 
-export const generateSermonOutline = async (contextText: string, theme: string, audience: string, title?: string, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.generateSermonOutline(contextText, theme, audience, title);
-    }
-    return await bigPickle.generateSermonOutline(contextText, theme, audience, title);
+export const generateSermonOutline = async (contextText: string, theme: string, audience: string, title?: string, provider: AIProvider = 'gemini') => {
+    return await gemini.generateSermonOutline(contextText, theme, audience, title);
 };
 
-export const generateSermonIllustration = async (theme: string, context: string, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.generateSermonIllustration(theme, context);
-    }
-    return await bigPickle.generateSermonIllustration(theme, context);
+export const generateSermonIllustration = async (theme: string, context: string, provider: AIProvider = 'gemini') => {
+    return await gemini.generateSermonIllustration(theme, context);
 };
 
-export const generateSmallGroupQuestions = async (sermonContent: string, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.generateSmallGroupQuestions(sermonContent);
-    }
-    return await bigPickle.generateSmallGroupQuestions(sermonContent);
+export const generateSmallGroupQuestions = async (sermonContent: string, provider: AIProvider = 'gemini') => {
+    return await gemini.generateSmallGroupQuestions(sermonContent);
 };
 
-export const generateStructuredStudy = async (theme: string, reference: string, audience: string, mode: 'quick' | 'deep', provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.generateStructuredStudy(theme, reference, audience, mode);
-    }
-    return await bigPickle.generateStructuredStudy(theme, reference, audience, mode);
+export const generateStructuredStudy = async (theme: string, reference: string, audience: string, mode: 'quick' | 'deep', provider: AIProvider = 'gemini') => {
+    return await gemini.generateStructuredStudy(theme, reference, audience, mode);
 };
 
-export const generateModuleDayContent = async (theme: string, dayTitle: string, verses: string[], provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.generateModuleDayContent(theme, dayTitle, verses);
-    }
-    return await bigPickle.generateModuleDayContent(theme, dayTitle, verses);
+export const generateModuleDayContent = async (theme: string, dayTitle: string, verses: string[], provider: AIProvider = 'gemini') => {
+    return await gemini.generateModuleDayContent(theme, dayTitle, verses);
 };
 
-export const generateBibleQuiz = async (topic: string, difficulty: string, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.generateBibleQuiz(topic, difficulty);
-    }
-    return await bigPickle.generateBibleQuiz(topic, difficulty);
+export const generateBibleQuiz = async (topic: string, difficulty: string, provider: AIProvider = 'gemini') => {
+    return await gemini.generateBibleQuiz(topic, difficulty);
 };
 
-export const analyzeReadingPlanCommitment = async (days: number, scope: string, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.analyzeReadingPlanCommitment(days, scope);
-    }
-    return await bigPickle.analyzeReadingPlanCommitment(days, scope);
+export const analyzeReadingPlanCommitment = async (days: number, scope: string, provider: AIProvider = 'gemini') => {
+    return await gemini.analyzeReadingPlanCommitment(days, scope);
 };
 
-export const suggestReadingPlan = async (userPrompt: string, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.suggestReadingPlan(userPrompt);
-    }
-    return await bigPickle.suggestReadingPlan(userPrompt);
+export const suggestReadingPlan = async (userPrompt: string, provider: AIProvider = 'gemini') => {
+    return await gemini.suggestReadingPlan(userPrompt);
 };
 
-export const generateReadingConnection = async (refs: string[], provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.generateReadingConnection(refs);
-    }
-    return await bigPickle.generateReadingConnection(refs);
+export const generateReadingConnection = async (refs: string[], provider: AIProvider = 'gemini') => {
+    return await gemini.generateReadingConnection(refs);
 };
 
-export const generateSuggestedPrayer = async (requestContent: string, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.generateSuggestedPrayer(requestContent);
-    }
-    return await bigPickle.generateSuggestedPrayer(requestContent);
+export const generateSuggestedPrayer = async (requestContent: string, provider: AIProvider = 'gemini') => {
+    return await gemini.generateSuggestedPrayer(requestContent);
 };
 
-export const getBibleChapter = async (bookName: string, chapter: number, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.getBibleChapter(bookName, chapter);
-    }
-    return await bigPickle.getBibleChapter(bookName, chapter);
+export const getBibleChapter = async (bookName: string, chapter: number, version: string = 'ara', provider: AIProvider = 'gemini') => {
+    return await gemini.getBibleChapter(bookName, chapter, version);
 };
 
-export const generateSpecificPrayer = async (topic: string, feeling: string, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.generateSpecificPrayer(topic, feeling);
-    }
-    return await bigPickle.generateSpecificPrayer(topic, feeling);
+export const generateSpecificPrayer = async (topic: string, feeling: string, provider: AIProvider = 'gemini') => {
+    return await gemini.generateSpecificPrayer(topic, feeling);
 };
 
-export const generateImagePromptForPlan = async (title: string, description: string, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.generateImagePromptForPlan(title, description);
-    }
-    return await bigPickle.generateImagePromptForPlan(title, description);
+export const generateImagePromptForPlan = async (title: string, description: string, provider: AIProvider = 'gemini') => {
+    return await gemini.generateImagePromptForPlan(title, description);
 };
 
-export const generateSocialPostDesign = async (text: string, ref: string, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.generateSocialPostDesign(text, ref);
-    }
-    return await bigPickle.generateSocialPostDesign(text, ref);
+export const generateSocialPostDesign = async (text: string, ref: string, provider: AIProvider = 'gemini') => {
+    return await gemini.generateSocialPostDesign(text, ref);
 };
 
-export const generatePodcastScript = async (sourceText: string, title: string, provider: AIProvider = 'bigpickle') => {
-    if (provider === 'gemini') {
-        return await gemini.generatePodcastScript(sourceText, title);
-    }
-    return await bigPickle.generatePodcastScript(sourceText, title);
+export const generatePodcastScript = async (sourceText: string, title: string, provider: AIProvider = 'gemini') => {
+    return await gemini.generatePodcastScript(sourceText, title);
 };
 
 export const chatWithPastor = async (
@@ -182,18 +108,7 @@ export const chatWithPastor = async (
     onChunk: (text: string) => void,
     context?: string
 ) => {
-    try {
-        const result = await bigPickle.chatWithPastor(history, context);
-        if (result) {
-            const chars = result.split('');
-            for (const char of chars) {
-                onChunk(char);
-                await new Promise(r => setTimeout(r, 10));
-            }
-        }
-    } catch (e) {
-        onChunk("Desculpe, tive um problema de conexão momentâneo. Como obreiro, sigo à disposição assim que o sistema estabilizar.");
-    }
+    return await gemini.sendMessageToGeminiStream(history, onChunk, context);
 };
 
 export const sendMessageToGeminiStream = async (
@@ -201,7 +116,7 @@ export const sendMessageToGeminiStream = async (
     onChunk: (text: string) => void,
     context?: string
 ) => {
-    return await chatWithPastor(history, onChunk, context);
+    return await gemini.sendMessageToGeminiStream(history, onChunk, context);
 };
 
 export const generateVerseImage = async (text: string, reference: string, style: string) => {
@@ -227,7 +142,7 @@ export const findNearbyChurches = async (lat: number, lng: number) => {
 export type { NearbyPlace } from './geminiService';
 
 export const generateDevotionalWithAudit = async (forceNew: boolean = false, audit: boolean = true) => {
-    const content = await generateDailyDevotional(forceNew, 'bigpickle');
+    const content = await generateDailyDevotional(forceNew, 'gemini');
     if (!audit) return { data: content };
     
     const auditResult = await auditarConteudo(
@@ -244,7 +159,7 @@ export const generateStudyWithAudit = async (
     mode: 'quick' | 'deep',
     audit: boolean = true
 ) => {
-    const content = await generateStructuredStudy(theme, reference, audience, mode, 'bigpickle');
+    const content = await generateStructuredStudy(theme, reference, audience, mode, 'gemini');
     if (!audit) return { data: content };
     
     const auditResult = await auditarConteudo(content, 'study');
@@ -256,7 +171,7 @@ export const generatePrayerWithAudit = async (
     feeling: string,
     audit: boolean = true
 ) => {
-    const content = await generateSpecificPrayer(topic, feeling, 'bigpickle');
+    const content = await generateSpecificPrayer(topic, feeling, 'gemini');
     if (!audit || !content) return { data: content };
     
     const auditResult = await auditarConteudo(
@@ -272,7 +187,7 @@ export const generateSermonWithAudit = async (
     audience: string,
     audit: boolean = true
 ) => {
-    const content = await generateSermonOutline(contextText, theme, audience, undefined, 'bigpickle');
+    const content = await generateSermonOutline(contextText, theme, audience, undefined, 'gemini');
     if (!audit) return { data: content };
     
     const auditResult = await auditarConteudo(content, 'study');
@@ -284,7 +199,7 @@ export const generateQuizWithAudit = async (
     difficulty: string,
     audit: boolean = true
 ) => {
-    const content = await generateBibleQuiz(topic, difficulty, 'bigpickle');
+    const content = await generateBibleQuiz(topic, difficulty, 'gemini');
     if (!audit) return { data: content };
     
     const auditResult = await auditarConteudo(
@@ -297,5 +212,5 @@ export const generateQuizWithAudit = async (
 export { type AuditoriaResult } from './pastorAuditor';
 
 export const generateAIOnePage = async (userPrompt: string, authorName?: string): Promise<any> => {
-    return await bigPickle.generateAIOnePage(userPrompt, authorName);
+    return await gemini.generateAIOnePage(userPrompt, authorName);
 };

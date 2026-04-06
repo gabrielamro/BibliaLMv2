@@ -41,25 +41,29 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         fontSize: DEFAULT_FONT_SIZE,
         fontFamily: 'serif',
         lineHeight: 'normal',
-        smartReadingMode: true
+        smartReadingMode: true,
+        bibleVersion: 'ara'
       };
     }
     try {
       const saved = localStorage.getItem('bible_app_settings');
-      return saved ? JSON.parse(saved) : {
-        theme: 'dark', // Default to dark mode
+      const parsed = saved ? JSON.parse(saved) : null;
+      return parsed ?? {
+        theme: 'dark',
         fontSize: DEFAULT_FONT_SIZE,
         fontFamily: 'serif',
         lineHeight: 'normal',
-        smartReadingMode: true // Default ON for highlighting
+        smartReadingMode: true,
+        bibleVersion: 'ara'
       };
     } catch {
       return {
-        theme: 'dark', // Default to dark mode
+        theme: 'dark',
         fontSize: DEFAULT_FONT_SIZE,
         fontFamily: 'serif',
         lineHeight: 'normal',
-        smartReadingMode: true
+        smartReadingMode: true,
+        bibleVersion: 'ara'
       };
     }
   });

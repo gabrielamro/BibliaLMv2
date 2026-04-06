@@ -40,47 +40,54 @@ export const bibleService = {
      * Obtém um capítulo da Bíblia, verificando múltiplas camadas de cache.
      * Ordem: Hardcoded Data -> LocalStorage -> Supabase (Cloud) -> API Gemini
      */
-    async getChapter(bookId: string, chapterNum: number): Promise<Chapter | null> {
+    async getChapter(bookId: string, chapterNum: number, version: string = 'ara'): Promise<Chapter | null> {
         const bookMeta = BIBLE_BOOKS_LIST.find(b => b.id === bookId);
         if (!bookMeta) return null;
 
-        // 1. Dados Offline
-        const offlineBook = BIBLE_DATA.find(b => b.id === bookId);
-        if (offlineBook) {
-            const offlineChapter = offlineBook.chapters.find(c => c.number === chapterNum);
-            if (offlineChapter) return offlineChapter;
+        // 1. Dados Offline (apenas para ARA — versão padrão offline)
+        if (version === 'ara') {
+            const offlineBook = BIBLE_DATA.find(b => b.id === bookId);
+            if (offlineBook) {
+                const offlineChapter = offlineBook.chapters.find(c => c.number === chapterNum);
+                if (offlineChapter) return offlineChapter;
+            }
         }
 
-        // 2. Cache Persistente Local
-        const cacheKey = `bible_content_${bookId}_${chapterNum}`;
+        // 2. Cache Local (particionado por versão)
+        const cacheKey = `bible_content_${version}_${bookId}_${chapterNum}`;
         try {
             const cached = localStorage.getItem(cacheKey);
             if (cached) return JSON.parse(cached);
         } catch (e) { console.error(e); }
 
-        // 3. Cache Global (Supabase)
-        try {
-            const cloudChapterDoc = await dbService.getBibleChapter(bookId, chapterNum);
-            if (cloudChapterDoc) {
-                const cloudChapter: Chapter = {
-                    number: (cloudChapterDoc as any).number || chapterNum,
-                    verses: cloudChapterDoc.verses || []
-                };
-                try { localStorage.setItem(cacheKey, JSON.stringify(cloudChapter)); } catch (e) { }
-                return cloudChapter;
+        // 3. Cache Global Supabase (apenas para ARA — outros vêm da IA)
+        if (version === 'ara') {
+            try {
+                const cloudChapterDoc = await dbService.getBibleChapter(bookId, chapterNum);
+                if (cloudChapterDoc) {
+                    const cloudChapter: Chapter = {
+                        number: (cloudChapterDoc as any).number || chapterNum,
+                        verses: cloudChapterDoc.verses || []
+                    };
+                    try { localStorage.setItem(cacheKey, JSON.stringify(cloudChapter)); } catch (e) { }
+                    return cloudChapter;
+                }
+            } catch (e: any) {
+                console.warn("Supabase cache check failed", e);
             }
-        } catch (e: any) {
-            console.warn("Supabase cache check failed", e);
         }
 
-        // 4. API IA (Último Recurso)
+        // 4. API IA (Gemini) — Única fonte para versões alternativas
         try {
-            const data = await fetchFromAI(bookMeta.name, chapterNum);
+            const data = await fetchFromAI(bookMeta.name, chapterNum, version);
             if (data) {
                 try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch (e) { }
-                const currentUser = await this.awaitAuth();
-                if (currentUser) {
-                    dbService.saveBibleChapter(bookId, chapterNum, data).catch(() => { });
+                // Salvar no Supabase apenas para ARA (evita encher banco com versões alternativas)
+                if (version === 'ara') {
+                    const currentUser = await this.awaitAuth();
+                    if (currentUser) {
+                        dbService.saveBibleChapter(bookId, chapterNum, data).catch(() => { });
+                    }
                 }
                 return data;
             }

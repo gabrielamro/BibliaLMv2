@@ -14,6 +14,7 @@ interface FloatingSelectionMenuProps {
   getSelectedContent: () => { text: string; ref: string };
   onGeneratePodcast: () => void;
   onGenerateImage: () => void;
+  onAddNote: () => void;
   bookId: string;
   chapter: number;
   onMarkRead?: () => void;
@@ -25,6 +26,7 @@ const FloatingSelectionMenu: React.FC<FloatingSelectionMenuProps> = ({
   getSelectedContent,
   onGeneratePodcast,
   onGenerateImage,
+  onAddNote,
   bookId,
   chapter,
   onMarkRead
@@ -107,6 +109,11 @@ const FloatingSelectionMenu: React.FC<FloatingSelectionMenuProps> = ({
           <button onClick={() => { if(onMarkRead) onMarkRead(); setSelectedVerses([]); }} className="flex flex-col items-center justify-center w-12 h-12 rounded-xl text-white dark:text-gray-900 hover:bg-white/10 dark:hover:bg-black/5 transition-colors">
               <Check size={20} strokeWidth={2.5} className="text-green-400 dark:text-green-600" />
               <span className="text-[8px] font-black uppercase mt-1">Lido</span>
+          </button>
+
+          <button onClick={onAddNote} className="flex flex-col items-center justify-center w-12 h-12 rounded-xl text-white dark:text-gray-900 hover:bg-white/10 dark:hover:bg-black/5 transition-colors">
+              <PenLine size={20} className="text-bible-gold" />
+              <span className="text-[8px] font-black uppercase mt-1">Nota</span>
           </button>
 
           <button onClick={handleShare} className="flex flex-col items-center justify-center w-12 h-12 rounded-xl text-white dark:text-gray-900 hover:bg-white/10 dark:hover:bg-black/5 transition-colors">

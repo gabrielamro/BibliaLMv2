@@ -77,7 +77,7 @@ const Reader: React.FC = () => {
     setIsLoadingContent(true);
     setError(null);
     try {
-      const data = await bibleService.getChapter(currentBookId, currentChapterNum);
+      const data = await bibleService.getChapter(currentBookId, currentChapterNum, settings.bibleVersion || 'ara');
       if (data) {
         setChapterContent(data);
         if (currentUser) {
@@ -110,7 +110,7 @@ const Reader: React.FC = () => {
       console.error("Reader load error:", e);
     }
     finally { setIsLoadingContent(false); }
-  }, [currentBookId, currentChapterNum, viewMode, currentUser, location.state]);
+  }, [currentBookId, currentChapterNum, viewMode, currentUser, location.state, settings.bibleVersion]);
 
   useEffect(() => {
     // 1. Check for URL parameters (book, cap, vs)
@@ -278,6 +278,13 @@ const Reader: React.FC = () => {
   // MOCK: Heatmap de versículos populares (Simula que os versículos 1, 4 e 7 são muito lidos/marcados)
   const popularVersesMock = [1, 4, 7];
 
+  const handleQuickNote = (verseNum?: number) => {
+    if (verseNum) {
+      setSelectedVerses([verseNum]);
+    }
+    setIsNoteModalOpen(true);
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden relative">
       {viewMode === 'library' ? (
@@ -310,6 +317,7 @@ const Reader: React.FC = () => {
             setTargetVerses([]);
           }}
           highlightedVerses={targetVerses}
+          onQuickNote={handleQuickNote}
           popularVerses={popularVersesMock} // Heatmap Mock
         />
       )}
@@ -321,6 +329,7 @@ const Reader: React.FC = () => {
           getSelectedContent={getSelectedContent}
           onGeneratePodcast={handleNavigateToStudio}
           onGenerateImage={handleNavigateToImage}
+          onAddNote={() => handleQuickNote()}
           bookId={currentBookId}
           chapter={currentChapterNum}
           onMarkRead={() => recordActivity('mark_verse', `Lidos: ${getSelectedContent().ref}`)}

@@ -34,31 +34,17 @@ export const checkAiHealth = async (): Promise<boolean> => {
     }
 };
 
-const TEXT_MODEL = "gemini-1.5-flash-latest"; 
-const IMAGE_MODEL = "gemini-2.0-flash-exp"; 
-const TTS_MODEL = "gemini-1.5-flash-latest";
+const TEXT_MODEL = "gemini-2.0-flash"; 
+const IMAGE_MODEL = "gemini-3.1-flash-image-preview"; // Nano Banana 2 (Gemini 3.1 Flash Image)
+const PRO_IMAGE_MODEL = "gemini-3-pro-image-preview"; // Nano Banana Pro
+const TTS_MODEL = "gemini-2.0-flash";
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
 
-// Generic AI Call with Fallbacks
+// Generic AI Call with Fallbacks (Order: Groq → OpenRouter → Gemini)
 export const callAi = async (prompt: string, systemInstruction?: string, responseFormat?: "json" | "text"): Promise<string> => {
-    // 1. Try Gemini
-    try {
-        const response = await getAiInstance().models.generateContent({
-            model: TEXT_MODEL,
-            contents: [{ parts: [{ text: prompt }] }],
-            config: { 
-                systemInstruction,
-                responseMimeType: responseFormat === 'json' ? "application/json" : undefined
-            }
-        });
-        if (response.text) return response.text;
-    } catch (e: any) {
-        console.error("Gemini failed in callAi:", e.message || e);
-    }
-
-    // 2. Try Groq
+    // 1. Try Groq (primary — free tier, high quota)
     try {
         const groqKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
         if (groqKey) {
@@ -82,10 +68,10 @@ export const callAi = async (prompt: string, systemInstruction?: string, respons
             if (text) return text;
         }
     } catch (e: any) {
-        console.warn("Groq Failed, trying OpenRouter...", e.message);
+        console.warn("Groq failed, trying OpenRouter...", e.message);
     }
 
-    // 3. Try OpenRouter
+    // 2. Try OpenRouter (secondary — free models available)
     try {
         const orKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
         if (orKey) {
@@ -110,7 +96,22 @@ export const callAi = async (prompt: string, systemInstruction?: string, respons
             if (text) return text;
         }
     } catch (e: any) {
-        console.error("All AI providers failed.", e.message);
+        console.warn("OpenRouter failed, trying Gemini...", e.message);
+    }
+
+    // 3. Try Gemini (last resort — preserve quota)
+    try {
+        const response = await getAiInstance().models.generateContent({
+            model: TEXT_MODEL,
+            contents: [{ parts: [{ text: prompt }] }],
+            config: { 
+                systemInstruction,
+                responseMimeType: responseFormat === 'json' ? "application/json" : undefined
+            }
+        });
+        if (response.text) return response.text;
+    } catch (e: any) {
+        console.error("Gemini failed in callAi:", e.message || e);
     }
 
     throw new Error("Não foi possível processar sua solicitação com nenhum provedor de IA no momento.");
@@ -377,11 +378,22 @@ export const generateSuggestedPrayer = async (requestContent: string): Promise<s
     } catch (e) { return "Senhor, ouve este clamor e traz consolo segundo a Tua Palavra. Amém."; }
 };
 
-export const getBibleChapter = async (bookName: string, chapter: number) => {
+export const getBibleChapter = async (bookName: string, chapter: number, version: string = 'ara') => {
+    const versionNames: Record<string, string> = {
+        'ara': 'Almeida Revista e Atualizada (ARA)',
+        'arc': 'Almeida Revista e Corrigida (ARC)',
+        'nvi': 'Nova Versão Internacional (NVI)',
+        'acf': 'Almeida Corrigida Fiel (ACF)',
+        'almeida1917': 'João Ferreira de Almeida (1917)',
+    };
+    const versionLabel = versionNames[version] || `versão ${version.toUpperCase()}`;
     try {
-        const prompt = `Forneça o texto fiel e completo de ${bookName} capítulo ${chapter} na versão Almeida Revista e Corrigida (ARC). 
-            REGRA DE INTEGRIDADE: Retorne exatamente os versículos bíblicos sem alterações, resumos ou comentários. 
-            Retorne JSON: { number: number, verses: [{ number: number, text: string }] }`;
+        const prompt = `Forneça o texto fiel e COMPLETO de ${bookName} capítulo ${chapter} na versão bíblica: ${versionLabel}.
+            REGRAS DE INTEGRIDADE ABSOLUTA:
+            1. Retorne EXATAMENTE os versículos bíblicos originais desta versão, sem alterações, resumos ou comentários.
+            2. Inclua TODOS os versículos do capítulo, do primeiro ao último.
+            3. Não invente versos. Se não souber o texto exato, use a versão ARA como base.
+            Retorne JSON: { number: ${chapter}, verses: [{ number: number, text: string }] }`;
         const text = await callAi(prompt, undefined, "json");
         return JSON.parse(text || "null");
     } catch (e) { return null; }
@@ -449,7 +461,119 @@ export const generateImagePromptForPlan = async (title: string, description: str
     } catch (e) { return null; }
 };
 
-export const generateVerseImage = async (text: string, reference: string, style: string) => {
+// Mapeamento de estilos para queries de imagem em inglês
+const STYLE_TO_QUERY: Record<string, string> = {
+    'realistic': 'nature spiritual light',
+    'oil_painting': 'nature landscape painting',
+    'cinematic': 'cinematic nature light',
+    'watercolor': 'watercolor nature painting',
+    'realista': 'nature spiritual light',
+    'óleo': 'oil painting nature',
+    'cine': 'cinematic light landscape',
+    'aquarela': 'watercolor painting nature',
+};
+
+const RELIGIOUS_KEYWORDS: Record<string, string> = {
+    'cruz': 'cross light nature spiritual',
+    'anjo': 'angel spiritual ethereal light',
+    'oração': 'prayer hands light spiritual',
+    'deserto': 'desert golden hour spiritual',
+    'jardim': 'garden flowers nature peaceful',
+    'bíblia': 'bible book old light',
+    'céu': 'heavenly sky clouds golden light',
+    'estrela': 'starry night sky spiritual',
+    'mar': 'calm sea sunset spiritual',
+    'leão': 'lion majestic nature',
+    'cordeiro': 'lamb nature peaceful',
+    'fogo': 'fire light spiritual dramatic',
+    'espírito': 'dove bird white light',
+    'pomba': 'dove bird white light',
+    'israel': 'jerusalem old city landscape',
+    'trigo': 'wheat field golden hour',
+    'caminho': 'path forest sunlight spiritual',
+    'promessa': 'rainbow sky clouds nature',
+    'arco-íris': 'rainbow sky clouds nature',
+    'tempestade': 'storm clouds dramatic sky sea',
+    'calmaria': 'peaceful lake sunrise nature',
+    'pastagens': 'green pastures hills nature',
+    'reino': 'majestic castle mountain landscape',
+    'coroa': 'crown light spiritual',
+    'sangue': 'red sunrise dramatic sky',
+    'colheita': 'harvest wheat field nature',
+    'semeador': 'seeds ground nature sunlight',
+};
+
+const getUnsplashFallbackUrl = (text: string, style: string): { url: string; category: string } => {
+    const lowerText = text.toLowerCase();
+    let query = 'nature spiritual light';
+    let category = 'Geral';
+    
+    // Lista de variações para cada estilo para evitar repetição
+    const styleModifiers: Record<string, string[]> = {
+        'realistic': ['4k', 'photography', 'ultra hd', 'vibrant'],
+        'oil_painting': ['artwork', 'textured', 'fine art', 'canvas'],
+        'cinematic': ['moody', 'epic', 'anamorphic', 'dark light'],
+        'watercolor': ['soft', 'pastel', 'illustration', 'expressive'],
+        'vintage': ['analog', 'film noir', 'faded', 'retro'],
+        'minimalist': ['clean', 'simple', 'monochrome', 'space']
+    };
+
+    // Categorização por keywords bíblicas
+    for (const [keyword, q] of Object.entries(RELIGIOUS_KEYWORDS)) {
+        if (lowerText.includes(keyword)) { 
+            query = q; 
+            category = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+            break; 
+        }
+    }
+    
+    // Se não achou keyword, usa o estilo mapeado
+    if (query === 'nature spiritual light') {
+        const styleInfo = STYLE_TO_QUERY[style.toLowerCase()] || 'nature spiritual landscape';
+        query = styleInfo;
+        category = 'Estúdio';
+    }
+
+    // Adiciona modifier aleatório baseado no estilo para diversificar
+    const mods = styleModifiers[style.toLowerCase()] || [];
+    if (mods.length > 0) {
+        query += ` ${mods[Math.floor(Math.random() * mods.length)]}`;
+    }
+    
+    const sig = Math.floor(Math.random() * 20000);
+    const url = `https://images.unsplash.com/photo-1501854140801-50d01698950b?auto=format&fit=crop&w=1200&q=80&query=${encodeURIComponent(query)}&sig=${sig}`;
+    return { url, category };
+};
+
+const unsplashUrlToBase64 = async (url: string): Promise<{ mimeType: string; data: string } | null> => {
+    try {
+        const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
+        if (!response.ok) return null;
+        const blob = await response.blob();
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64 = (reader.result as string).split(',')[1];
+                resolve({ mimeType: blob.type || 'image/jpeg', data: base64 });
+            };
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+        });
+    } catch { return null; }
+};
+
+export const generateVerseImage = async (text: string, reference: string, style: string): Promise<{ mimeType: string; data: string; category: string } | null> => {
+    const lowerText = text.toLowerCase();
+    let category = 'Geral';
+    for (const keyword of Object.keys(RELIGIOUS_KEYWORDS)) {
+        if (lowerText.includes(keyword)) {
+            category = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+            break;
+        }
+    }
+
+    // 1. Try Gemini Image (paid model — will fail silently on free tier)
     try {
         const prompt = `A high quality, ${style} style religious art representing the bible verse: "${text}" (${reference}). Spiritual, cinematic lighting, masterpiece. 
         IMPORTANT CONSTRAINTS: 
@@ -465,14 +589,57 @@ export const generateVerseImage = async (text: string, reference: string, style:
         const parts = response.candidates?.[0]?.content?.parts;
         if (parts) {
             for (const part of parts) {
-                if (part.inlineData) {
-                    return { mimeType: part.inlineData.mimeType, data: part.inlineData.data };
+                const imgData = part.inlineData?.data;
+                const mime = part.inlineData?.mimeType;
+                if (imgData && mime) {
+                    return { mimeType: mime, data: imgData, category };
                 }
             }
         }
-        return null;
-    } catch (e) { return null; }
+        // Caso chegue aqui sem dados, força erro para o fallback
+        throw new Error("No image data returned from model");
+    } catch (e: any) {
+        console.warn('Gemini/Imagen Image failed (likely quota or modality):', e.message || e);
+    }
+
+    // 2. Try Pexels (if API key available)
+    try {
+        const pexelsKey = process.env.NEXT_PUBLIC_PEXELS_API_KEY;
+        if (pexelsKey) {
+            const lowerText = text.toLowerCase();
+            let query = 'nature spiritual';
+            for (const [keyword, q] of Object.entries(RELIGIOUS_KEYWORDS)) {
+                if (lowerText.includes(keyword)) { query = q; break; }
+            }
+            const response = await fetch(
+                `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=15&orientation=square`,
+                { headers: { Authorization: pexelsKey } }
+            );
+            const data = await response.json();
+            const photos = data.photos;
+            if (photos && photos.length > 0) {
+                const photo = photos[Math.floor(Math.random() * Math.min(photos.length, 10))];
+                const imgUrl = photo.src.large2x || photo.src.large;
+                const result = await unsplashUrlToBase64(imgUrl);
+                if (result) return { ...result, category: category || 'Geral' };
+            }
+        }
+    } catch (e) {
+        console.warn('Pexels fallback failed, trying Unsplash...', e);
+    }
+
+    // 3. Unsplash Source (no API key required — free tier)
+    try {
+        const fallback = getUnsplashFallbackUrl(text, style);
+        const result = await unsplashUrlToBase64(fallback.url);
+        if (result) return { ...result, category: fallback.category };
+    } catch (e) {
+        console.warn('Unsplash fallback also failed:', e);
+    }
+
+    return null;
 };
+
 
 export const generateSocialPostDesign = async (text: string, ref: string) => {
     try {
@@ -576,3 +743,52 @@ export const findNearbyChurches = async (lat: number, lng: number): Promise<Near
         return places;
     } catch (e) { return []; }
 };
+
+export const generateAIOnePage = async (userPrompt: string, authorName?: string): Promise<any> => {
+    const systemInstruction = `Atue como Dr. Marcos, teólogo e designer editorial. 
+Crie conteúdo bíblico profundo, elegante e visualmente rico.
+DIRETRIZES:
+1. Use HTML: <h2>, <h3>, <p>, <strong>, blockquote, ul, li.
+2. Estudo profundo (450-600 palavras totais) com contexto histórico e aplicação prática real.
+3. Não use cores fixas em textos base (suporte ao Dark Mode).
+4. Responda APENAS com JSON válido.`;
+
+    const prompt = `PEDIDO: "${userPrompt}"
+AUTOR: "${authorName || 'Pr. Gabriel'}"
+
+Gere uma one-page pastoral completa em JSON:
+{
+  "meta": { "title": "Título Impactante", "description": "Subtítulo pastoral (15-20 palavras)" },
+  "slug": "link-amigavel",
+  "blocks": {
+    "hero": {
+      "title": "Chamada Curta", "subtitle": "Frase inspiradora (20 palavras)",
+      "backgroundColor": "#1a2744", "textColor": "#ffffff", "alignment": "center"
+    },
+    "biblical": { "verse": "Ref", "reference": "Ref", "text": "Texto do versículo", "style": "elegant" },
+    "studyContent": {
+      "content": "<h2>1. Introdução</h2><p>[Reflexão profunda]</p><h2>2. Contexto e Teologia</h2><p>[Significado]</p><h2>3. Aplicação</h2><p>[Princípios]</p>"
+    },
+    "authority": { "name": "${authorName || 'Pr. Gabriel'}", "bio": "Bio pastoral." },
+    "footer": { "tagline": "Fechamento", "showSocial": true }
+  }
+}
+Importante: O campo studyContent.content deve ter conteúdo real, rico e bíblico.`;
+
+    try {
+        const raw = await callAi(prompt, systemInstruction, "json");
+        let cleaned = raw;
+        if (cleaned.includes('```')) {
+            cleaned = cleaned.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        }
+        const firstBrace = cleaned.indexOf('{');
+        const lastBrace = cleaned.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1) {
+            cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+        }
+        return JSON.parse(cleaned);
+    } catch (e: any) {
+        throw new Error(`Falha ao gerar one-page: ${e.message}`);
+    }
+};
+
