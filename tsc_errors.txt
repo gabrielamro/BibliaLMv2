@@ -1,9 +1,0 @@
-﻿.next/types/validator.ts(168,39): error TS2307: Cannot find module '../../app/estudio-criativo/page.js' or its corresponding type declarations.
-views/PlanBuilderPage.tsx(25,10): error TS2300: Duplicate identifier 'DragDropContext'.
-views/PlanBuilderPage.tsx(25,27): error TS2300: Duplicate identifier 'Droppable'.
-views/PlanBuilderPage.tsx(25,38): error TS2300: Duplicate identifier 'Draggable'.
-views/PlanBuilderPage.tsx(25,49): error TS2300: Duplicate identifier 'DropResult'.
-views/PlanBuilderPage.tsx(29,10): error TS2300: Duplicate identifier 'DragDropContext'.
-views/PlanBuilderPage.tsx(29,27): error TS2300: Duplicate identifier 'Droppable'.
-views/PlanBuilderPage.tsx(29,38): error TS2300: Duplicate identifier 'Draggable'.
-views/PlanBuilderPage.tsx(29,49): error TS2300: Duplicate identifier 'DropResult'.

@@ -1,3 +1,0 @@
-﻿views/Inicio03.tsx(288,50): error TS2339: Property 'teamId' does not exist on type 'CustomPlan'.
-views/Inicio03.tsx(291,55): error TS2339: Property 'type' does not exist on type 'CustomPlan'.
-views/Inicio03.tsx(331,99): error TS2339: Property 'type' does not exist on type 'CustomPlan'.

@@ -5,14 +5,22 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useHeader } from '../../contexts/HeaderContext';
 import { generateVerseImage } from '../../services/pastorAgent';
 import { bibleService } from '../../services/bibleService';
-import { dbService } from '../../services/supabase';
+import { dbService, uploadBlob } from '../../services/supabase';
 import { optimizeImage } from '../../utils/imageOptimizer';
 import { composeImageWithText, CompositionOptions } from '../../utils/imageCompositor';
 import { 
-  ImageIcon, Loader2, Download, Type, Palette, Sliders, AlignLeft, AlignCenter, AlignRight, Sun, Upload, Zap, Sparkles, Search, Move, X, Check
+  ImageIcon, Loader2, Download, Type, Palette, Sliders, AlignLeft, AlignCenter, AlignRight, Upload, Zap, Sparkles, Search, Move, Maximize
 } from 'lucide-react';
 import SEO from '../../components/SEO';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+
+const HARDCODED_FREE_IMAGES = [
+    { url: 'https://images.unsplash.com/photo-1507692049790-de58290a4334?w=400', category: 'Luz', prompt: 'Criação e Luz' },
+    { url: 'https://images.unsplash.com/photo-1508672019048-805c876b67e2?w=400', category: 'Geral', prompt: 'Mar Vermelho' },
+    { url: 'https://images.unsplash.com/photo-1489549132488-d00b7eee80f1?w=400', category: 'Paz', prompt: 'Jerusalém e Paz' },
+    { url: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=400', category: 'Vida', prompt: 'Homem de fé' },
+    { url: 'https://images.unsplash.com/photo-1548625361-ec85d51eb9dc?w=400', category: 'Cruz', prompt: 'Cruz iluminada' }
+];
 
 const STYLES = [
   { id: 'realistic', label: 'Realista', icon: '📸' },
@@ -68,10 +76,9 @@ export default function CriarArteSacraPage() {
     const [rawGeneratedBase64, setRawGeneratedBase64] = useState<string | null>(null);
     const [finalImg, setFinalImg] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [viewMode, setViewMode] = useState<'setup' | 'editor'>('setup');
-    const [activeControlTab, setActiveControlTab] = useState<'text' | 'style' | 'adjust' | 'templates'>('templates');
-    const [galleryImages, setGalleryImages] = useState<any[]>([]);
-    const [showChoiceModal, setShowChoiceModal] = useState(false);
+    const [activeControlTab, setActiveControlTab] = useState<'text' | 'style' | 'templates' | 'ai' | null>(null);
+    const [selectedLayer, setSelectedLayer] = useState<'text' | 'bg' | null>(null);
+    const [galleryImages, setGalleryImages] = useState<any[]>(HARDCODED_FREE_IMAGES);
     
     const [editOptions, setEditOptions] = useState<CompositionOptions>({
         textColor: '#ffffff',
@@ -83,28 +90,39 @@ export default function CriarArteSacraPage() {
         overlayOpacity: 0.4,
         aspectRatio: 'feed',
         textX: 50,
-        textY: 50
+        textY: 50,
+        bgX: 50,
+        bgY: 50,
+        bgScale: 1
     });
 
     useEffect(() => {
         setTitle('Estúdio de Arte Sacra');
         setBreadcrumbs([
             { label: 'Galeria', onClick: () => navigate('/artes-sacras') },
-            { label: viewMode === 'editor' ? 'Editor' : 'Criar' }
+            { label: 'Editor' }
         ]);
         
         const loadGallery = async () => {
-            if (currentUser) {
-                const data = await dbService.getSacredArtGallery(currentUser.uid);
-                setGalleryImages(data);
-            } else {
-                const data = await dbService.getImageBank(20);
-                setGalleryImages(data);
+            try {
+                const userGal = currentUser ? await dbService.getSacredArtGallery(currentUser.uid) : [];
+                const freeGal = await dbService.getImageBank(24);
+
+                const mappedFree = freeGal.length > 0 ? freeGal.map((img: any) => ({
+                    ...img,
+                    url: img.image_url || img.url,
+                    prompt: img.prompt || img.label || 'Arte Sacra'
+                })).filter((img: any) => img.url) : HARDCODED_FREE_IMAGES;
+
+                setGalleryImages([...userGal, ...mappedFree]);
+            } catch (err) {
+                console.error("Erro ao carregar galeria:", err);
+                setGalleryImages(HARDCODED_FREE_IMAGES);
             }
         };
         loadGallery();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [viewMode, currentUser]);
+    }, [currentUser]);
 
     useEffect(() => {
         if (state.tool === 'image' && state.verseText) {
@@ -125,6 +143,13 @@ export default function CriarArteSacraPage() {
                     const result = await bibleService.getVerseText(ref);
                     if (result) {
                         setFoundVerse({ ref: result.formattedRef, text: result.text });
+                        // Alimenta a sugestão de prompt da IA caso esteja vazio ou seja o padrão
+                        setCustomPrompt((prev: string) => {
+                            if (!prev || prev.trim() === '') {
+                                return `Uma representação artística e sagrada de ${result.formattedRef}: ${result.text.substring(0, 100)}... estilo cinematográfico, luz divina, 8k`;
+                            }
+                            return prev;
+                        });
                     }
                 } catch (e) {
                     console.error(e);
@@ -154,7 +179,6 @@ export default function CriarArteSacraPage() {
     }, [editOptions, rawGeneratedBase64, foundVerse]);
 
     const handleGenerateIA = async () => {
-        setShowChoiceModal(false);
         setIsGeneratingImg(true);
         try {
             const styleLabel = selectedStyle === 'custom' ? customPrompt : STYLES.find(s => s.id === selectedStyle)?.label || 'Realista';
@@ -167,13 +191,17 @@ export default function CriarArteSacraPage() {
                 const raw = `data:${result.mimeType};base64,${cleanedData}`;
                 setRawGeneratedBase64(raw); 
                 if (!foundVerse) setFoundVerse({ ref: contextRef, text: contextText });
-                setViewMode('editor');
                 
-                // Salva na galeria de artes sacras (Acervo) - Bloco isolado para não travar a UI se o banco falhar
+                // Salva na galeria de artes sacras (Acervo)
                 if (currentUser) {
                     try {
+                        const response = await fetch(raw);
+                        const blob = await response.blob();
+                        const fileName = `artes_sacras/${currentUser.uid}/${Date.now()}.jpg`;
+                        const uploadedUrl = await uploadBlob(blob, fileName);
+
                         await dbService.saveSacredArtImage(currentUser.uid, {
-                            url: raw,
+                            url: uploadedUrl,
                             prompt: styleLabel,
                             category: result.category || 'Geral',
                             style: selectedStyle,
@@ -190,7 +218,7 @@ export default function CriarArteSacraPage() {
                         setGalleryImages(updatedGallery);
                     } catch (dbError: any) {
                         console.error('Erro ao salvar no banco (Acervo):', dbError);
-                        showNotification('Arte gerada com sucesso, mas houve um erro ao salvar no seu acervo (verifique se a tabela existe).', 'warning');
+                        showNotification('Arte gerada com sucesso, mas houve um erro ao salvar no seu acervo.', 'warning');
                     }
                 }
             } else {
@@ -198,15 +226,8 @@ export default function CriarArteSacraPage() {
             }
         } catch (e: any) {
             console.error('handleCreateArt unexpected error:', e);
-            const errorMsg = e.message || (typeof e === 'object' ? JSON.stringify(e) : String(e));
-            showNotification(`Erro inesperado ao criar arte: ${errorMsg}`, 'error');
+            showNotification(`Erro inesperado ao criar arte.`, 'error');
         } finally { setIsGeneratingImg(false); }
-    };
-
-    const handleSelectGallery = () => {
-        setShowChoiceModal(false);
-        setViewMode('editor');
-        setActiveControlTab('templates');
     };
 
     const handleCreateClick = () => {
@@ -222,7 +243,7 @@ export default function CriarArteSacraPage() {
             openLogin(); return;
         }
 
-        setShowChoiceModal(true);
+        handleGenerateIA();
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -231,7 +252,6 @@ export default function CriarArteSacraPage() {
             try {
                 const optimized = await optimizeImage(file);
                 setRawGeneratedBase64(optimized.base64);
-                setViewMode('editor');
             } catch (err) { alert("Erro ao carregar imagem."); }
         }
     };
@@ -248,372 +268,556 @@ export default function CriarArteSacraPage() {
          }
     };
 
-    // Função para lidar com o Arrastre (Drag) do texto
     const handleDragEnd = (_: any, info: any) => {
         if (!canvasContainerRef.current) return;
+        const rect = canvasContainerRef.current.getBoundingClientRect();
+        // Normaliza de 0 a 100 baseado no container
+        const newX = Math.max(0, Math.min(100, ((info.point.x - rect.left) / rect.width) * 100));
+        const newY = Math.max(0, Math.min(100, ((info.point.y - rect.top) / rect.height) * 100));
         
-        const container = canvasContainerRef.current;
-        const rect = container.getBoundingClientRect();
-        
-        // Calcula a nova posição relativa (%)
-        const relativeX = ((info.point.x - rect.left) / rect.width) * 100;
-        const relativeY = ((info.point.y - rect.top) / rect.height) * 100;
-        
-        setEditOptions(prev => ({
-            ...prev,
-            textX: Math.max(5, Math.min(95, relativeX)),
-            textY: Math.max(5, Math.min(95, relativeY))
+        setEditOptions(p => ({
+            ...p,
+            textX: newX,
+            textY: newY
         }));
     };
 
+    const handleBgDragEnd = (_: any, info: any) => {
+        if (!canvasContainerRef.current) return;
+        const rect = canvasContainerRef.current.getBoundingClientRect();
+        
+        // Movimento direto 1:1 baseado no delta em pixels convertido para %
+        setEditOptions(p => ({
+            ...p,
+            bgX: Math.max(0, Math.min(100, (p.bgX ?? 50) + (info.delta.x / rect.width) * 100)),
+            bgY: Math.max(0, Math.min(100, (p.bgY ?? 50) + (info.delta.y / rect.height) * 100))
+        }));
+    };
+
+    // Função de Redimensionamento via Handle (Simples: Distância do centro)
+    const handleResize = (type: 'text' | 'bg', delta: number) => {
+        setEditOptions(p => {
+            if (type === 'text') {
+                const newScale = Math.max(0.5, Math.min(2.5, p.fontSizeScale + delta));
+                return { ...p, fontSizeScale: newScale };
+            } else {
+                const newScale = Math.max(1, Math.min(3, (p.bgScale ?? 1) + delta));
+                return { ...p, bgScale: newScale };
+            }
+        });
+    };
+
+    const resetText = () => {
+        setEditOptions(p => ({
+            ...p,
+            textX: 50,
+            textY: 50,
+            fontSizeScale: 1,
+            alignment: 'center'
+        }));
+    };
+
+    const getCSSFilters = () => {
+        switch (editOptions.filter) {
+            case 'bw': return { filter: 'grayscale(100%)' };
+            case 'sepia': return { filter: 'sepia(80%)' };
+            case 'darken': return { filter: 'brightness(60%)' };
+            case 'blur': return { filter: 'blur(4px)' };
+            case 'warm': return { filter: 'sepia(30%) saturate(140%) hue-rotate(-10deg)' };
+            case 'cool': return { filter: 'saturate(80%) hue-rotate(20deg) contrast(110%)' };
+            default: return {};
+        }
+    };
+
     return (
-        <div className="h-full bg-gray-50 dark:bg-black/40 flex flex-col relative overflow-hidden">
+        <div className="h-full bg-gray-50 dark:bg-black flex flex-col relative overflow-hidden">
             <SEO title="Criar Arte Sacra | Estúdio" />
             
-            {viewMode === 'setup' ? (
-                <div className="flex-1 flex flex-col md:flex-row h-full">
-                    {/* Setup Sidebar */}
-                    <div className="w-full md:w-80 bg-white dark:bg-bible-darkPaper md:border-r border-gray-100 dark:border-gray-800 p-6 overflow-y-auto shrink-0 z-10">
-                        <div className="flex items-center gap-3 mb-8">
-                             <div className="w-10 h-10 bg-bible-gold rounded-xl flex items-center justify-center text-white shadow-lg">
-                                <Sparkles size={20} />
-                             </div>
-                             <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Estúdio IA</h2>
-                        </div>
-
-                        <div className="space-y-6">
-                            <div>
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block">Formato da Arte</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button 
-                                        onClick={() => setEditOptions(p => ({...p, aspectRatio: 'feed'}))}
-                                        className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${editOptions.aspectRatio === 'feed' ? 'border-bible-gold bg-bible-gold/5 text-bible-gold' : 'border-gray-100 dark:border-gray-800 text-gray-400'}`}
-                                    >
-                                        <div className="w-6 h-6 border-2 border-current rounded-sm" />
-                                        <span className="text-[9px] font-bold uppercase">Feed 1:1</span>
-                                    </button>
-                                    <button 
-                                        onClick={() => setEditOptions(p => ({...p, aspectRatio: 'story'}))}
-                                        className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${editOptions.aspectRatio === 'story' ? 'border-bible-gold bg-bible-gold/5 text-bible-gold' : 'border-gray-100 dark:border-gray-800 text-gray-400'}`}
-                                    >
-                                        <div className="w-4 h-7 border-2 border-current rounded-sm" />
-                                        <span className="text-[9px] font-bold uppercase">Story 9:16</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block">Mensagem Bíblica</label>
-                                <div className="relative mb-3">
-                                    <input 
-                                        type="text" value={refInput} onChange={e => setRefInput(e.target.value)}
-                                        className="w-full pl-4 pr-10 py-3 bg-gray-100 dark:bg-black/50 border border-transparent focus:border-bible-gold text-gray-900 dark:text-white rounded-xl text-sm font-bold focus:outline-none transition-colors"
-                                        placeholder="Ex: João 3:16"
-                                    />
-                                    {isSearchingVerse ? <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-bible-gold" /> : <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />}
-                                </div>
-                                {foundVerse?.text && (
-                                    <textarea 
-                                        value={foundVerse.text} onChange={e => setFoundVerse({ ...foundVerse, text: e.target.value })}
-                                        className="w-full bg-gray-100 dark:bg-black/50 border border-transparent focus:border-bible-gold text-gray-900 dark:text-white rounded-xl px-4 py-3 text-xs h-24 focus:outline-none transition-colors resize-none mb-4"
-                                    />
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block">Estilo da IA</label>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {STYLES.map(style => (
-                                        <button 
-                                            key={style.id} onClick={() => setSelectedStyle(style.id)}
-                                            className={`py-2 px-1 rounded-lg border flex flex-col items-center gap-1 transition-all ${selectedStyle === style.id ? 'bg-bible-gold/10 border-bible-gold text-bible-gold' : 'border-transparent bg-gray-50 dark:bg-black/30'}`}
-                                        >
-                                            <span className="text-lg">{style.icon}</span>
-                                            <span className="text-[8px] font-bold uppercase truncate w-full text-center">{style.label}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-800 space-y-3">
-                            <button 
-                                onClick={handleCreateClick} disabled={isGeneratingImg}
-                                className="w-full py-4 bg-bible-gold text-black font-black uppercase tracking-widest text-xs rounded-2xl flex items-center justify-center gap-2 hover:bg-bible-gold/80 transition-all disabled:opacity-50 shadow-lg shadow-bible-gold/20"
-                            >
-                                {isGeneratingImg ? <Loader2 size={16} className="animate-spin"/> : <Zap size={16}/>}
-                                {isGeneratingImg ? 'Gerando...' : 'Criar Arte'}
-                            </button>
-                            <button onClick={() => fileInputRef.current?.click()} className="w-full py-3 text-gray-500 font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:text-bible-gold transition-colors">
-                                <Upload size={14} /> Ou carregar imagem
-                            </button>
-                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-                        </div>
-                    </div>
-
-                    <div className="flex-1 bg-gray-50 dark:bg-black/20 p-4 md:p-12 flex items-center justify-center relative overflow-hidden">
-                        <div className="relative z-0 flex flex-col items-center max-w-lg text-center">
-                            <ImageIcon size={64} className="text-gray-200 dark:text-gray-800 mb-6" />
-                            <h3 className="text-2xl font-serif font-bold text-gray-800 dark:text-gray-200 mb-2">Seu Canvas Sagrado</h3>
-                            <p className="text-gray-400 text-sm">Configure o versículo e o estilo na barra lateral para começar a criar sua obra.</p>
-                        </div>
+            {/* Floating Top Header (Canva Style) */}
+            <header className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-4 md:px-8 z-50 pointer-events-none">
+                <div className="flex items-center gap-2 pointer-events-auto">
+                    <button 
+                        onClick={() => navigate('/artes-sacras')}
+                        className="p-2 bg-white/80 dark:bg-black/60 backdrop-blur-md rounded-full shadow-lg border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:text-bible-gold transition-all"
+                    >
+                        <Search size={20} className="rotate-180" />
+                    </button>
+                    
+                    {/* Compact Verse Search in Header */}
+                    <div className="hidden md:flex items-center bg-white/80 dark:bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-800 shadow-lg">
+                        <span className="text-[10px] font-black text-bible-gold uppercase tracking-widest mr-2">{foundVerse?.ref || 'Ref'}</span>
+                        <input 
+                            type="text" value={refInput} onChange={e => setRefInput(e.target.value)}
+                            className="bg-transparent border-none focus:outline-none text-[10px] font-bold text-gray-900 dark:text-white w-24"
+                            placeholder="João 3:16"
+                        />
+                        {isSearchingVerse && <Loader2 size={12} className="animate-spin text-bible-gold ml-2" />}
                     </div>
                 </div>
-            ) : (
-                <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
-                    <div className="w-full md:w-80 bg-white dark:bg-bible-darkPaper md:border-r border-gray-100 dark:border-gray-800 flex flex-col z-20">
-                        <div className="flex border-b border-gray-100 dark:border-gray-800 shrink-0">
-                            {[
-                                { id: 'templates', icon: <ImageIcon size={18} />, label: 'Fundos' },
-                                { id: 'text', icon: <Type size={18} />, label: 'Texto' },
-                                { id: 'style', icon: <Palette size={18} />, label: 'Cores' },
-                                { id: 'adjust', icon: <Sliders size={18} />, label: 'Ajustes' },
-                            ].map(tab => (
-                                <button 
-                                    key={tab.id} onClick={() => setActiveControlTab(tab.id as any)}
-                                    className={`flex-1 py-4 flex flex-col items-center gap-1 text-[9px] font-bold uppercase tracking-wider transition-colors ${activeControlTab === tab.id ? 'text-bible-gold bg-bible-gold/5 border-b-2 border-bible-gold' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-black/20'}`}
-                                >
-                                    {tab.icon} {tab.label}
-                                </button>
-                            ))}
-                        </div>
 
-                        <div className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-6">
+                <div className="flex items-center gap-2 pointer-events-auto">
+                    {/* Desktop Zoom Stats */}
+                    <div className="hidden md:flex items-center px-4 py-1.5 bg-black/20 rounded-full backdrop-blur-sm border border-white/5 mr-4">
+                        <span className="text-[7px] font-black text-gray-500 uppercase tracking-widest">{rawGeneratedBase64 ? 'Imagem Pronta' : 'Aguardando Fundo'}</span>
+                    </div>
+
+                    <button 
+                        onClick={handleDownload}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-bible-gold text-black font-black uppercase tracking-widest text-[10px] rounded-full shadow-xl shadow-bible-gold/20 hover:scale-105 active:scale-95 transition-all"
+                    >
+                        <Download size={16} /> <span className="hidden sm:inline">Baixar</span>
+                    </button>
+                </div>
+            </header>
+
+            <main className="flex-1 relative flex flex-col items-center justify-center pt-20 pb-28 md:pb-0 overflow-hidden">
+                {/* Mobile Verse Search - Floating Bar */}
+                <div className="md:hidden absolute top-20 left-1/2 -translate-x-1/2 w-[90%] z-40">
+                   <div className="bg-white/90 dark:bg-black/80 backdrop-blur-xl p-2 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl flex items-center gap-3">
+                        <div className="flex-1 relative">
+                            <input 
+                                type="text" value={refInput} onChange={e => setRefInput(e.target.value)}
+                                className="w-full pl-3 pr-8 py-2 bg-gray-100 dark:bg-white/5 border-none focus:outline-none text-gray-900 dark:text-white rounded-xl text-[11px] font-bold"
+                                placeholder="Ref: João 3:16"
+                            />
+                            {isSearchingVerse ? <Loader2 size={12} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-bible-gold" /> : <Search size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />}
+                        </div>
+                        {foundVerse?.text && (
+                            <button 
+                                onClick={() => setActiveControlTab('text')}
+                                className="p-2 bg-bible-gold/10 text-bible-gold rounded-xl border border-bible-gold/20"
+                            >
+                                <Type size={16} />
+                            </button>
+                        )}
+                   </div>
+                </div>
+
+                {/* Centered Canvas Container */}
+                    <div 
+                        onClick={() => setSelectedLayer(null)}
+                        className="flex-1 w-full flex items-center justify-center p-4 md:p-12 overflow-auto custom-scrollbar"
+                    >
+
+                        <div 
+                            ref={canvasContainerRef}
+                            className={`relative bg-bible-gold/10 shadow-2xl rounded-sm overflow-hidden flex items-center justify-center animate-in zoom-in-95 duration-500 select-none ${editOptions.aspectRatio === 'story' ? 'aspect-[9/16] h-[55vh] md:h-[75vh]' : 'aspect-square h-[45vh] md:h-[70vh]'}`}
+                        >
+                            <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #c5a059 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+                            {rawGeneratedBase64 ? (
+                                <div className="absolute inset-0 overflow-hidden group/canvas">
+                                    {/* Layer 1: Background Draggable & Scalable */}
+                                    <motion.div 
+                                        drag
+                                        dragMomentum={false}
+                                        onDragEnd={handleBgDragEnd}
+                                        onClick={(e) => { e.stopPropagation(); setSelectedLayer('bg'); }}
+                                        className="absolute cursor-move group/bg"
+                                        style={{ 
+                                            width: `${100 * (editOptions.bgScale ?? 1)}%`,
+                                            height: `${100 * (editOptions.bgScale ?? 1)}%`,
+                                            left: `${(editOptions.bgX ?? 50) - (50 * (editOptions.bgScale ?? 1))}%`,
+                                            top: `${(editOptions.bgY ?? 50) - (50 * (editOptions.bgScale ?? 1))}%`,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            zIndex: 10
+                                        }}
+                                    >
+                                        {/* Contextual Toolbar (BG) */}
+                                        {selectedLayer === 'bg' && (
+                                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white dark:bg-black/80 backdrop-blur-md px-2 py-1 rounded-full shadow-2xl border border-gray-200 dark:border-white/10 z-[60] pointer-events-auto">
+                                                <button onClick={() => setActiveControlTab('templates')} className="p-1.5 hover:text-bible-gold transition-colors"><ImageIcon size={14} /></button>
+                                                <button onClick={() => setActiveControlTab('ai')} className="p-1.5 hover:text-bible-gold transition-colors"><Zap size={14} /></button>
+                                                <div className="w-px h-4 bg-gray-200 dark:bg-white/10 mx-1" />
+                                                <button onClick={() => setEditOptions(p => ({ ...p, bgX: 50, bgY: 50, bgScale: 1 }))} className="p-1.5 hover:text-red-500 transition-colors"><Maximize size={14} className="rotate-45" /></button>
+                                            </div>
+                                        )}
+                                        
+                                        <img 
+                                            src={rawGeneratedBase64} 
+                                            alt="Preview Base" 
+                                            className="w-full h-full object-cover pointer-events-none border border-white/20 shadow-2xl" 
+                                            style={getCSSFilters()}
+                                        />
+                                        {/* BG Resize Handle (Canva-style Corner) */}
+                                        <div 
+                                           onClick={(e) => { e.stopPropagation(); setSelectedLayer('bg'); }}
+                                           onMouseDown={(e) => {
+                                               e.stopPropagation();
+                                               setSelectedLayer('bg');
+                                               const startX = e.clientX;
+                                               const onMove = (me: MouseEvent) => {
+                                                   const diff = (me.clientX - startX) / 400;
+                                                   handleResize('bg', diff);
+                                               };
+                                               const onUp = () => {
+                                                   window.removeEventListener('mousemove', onMove);
+                                                   window.removeEventListener('mouseup', onUp);
+                                               };
+                                               window.addEventListener('mousemove', onMove);
+                                               window.addEventListener('mouseup', onUp);
+                                           }}
+                                           onTouchStart={(e) => {
+                                               e.stopPropagation();
+                                               const startX = e.touches[0].clientX;
+                                               const onMove = (te: TouchEvent) => {
+                                                   const diff = (te.touches[0].clientX - startX) / 400;
+                                                   handleResize('bg', diff);
+                                               };
+                                               const onUp = () => {
+                                                   window.removeEventListener('touchmove', onMove);
+                                                   window.removeEventListener('touchend', onUp);
+                                               };
+                                               window.addEventListener('touchmove', onMove);
+                                               window.addEventListener('touchend', onUp);
+                                           }}
+                                           className="absolute bottom-2 right-2 w-7 h-7 md:w-6 md:h-6 bg-bible-gold rounded-full flex items-center justify-center cursor-nwse-resize opacity-0 group-hover/bg:opacity-100 transition-opacity z-50 shadow-lg border-2 border-white/40"
+                                        >
+                                           <div className="w-1.5 h-1.5 bg-black rounded-full" />
+                                        </div>
+                                    </motion.div>
+
+                                    {/* Layer 2: Overlay Gradient */}
+                                    <div 
+                                        className="absolute inset-0 pointer-events-none" 
+                                        style={{ 
+                                            background: `linear-gradient(to bottom, rgba(0,0,0,${Math.max(0, editOptions.overlayOpacity - 0.2)}), rgba(0,0,0,${editOptions.overlayOpacity}), rgba(0,0,0,${Math.min(1, editOptions.overlayOpacity + 0.2)}))` 
+                                        }} 
+                                    />
+                                    
+                                    {/* Layer 3: Text Draggable & Scalable */}
+                                    {foundVerse?.text && (
+                                        <motion.div 
+                                            drag
+                                            dragMomentum={false}
+                                            onDragEnd={handleDragEnd}
+                                            initial={false}
+                                            style={{ 
+                                                position: 'absolute',
+                                                left: `${editOptions.textX}%`,
+                                                top: `${editOptions.textY}%`,
+                                                x: '-50%',
+                                                y: '-50%',
+                                                cursor: 'move',
+                                                textAlign: editOptions.alignment as any,
+                                                padding: '1.5rem',
+                                                width: '85%',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: editOptions.alignment === 'center' ? 'center' : editOptions.alignment === 'left' ? 'flex-start' : 'flex-end',
+                                                zIndex: 50
+                                            }}
+                                            onClick={(e) => { e.stopPropagation(); setSelectedLayer('text'); }}
+                                            className="group/text"
+                                        >
+                                            {/* Contextual Toolbar (Text) */}
+                                            {selectedLayer === 'text' && (
+                                                <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white dark:bg-black/80 backdrop-blur-md px-2 py-1 rounded-full shadow-2xl border border-gray-200 dark:border-white/10 z-[60] pointer-events-auto">
+                                                    <button onClick={() => setActiveControlTab('text')} className="p-1.5 hover:text-bible-gold transition-colors"><Type size={14} /></button>
+                                                    <button onClick={() => setActiveControlTab('style')} className="p-1.5 hover:text-bible-gold transition-colors"><Palette size={14} /></button>
+                                                    <div className="w-px h-4 bg-gray-200 dark:bg-white/10 mx-1" />
+                                                    <button onClick={resetText} className="p-1.5 hover:text-red-500 transition-colors"><Maximize size={14} className="rotate-45" /></button>
+                                                </div>
+                                            )}
+
+                                            {/* Selection Box */}
+                                            <div className="absolute inset-0 border border-bible-gold/60 rounded-xl opacity-0 group-hover/text:opacity-100 transition-opacity pointer-events-none">
+                                                <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-bible-gold rounded-full" />
+                                                <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-bible-gold rounded-full" />
+                                                <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-bible-gold rounded-full" />
+                                            </div>
+
+                                            {/* Resize Handle Text */}
+                                            <div 
+                                                onMouseDown={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedLayer('text');
+                                                    const startX = e.clientX;
+                                                    const onMove = (me: MouseEvent) => {
+                                                        const diff = (me.clientX - startX) / 300;
+                                                        handleResize('text', diff);
+                                                    };
+                                                    const onUp = () => {
+                                                        window.removeEventListener('mousemove', onMove);
+                                                        window.removeEventListener('mouseup', onUp);
+                                                    };
+                                                    window.addEventListener('mousemove', onMove);
+                                                    window.addEventListener('mouseup', onUp);
+                                                }}
+                                                onTouchStart={(e) => {
+                                                    e.stopPropagation();
+                                                    const startX = e.touches[0].clientX;
+                                                    const onMove = (te: TouchEvent) => {
+                                                        const diff = (te.touches[ te.touches.length - 1 ].clientX - startX) / 300;
+                                                        handleResize('text', diff);
+                                                    };
+                                                    const onUp = () => {
+                                                        window.removeEventListener('touchmove', onMove);
+                                                        window.removeEventListener('touchend', onUp);
+                                                    };
+                                                    window.addEventListener('touchmove', onMove);
+                                                    window.addEventListener('touchend', onUp);
+                                                }}
+                                                className="absolute -bottom-1.5 -right-1.5 w-6 h-6 md:w-5 md:h-5 bg-bible-gold rounded-full opacity-0 group-hover/text:opacity-100 cursor-nwse-resize z-50 flex items-center justify-center shadow-lg border-2 border-white/40"
+                                            >
+                                                <div className="w-1 h-1 bg-black rounded-full" />
+                                            </div>
+
+                                            <p 
+                                                className="font-bold leading-tight select-none whitespace-pre-wrap drop-shadow-2xl"
+                                                style={{ 
+                                                    fontFamily: editOptions.fontFamily,
+                                                    fontSize: `${2.4 * editOptions.fontSizeScale}vw`,
+                                                    color: editOptions.textColor,
+                                                    pointerEvents: 'none'
+                                                }}
+                                            >
+                                                “{foundVerse?.text}”
+                                            </p>
+                                            <span 
+                                                className="mt-3 font-black uppercase text-bible-gold select-none tracking-widest drop-shadow-md"
+                                                style={{ 
+                                                    fontSize: `${1.2 * editOptions.fontSizeScale}vw`,
+                                                    pointerEvents: 'none'
+                                                }}
+                                            >
+                                                {foundVerse?.ref}
+                                            </span>
+                                        </motion.div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center text-center p-12 space-y-6">
+                                    <div className="w-20 h-20 bg-gray-900 rounded-2xl flex items-center justify-center text-gray-800 border border-gray-800 animate-pulse">
+                                        <ImageIcon size={40} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <h3 className="text-xl font-serif font-bold text-gray-400">Monte seu Canvas</h3>
+                                        <p className="text-sm text-gray-500 max-w-xs">Escolha um fundo na galeria ao lado ou use a IA para gerar algo novo.</p>
+                                    </div>
+                                    <div className="flex gap-4">
+                                        <button onClick={() => setActiveControlTab('templates')} className="px-4 py-2 bg-gray-900 text-gray-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-gray-800 hover:text-bible-gold hover:border-bible-gold transition-all">Ver Galeria</button>
+                                        <button onClick={() => setActiveControlTab('ai')} className="px-4 py-2 bg-bible-gold/10 text-bible-gold rounded-xl text-[10px] font-black uppercase tracking-widest border border-bible-gold/20 hover:bg-bible-gold/20 transition-all">Criar com IA</button>
+                                    </div>
+                                </div>
+                            )}
+                    </div>
+                </div>
+
+                {/* Floating Bottom Dock (Canva Style) */}
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-auto max-w-[95%] z-50">
+                    <div className="bg-white/80 dark:bg-black/60 backdrop-blur-2xl px-2 py-2 rounded-full border border-gray-200/50 dark:border-white/10 shadow-2xl flex items-center gap-1 overflow-x-auto no-scrollbar">
+                        {[
+                            { id: 'templates', icon: <ImageIcon size={18} />, label: 'Substituir' },
+                            { id: 'ai', icon: <Sparkles size={18} />, label: 'IA' },
+                            { id: 'text', icon: <Type size={18} />, label: 'Texto' },
+                            { id: 'style', icon: <Palette size={18} />, label: 'Estilo' },
+                        ].map(item => (
+                            <button 
+                                key={item.id}
+                                onClick={() => setActiveControlTab(p => p === item.id ? null : item.id as any)}
+                                className={`flex flex-col items-center gap-1 px-4 py-2 rounded-full transition-all ${activeControlTab === item.id ? 'bg-bible-gold text-black font-black' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                {item.icon}
+                                <span className="text-[7px] uppercase tracking-tighter font-black">{item.label}</span>
+                            </button>
+                        ))}
+                        
+                        {/* Final Check/Pronto Button */}
+                        <div className="h-8 w-px bg-gray-200 dark:bg-white/10 mx-1" />
+                        <button 
+                            onClick={handleDownload}
+                            className="bg-white dark:bg-white/10 p-3 rounded-full text-bible-gold hover:scale-110 transition-transform shadow-sm"
+                        >
+                            <Download size={18} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Tool Drawer (Slide Up - Positioned above the dock) */}
+                {activeControlTab && (
+                    <motion.div 
+                        initial={{ y: "20%", opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: "20%", opacity: 0 }}
+                        className="fixed bottom-24 left-4 right-4 md:left-auto md:right-8 md:w-[450px] z-40 bg-white/95 dark:bg-black/90 backdrop-blur-2xl rounded-[32px] border border-gray-200 dark:border-white/10 shadow-2xl max-h-[50vh] overflow-hidden flex flex-col"
+                    >
+                        {/* Drawer Handle */}
+                        <div className="w-12 h-1.5 bg-gray-200 dark:bg-white/10 rounded-full mx-auto mt-4 mb-2 shrink-0" onClick={() => setActiveControlTab(null)} />
+                        
+                        <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-bible-gold">
+                                    {activeControlTab === 'templates' && 'Galeria de Fundos'}
+                                    {activeControlTab === 'ai' && 'Gerador de Arte IA'}
+                                    {activeControlTab === 'text' && 'Formatação de Texto'}
+                                    {activeControlTab === 'style' && 'Estilo e Filtros'}
+                                </h3>
+                                <button onClick={() => setActiveControlTab(null)} className="text-gray-400 hover:text-white uppercase font-black text-[8px] tracking-widest">Fechar</button>
+                            </div>
+
                             {activeControlTab === 'templates' && (
-                                <div className="space-y-4">
+                                <div className="space-y-6">
                                     <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                                         {['Todas', 'Luz', 'Vida', 'Cruz', 'Paz', 'Amor', 'Geral'].map(cat => (
                                             <button 
                                                 key={cat} 
                                                 onClick={async () => {
-                                                    if (currentUser) {
-                                                        const filtered = await dbService.getSacredArtGallery(currentUser.uid, cat);
-                                                        setGalleryImages(filtered);
-                                                    }
+                                                    try {
+                                                        const userGal = currentUser ? await dbService.getSacredArtGallery(currentUser.uid, cat === 'Todas' ? undefined : cat) : [];
+                                                        const freeGal = await dbService.getImageBank(50);
+                                                        const mappedFree = freeGal.length > 0 ? freeGal.map((img: any) => ({
+                                                            ...img,
+                                                            url: img.image_url || img.url,
+                                                            prompt: img.prompt || img.label || 'Arte Sacra'
+                                                        })).filter((img: any) => img.url) : HARDCODED_FREE_IMAGES;
+                                                        
+                                                        const filteredFree = cat === 'Todas' ? mappedFree : mappedFree.filter((img: any) => img.category === cat);
+                                                        setGalleryImages([...userGal, ...filteredFree]);
+                                                    } catch (e) { console.error(e); }
                                                 }}
-                                                className="px-3 py-1 bg-gray-100 dark:bg-black/40 rounded-full text-[10px] font-bold text-gray-500 whitespace-nowrap hover:bg-bible-gold/20 hover:text-bible-gold transition-colors"
+                                                className="px-4 py-1.5 bg-gray-100 dark:bg-white/5 rounded-full text-[9px] font-black text-gray-400 whitespace-nowrap hover:text-bible-gold transition-colors"
                                             >
                                                 {cat}
                                             </button>
                                         ))}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-6 gap-1 md:grid-cols-8 lg:grid-cols-10">
                                         {galleryImages.map((img, i) => (
                                             <button 
                                                 key={i} 
-                                                onClick={() => setRawGeneratedBase64(img.url || img.image_url)}
-                                                className="group relative aspect-[4/5] rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800 hover:border-bible-gold transition-all"
+                                                onClick={() => {
+                                                    setRawGeneratedBase64(img.url || img.image_url);
+                                                    setEditOptions(p => ({ ...p, bgX: 50, bgY: 50, bgScale: 1 }));
+                                                }}
+                                                className="aspect-square rounded-lg overflow-hidden border border-transparent hover:border-bible-gold transition-all shadow-sm group relative"
                                             >
-                                                <img src={img.url || img.image_url} alt="Template" className="w-full h-full object-cover" />
-                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                                    <span className="text-[8px] font-black text-white uppercase tracking-tighter bg-bible-gold/80 px-2 py-1 rounded-sm">{img.category || 'Geral'}</span>
-                                                </div>
+                                                <img src={img.url || img.image_url} alt="Template" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                                             </button>
                                         ))}
                                     </div>
+                                    <button 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="w-full py-4 border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl flex flex-col items-center gap-2 text-gray-500 hover:text-bible-gold hover:border-bible-gold transition-all"
+                                    >
+                                        <Upload size={20} />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Enviar do Dispositivo</span>
+                                    </button>
+                                </div>
+                            )}
+
+                            {activeControlTab === 'ai' && (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
+                                        {STYLES.map(style => (
+                                            <button 
+                                                key={style.id} onClick={() => setSelectedStyle(style.id)}
+                                                className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${selectedStyle === style.id ? 'bg-bible-gold/10 border-bible-gold text-bible-gold' : 'border-transparent bg-gray-50 dark:bg-white/5 text-gray-500'}`}
+                                            >
+                                                <span className="text-xl">{style.icon}</span>
+                                                <span className="text-[8px] font-black uppercase text-center leading-none">{style.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <textarea 
+                                        value={customPrompt} onChange={e => setCustomPrompt(e.target.value)}
+                                        className="w-full bg-gray-50 dark:bg-white/5 border border-transparent focus:border-bible-gold text-gray-900 dark:text-white rounded-2xl p-4 text-[11px] h-24 focus:outline-none transition-all resize-none"
+                                        placeholder="Descreva a imagem que você deseja criar..."
+                                    />
+                                    <button 
+                                        onClick={handleCreateClick} disabled={isGeneratingImg}
+                                        className="w-full py-4 bg-bible-gold text-black font-black uppercase tracking-widest text-[11px] rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-bible-gold/30 disabled:opacity-50 active:scale-95 transition-all"
+                                    >
+                                        {isGeneratingImg ? <Loader2 size={16} className="animate-spin"/> : <Zap size={16}/>}
+                                        {isGeneratingImg ? 'IA Gerando Imagem...' : 'Gerar Fundo Inédito'}
+                                    </button>
                                 </div>
                             )}
 
                             {activeControlTab === 'text' && (
                                 <div className="space-y-6">
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block">Estilo de Fonte</label>
-                                        <div className="grid grid-cols-1 gap-2">
-                                            {FONTS.map(font => (
-                                                <button 
-                                                    key={font.id} onClick={() => setEditOptions(p => ({...p, fontFamily: font.id}))} 
-                                                    className={`w-full px-4 py-3 rounded-xl border text-sm text-left transition-all ${editOptions.fontFamily === font.id ? 'border-bible-gold bg-bible-gold/10 text-bible-gold' : 'border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-400'}`} style={font.style}
-                                                >
-                                                    {font.label}
-                                                </button>
-                                            ))}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-3">
+                                            <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Tipografia</label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {FONTS.map(font => (
+                                                    <button 
+                                                        key={font.id} onClick={() => setEditOptions(p => ({...p, fontFamily: font.id}))} 
+                                                        className={`px-4 py-3 rounded-xl border text-[11px] text-left transition-all ${editOptions.fontFamily === font.id ? 'border-bible-gold bg-bible-gold/10 text-bible-gold' : 'border-gray-200 dark:border-white/5 text-gray-600 dark:text-gray-400'}`} style={font.style}
+                                                    >
+                                                        {font.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Alinhamento</label>
+                                            <div className="flex bg-gray-100 dark:bg-white/5 rounded-xl p-1.5 gap-2">
+                                                {['left', 'center', 'right'].map(align => (
+                                                    <button 
+                                                        key={align}
+                                                        onClick={() => setEditOptions(p => ({...p, alignment: align as any}))} 
+                                                        className={`flex-1 py-2 rounded-lg flex items-center justify-center transition-all ${editOptions.alignment === align ? 'bg-white dark:bg-gray-800 shadow-md text-bible-gold' : 'text-gray-400'}`}
+                                                    >
+                                                        {align === 'left' && <AlignLeft size={18}/>}
+                                                        {align === 'center' && <AlignCenter size={18}/>}
+                                                        {align === 'right' && <AlignRight size={18}/>}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block">Alinhamento</label>
-                                        <div className="flex bg-gray-100 dark:bg-black/50 rounded-xl p-1 gap-1">
-                                            <button onClick={() => setEditOptions(p => ({...p, alignment: 'left'}))} className={`flex-1 py-2 rounded-lg flex items-center justify-center ${editOptions.alignment === 'left' ? 'bg-white dark:bg-gray-800 shadow-sm text-bible-gold' : 'text-gray-400'}`}><AlignLeft size={18}/></button>
-                                            <button onClick={() => setEditOptions(p => ({...p, alignment: 'center'}))} className={`flex-1 py-2 rounded-lg flex items-center justify-center ${editOptions.alignment === 'center' ? 'bg-white dark:bg-gray-800 shadow-sm text-bible-gold' : 'text-gray-400'}`}><AlignCenter size={18}/></button>
-                                            <button onClick={() => setEditOptions(p => ({...p, alignment: 'right'}))} className={`flex-1 py-2 rounded-lg flex items-center justify-center ${editOptions.alignment === 'right' ? 'bg-white dark:bg-gray-800 shadow-sm text-bible-gold' : 'text-gray-400'}`}><AlignRight size={18}/></button>
-                                        </div>
+                                    <div className="flex gap-4">
+                                        <button onClick={resetText} className="flex-1 py-4 bg-gray-100 dark:bg-white/5 rounded-2xl text-[9px] font-black uppercase text-gray-400 hover:text-bible-gold transition-colors flex items-center justify-center gap-2">
+                                            <Maximize size={16} /> Resetar Posição
+                                        </button>
+                                        <button onClick={() => setEditOptions(p => ({...p, fontSizeScale: 1}))} className="flex-1 py-4 bg-gray-100 dark:bg-white/5 rounded-2xl text-[9px] font-black uppercase text-gray-400 hover:text-bible-gold transition-colors flex items-center justify-center gap-2">
+                                            <Type size={16} /> Escala Padrão
+                                        </button>
                                     </div>
                                 </div>
                             )}
 
                             {activeControlTab === 'style' && (
-                                <div className="space-y-6">
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block">Cores do Texto</label>
-                                        <div className="grid grid-cols-4 gap-3">
+                                <div className="space-y-8">
+                                    <div className="space-y-4">
+                                        <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Cores do Texto</label>
+                                        <div className="flex gap-4">
                                             {COLORS.map(color => (
-                                                <button key={color.id} onClick={() => setEditOptions(p => ({...p, textColor: color.value}))} className={`aspect-square rounded-full border-2 transition-transform ${editOptions.textColor === color.value ? 'border-bible-gold scale-110 shadow-lg' : 'border-transparent shadow-sm'}`} style={{ backgroundColor: color.value }}/>
+                                                <button 
+                                                    key={color.id} 
+                                                    onClick={() => setEditOptions(p => ({...p, textColor: color.value}))} 
+                                                    className={`w-10 h-10 rounded-full border-4 transition-transform ${editOptions.textColor === color.value ? 'border-bible-gold scale-110 shadow-lg' : 'border-transparent opacity-60'}`} 
+                                                    style={{ backgroundColor: color.value }}
+                                                />
                                             ))}
                                         </div>
                                     </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block">Efeito de Filtro</label>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {FILTERS.map(f => (
-                                                <button key={f.id} onClick={() => setEditOptions(p => ({...p, filter: f.id as any}))} className={`py-2.5 rounded-xl border text-[10px] font-bold uppercase transition-all ${editOptions.filter === f.id ? 'border-bible-gold bg-bible-gold/5 text-bible-gold' : 'border-gray-100 dark:border-gray-800 text-gray-500'}`}>{f.label}</button>
-                                            ))}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Opacidade Fundo</label>
+                                                <span className="text-[10px] font-black text-bible-gold">{Math.round(editOptions.overlayOpacity * 100)}%</span>
+                                            </div>
+                                            <input type="range" min="0" max="0.9" step="0.05" value={editOptions.overlayOpacity} onChange={(e) => setEditOptions(p => ({...p, overlayOpacity: parseFloat(e.target.value)}))} className="w-full h-1.5 bg-gray-100 dark:bg-white/10 rounded-lg appearance-none cursor-pointer accent-bible-gold" />
+                                        </div>
+                                        <div className="space-y-4">
+                                            <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Filtros de Cor</label>
+                                            <div className="grid grid-cols-4 gap-2">
+                                                {FILTERS.map(f => (
+                                                    <button key={f.id} onClick={() => setEditOptions(p => ({...p, filter: f.id as any}))} className={`py-2 rounded-xl border text-[8px] font-black uppercase transition-all ${editOptions.filter === f.id ? 'border-bible-gold text-bible-gold bg-bible-gold/5' : 'border-gray-200 dark:border-white/5 text-gray-500'}`}>{f.label}</button>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             )}
-
-                            {activeControlTab === 'adjust' && (
-                                <div className="space-y-6 pt-2">
-                                     <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tamanho da Fonte</label>
-                                        <input type="range" min="0.5" max="2.5" step="0.1" value={editOptions.fontSizeScale} onChange={(e) => setEditOptions(p => ({...p, fontSizeScale: parseFloat(e.target.value)}))} className="w-full h-1.5 bg-gray-100 dark:bg-black/50 rounded-lg appearance-none cursor-pointer accent-bible-gold" />
-                                     </div>
-                                     <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Escurecimento</label>
-                                        <input type="range" min="0" max="0.9" step="0.05" value={editOptions.overlayOpacity} onChange={(e) => setEditOptions(p => ({...p, overlayOpacity: parseFloat(e.target.value)}))} className="w-full h-1.5 bg-gray-100 dark:bg-black/50 rounded-lg appearance-none cursor-pointer accent-bible-gold" />
-                                     </div>
-                                </div>
-                            )}
                         </div>
-
-                        <div className="p-5 border-t border-gray-100 dark:border-gray-800 shrink-0 bg-gray-50/50 dark:bg-black/20">
-                             <button onClick={handleDownload} className="w-full py-4 bg-bible-gold text-black font-black uppercase tracking-widest text-[10px] rounded-2xl flex items-center justify-center gap-2 hover:scale-[1.02] transition-all shadow-lg shadow-bible-gold/20">
-                                <Download size={16} /> Baixar Arte
-                             </button>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 flex flex-col bg-gray-100 dark:bg-black/60 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-6 z-10 bg-white/50 dark:bg-black/50 backdrop-blur-md">
-                            <div className="flex items-center gap-4">
-                                <button onClick={() => setViewMode('setup')} className="p-2 text-gray-400 hover:text-bible-gold transition-colors">
-                                    <Sparkles size={20} />
-                                </button>
-                                <div className="h-4 w-[1px] bg-gray-200 dark:bg-gray-700" />
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{editOptions.aspectRatio === 'story' ? 'Canvas Story (9:16)' : 'Canvas Feed (1:1)'}</span>
-                            </div>
-                        </div>
-
-                        <div className="flex-1 flex items-center justify-center p-4 md:p-12 overflow-auto custom-scrollbar pt-20">
-                            <div 
-                                ref={canvasContainerRef}
-                                className={`relative bg-black shadow-2xl rounded-sm overflow-hidden flex items-center justify-center animate-in zoom-in-95 duration-500 ${editOptions.aspectRatio === 'story' ? 'aspect-[9/16] h-[75vh]' : 'aspect-square h-[60vh] md:h-[70vh]'}`}
-                            >
-                                {finalImg ? (
-                                   <>
-                                      <img src={finalImg} alt="Arte Final" className="w-full h-full object-contain pointer-events-none" />
-                                      <motion.div 
-                                        drag
-                                        dragMomentum={false}
-                                        onDragEnd={handleDragEnd}
-                                        initial={false}
-                                        style={{ 
-                                            position: 'absolute',
-                                            left: `${editOptions.textX}%`,
-                                            top: `${editOptions.textY}%`,
-                                            x: '-50%',
-                                            y: '-50%',
-                                            cursor: 'move',
-                                            textAlign: editOptions.alignment as any,
-                                            padding: '1rem',
-                                            width: '80%',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: editOptions.alignment === 'center' ? 'center' : editOptions.alignment === 'left' ? 'flex-start' : 'flex-end',
-                                            zIndex: 50
-                                        }}
-                                        className="group"
-                                      >
-                                        <div className="absolute top-0 left-0 right-0 bottom-0 border-2 border-dashed border-bible-gold/30 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none" />
-                                        <div className="absolute -top-4 -right-4 opacity-0 group-hover:opacity-100 bg-bible-gold text-black p-1 rounded-full shadow-lg transition-opacity pointer-events-none">
-                                            <Move size={12} />
-                                        </div>
-                                        <p 
-                                            className="font-bold leading-relaxed text-transparent select-none whitespace-pre-wrap"
-                                            style={{ 
-                                                fontFamily: editOptions.fontFamily,
-                                                fontSize: `${2.2 * editOptions.fontSizeScale}vw`,
-                                                pointerEvents: 'none'
-                                            }}
-                                        >
-                                            “{foundVerse?.text}”
-                                        </p>
-                                        <span 
-                                            className="mt-2 font-black uppercase text-transparent select-none"
-                                            style={{ 
-                                                fontSize: `${1.4 * editOptions.fontSizeScale}vw`,
-                                                pointerEvents: 'none'
-                                            }}
-                                        >
-                                            {foundVerse?.ref}
-                                        </span>
-                                      </motion.div>
-                                   </>
-                                ) : (
-                                   <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-gray-600">
-                                      <Loader2 className="animate-spin text-bible-gold" size={40} />
-                                   </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Modal de Escolha de Fundo */}
-            <AnimatePresence>
-                {showChoiceModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="bg-white dark:bg-bible-darkPaper w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-gray-100 dark:border-gray-800"
-                        >
-                            <div className="p-8">
-                                <h3 className="text-2xl font-serif font-black text-gray-900 dark:text-white mb-2 leading-tight">Escolha o Fundo da Arte</h3>
-                                <p className="text-sm text-gray-400 mb-8">Como você deseja começar sua obra sagrada?</p>
-                                
-                                <div className="space-y-4">
-                                    <button 
-                                        onClick={handleGenerateIA}
-                                        className="w-full flex items-center gap-5 p-5 rounded-2xl border-2 border-bible-gold/20 bg-bible-gold/5 hover:bg-bible-gold/10 hover:border-bible-gold transition-all text-left group"
-                                    >
-                                        <div className="w-14 h-14 bg-bible-gold rounded-xl flex items-center justify-center text-black shadow-lg group-hover:scale-110 transition-transform">
-                                            <Zap size={24} />
-                                        </div>
-                                        <div>
-                                            <span className="block text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider mb-1">Fundo Gerado IA</span>
-                                            <span className="block text-xs text-gray-400">Gera uma imagem inédita baseada no contexto do versículo.</span>
-                                        </div>
-                                    </button>
-
-                                    <button 
-                                        onClick={handleSelectGallery}
-                                        className="w-full flex items-center gap-5 p-5 rounded-2xl border-2 border-gray-100 dark:border-gray-800 hover:border-bible-gold/40 hover:bg-gray-50 dark:hover:bg-black/20 transition-all text-left group"
-                                    >
-                                        <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center text-gray-400 group-hover:text-bible-gold transition-colors">
-                                            <ImageIcon size={24} />
-                                        </div>
-                                        <div>
-                                            <span className="block text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider mb-1">Selecionar da Galeria</span>
-                                            <span className="block text-xs text-gray-400">Use uma arte profissional já existente em nosso acervo.</span>
-                                        </div>
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div className="p-4 bg-gray-50 dark:bg-black/20 flex justify-center border-t border-gray-100 dark:border-gray-800">
-                                <button 
-                                    onClick={() => setShowChoiceModal(false)}
-                                    className="text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-red-500 transition-colors py-2"
-                                >
-                                    Cancelar Operação
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
+                    </motion.div>
                 )}
-            </AnimatePresence>
+            </main>
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
         </div>
     );
 }
