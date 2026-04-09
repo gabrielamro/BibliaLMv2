@@ -31,7 +31,11 @@ export const HeroBlock: React.FC<HeroBlockProps> = ({ data, onUpdate, isEditing,
           {/* Título */}
           <h1 
             className="text-xl md:text-2xl lg:text-3xl font-bold mb-3"
-            style={{ color: data.textColor || '#ffffff' }}
+            style={{ 
+              color: data.textColor || '#ffffff',
+              fontFamily: data.fontFamily || 'inherit',
+              fontSize: data.fontSize ? `${data.fontSize * 2}px` : undefined
+            }}
             contentEditable={isEditing}
             suppressContentEditableWarning={true}
             onBlur={(e) => onUpdate?.({ ...data, title: e.currentTarget.textContent || '' })}
@@ -43,7 +47,12 @@ export const HeroBlock: React.FC<HeroBlockProps> = ({ data, onUpdate, isEditing,
           {(data.showSubtitle !== false) && data.subtitle && (
             <p 
               className="text-sm md:text-base mb-6 max-w-2xl"
-              style={{ color: data.textColor ? `${data.textColor}cc` : 'rgba(255,255,255,0.9)' }}
+              style={{ 
+                color: data.textColor ? `${data.textColor}cc` : 'rgba(255,255,255,0.9)',
+                fontFamily: data.fontFamily || 'inherit',
+                fontSize: data.fontSize ? `${data.fontSize}px` : undefined,
+                lineHeight: data.lineHeight || 'inherit'
+              }}
               contentEditable={isEditing}
               suppressContentEditableWarning={true}
               onBlur={(e) => onUpdate?.({ ...data, subtitle: e.currentTarget.textContent || '' })}
@@ -134,7 +143,7 @@ export const HeroBlock: React.FC<HeroBlockProps> = ({ data, onUpdate, isEditing,
           />
           
           {isEditing && (
-             <div className="absolute bottom-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+             <div className="absolute bottom-4 right-4 z-[60] opacity-0 group-hover:opacity-100 transition-opacity">
                 <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur p-3 rounded-2xl shadow-2xl flex flex-col gap-2">
                   <div className="flex items-center gap-2">
                     <ImageIcon size={16} className="text-bible-gold" />

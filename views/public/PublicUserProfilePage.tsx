@@ -530,7 +530,7 @@ const PublicUserProfilePage: React.FC = () => {
                               userPlans.map(plan => (
                                   <div key={plan.id} className="bg-gray-50 dark:bg-gray-900/50 p-5 rounded-[2rem] border border-gray-100 dark:border-gray-800">
                                       <h4 className="font-black text-gray-900 dark:text-white text-sm">{plan.title}</h4>
-                                      <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest font-bold">{plan.totalDays} Dias de Jornada</p>
+                                      <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest font-bold">{plan.weeks.reduce((total, week) => total + week.days.length, 0)} Dias de Jornada</p>
                                   </div>
                               ))
                           )}

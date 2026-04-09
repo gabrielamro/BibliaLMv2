@@ -24,7 +24,7 @@ interface OmniSearchProps {
 const FEATURES = [
     { keywords: ['quiz', 'jogo', 'perguntas', 'desafio'], label: 'Desafio da Sabedoria', path: '/quiz', icon: <Zap size={16} /> },
     { keywords: ['devocional', 'pao', 'pão', 'dia', 'meditacao', 'meditação'], label: 'Pão Diário', path: '/devocional', icon: <BookOpen size={16} /> },
-    { keywords: ['estudio', 'arte', 'imagem', 'podcast', 'criar'], label: 'Estúdio Criativo', path: '/estudio-criativo', icon: <Zap size={16} /> },
+    { keywords: ['estudio', 'arte', 'imagem', 'podcast', 'criar'], label: 'Estúdio Criativo', path: '/?tab=criar', icon: <Zap size={16} /> },
     { keywords: ['chat', 'ia', 'conselheiro', 'ajuda'], label: 'Conselheiro IA', path: '/chat', icon: <Zap size={16} /> },
     { keywords: ['plano', 'leitura', 'meta', 'anual'], label: 'Meta de Leitura', path: '/plano', icon: <BookOpen size={16} /> },
     { keywords: ['perfil', 'conta', 'eu'], label: 'Meu Perfil', path: '/perfil', icon: <User size={16} /> },

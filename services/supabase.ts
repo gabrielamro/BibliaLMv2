@@ -12,6 +12,7 @@ import {
     CustomPlan, PlanTeam, CustomQuiz, GuidedPrayer, StudyEvaluation,
     StudyModule, Banner, SystemSettings, AppNotification, SupportTicket,
     ReportTicket, SystemLog, AIUsageStats, HomeConfig, LandingPageConfig, Track,
+    SacredArtImage,
     PlanParticipant, PlanComment
 } from '../types';
 

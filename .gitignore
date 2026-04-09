@@ -23,6 +23,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.log
+build_log*.txt
+tsc_errors*.txt
 
 # OS
 .DS_Store

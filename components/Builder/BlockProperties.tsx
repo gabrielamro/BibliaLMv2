@@ -202,14 +202,14 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
       {/* Estilos Predefinidos (Presets) */}
       <div className="pt-6 border-t border-gray-100 dark:border-gray-800 mt-6">
         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] block mb-3 flex items-center gap-2">
-          <Sparkle size={12} className="text-bible-gold" /> Estilos Sugeridos
+          <Sparkle size={12} className="text-bible-gold" /> Modelo de Background
         </label>
         <div className="grid grid-cols-2 gap-2">
            {[
-             { name: 'Impacto', bg: '#0f172a', text: '#f8fafc', font: 'var(--font-montserrat), sans-serif', bold: true },
-             { name: 'Pastoral', bg: '#fdfbf7', text: '#2d2d2d', font: 'var(--font-merriweather), serif' },
-             { name: 'Elegante', bg: '#ffffff', text: '#000000', font: 'var(--font-playfair), serif', line: 2.0 },
-             { name: 'Moderna', bg: '#f8fafc', text: '#0f172a', font: 'var(--font-inter), sans-serif' }
+             { name: 'Impacto Profundo', bg: '#0f172a', text: '#f8fafc', font: 'var(--font-montserrat), sans-serif', shadow: 'xl', line: 1.6 },
+             { name: 'Pergaminho', bg: '#fdfbf7', text: '#2d2d2d', font: 'var(--font-merriweather), serif', shadow: 'md', line: 1.8 },
+             { name: 'Minimalista Luxo', bg: '#ffffff', text: '#000000', font: 'var(--font-playfair), serif', shadow: 'lg', line: 2.0 },
+             { name: 'Digital Clean', bg: '#f1f5f9', text: '#0f172a', font: 'var(--font-inter), sans-serif', shadow: 'sm', line: 1.6 }
            ].map(preset => (
              <button
                key={preset.name}
@@ -222,7 +222,7 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
                    lineHeight: preset.line || 1.8,
                    padding: 60,
                    borderRadius: 32,
-                   shadow: preset.bg === '#ffffff' ? 'md' : 'none'
+                   shadow: preset.shadow || 'none'
                  };
                  setLocalData(newData);
                  onUpdate?.(newData);
@@ -349,56 +349,6 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
             </div>
 
             <div className="space-y-4 pt-2">
-               <div className="grid grid-cols-2 gap-4">
-                 <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-[9px] font-bold text-gray-500 uppercase">Margem Superior</span>
-                      <span className="text-[10px] font-mono text-bible-gold">{(typeof localData.margin === 'object' ? localData.margin?.top : (localData.margin ?? 0))}px</span>
-                    </div>
-                    <input type="range" min="0" max="160" step="4" value={(typeof localData.margin === 'object' ? localData.margin?.top : (localData.margin ?? 0))} onChange={e => {
-                      const val = parseInt(e.target.value);
-                      const current = typeof localData.margin === 'object' ? localData.margin : { top: localData.margin ?? 0, bottom: localData.margin ?? 0 };
-                      handleChange('margin', { ...current, top: val });
-                    }} className="w-full accent-bible-gold h-1" />
-                 </div>
-                 <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-[9px] font-bold text-gray-500 uppercase">Margem Inferior</span>
-                      <span className="text-[10px] font-mono text-bible-gold">{(typeof localData.margin === 'object' ? localData.margin?.bottom : (localData.margin ?? 0))}px</span>
-                    </div>
-                    <input type="range" min="0" max="160" step="4" value={(typeof localData.margin === 'object' ? localData.margin?.bottom : (localData.margin ?? 0))} onChange={e => {
-                      const val = parseInt(e.target.value);
-                      const current = typeof localData.margin === 'object' ? localData.margin : { top: localData.margin ?? 0, bottom: localData.margin ?? 0 };
-                      handleChange('margin', { ...current, bottom: val });
-                    }} className="w-full accent-bible-gold h-1" />
-                 </div>
-               </div>
-
-               <div className="grid grid-cols-2 gap-4">
-                 <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-[9px] font-bold text-gray-500 uppercase">Espaçamento Topo</span>
-                      <span className="text-[10px] font-mono text-bible-gold">{(typeof localData.padding === 'object' ? localData.padding?.top : (localData.padding ?? 0))}px</span>
-                    </div>
-                    <input type="range" min="0" max="160" step="4" value={(typeof localData.padding === 'object' ? localData.padding?.top : (localData.padding ?? 0))} onChange={e => {
-                      const val = parseInt(e.target.value);
-                      const current = typeof localData.padding === 'object' ? localData.padding : { top: localData.padding ?? 0, bottom: localData.padding ?? 0 };
-                      handleChange('padding', { ...current, top: val });
-                    }} className="w-full accent-bible-gold h-1" />
-                 </div>
-                 <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-[9px] font-bold text-gray-500 uppercase">Espaçamento Base</span>
-                      <span className="text-[10px] font-mono text-bible-gold">{(typeof localData.padding === 'object' ? localData.padding?.bottom : (localData.padding ?? 0))}px</span>
-                    </div>
-                    <input type="range" min="0" max="160" step="4" value={(typeof localData.padding === 'object' ? localData.padding?.bottom : (localData.padding ?? 0))} onChange={e => {
-                      const val = parseInt(e.target.value);
-                      const current = typeof localData.padding === 'object' ? localData.padding : { top: localData.padding ?? 0, bottom: localData.padding ?? 0 };
-                      handleChange('padding', { ...current, bottom: val });
-                    }} className="w-full accent-bible-gold h-1" />
-                 </div>
-               </div>
-
                <div>
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-[10px] font-bold text-gray-500 uppercase">Arredondamento</span>

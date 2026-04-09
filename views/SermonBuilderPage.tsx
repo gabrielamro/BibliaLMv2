@@ -8,8 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { dbService } from '../services/supabase';
 import { bibleService } from '../services/bibleService';
-import { generateSermonOutline } from '../services/pastorAgent';
-import { generateVerseImage } from '../services/geminiService';
+import { generateSermonOutline, generateVerseImage } from '../services/pastorAgent';
 import { useSettings } from '../contexts/SettingsContext';
 import {
     Mic2, Save, Plus, Trash2, Loader2, BookOpen, Clock, FileText,

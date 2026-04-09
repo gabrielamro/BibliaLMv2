@@ -3,7 +3,6 @@ import { Settings as SettingsIcon, Volume2, ChevronRight, ChevronLeft, Loader2, 
 import { Chapter, Note } from '../../types';
 import SettingsModal from '../SettingsModal';
 import { useSettings } from '../../contexts/SettingsContext';
-import { useNavigate } from 'react-router-dom';
 import SmartText from './SmartText';
 import { extractVerseLead } from '../../utils/verseTypography';
 import { BIBLE_BOOKS_LIST } from '../../constants';

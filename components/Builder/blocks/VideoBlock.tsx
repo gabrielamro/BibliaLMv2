@@ -24,7 +24,7 @@ export const VideoBlock: React.FC<VideoBlockProps> = ({ data, onUpdate, isEditin
               allowFullScreen
             />
             {isEditing && (
-              <div className="absolute top-4 right-4 z-20">
+              <div className="absolute bottom-4 right-4 z-[60]">
                 <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur p-3 rounded-2xl shadow-2xl flex items-center gap-2">
                   <Video size={16} className="text-bible-gold" />
                   <input 

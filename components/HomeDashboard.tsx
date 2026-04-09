@@ -416,7 +416,7 @@ const HomeDashboard: React.FC = () => {
                                         }
                                         if (item.type === 'creative_challenge') {
                                             return (
-                                                <div key={item.id} onClick={() => navigate('/estudio-criativo')} className="bg-pink-50 dark:bg-pink-900/10 p-6 rounded-[2rem] border border-pink-100 dark:border-pink-800/30 cursor-pointer hover:shadow-md transition-all flex items-center justify-between">
+                                                <div key={item.id} onClick={() => navigate('/?tab=criar')} className="bg-pink-50 dark:bg-pink-900/10 p-6 rounded-[2rem] border border-pink-100 dark:border-pink-800/30 cursor-pointer hover:shadow-md transition-all flex items-center justify-between">
                                                     <div>
                                                         <h4 className="font-bold text-pink-700 dark:text-pink-300 mb-1 flex items-center gap-2"><Sparkles size={16} /> Desafio Criativo</h4>
                                                         <p className="text-xs text-pink-600 dark:text-pink-400 mb-3">Crie uma arte para Salmos 23 e compartilhe.</p>
@@ -508,7 +508,7 @@ const HomeDashboard: React.FC = () => {
                                         </div>
                                         <ArrowRight size={14} className="text-gray-300 group-hover:text-yellow-500 opacity-0 group-hover:opacity-100 transition-all" />
                                     </button>
-                                    <button onClick={() => navigate('/estudio-criativo')} className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
+                                    <button onClick={() => navigate('/?tab=criar')} className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
                                         <div className="flex items-center gap-3">
                                             <div className="p-2 bg-pink-100 dark:bg-pink-900/20 text-pink-600 rounded-lg"><Sparkles size={16} /></div>
                                             <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Estúdio Criativo</span>

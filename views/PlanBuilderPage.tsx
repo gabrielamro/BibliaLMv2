@@ -8,8 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { dbService, uploadBlob } from '../services/supabase';
 import { bibleService } from '../services/bibleService';
-import { generateImagePromptForPlan, generateStructuredStudy } from '../services/pastorAgent';
-import { generateVerseImage } from '../services/geminiService';
+import { generateImagePromptForPlan, generateStructuredStudy, generateVerseImage } from '../services/pastorAgent';
 import { useSettings } from '../contexts/SettingsContext';
 import {
     ArrowLeft, Plus, Save, Trash2, Loader2, Search, Check,
@@ -598,15 +597,6 @@ const PlanBuilderPage: React.FC = () => {
         });
     };
 
-    // --- CONTENT BUILDER HANDLERS ---
-    const handleAddBlock = (type: BlockType) => {
-        pushToBlockHistory(editorBlocks);
-        const newBlock = createBlock(type);
-        setEditorBlocks(prev => [...prev, newBlock]);
-        setSelectedBlockId(newBlock.id);
-        setIsMobileAddMenuOpen(false);
-    };
-
     const handleUpdateBlock = (id: string, data: any) => {
         setEditorBlocks(prev => prev.map(b => b.id === id ? { ...b, data: { ...b.data, ...data } } : b));
     };
@@ -617,6 +607,7 @@ const PlanBuilderPage: React.FC = () => {
         if (selectedBlockId === id) setSelectedBlockId(null);
     };
 
+    // --- CONTENT BUILDER HANDLERS ---
     const handleMoveBlock = (fromIndex: number, toIndex: number) => {
         pushToBlockHistory(editorBlocks);
         setEditorBlocks(prev => {
@@ -625,6 +616,41 @@ const PlanBuilderPage: React.FC = () => {
             next.splice(toIndex, 0, moved);
             return next;
         });
+    };
+
+    const handleAddBlock = (type: BlockType, index?: number) => {
+        pushToBlockHistory(editorBlocks);
+        const newBlock = createBlock(type);
+        setEditorBlocks(prev => {
+            const next = [...prev];
+            if (typeof index === 'number') {
+                next.splice(index, 0, newBlock);
+            } else {
+                next.push(newBlock);
+            }
+            return next;
+        });
+        setSelectedBlockId(newBlock.id);
+        setIsMobileAddMenuOpen(false);
+    };
+
+    const onDragEndBlocks = (result: DropResult) => {
+        const { source, destination, draggableId } = result;
+        if (!destination) return;
+        
+        // Se arrastou para a mesma posição
+        if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+        // Caso 1: Reordenação de blocos existentes
+        if (source.droppableId === 'canvas-blocks' && destination.droppableId === 'canvas-blocks') {
+            handleMoveBlock(source.index, destination.index);
+        }
+        
+        // Caso 2: Arrastando novo bloco da sidebar para o canvas
+        if (source.droppableId === 'block-palette' && destination.droppableId === 'canvas-blocks') {
+            const blockType = draggableId.replace('palette-', '') as BlockType;
+            handleAddBlock(blockType, destination.index);
+        }
     };
 
     const handleDuplicateBlock = (id: string, index: number) => {
@@ -1349,13 +1375,96 @@ const PlanBuilderPage: React.FC = () => {
                         </header>
 
                         {/* Editor Body */}
-                        <div className="flex-1 flex overflow-hidden">
-                            {/* SIDEBAR ESQUERDA */}
-                            <aside className="w-72 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-r border-gray-200 dark:border-gray-800 overflow-y-auto hidden lg:block">
+                        <DragDropContext onDragEnd={onDragEndBlocks}>
+                           <div className="flex-1 flex overflow-hidden">
+                               {/* SIDEBAR ESQUERDA */}
+                               <aside className="w-72 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-r border-gray-200 dark:border-gray-800 overflow-y-auto hidden lg:block">
 
-                            <div className="p-4 space-y-5 flex-1 overflow-y-auto">
+                               <div className="p-4 space-y-5 flex-1 overflow-y-auto">
+                                   {/* Paleta de Blocos */}
+                                   <div>
+                                       <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                           <Plus size={12} className="text-bible-gold" /> Componentes
+                                       </h3>
+                                       
+                                       <Droppable droppableId="block-palette" isDropDisabled={true}>
+                                           {(provided) => (
+                                               <div 
+                                                   {...provided.droppableProps}
+                                                   ref={provided.innerRef}
+                                                   className="space-y-1.5"
+                                               >
+                                                   {(['hero', 'biblical', 'study-content', 'authority', 'video', 'slide', 'footer'] as const).map((type, idx) => {
+                                                       const labels: Record<string, { label: string; description: string; color: string }> = {
+                                                           hero: { label: 'Capa Impactante', description: 'Título, subtítulo e CTA', color: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600' },
+                                                           authority: { label: 'Perfil do Autor', description: 'Foto, nome e bio', color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600' },
+                                                           biblical: { label: 'Versículo em Destaque', description: 'Citação da Bíblia', color: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700' },
+                                                           'study-content': { label: 'Conteúdo do Estudo', description: 'Texto rico e formatado', color: 'bg-purple-100 dark:bg-purple-900/40 text-purple-600' },
+                                                           video: { label: 'Vídeo', description: 'YouTube ou url', color: 'bg-red-100 dark:bg-red-900/40 text-red-600' },
+                                                           slide: { label: 'Slides', description: 'Carrossel de slides', color: 'bg-teal-100 dark:bg-teal-900/40 text-teal-600' },
+                                                           footer: { label: 'Rodapé', description: 'CTA e assinatura final', color: 'bg-gray-200 dark:bg-gray-800 text-gray-600' },
+                                                       };
+                                                       const info = labels[type];
+                                                       const count = editorBlocks.filter(b => b.type === type).length;
+                                                       
+                                                       return (
+                                                           <Draggable key={`palette-${type}`} draggableId={`palette-${type}`} index={idx}>
+                                                               {(provided, snapshot) => (
+                                                                   <>
+                                                                       <div
+                                                                           ref={provided.innerRef}
+                                                                           {...provided.draggableProps}
+                                                                           {...provided.dragHandleProps}
+                                                                           onClick={() => handleAddBlock(type)}
+                                                                           className={`w-full flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 hover:bg-white dark:hover:bg-gray-800 border border-transparent hover:border-bible-gold/30 active:scale-[0.98] transition-all text-left shadow-sm ${snapshot.isDragging ? 'shadow-xl ring-2 ring-bible-gold border-transparent z-50 bg-white dark:bg-gray-800' : ''}`}
+                                                                       >
+                                                                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${info.color}`}>
+                                                                               {type === 'hero' && <Layout size={15} />}
+                                                                               {type === 'authority' && <Brain size={15} />}
+                                                                               {type === 'biblical' && <BookOpen size={15} />}
+                                                                               {type === 'study-content' && <FileText size={15} />}
+                                                                               {type === 'video' && <PlayCircle size={15} />}
+                                                                               {type === 'slide' && <Layers size={15} />}
+                                                                               {type === 'footer' && <AlignLeft size={15} />}
+                                                                           </div>
+                                                                           <div className="flex-1 min-w-0">
+                                                                               <p className="font-bold text-[11px] text-gray-800 dark:text-white">{info.label}</p>
+                                                                               <p className="text-[9px] text-gray-500 dark:text-gray-400 truncate text-ellipsis">{info.description}</p>
+                                                                           </div>
+                                                                           {count > 0 ? (
+                                                                               <span className="text-[9px] font-bold bg-bible-gold/10 text-bible-gold rounded-full px-1.5 py-0.5 flex-shrink-0">×{count}</span>
+                                                                           ) : (
+                                                                               <Plus size={13} className="text-gray-400 flex-shrink-0" />
+                                                                           )}
+                                                                       </div>
+                                                                       {snapshot.isDragging && (
+                                                                           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-transparent text-left opacity-30 select-none pointer-events-none">
+                                                                               <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${info.color}`}>
+                                                                                   {type === 'hero' && <Layout size={15} />}
+                                                                                   {type === 'authority' && <Brain size={15} />}
+                                                                                   {type === 'biblical' && <BookOpen size={15} />}
+                                                                                   {type === 'study-content' && <FileText size={15} />}
+                                                                                   {type === 'video' && <PlayCircle size={15} />}
+                                                                                   {type === 'slide' && <Layers size={15} />}
+                                                                                   {type === 'footer' && <AlignLeft size={15} />}
+                                                                               </div>
+                                                                               <div className="flex-1 min-w-0">
+                                                                                   <p className="font-bold text-[11px] text-gray-800 dark:text-white">{info.label}</p>
+                                                                               </div>
+                                                                           </div>
+                                                                       )}
+                                                                   </>
+                                                               )}
+                                                           </Draggable>
+                                                       );
+                                                   })}
+                                                   {provided.placeholder}
+                                               </div>
+                                           )}
+                                       </Droppable>
+                                   </div>
 
-                                {/* Referência Bíblica */}
+                                   {/* Referência Bíblica */}
                                 <div className="p-3 bg-gradient-to-br from-bible-gold/10 dark:from-bible-gold/5 to-amber-50 dark:to-amber-900/10 rounded-2xl border border-bible-gold/20 dark:border-bible-gold/10">
                                     <h3 className="text-[10px] font-bold text-bible-gold uppercase tracking-widest mb-2 flex items-center gap-2">
                                         <BookOpen size={12} /> Referência Bíblica
@@ -1511,7 +1620,7 @@ const PlanBuilderPage: React.FC = () => {
 
                         {/* Block Properties Sidebar (Desktop) */}
                         {selectedBlockId && editorBlocks.find(b => b.id === selectedBlockId) && (
-                            <aside className="hidden xl:block w-80 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-l border-gray-200 dark:border-gray-800 overflow-y-auto fixed right-0 top-[73px] bottom-0 z-40">
+                            <aside className="hidden xl:block w-80 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-l border-gray-200 dark:border-gray-800 overflow-y-auto z-40">
                                 <div className="p-4">
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className="font-bold text-bible-ink dark:text-white">
@@ -1533,9 +1642,9 @@ const PlanBuilderPage: React.FC = () => {
                             </aside>
                         )}
                     </div>
+                    </DragDropContext>
                 </div>
             )}
-        </div>
 
         {/* ======== SETTINGS OVERLAY ======== */}
         {showSettingsOverlay && (
@@ -1882,6 +1991,7 @@ const PlanBuilderPage: React.FC = () => {
             <ConfirmationModal isOpen={showSaveSuccessModal} onClose={() => setShowSaveSuccessModal(false)} onConfirm={() => savedPlanId && navigate(`/jornada/${savedPlanId}`)} title="Sucesso!" message="Seu plano foi publicado." confirmText="Ver Plano" variant="success" />
             <EvaluationBuilderModal isOpen={showEvalModal} onClose={() => setShowEvalModal(false)} onSave={handleSaveEvaluation} initialData={evaluationData || undefined} />
             <ObreiroIAChatbot />
+        </div>
         </div>
     );
 };

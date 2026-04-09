@@ -1,40 +1,40 @@
 import { BlockType } from './types';
 
 export const blockLabels: Record<BlockType, { label: string; description: string; color: string }> = {
-  hero: { 
-    label: 'Capa Impactante', 
-    description: 'Título, subtítulo e CTA com fundo visual', 
-    color: 'bg-blue-500 text-white' 
+  hero: {
+    label: 'Capa Impactante',
+    description: 'Título, subtítulo e CTA com fundo visual',
+    color: 'bg-blue-500 text-white'
   },
-  authority: { 
-    label: 'Perfil do Autor', 
-    description: 'Foto, nome e biografia curta', 
-    color: 'bg-purple-500 text-white' 
+  authority: {
+    label: 'Perfil do Autor',
+    description: 'Foto, nome e biografia curta',
+    color: 'bg-purple-500 text-white'
   },
-  biblical: { 
-    label: 'Versículo em Destaque', 
-    description: 'Texto bíblico com design elegante', 
-    color: 'bg-amber-500 text-white' 
+  biblical: {
+    label: 'Versículo em Destaque',
+    description: 'Texto bíblico com design elegante',
+    color: 'bg-amber-500 text-white'
   },
-  video: { 
-    label: 'Vídeo / Player', 
-    description: 'Embed de YouTube ou aula gravada', 
-    color: 'bg-red-500 text-white' 
+  video: {
+    label: 'Vídeo / Player',
+    description: 'Embed de YouTube ou aula gravada',
+    color: 'bg-red-500 text-white'
   },
-  'study-content': { 
-    label: 'Conteúdo do Estudo', 
-    description: 'Área principal de texto rico e estruturado', 
-    color: 'bg-emerald-500 text-white' 
+  'study-content': {
+    label: 'Conteúdo do Estudo',
+    description: 'Área principal de texto rico e estruturado',
+    color: 'bg-emerald-500 text-white'
   },
-  slide: { 
-    label: 'Carrossel / Slides', 
-    description: 'Sequência de slides com texto e fundo', 
-    color: 'bg-indigo-500 text-white' 
+  slide: {
+    label: 'Carrossel / Slides',
+    description: 'Sequência de slides com texto e fundo',
+    color: 'bg-indigo-500 text-white'
   },
-  footer: { 
-    label: 'Rodapé / Social', 
-    description: 'Copyright e links de redes sociais', 
-    color: 'bg-gray-800 text-white' 
+  footer: {
+    label: 'Rodapé / Social',
+    description: 'Copyright e links de redes sociais',
+    color: 'bg-gray-800 text-white'
   }
 };
 
@@ -64,10 +64,10 @@ export const defaultBlockData: Record<BlockType, any> = {
     verse: 'João 3:16',
     text: 'Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna.',
     reference: 'João 3:16',
-    style: 'elegant',
-    showImage: true,
+    style: 'classic',
+    showImage: false,
     imageStyle: 'realistic',
-    padding: 12
+    padding: 16
   },
   video: {
     url: '',
@@ -96,12 +96,17 @@ export const defaultBlockData: Record<BlockType, any> = {
   slide: {
     slides: [
       {
-        id: `slide-1-${Date.now()}`,
-        backgroundImage: '',
-        content: '<h2>Título do Slide</h2><p>Adicione seu conteúdo aqui...</p>',
-        overlayOpacity: 0.3
+        id: `slide-default`,
+        backgroundImage: 'https://images.unsplash.com/photo-1509021436665-8f07dbf5bf1d?q=80&w=2000',
+        type: 'image',
+        title: 'A Palavra de Deus',
+        description: 'Pois a palavra de Deus é viva, e eficaz, e mais cortante que qualquer espada de dois gumes, e que penetra até a divisão de alma e espírito, e de juntas e medulas, e pronta para discernir as disposições e pensamentos do coração. Hebreus 4:12',
+        mediaUrl: 'https://images.unsplash.com/photo-1509021436665-8f07dbf5bf1d?q=80&w=2000',
+        overlayOpacity: 0.6,
+        layout: 'image-right'
       }
     ],
+    margin: { top: 40, bottom: 0 },
     height: 'medium',
     autoplay: false,
     autoplayInterval: 5000,

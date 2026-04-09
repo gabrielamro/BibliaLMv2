@@ -1,5 +1,5 @@
 import React from 'react';
-import { ImageIcon, X } from 'lucide-react';
+import { ImageIcon, X, Quote, Type, Palette, Layout, Settings2 } from 'lucide-react';
 import { ImageUploadButton } from '../ImageUploadButton';
 
 interface BiblicalBlockProps {
@@ -9,6 +9,8 @@ interface BiblicalBlockProps {
 }
 
 export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, isEditing }) => {
+  const containerStyle = data.style || 'classic';
+  
   const handleTextChange = (e: React.FocusEvent<HTMLElement>) => {
     onUpdate?.({ ...data, text: e.currentTarget.textContent || '' });
   };
@@ -17,135 +19,156 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
     onUpdate?.({ ...data, reference: e.currentTarget.textContent || '' });
   };
 
+  const styles: Record<string, string> = {
+    classic: "bg-white dark:bg-gray-900 border-2 border-bible-gold/20 p-12 rounded-[2.5rem] shadow-xl",
+    modern: "bg-gradient-to-br from-bible-gold/5 to-transparent backdrop-blur-sm border border-bible-gold/10 p-10 rounded-3xl shadow-2xl",
+    royal: "bg-gray-900 text-white border-t-4 border-b-4 border-bible-gold p-14 relative overflow-hidden shadow-2xl",
+    minimal: "border-l-4 border-bible-gold pl-10 py-4 text-left",
+    card: "bg-white dark:bg-gray-800 p-12 rounded-[3rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700"
+  };
+
+  const textStyles: Record<string, string> = {
+    classic: "text-2xl md:text-3xl font-serif italic text-bible-ink dark:text-gray-100",
+    modern: "text-3xl md:text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-bible-gold to-amber-700",
+    royal: "text-2xl md:text-4xl font-serif italic text-white drop-shadow-md",
+    minimal: "text-xl md:text-3xl font-medium text-gray-700 dark:text-gray-200",
+    card: "text-2xl md:text-4xl font-serif text-bible-ink dark:text-white leading-tight"
+  };
+
   return (
-    <div className="w-full py-4 px-6">
-      <div className="text-center relative">
-        {data.showImage !== false && (
-          <div className="w-full h-64 md:h-96 rounded-2xl overflow-hidden mb-8 shadow-xl relative group">
+    <div className="w-full py-12 px-6 flex justify-center">
+      <div className={`w-full max-w-4xl text-center relative transition-all duration-500 ${styles[containerStyle] || styles.classic}`}>
+        
+        {/* Style Selection Toolbar (Visible when editing) */}
+        {isEditing && (
+          <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 p-1.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl">
+              <div className="flex bg-gray-50 dark:bg-gray-800 p-1 rounded-xl gap-0.5">
+                {[
+                  { id: 'classic', label: 'Clássico', icon: Quote },
+                  { id: 'modern', label: 'Moderno', icon: Palette },
+                  { id: 'royal', label: 'Realeza', icon: Type },
+                  { id: 'minimal', label: 'Minimal', icon: Layout },
+                  { id: 'card', label: 'Card Pro', icon: Settings2 },
+                ].map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => onUpdate?.({ ...data, style: s.id })}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${containerStyle === s.id ? 'bg-bible-gold text-white shadow-lg' : 'text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                  >
+                    <s.icon size={12} /> {s.label}
+                  </button>
+                ))}
+              </div>
+              <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
+              <button 
+                onClick={() => onUpdate?.({ ...data, showImage: !data.showImage })}
+                className={`p-2 rounded-xl transition-all ${data.showImage ? 'text-bible-gold bg-bible-gold/10' : 'text-gray-400 hover:text-bible-gold hover:bg-bible-gold/5'}`}
+                title="Habilitar/Desabilitar Imagem"
+              >
+                <ImageIcon size={16} />
+              </button>
+          </div>
+        )}
+
+        {/* Optional Image */}
+        {data.showImage && (
+          <div className="w-full aspect-[21/9] rounded-2xl overflow-hidden mb-10 shadow-2xl border-4 border-white dark:border-gray-800 rotate-1 relative group">
             <img 
-              src={data.imageUrl || 'https://images.unsplash.com/photo-1507692049790-de58290a4334?w=800'} 
-              alt="Biblical artwork"
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              src={data.imageUrl || 'https://images.unsplash.com/photo-1504052434139-44b419d2826e?q=80&w=1000'} 
+              alt="Biblical"
+              className="w-full h-full object-cover"
             />
             {isEditing && (
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur p-4 rounded-2xl shadow-2xl text-center relative">
-                  <ImageIcon size={24} className="mx-auto mb-2 text-bible-gold" />
-                  <p className="text-xs font-bold uppercase tracking-widest mb-2">Imagem de Fundo</p>
-                  <div className="flex flex-col gap-2">
-                    <input 
-                      type="text" 
-                      value={data.imageUrl || ''} 
-                      onChange={(e) => onUpdate?.({ ...data, imageUrl: e.target.value })}
-                      placeholder="URL da imagem (Unsplash, etc)"
-                      className="w-48 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border-none rounded-lg text-[10px] outline-none focus:ring-1 focus:ring-bible-gold"
-                    />
-                    <ImageUploadButton 
-                      onUpload={(url: string) => onUpdate?.({ ...data, imageUrl: url })} 
-                      label="Fazer Upload"
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-
-                {/* Botão X realocado para dentro do overlay interativo */}
-                <button 
-                  onClick={() => onUpdate?.({ ...data, showImage: false, imageUrl: '' })}
-                  className="absolute top-4 right-4 w-12 h-12 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all border-4 border-white z-[60]"
-                  title="Remover imagem"
-                >
-                  <X size={28} />
-                </button>
+              <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-6">
+                <ImageUploadButton 
+                   onUpload={(url) => onUpdate?.({ ...data, imageUrl: url })}
+                   label="Mudar Imagem"
+                   className="mb-2"
+                />
+                <button onClick={() => onUpdate?.({ ...data, showImage: false })} className="text-[10px] text-white/60 hover:text-red-400 font-bold uppercase tracking-widest">Remover Imagem</button>
               </div>
             )}
           </div>
         )}
-        {isEditing && data.showImage === false && (
-          <div className="mb-8 flex justify-center">
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onUpdate?.({ ...data, showImage: true });
-              }}
-              className="px-6 py-2 border-2 border-dashed border-bible-gold/40 text-bible-gold/60 text-xs font-bold rounded-xl hover:border-bible-gold hover:text-bible-gold transition-all flex items-center gap-2 active:scale-95 z-30"
-            >
-              <ImageIcon size={16} />
-              + Adicionar Imagem
-            </button>
+
+        {/* Decorative elements for specific styles */}
+        {containerStyle === 'classic' && (
+          <div className="mb-6 text-bible-gold/20 flex justify-center">
+            <Quote size={48} />
           </div>
         )}
+        {containerStyle === 'royal' && (
+           <div className="absolute inset-0 opacity-10 pointer-events-none">
+              <div className="absolute top-0 left-0 w-32 h-32 border-l-2 border-t-2 border-bible-gold"></div>
+              <div className="absolute bottom-0 right-0 w-32 h-32 border-r-2 border-b-2 border-bible-gold"></div>
+           </div>
+        )}
+
         <blockquote 
-          className={`text-base md:text-lg lg:text-xl font-serif italic text-bible-ink dark:text-white mb-6 leading-relaxed outline-none transition-all ${isEditing ? 'hover:bg-bible-gold/5 focus:bg-bible-gold/5 rounded-xl px-4 py-2 ring-1 ring-transparent focus:ring-bible-gold/20' : ''}`}
+          className={`relative z-10 italic leading-relaxed outline-none transition-all ${textStyles[containerStyle] || textStyles.classic} ${isEditing ? 'cursor-text focus:bg-bible-gold/5 rounded-xl px-4' : ''}`}
+          style={{ 
+            fontFamily: data.fontFamily || 'inherit',
+            fontSize: data.fontSize ? (containerStyle === 'minimal' ? `${data.fontSize}px` : `${data.fontSize * 1.5}px`) : 'inherit',
+            lineHeight: data.lineHeight || 'inherit'
+          }}
           contentEditable={isEditing}
           onBlur={handleTextChange}
           suppressContentEditableWarning
         >
           "{data.text || 'Digite o versículo bíblico aqui...'}"
         </blockquote>
-        <cite className="text-bible-gold font-bold text-sm flex items-center justify-center gap-1">
-          — 
-          <span
+
+        <div className={`mt-8 flex items-center gap-3 transition-all ${containerStyle === 'minimal' ? 'justify-start' : 'justify-center font-bold'}`}>
+          <div className="w-12 h-px bg-bible-gold/30"></div>
+          <cite 
             contentEditable={isEditing}
             onBlur={handleRefChange}
             suppressContentEditableWarning
-            className={`min-w-[50px] outline-none transition-all ${isEditing ? 'hover:bg-bible-gold/5 focus:bg-bible-gold/5 rounded-lg px-2 py-1 ring-1 ring-transparent focus:ring-bible-gold/20' : ''}`}
+            className={`text-bible-gold font-black uppercase tracking-[0.2em] text-sm outline-none ${isEditing ? 'cursor-text focus:bg-bible-gold/5 px-2 rounded-lg' : ''}`}
           >
             {data.reference || 'Referência Bíblica'}
-          </span>
-        </cite>
+          </cite>
+          <div className="w-12 h-px bg-bible-gold/30"></div>
+        </div>
 
         {/* CTA Button */}
-        {isEditing && (data.showCta === false || !data.ctaText) ? (
-          <div className="mt-8 flex justify-center">
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onUpdate?.({ ...data, showCta: true, ctaText: 'Quero Prosperar', ctaStyle: 'solid' });
-              }}
-              className="px-8 py-3 border-2 border-dashed border-bible-gold/40 text-bible-gold/60 text-sm font-bold rounded-xl hover:border-bible-gold hover:text-bible-gold transition-all active:scale-95 z-30"
-            >
-              + Adicionar Botão (CTA)
-            </button>
-          </div>
-        ) : (data.showCta !== false && data.ctaText) && (
-          <div className="relative group/cta mt-8 flex justify-center">
-             <button 
-               className={`px-8 py-3 font-bold rounded-xl shadow-lg transition-all hover:scale-105 outline-none focus:ring-2 focus:ring-bible-gold/50 ${
-                 data.ctaStyle === 'outline' ? 'border-2 border-bible-gold text-bible-gold bg-transparent hover:bg-bible-gold/5'
-                 : data.ctaStyle === 'subtle' ? 'bg-bible-gold/10 text-bible-gold hover:bg-bible-gold/20'
-                 : data.ctaStyle === 'glass' ? 'bg-white/20 backdrop-blur-md border border-white/30 text-white hover:bg-white/30'
-                 : data.ctaStyle === 'dark' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-xl'
-                 : 'bg-bible-gold text-white hover:bg-bible-gold/90' // solid default
-               }`}
-               contentEditable={isEditing}
-               suppressContentEditableWarning={true}
-               onBlur={(e) => onUpdate?.({ ...data, ctaText: e.currentTarget.textContent || '' })}
-             >
-               {data.ctaText}
-             </button>
-             
-             {isEditing && (
-               <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 opacity-0 group-hover/cta:opacity-100 transition-opacity z-50 pointer-events-none group-hover/cta:pointer-events-auto flex justify-center">
-                 <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-1.5 rounded-2xl shadow-2xl flex gap-1.5 items-center">
-                    <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
-                       <button onClick={() => onUpdate?.({...data, ctaStyle: 'solid'})} className={`p-1.5 rounded-lg text-[10px] uppercase font-bold px-3 transition-colors ${(!data.ctaStyle || data.ctaStyle === 'solid') ? 'bg-white dark:bg-gray-700 shadow-sm text-bible-gold' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>Sólido</button>
-                       <button onClick={() => onUpdate?.({...data, ctaStyle: 'outline'})} className={`p-1.5 rounded-lg text-[10px] uppercase font-bold px-3 transition-colors ${data.ctaStyle === 'outline' ? 'bg-white dark:bg-gray-700 shadow-sm text-bible-gold' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>Contorno</button>
-                       <button onClick={() => onUpdate?.({...data, ctaStyle: 'subtle'})} className={`p-1.5 rounded-lg text-[10px] uppercase font-bold px-3 transition-colors ${data.ctaStyle === 'subtle' ? 'bg-white dark:bg-gray-700 shadow-sm text-bible-gold' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>Suave</button>
-                       <button onClick={() => onUpdate?.({...data, ctaStyle: 'glass'})} className={`p-1.5 rounded-lg text-[10px] uppercase font-bold px-3 transition-colors ${data.ctaStyle === 'glass' ? 'bg-white dark:bg-gray-700 shadow-sm text-bible-gold' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>Glass</button>
-                    </div>
-                   <div className="w-px h-6 bg-gray-200 dark:bg-gray-800 mx-0.5"></div>
-                   <button 
-                     onClick={() => onUpdate?.({ ...data, showCta: false })}
-                     className="w-8 h-8 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-xl flex items-center justify-center transition-colors"
-                     title="Remover botão"
-                   >
-                     <X size={16} />
-                   </button>
-                 </div>
-               </div>
-             )}
+        {(data.showCta || isEditing) && (
+          <div className="mt-12 flex flex-col items-center gap-4">
+            {isEditing && !data.showCta ? (
+              <button 
+                onClick={() => onUpdate?.({ ...data, showCta: true, ctaText: 'Saber Mais', ctaStyle: 'solid' })}
+                className="text-[10px] font-black uppercase tracking-widest text-bible-gold/60 border-2 border-dashed border-bible-gold/20 px-8 py-3 rounded-2xl hover:border-bible-gold/40 transition-all hover:bg-bible-gold/5"
+              >
+                + Adicionar Botão de Ação
+              </button>
+            ) : data.showCta && (
+              <div className="relative group/cta">
+                <button 
+                  className={`px-10 py-4 font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl transition-all hover:scale-105 active:scale-95 outline-none ${
+                    data.ctaStyle === 'outline' ? 'border-2 border-bible-gold text-bible-gold bg-transparent hover:bg-bible-gold/5 shadow-none'
+                    : data.ctaStyle === 'royal' ? 'bg-gradient-to-r from-bible-gold to-amber-600 text-white shadow-bible-gold/30'
+                    : data.ctaStyle === 'dark' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-xl'
+                    : 'bg-bible-gold text-white' // default solid
+                  }`}
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning={true}
+                  onBlur={(e) => onUpdate?.({ ...data, ctaText: e.currentTarget.textContent || '' })}
+                >
+                  {data.ctaText || 'Botão de Ação'}
+                </button>
+                {isEditing && (
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 flex items-center gap-1.5 opacity-0 group-hover/cta:opacity-100 transition-all">
+                     <div className="bg-white dark:bg-gray-900 p-1.5 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 flex items-center gap-1">
+                        <button onClick={() => onUpdate?.({...data, ctaStyle: 'solid'})} className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-bold">Solid</button>
+                        <button onClick={() => onUpdate?.({...data, ctaStyle: 'outline'})} className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-bold">Outline</button>
+                        <button onClick={() => onUpdate?.({...data, ctaStyle: 'royal'})} className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] font-bold text-bible-gold">Royal</button>
+                        <div className="w-px h-6 bg-gray-200 dark:bg-gray-800 mx-1"></div>
+                        <button onClick={() => onUpdate?.({...data, showCta: false})} className="p-1 text-red-500 hover:bg-red-50 rounded-lg"><X size={16} /></button>
+                     </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

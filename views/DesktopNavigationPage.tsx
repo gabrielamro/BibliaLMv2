@@ -243,7 +243,7 @@ const DesktopNavigationPage: React.FC = () => {
           title: "Estúdio Criativo", 
           desc: "Crie imagens sacras e podcasts automaticamente.", 
           icon: <Sparkles />, 
-          path: "/estudio-criativo", 
+          path: "/?tab=criar", 
           color: "text-pink-600",
           bgGradient: "bg-pink-100 dark:bg-pink-900/50",
           badge: "Premium"

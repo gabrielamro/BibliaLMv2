@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from '../../utils/router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHeader } from '../../contexts/HeaderContext';
+import { dbService } from '../../services/supabase';
 import {
   ArrowLeft,
   BookOpen,
@@ -26,11 +27,11 @@ const imageIdeas = [
 
 export default function ArtesSacrasPage() {
   const navigate = useNavigate();
-  const { showNotification } = useAuth();
+  const { showNotification, currentUser } = useAuth();
   const { setTitle, setBreadcrumbs, resetHeader } = useHeader();
 
   const [gallery, setGallery] = useState<any[]>([]);
-  const [loading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [copiedVerse, setCopiedVerse] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,15 +41,36 @@ export default function ArtesSacrasPage() {
       { label: 'Criar', path: '/' },
       { label: 'Arte Sacra' },
     ]);
-    setGallery([
-      { id: '1', url: 'https://images.unsplash.com/photo-1507692049790-de58290a4334?w=400', title: 'Criacao' },
-      { id: '2', url: 'https://images.unsplash.com/photo-1508672019048-805c876b67e2?w=400', title: 'Mar Vermelho' },
-      { id: '3', url: 'https://images.unsplash.com/photo-1489549132488-d00b7eee80f1?w=400', title: 'Jerusalem' },
-      { id: '4', url: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=400', title: 'Daniel' },
-    ]);
+
+    const loadGallery = async () => {
+      try {
+        setLoading(true);
+        const userGallery = currentUser ? await dbService.getSacredArtGallery(currentUser.uid) : [];
+        const freeGallery = await dbService.getImageBank(20);
+        
+        const mappedFree = freeGallery.map(img => ({
+            ...img,
+            url: img.image_url || img.url,
+            prompt: img.prompt || img.label || 'Arte Sacra'
+        }));
+
+        // Merge or replace depending on user data
+        if (userGallery.length === 0) {
+            setGallery(mappedFree);
+        } else {
+            setGallery([...userGallery, ...mappedFree]);
+        }
+      } catch (e) {
+        console.error("Failed to load gallery", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadGallery();
 
     return () => resetHeader();
-  }, [resetHeader, setBreadcrumbs, setTitle]);
+  }, [resetHeader, setBreadcrumbs, setTitle, currentUser]);
 
   const handleCreateImage = (verse?: string, prompt?: string) => {
     navigate('/criar-arte-sacra', {
@@ -125,12 +147,12 @@ export default function ArtesSacrasPage() {
                 <div key={img.id} className="group relative aspect-square overflow-hidden rounded-xl bg-[#F2EEE5] transition-colors dark:bg-[#1A1A1A]">
                   <img
                     src={img.url}
-                    alt={img.title}
+                    alt={img.prompt || 'Arte Sacra'}
                     className="h-full w-full object-cover transition-transform group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent opacity-0 transition-opacity group-hover:opacity-100">
                     <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="text-sm font-bold text-white">{img.title}</p>
+                      <p className="text-sm font-bold text-white">{img.prompt || 'Arte Sacra'}</p>
                       <div className="mt-2 flex gap-2">
                         <button className="rounded-lg bg-white/20 p-2 hover:bg-white/30">
                           <Share2 size={12} />

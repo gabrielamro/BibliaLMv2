@@ -210,8 +210,9 @@ const ObreiroIAChatbot: React.FC = () => {
     const chatHeight = isExpanded ? 'h-[calc(100svh-140px)] md:h-[680px]' : 'h-[500px] md:h-[520px]';
 
     const isKingdomMode = location.pathname.startsWith('/social');
+    const isSacredArtStudio = location.pathname === '/criar-arte-sacra' || location.pathname === '/estudio-criativo';
 
-    if (!isVisible || isKingdomMode || isFocusMode) return null;
+    if (!isVisible || isKingdomMode || isFocusMode || isSacredArtStudio) return null;
 
     return (
         <>

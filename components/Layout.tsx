@@ -115,7 +115,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             const timer = setTimeout(() => {
                 clearNotification();
             }, 5000);
-            return () => setTimeout(() => clearNotification(), 5000); // Guard redundant
+            return () => clearTimeout(timer);
         }
     }, [notification, clearNotification]);
 
@@ -149,7 +149,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 items: [
                     { label: 'Santuário', path: '/', icon: <Home size={18} />, type: 'personal' as NavType, description: 'Seu painel principal' },
                     { label: 'Meus Estudos', path: '/estudos', icon: <BookMarked size={18} />, protected: true, type: 'personal' as NavType, description: 'Seus sermões e notas' },
-                    { label: 'Estúdio Criativo', path: '/estudio-criativo', icon: <Wand2 size={18} />, protected: true, type: 'personal' as NavType, description: 'Crie imagens e podcasts' },
+                    { label: 'Estúdio Criativo', path: '/?tab=criar', icon: <Wand2 size={18} />, protected: true, type: 'personal' as NavType, description: 'Crie imagens e podcasts' },
                     { label: 'Conselheiro IA', path: '/chat', icon: <MessageCircle size={18} />, type: 'personal' as NavType, description: 'Tire dúvidas com a IA' },
                     { label: 'Atividades', path: '/historico', icon: <History size={18} />, protected: true, type: 'personal' as NavType, description: 'Seu histórico' },
                 ]

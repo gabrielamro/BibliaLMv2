@@ -19,6 +19,7 @@ import {
   Play, Pause, ImagePlus, Wand, FolderOpen, Maximize2, Minimize2, Square, Undo2, Redo2,
   Baseline, Maximize, Move, Palette, Sliders, Type as TextIcon
 } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import SEO from '../components/SEO';
 import SocialNavigation from '../components/SocialNavigation';
 import RichTextEditor from '../components/RichTextEditor';
@@ -66,7 +67,7 @@ interface ContentData {
 }
 
 // Template de estrutura por tipo
-const coreOnePageBlocks: BlockType[] = ['hero', 'biblical', 'study-content', 'authority', 'footer'];
+const coreOnePageBlocks: BlockType[] = ['hero', 'biblical', 'slide', 'study-content', 'authority', 'footer'];
 
 const contentTemplates: Record<ContentType, BlockType[]> = {
   article: coreOnePageBlocks,
@@ -75,7 +76,7 @@ const contentTemplates: Record<ContentType, BlockType[]> = {
 };
 
 // Template padrão para novo estudo bíblico
-const orderedBlockTypes: BlockType[] = ['hero', 'biblical', 'study-content', 'video', 'slide', 'authority', 'footer'];
+const orderedBlockTypes: BlockType[] = ['hero', 'biblical', 'slide', 'study-content', 'authority', 'footer'];
 
 const typeLabels: Record<string, { singular: string; plural: string; description: string }> = {
   article: { singular: 'Artigo', plural: 'Artigos', description: 'Conteúdo reflexivo para blog' },
@@ -86,7 +87,17 @@ const typeLabels: Record<string, { singular: string; plural: string; description
 // Todos os blocos são livres
 const isCoreBlock = (_type: BlockType) => false;
 
-const getOrderedBlocks = (blocks: Block[]) => blocks;
+const getOrderedBlocks = (blocks: Block[]) => {
+  const order: BlockType[] = ['hero', 'biblical', 'slide', 'study-content', 'video', 'authority', 'footer'];
+  return [...blocks].sort((a, b) => {
+    const scoreA = order.indexOf(a.type);
+    const scoreB = order.indexOf(b.type);
+    if (scoreA === -1 && scoreB === -1) return 0;
+    if (scoreA === -1) return 1;
+    if (scoreB === -1) return -1;
+    return scoreA - scoreB;
+  });
+};
 
 
 const CreateLandingPage: React.FC = () => {
@@ -195,7 +206,7 @@ const CreateLandingPage: React.FC = () => {
     setIsHeaderHidden(true);
     setTitle(titles[currentStep]);
     setBreadcrumbs([
-      { label: 'Estúdio Criativo', path: '/estudio-criativo' },
+      { label: 'Estúdio Criativo', path: '/?tab=criar' },
       { label: 'Conteúdo', path: '/criar-conteudo' },
       { label: titles[currentStep] }
     ]);
@@ -511,6 +522,35 @@ const CreateLandingPage: React.FC = () => {
     });
   };
 
+  const onDragEnd = (result: DropResult) => {
+    const { source, destination, draggableId } = result;
+    if (!destination) return;
+    
+    // Se arrastou para a mesma posição
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+    // Caso 1: Reordenação de blocos existentes
+    if (source.droppableId === 'canvas-blocks' && destination.droppableId === 'canvas-blocks') {
+      moveBlock(source.index, destination.index);
+    }
+    
+    // Caso 2: Arrastando novo bloco da sidebar para o canvas
+    if (source.droppableId === 'block-palette' && destination.droppableId === 'canvas-blocks') {
+      const blockType = draggableId.replace('palette-', '') as BlockType;
+      addBlockAt(blockType, destination.index);
+    }
+  };
+
+  const addBlockAt = (type: BlockType, index: number) => {
+    const newBlock = createBlock(type);
+    setContent(prev => {
+      const newBlocks = [...prev.blocks];
+      newBlocks.splice(index, 0, newBlock);
+      return { ...prev, blocks: newBlocks };
+    });
+    setSelectedBlock(newBlock.id);
+  };
+
   const duplicateBlock = (id: string, index: number) => {
     const block = content.blocks.find(b => b.id === id);
     if (!block || isCoreBlock(block.type)) {
@@ -582,34 +622,58 @@ const CreateLandingPage: React.FC = () => {
       const { meta, slug, blocks: aiBlocks } = result;
 
       setContent(prev => {
-        const newBlocks = [...prev.blocks];
         const aiBlocks = result.blocks;
+        const currentBlocks = [...prev.blocks];
+        
+        // Mapeamento de quais tipos de blocos a IA pode nos enviar
+        const aiMapping = [
+          { type: 'hero' as BlockType, key: 'hero' },
+          { type: 'biblical' as BlockType, key: 'biblical' },
+          { type: 'slide' as BlockType, key: 'slide' },
+          { type: 'study-content' as BlockType, key: 'studyContent' },
+          { type: 'authority' as BlockType, key: 'authority' },
+          { type: 'footer' as BlockType, key: 'footer' }
+        ];
 
-        // Se a lista de blocos estiver vazia, cria a estrutura base
-        if (newBlocks.length === 0) {
-          const baseTypes: BlockType[] = ['hero', 'biblical', 'study-content', 'authority', 'footer'];
-          baseTypes.forEach(type => {
-            const blockId = `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-            let data = {};
-            if (type === 'hero') data = aiBlocks.hero || {};
-            if (type === 'biblical') data = aiBlocks.biblical || {};
-            if (type === 'study-content') data = aiBlocks.studyContent || {};
-            if (type === 'authority') data = aiBlocks.authority || {};
-            if (type === 'footer') data = aiBlocks.footer || {};
-            
-            newBlocks.push({ id: blockId, type, data });
-          });
-        } else {
-          // Caso contrário, atualiza os blocos existentes
-          newBlocks.forEach((b, idx) => {
-            if (b.type === 'hero' && aiBlocks.hero) newBlocks[idx] = { ...b, data: { ...b.data, ...aiBlocks.hero } };
-            if (b.type === 'biblical' && aiBlocks.biblical) newBlocks[idx] = { ...b, data: { ...b.data, ...aiBlocks.biblical } };
-            if (b.type === 'study-content' && aiBlocks.studyContent) newBlocks[idx] = { ...b, data: { ...b.data, ...aiBlocks.studyContent } };
-            if (b.type === 'authority' && aiBlocks.authority) newBlocks[idx] = { ...b, data: { ...b.data, ...aiBlocks.authority } };
-            if (b.type === 'footer' && aiBlocks.footer) newBlocks[idx] = { ...b, data: { ...b.data, ...aiBlocks.footer } };
-          });
-        }
+        let updatedBlocks = [...currentBlocks];
 
+        aiMapping.forEach(({ type, key }) => {
+          const aiData = aiBlocks[key];
+          if (!aiData) return;
+
+          const existingIdx = updatedBlocks.findIndex(b => b.type === type);
+          
+          if (existingIdx !== -1) {
+            // Atualiza os dados do bloco existente sem mudar o ID
+            updatedBlocks[existingIdx] = { 
+              ...updatedBlocks[existingIdx], 
+              data: { ...updatedBlocks[existingIdx].data, ...aiData } 
+            };
+          } else {
+            // Se o bloco não existe, cria um novo a partir dos dados da IA
+            const newBlockId = `${type}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+            updatedBlocks.push({ id: newBlockId, type, data: aiData });
+          }
+        });
+
+        // Garantir que não há duplicatas de blocos "core" no estado final (segurança extra)
+        const uniqueBlocks: Block[] = [];
+        const seenTypes = new Set<string>();
+        
+        updatedBlocks.forEach(b => {
+          if (['hero', 'biblical', 'slide', 'study-content', 'authority', 'footer'].includes(b.type)) {
+            if (!seenTypes.has(b.type)) {
+              uniqueBlocks.push(b);
+              seenTypes.add(b.type);
+            }
+          } else {
+            uniqueBlocks.push(b);
+          }
+        });
+
+        // Limpeza final: remover bloco de vídeo se existir por acidente ou histórico
+        const finalBlocks = getOrderedBlocks(uniqueBlocks).filter(b => b.type !== 'video');
+        
         return {
           ...prev,
           meta: {
@@ -618,7 +682,7 @@ const CreateLandingPage: React.FC = () => {
             description: result.meta?.description || prev.meta.description
           },
           slug: result.slug || prev.slug,
-          blocks: newBlocks
+          blocks: finalBlocks
         };
       });
 
@@ -853,7 +917,8 @@ const CreateLandingPage: React.FC = () => {
         </header>
 
         {/* Editor Body */}
-        <div className="flex-1 flex overflow-hidden">
+        <DragDropContext onDragEnd={onDragEnd}>
+          <div className="flex-1 flex overflow-hidden">
           {/* Sidebar - Campos Bíblicos e Blocos */}
           <aside className="w-72 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-r border-gray-200 dark:border-gray-800 overflow-y-auto hidden lg:block">
             <div className="p-4">
@@ -926,53 +991,81 @@ const CreateLandingPage: React.FC = () => {
               </div>
 
               {/* Blocos Disponíveis */}
-              <div>
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
-                  Blocos
+              <div className="mt-8">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-1">
+                  Conteúdo da Página
                 </h3>
-                <div className="space-y-2">
-                  {(Object.keys(blockLabels) as BlockType[]).map(type => {
-                    const isLockedBase = isCoreBlock(type);
-                    const count = content.blocks.filter(b => b.type === type).length;
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => addBlock(type)}
-                        disabled={isLockedBase}
-                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left ${
-                          isLockedBase
-                            ? 'bg-gray-100 dark:bg-gray-800/50 opacity-50 cursor-not-allowed' 
-                            : 'bg-gray-50 dark:bg-gray-900 hover:bg-bible-gold/10 active:scale-[0.98]'
-                        }`}
-                      >
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${blockLabels[type].color}`}>
-                          {type === 'hero' && <LayoutTemplate size={20} />}
-                          {type === 'authority' && <User size={20} />}
-                          {type === 'biblical' && <BookOpen size={20} />}
-                          {type === 'video' && <Video size={20} />}
-                          {type === 'footer' && <Layers size={20} />}
-                          {type === 'study-content' && <Sparkle size={20} />}
-                          {type === 'slide' && <Play size={20} />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-bible-ink dark:text-white">
-                            {blockLabels[type].label}
-                          </p>
-                          <p className="text-[10px] text-gray-500">
-                            {isLockedBase ? 'Bloco fixo' : blockLabels[type].description}
-                          </p>
-                        </div>
-                        {count > 0 && !isLockedBase ? (
-                          <span className="text-[10px] font-bold bg-bible-gold/10 text-bible-gold rounded-full px-2 py-0.5 flex-shrink-0">
-                            ×{count}
-                          </span>
-                        ) : (
-                          <Plus size={16} className="ml-auto text-gray-400 flex-shrink-0" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                <Droppable droppableId="block-palette" isDropDisabled={true}>
+                  {(provided) => (
+                    <div 
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className="space-y-2"
+                    >
+                      {(Object.keys(blockLabels) as BlockType[]).map((type, idx) => {
+                        const isLockedBase = isCoreBlock(type);
+                        const count = content.blocks.filter(b => b.type === type).length;
+                        return (
+                          <Draggable key={`palette-${type}`} draggableId={`palette-${type}`} index={idx} isDragDisabled={isLockedBase}>
+                            {(provided, snapshot) => (
+                              <>
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  onClick={() => addBlock(type)}
+                                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left group ${
+                                    isLockedBase
+                                      ? 'bg-gray-100 dark:bg-gray-800/50 opacity-50 cursor-not-allowed' 
+                                      : snapshot.isDragging 
+                                        ? 'bg-white dark:bg-gray-800 shadow-2xl ring-2 ring-bible-gold border-transparent z-[100]'
+                                        : 'bg-gray-50 dark:bg-gray-900 hover:bg-bible-gold/10 active:scale-[0.98]'
+                                  }`}
+                                >
+                                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${blockLabels[type].color}`}>
+                                    {type === 'hero' && <LayoutTemplate size={20} />}
+                                    {type === 'authority' && <User size={20} />}
+                                    {type === 'biblical' && <BookOpen size={20} />}
+                                    {type === 'video' && <Video size={20} />}
+                                    {type === 'footer' && <Layers size={20} />}
+                                    {type === 'study-content' && <Sparkle size={20} />}
+                                    {type === 'slide' && <Play size={20} />}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm text-bible-ink dark:text-white">
+                                      {blockLabels[type].label}
+                                    </p>
+                                    <p className="text-[10px] text-gray-500">
+                                      {isLockedBase ? 'Bloco fixo' : blockLabels[type].description}
+                                    </p>
+                                  </div>
+                                  {count > 0 && !isLockedBase ? (
+                                    <span className="text-[10px] font-bold bg-bible-gold/10 text-bible-gold rounded-full px-2 py-0.5 flex-shrink-0">
+                                      ×{count}
+                                    </span>
+                                  ) : (
+                                    <Plus size={16} className="ml-auto text-gray-400 flex-shrink-0 group-hover:rotate-90 transition-transform" />
+                                  )}
+                                </div>
+                                {snapshot.isDragging && (
+                                  <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900 opacity-40 select-none pointer-events-none border-2 border-dashed border-gray-200">
+                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${blockLabels[type].color}`}>
+                                      {/* Placeholder Icon */}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-sm text-bible-ink dark:text-white">{blockLabels[type].label}</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </Draggable>
+                        );
+                      })}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
               </div>
 
               {/* Tags */}
@@ -1074,6 +1167,7 @@ const CreateLandingPage: React.FC = () => {
             </aside>
           )}
         </div>
+        </DragDropContext>
 
         {/* Mobile Editing Tools */}
         {selectedBlockData && currentStep === 'create' && (

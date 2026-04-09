@@ -13,6 +13,9 @@ export interface CompositionOptions {
   aspectRatio?: 'feed' | 'story'; // Novo
   textX?: number; // 0 a 100
   textY?: number; // 0 a 100
+  bgX?: number; // 0 a 100 (Offset do fundo)
+  bgY?: number; // 0 a 100 (Offset do fundo)
+  bgScale?: number; // 1 a 3 (Zoom do fundo)
   shadowColor?: string; // Cor da sombra customizável
 }
 
@@ -35,15 +38,23 @@ export const composeImageWithText = (
         aspectRatio: 'feed',
         textX: 50,
         textY: 50,
+        bgX: 50,
+        bgY: 50,
+        bgScale: 1,
         shadowColor: 'rgba(0,0,0,0.8)'
     }
   ): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       
+      let finalSrc = base64Image;
+      
       // Só aplica crossOrigin para URLs externas para evitar problemas com Data URLs
       if (base64Image.startsWith('http')) {
           img.crossOrigin = "anonymous";
+          // Bypass cache to prevent CORS errors when the image was already loaded in a normal <img> tag
+          const cacheBuster = `cb=${new Date().getTime()}`;
+          finalSrc = base64Image.includes('?') ? `${base64Image}&${cacheBuster}` : `${base64Image}?${cacheBuster}`;
       }
       
       const timer = setTimeout(() => {
@@ -81,11 +92,21 @@ export const composeImageWithText = (
             }
             ctx.filter = filterString;
 
-            // Desenhar Imagem (Cover/Crop)
-            const scale = Math.max(width / img.width, height / img.height);
-            const x = (width / 2) - (img.width / 2) * scale;
-            const y = (height / 2) - (img.height / 2) * scale;
-            ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+            // Desenhar Imagem com Transformações (Canva-style)
+            const baseScale = Math.max(width / img.width, height / img.height);
+            const finalScale = baseScale * (options.bgScale ?? 1);
+            
+            // Centraliza o ponto de zoom e aplica o offset do usuário
+            const offsetX = (options.bgX ?? 50) / 100;
+            const offsetY = (options.bgY ?? 50) / 100;
+            
+            const drawW = img.width * finalScale;
+            const drawH = img.height * finalScale;
+            
+            const dx = (width / 2) - (drawW * offsetX);
+            const dy = (height / 2) - (drawH * offsetY);
+            
+            ctx.drawImage(img, dx, dy, drawW, drawH);
             
             ctx.restore(); // Restaura para remover o filtro do contexto (texto não deve ter blur/grayscale)
       
@@ -227,6 +248,6 @@ export const composeImageWithText = (
           reject(new Error("Falha ao carregar a imagem base para composição."));
       };
 
-      img.src = base64Image;
+      img.src = finalSrc;
     });
   };

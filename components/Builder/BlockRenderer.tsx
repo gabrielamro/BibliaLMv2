@@ -82,6 +82,9 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
     paddingBottom: (typeof data.padding === 'number' ? data.padding : (data.padding?.bottom ?? 0)) * 4,
     marginTop: (typeof data.margin === 'object' ? (data.margin?.top ?? 0) : (data.margin ?? 0)) * 4,
     marginBottom: (typeof data.margin === 'object' ? (data.margin?.bottom ?? 0) : (data.margin ?? 0)) * 4,
+    fontFamily: data.fontFamily || 'inherit',
+    fontSize: data.fontSize ? `${data.fontSize}px` : undefined,
+    lineHeight: data.lineHeight || 'inherit',
   };
 
   // Se houver imagem de fundo no bloco
@@ -106,6 +109,9 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
       style={{ 
         ...styles,
         borderRadius: data.borderRadius ? `${data.borderRadius}px` : undefined,
+        fontFamily: data.fontFamily,
+        fontSize: data.fontSize ? `${data.fontSize}px` : undefined,
+        lineHeight: data.lineHeight
       }}
     >
       {/* Overlay se houver imagem de fundo */}

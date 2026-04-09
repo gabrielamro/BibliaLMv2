@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate } from '../utils/router';
+import { useNavigate, useSearchParams } from '../utils/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { 
@@ -39,10 +39,25 @@ const SanctuaryPage: React.FC = () => {
   const { settings, toggleTheme } = useSettings();
   const { plans } = useWorkspace();
   
-  const [activeTab, setActiveTab] = useState<'inicio' | 'criar' | 'reino'>('inicio');
+  const [activeTab, setActiveTab] = useState<'inicio' | 'criar' | 'reino'>(() => {
+    try {
+      const saved = sessionStorage.getItem('inicio_active_tab');
+      if (saved === 'inicio' || saved === 'criar' || saved === 'reino') {
+        return saved;
+      }
+    } catch(e) {}
+    return 'inicio';
+  });
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('inicio_active_tab', activeTab);
+    } catch(e) {}
+  }, [activeTab]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
+  const [searchParams] = useSearchParams();
   const [dailyDevotional, setDailyDevotional] = useState<any>(null);
   const [loadingDevotional, setLoadingDevotional] = useState(true);
   const [searchPreview, setSearchPreview] = useState<{ text: string, formattedRef: string, routeState: any } | null>(null);
@@ -129,6 +144,13 @@ const SanctuaryPage: React.FC = () => {
     };
     loadDevotional();
   }, [currentUser]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'inicio' || tab === 'criar' || tab === 'reino') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

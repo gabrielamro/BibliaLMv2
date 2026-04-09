@@ -1,5 +1,5 @@
-"use client";
 import * as gemini from './geminiService';
+import * as imageGen from './imageGenService';
 import { auditarConteudo, AuditoriaResult } from './pastorAuditor';
 
 export type AIProvider = 'gemini' | 'auto';
@@ -120,7 +120,7 @@ export const sendMessageToGeminiStream = async (
 };
 
 export const generateVerseImage = async (text: string, reference: string, style: string) => {
-    return await gemini.generateVerseImage(text, reference, style);
+    return await imageGen.generateVerseImage(text, reference, style);
 };
 
 export const generatePodcastAudio = async (script: string) => {
@@ -128,7 +128,7 @@ export const generatePodcastAudio = async (script: string) => {
 };
 
 export const generatePodcastCover = async (title: string) => {
-    return await gemini.generatePodcastCover(title);
+    return await imageGen.generatePodcastCover(title);
 };
 
 export const generateChapterAudioStream = async function*(text: string) {

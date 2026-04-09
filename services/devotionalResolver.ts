@@ -103,7 +103,7 @@ const generateUniqueFallback = async (date: string, seenVerseReferences: string[
   const seen = new Set(seenVerseReferences.map(normalizeVerseReference));
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const generated = await generateDailyDevotional(true, 'bigpickle', { excludedVerseReferences: seenVerseReferences });
+    const generated = await generateDailyDevotional(true, 'gemini', { excludedVerseReferences: seenVerseReferences });
     const candidate = createGeneratedCandidate(generated, date);
 
     if (!candidate) {
@@ -174,7 +174,7 @@ export const resolveUserDailyDevotional = async ({ userId, forceNew }: ResolveUs
         .map((d: any) => d.reference || d.verseReference)
         .filter(Boolean);
 
-    const generatedOfficial = await generateDailyDevotional(true, 'bigpickle', { excludedVerseReferences: seenReferences });
+    const generatedOfficial = await generateDailyDevotional(true, 'gemini', { excludedVerseReferences: seenReferences });
     if (generatedOfficial) {
       officialRaw = {
         date: todayDate,

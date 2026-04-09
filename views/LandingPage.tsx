@@ -464,7 +464,7 @@ const LandingPage: React.FC = () => {
                   
                   {/* Card: Estúdio Criativo (Large Vertical) */}
                   <div 
-                    onClick={() => handleSmartAction('/estudio-criativo')}
+                    onClick={() => handleSmartAction('/?tab=criar')}
                     className="md:col-span-1 md:row-span-2 bg-gray-900 rounded-[2.5rem] p-6 text-white flex flex-col justify-between cursor-pointer hover:scale-[1.02] transition-transform shadow-xl relative overflow-hidden"
                   >
                       <div className="relative z-10">

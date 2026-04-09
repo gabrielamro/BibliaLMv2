@@ -148,7 +148,7 @@ const KnowledgeSourcePage: React.FC = () => {
                             { title: "O Pentecostes", img: "https://images.unsplash.com/photo-1472521882609-bc9823df6498" },
                             { title: "A Redenção", img: "https://images.unsplash.com/photo-1507692049790-de58293a4690" }
                         ].map((item, idx) => (
-                            <div key={idx} onClick={() => navigate('/estudio-criativo')} className="relative aspect-square rounded-2xl overflow-hidden cursor-pointer group">
+                            <div key={idx} onClick={() => navigate('/?tab=criar')} className="relative aspect-square rounded-2xl overflow-hidden cursor-pointer group">
                                 <img src={`${item.img}?auto=format&fit=crop&q=80&w=400`} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-end p-4">
                                     <span className="text-white font-serif font-bold">{item.title}</span>

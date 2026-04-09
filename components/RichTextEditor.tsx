@@ -66,18 +66,38 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 break;
             case 'application':
                 html = `
-                    <h2>4. Aplicação Prática (Life-Change)</h2>
-                    <ul class="bible-list" style="list-style: none; padding-left: 0;">
-                      <li class="bible-list-item" style="padding: 20px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #eee; border-left: 4px solid #c5a059;"><strong>🛡️ O Escudo:</strong> [O que nos protege deste pecado ou distração?].</li>
-                      <li class="bible-list-item" style="padding: 20px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #eee; border-left: 4px solid #c5a059;"><strong>🔥 A Ação:</strong> [Qual passo prático devo dar hoje?].</li>
-                      <li class="bible-list-item" style="padding: 20px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #eee; border-left: 4px solid #c5a059;"><strong>🕊️ O Resultado:</strong> [Qual a promessa de Deus ao obedecer?].</li>
-                    </ul><p><br></p>`;
+                    <div class="bible-app-box" style="padding: 30px; border-radius: 20px; border: 1px solid #e5e7eb; margin: 30px 0; background: #fdfdfd;">
+                        <h2 style="color: #c5a059; margin-top: 0; display: flex; items-center gap-2">🛡️ Passo Prático</h2>
+                        <p>Como posso aplicar esta verdade bíblica na minha rotina hoje?</p>
+                        <div style="padding: 15px; background: #f8fafc; border-radius: 12px; margin-top: 10px; border-left: 4px solid #c5a059;">
+                            <strong>Ação:</strong> [Escreva aqui o compromisso de mudança]
+                        </div>
+                    </div><p><br></p>`;
+                break;
+            case 'context':
+                html = `
+                    <div class="bible-context-box" style="background: #f1f5f9; padding: 30px; border-radius: 20px; margin: 30px 0;">
+                        <h2 style="margin-top: 0;">🏛️ Contexto e Mergulho</h2>
+                        <p><strong>Cenário:</strong> [Descreva quem escreveu, para quem e por que]</p>
+                        <p><strong>Significado:</strong> [Explique o contexto cultural ou original da mensagem]</p>
+                    </div><p><br></p>`;
+                break;
+            case 'questions':
+                html = `
+                    <div class="bible-questions-box" style="padding: 30px; border-radius: 20px; border: 2px dashed #e2e8f0; margin: 30px 0;">
+                        <h2 style="text-align: center; color: #475569;">🤔 Perguntas para Reflexão</h2>
+                        <ol style="margin-top: 20px;">
+                            <li>O que este texto revela sobre o caráter de Deus?</li>
+                            <li>Existe algum comando para obedecer ou promessa para crer?</li>
+                            <li>Como minha vida seria diferente se eu vivesse plenamente este versículo?</li>
+                        </ol>
+                    </div><p><br></p>`;
                 break;
             case 'prayer':
                 html = `
-                    <div class="bible-footer-box" style="border-radius: 25px; padding: 40px; margin-top: 50px; text-align: center;">
-                        <h2 class="bible-footer-title" style="color: #c5a059; margin-top: 0;">Consagração e Oração</h2>
-                        <p class="bible-prayer" style="font-size: 1.2em; font-style: italic;">" [Escreva uma oração fervorosa aqui] Amém. "</p>
+                    <div class="bible-footer-box" style="border-radius: 25px; padding: 40px; margin-top: 50px; text-align: center; background: linear-gradient(135deg, #fffcf5 0%, #fff 100%); border: 1px solid #f0e6d6;">
+                        <h2 class="bible-footer-title" style="color: #c5a059; margin-top: 0;">🕊️ Oração de Consagração</h2>
+                        <p class="bible-prayer" style="font-size: 1.2em; font-style: italic; color: #555;">" Pai, escreva esta verdade em meu coração. Que o Teu Espírito me capacite a viver segundo a Tua vontade. Em nome de Jesus, Amém. "</p>
                     </div><p><br></p>`;
                 break;
         }
@@ -350,42 +370,56 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 <div className="relative" ref={templateRef}>
                     <button
                         onClick={() => setShowTemplates(!showTemplates)}
-                        className="p-2 px-3 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg text-amber-600 dark:text-amber-400 transition-colors flex items-center gap-1.5 flex-shrink-0 border border-transparent hover:border-amber-200 dark:hover:border-amber-800"
+                        className={`p-2 px-3 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-xl transition-all flex items-center gap-2 flex-shrink-0 border ${showTemplates ? 'bg-orange-50 border-orange-200 text-orange-600' : 'border-transparent text-orange-600 dark:text-orange-400'}`}
                         title="Inserir Blocos Temáticos"
                     >
                         <LayoutTemplate size={18} />
-                        <span className="text-xs font-bold hidden sm:inline">Blocos</span>
-                        <ChevronDown size={14} className={`transition-transform duration-200 ${showTemplates ? 'rotate-180' : ''}`} />
+                        <span className="text-sm font-black uppercase tracking-tight hidden sm:inline">Blocos</span>
+                        <ChevronDown size={14} className={`transition-transform duration-300 ${showTemplates ? 'rotate-180' : ''}`} />
                     </button>
 
                     {showTemplates && (
                         <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-2 grid grid-cols-1 gap-1 z-50 animate-in fade-in zoom-in duration-200">
-                            <button onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); insertTemplate('hero'); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors text-left group">
-                                <div className="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-lg group-hover:scale-110 transition-transform"><Heart size={16} /></div>
+                            <button onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); insertTemplate('hero'); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-xl transition-all text-left group">
+                                <div className="p-2.5 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-xl group-hover:scale-110 transition-transform"><Heart size={18} /></div>
                                 <div>
-                                    <div className="text-sm font-bold dark:text-white">Abertura do Coração</div>
-                                    <div className="text-[10px] text-gray-500">Box de introdução emocional</div>
+                                    <div className="text-sm font-bold dark:text-white">Abertura / Gancho</div>
+                                    <div className="text-[10px] text-gray-400 font-medium">Box de introdução emocional</div>
                                 </div>
                             </button>
-                            <button onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); insertTemplate('verse'); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors text-left group">
-                                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-lg group-hover:scale-110 transition-transform"><BookOpen size={16} /></div>
+                            <button onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); insertTemplate('verse'); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-xl transition-all text-left group">
+                                <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-xl group-hover:scale-110 transition-transform"><BookOpen size={18} /></div>
                                 <div>
                                     <div className="text-sm font-bold dark:text-white">Destaque Bíblico</div>
-                                    <div className="text-[10px] text-gray-500">Citação com aspas estilizadas</div>
+                                    <div className="text-[10px] text-gray-400 font-medium">Versículo com aspas elegantes</div>
                                 </div>
                             </button>
-                            <button onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); insertTemplate('application'); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors text-left group">
-                                <div className="p-2 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-lg group-hover:scale-110 transition-transform"><Zap size={16} /></div>
+                            <button onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); insertTemplate('context'); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-xl transition-all text-left group">
+                                <div className="p-2.5 bg-slate-100 dark:bg-slate-900/30 text-slate-600 rounded-xl group-hover:scale-110 transition-transform"><LayoutTemplate size={18} /></div>
                                 <div>
-                                    <div className="text-sm font-bold dark:text-white">Aplicação (Life-Change)</div>
-                                    <div className="text-[10px] text-gray-500">Lista de ações práticas</div>
+                                    <div className="text-sm font-bold dark:text-white">Contexto e Mergulho</div>
+                                    <div className="text-[10px] text-gray-400 font-medium">Análise histórica e cultural</div>
                                 </div>
                             </button>
-                            <button onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); insertTemplate('prayer'); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors text-left group">
-                                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-lg group-hover:scale-110 transition-transform"><Hand size={16} /></div>
+                            <button onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); insertTemplate('application'); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-xl transition-all text-left group">
+                                <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-xl group-hover:scale-110 transition-transform"><Zap size={18} /></div>
+                                <div>
+                                    <div className="text-sm font-bold dark:text-white">Passo Prático</div>
+                                    <div className="text-[10px] text-gray-400 font-medium">Ação e transformação real</div>
+                                </div>
+                            </button>
+                            <button onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); insertTemplate('questions'); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-xl transition-all text-left group">
+                                <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-xl group-hover:scale-110 transition-transform"><Zap size={18} /></div>
+                                <div>
+                                    <div className="text-sm font-bold dark:text-white">Perguntas de Reflexão</div>
+                                    <div className="text-[10px] text-gray-400 font-medium">Autoexame baseado no texto</div>
+                                </div>
+                            </button>
+                            <button onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); insertTemplate('prayer'); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-xl transition-all text-left group">
+                                <div className="p-2.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-xl group-hover:scale-110 transition-transform"><Hand size={18} /></div>
                                 <div>
                                     <div className="text-sm font-bold dark:text-white">Oração de Fé</div>
-                                    <div className="text-[10px] text-gray-500">Card de fechamento elegante</div>
+                                    <div className="text-[10px] text-gray-400 font-medium">Box de encerramento e entrega</div>
                                 </div>
                             </button>
                         </div>
