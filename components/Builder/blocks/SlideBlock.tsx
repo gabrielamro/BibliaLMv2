@@ -38,9 +38,9 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
   const intervalRef = useRef<any>(null);
 
   const heightClasses: Record<string, string> = {
-    small: 'h-64',
-    medium: 'h-80 md:h-96',
-    large: 'h-[500px] md:h-[600px]'
+    small: 'min-h-[320px] md:h-64',
+    medium: 'min-h-[450px] md:h-96',
+    large: 'min-h-[600px] md:h-[600px]'
   };
 
   const [bgImage] = useImage(currentSlideData.backgroundImage || '');
@@ -120,9 +120,9 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
         ref={containerRef}
         className={`relative ${heightClasses[data.height] || 'h-80 md:h-96'} overflow-hidden rounded-3xl group bg-gray-900 shadow-2xl transition-all duration-500`}
       >
-        <Stage width={dimensions.width} height={dimensions.height}>
+        <Stage width={Math.floor(dimensions.width)} height={Math.floor(dimensions.height)}>
           <Layer>
-            {bgImage && (
+            {bgImage && dimensions.width > 0 && (
               <KonvaImage
                 image={bgImage}
                 width={bgImage.width}
@@ -134,6 +134,7 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
                 x={dimensions.width / 2}
                 y={dimensions.height / 2}
                 opacity={1}
+                listening={false}
               />
             )}
           </Layer>
@@ -143,14 +144,14 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
               y={0}
               width={dimensions.width}
               height={dimensions.height}
-              fill={`rgba(0, 0, 0, ${currentSlideData.overlayOpacity || 0.4})`}
+              fill={`rgba(0, 0, 0, ${currentSlideData.overlayOpacity ?? 0.4})`}
             />
           </Layer>
           <Layer>
             {dimensions.width > 0 && dimensions.height > 0 && (
               <Html divProps={{ style: { position: 'absolute', inset: 0, width: '100%', height: '100%' } }}>
-                <div className="relative z-10 h-full flex items-center justify-center p-8 md:p-12 text-white">
-                  <div className={`w-full max-w-5xl flex flex-col md:flex-row items-center gap-8 ${currentSlideData.layout === 'image-left' ? 'md:flex-row-reverse' : ''}`}>
+                <div className="relative z-10 h-full flex items-center justify-center p-5 md:p-8 text-white">
+                  <div className={`w-full max-w-5xl flex flex-col md:flex-row items-center gap-4 md:gap-12 ${currentSlideData.layout === 'image-left' ? 'md:flex-row-reverse' : ''}`}>
 
                     {/* Content Section */}
                     <div className="flex-1 text-center md:text-left space-y-4">
@@ -158,7 +159,8 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
                         contentEditable={isEditing}
                         suppressContentEditableWarning={true}
                         onBlur={(e) => updateSlide(currentSlideData.id, { title: e.currentTarget.innerText })}
-                        className={`text-3xl md:text-5xl font-black drop-shadow-lg leading-tight outline-none ${isEditing ? 'cursor-text hover:bg-white/10 rounded-lg px-2 -mx-2 transition-colors' : ''}`}
+                        className={`text-2xl md:text-4xl font-black drop-shadow-lg leading-tight outline-none ${isEditing ? 'cursor-text hover:bg-white/10 rounded-lg px-2 -mx-2 transition-colors' : ''}`}
+                        style={{ color: currentSlideData.textColor || 'inherit' }}
                       >
                         {currentSlideData.title || ''}
                       </h2>
@@ -166,7 +168,8 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
                         contentEditable={isEditing}
                         suppressContentEditableWarning={true}
                         onBlur={(e) => updateSlide(currentSlideData.id, { description: e.currentTarget.innerText })}
-                        className={`text-base md:text-lg text-white/80 max-w-2xl mx-auto md:mx-0 leading-relaxed font-medium outline-none ${isEditing ? 'cursor-text hover:bg-white/10 rounded-lg px-2 -mx-2 transition-colors' : ''}`}
+                        className={`text-sm md:text-base text-white/80 max-w-2xl mx-auto md:mx-0 leading-relaxed font-medium outline-none ${isEditing ? 'cursor-text hover:bg-white/10 rounded-lg px-2 -mx-2 transition-colors' : ''}`}
+                        style={{ color: currentSlideData.textColor ? `${currentSlideData.textColor}cc` : 'rgba(255,255,255,0.8)' }}
                       >
                         {currentSlideData.description || ''}
                       </div>
@@ -184,14 +187,14 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
                             />
                           </div>
                         ) : currentSlideData.mediaUrl ? (
-                          <div className="relative group/media max-w-md w-full">
+                          <div className="relative group/media w-full max-w-[200px] md:max-w-sm">
                             <img
                               src={currentSlideData.mediaUrl}
                               alt="Slide Content"
                               onError={(e) => {
                                 e.currentTarget.src = 'https://images.unsplash.com/photo-1509021436665-8f07dbf5bf1d?q=80&w=1000';
                               }}
-                              className="w-full h-auto rounded-2xl shadow-2xl border border-white/20 transform group-hover/media:scale-[1.02] transition-transform duration-500"
+                              className="w-full h-auto max-h-[180px] md:max-h-full object-cover rounded-2xl shadow-2xl border border-white/20 transform group-hover/media:scale-[1.02] transition-transform duration-500"
                             />
                           </div>
                         ) : null}

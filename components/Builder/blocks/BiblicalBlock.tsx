@@ -20,11 +20,11 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
   };
 
   const styles: Record<string, string> = {
-    classic: "bg-white dark:bg-gray-900 border-2 border-bible-gold/20 p-12 rounded-[2.5rem] shadow-xl",
-    modern: "bg-gradient-to-br from-bible-gold/5 to-transparent backdrop-blur-sm border border-bible-gold/10 p-10 rounded-3xl shadow-2xl",
-    royal: "bg-gray-900 text-white border-t-4 border-b-4 border-bible-gold p-14 relative overflow-hidden shadow-2xl",
-    minimal: "border-l-4 border-bible-gold pl-10 py-4 text-left",
-    card: "bg-white dark:bg-gray-800 p-12 rounded-[3rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700"
+    classic: "bg-white dark:bg-gray-900 border-2 border-bible-gold/20 p-6 md:p-10 rounded-[2.5rem] shadow-xl",
+    modern: "bg-gradient-to-br from-bible-gold/5 to-transparent backdrop-blur-sm border border-bible-gold/10 p-6 md:p-8 rounded-3xl shadow-2xl",
+    royal: "bg-gray-900 text-white border-t-4 border-b-4 border-bible-gold p-8 md:p-12 relative overflow-hidden shadow-2xl",
+    minimal: "border-l-4 border-bible-gold pl-6 py-4 text-left",
+    card: "bg-white dark:bg-gray-800 p-6 md:p-12 rounded-[3rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700"
   };
 
   const textStyles: Record<string, string> = {
@@ -36,12 +36,12 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
   };
 
   return (
-    <div className="w-full py-12 px-6 flex justify-center">
+    <div className="w-full py-6 px-4 flex justify-center">
       <div className={`w-full max-w-4xl text-center relative transition-all duration-500 ${styles[containerStyle] || styles.classic}`}>
         
         {/* Style Selection Toolbar (Visible when editing) */}
         {isEditing && (
-          <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 p-1.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl">
+          <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-50 hidden md:flex items-center gap-1.5 p-1.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl">
               <div className="flex bg-gray-50 dark:bg-gray-800 p-1 rounded-xl gap-0.5">
                 {[
                   { id: 'classic', label: 'Clássico', icon: Quote },

@@ -118,7 +118,17 @@
 
 .canvas-mobile h3, .canvas-tablet h3 { font-size: 1.25rem !important; }
 
-/* Force prose to be full width within blocks */
-.prose, .rich-editor-content {
-  max-width: none !important;
+/* Reset de margens para o Editor Unificado */
+.unified-editor-container .prose > * {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.unified-editor-container .prose p {
+  margin-bottom: 1.25em !important; /* Mantém espaço entre parágrafos normais */
+}
+
+.custom-block-wrapper {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
 }

@@ -18,7 +18,7 @@ export const AuthorityBlock: React.FC<AuthorityBlockProps> = ({ data, onUpdate, 
 
   return (
     <div className="w-full h-full flex items-center justify-center py-4 px-6">
-      <div className="text-center max-w-2xl bg-gray-50 dark:bg-gray-800/50 p-8 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm relative group">
+      <div className="text-center max-w-2xl bg-gray-50 dark:bg-gray-800/50 p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm relative group">
         <div className="w-24 h-24 rounded-full bg-gray-200 mx-auto mb-6 overflow-hidden ring-4 ring-bible-gold/20 relative group/photo">
           {data.photo ? (
             <img src={data.photo} alt={data.name} className="w-full h-full object-cover" />

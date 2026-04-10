@@ -19,7 +19,7 @@ import {
   Play, Pause, ImagePlus, Wand, FolderOpen, Maximize2, Minimize2, Square, Undo2, Redo2,
   Baseline, Maximize, Move, Palette, Sliders, Type as TextIcon
 } from 'lucide-react';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { UnifiedEditor } from '../components/UnifiedEditor';
 import SEO from '../components/SEO';
 import SocialNavigation from '../components/SocialNavigation';
 import RichTextEditor from '../components/RichTextEditor';
@@ -126,9 +126,10 @@ const CreateLandingPage: React.FC = () => {
   
   // UI State
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
-  const [showMobilePreview, setShowMobilePreview] = useState(false);
+  const [activeBlockData, setActiveBlockData] = useState<any>(null); // Guardar dados do Tiptap Node
   const [copiedSlug, setCopiedSlug] = useState(false);
-  // Proporção do canvas: 'mobile' | 'tablet' | 'desktop' | 'full'
+  // Ref do Editor para comandos imperativos
+  const editorRef = useRef<any>(null);
   const [canvasWidth, setCanvasWidth] = useState<'mobile' | 'tablet' | 'desktop' | 'full'>('desktop');
   const [isMobilePropertiesOpen, setIsMobilePropertiesOpen] = useState(false);
   const [isMobileAddMenuOpen, setIsMobileAddMenuOpen] = useState(false);
@@ -159,22 +160,10 @@ const CreateLandingPage: React.FC = () => {
   const [category, setCategory] = useState('Geral');
   const searchTimeoutRef = useRef<any>(null);
 
-  // Controle do Header no scroll
-  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
-  const lastScrollY = useRef(0);
-
-  const handleMainScroll = useCallback((e: React.UIEvent<HTMLElement>) => {
-    const currentScrollY = e.currentTarget.scrollTop;
-    
-    // Ocultar ao rolar para baixo, mostrar ao rolar sutilmente para cima
-    if (currentScrollY > lastScrollY.current && currentScrollY > 60) {
-      setIsHeaderVisible(false); // Rolou para baixo
-    } else if (currentScrollY < lastScrollY.current - 5 || currentScrollY <= 60) {
-      setIsHeaderVisible(true);  // Rolou sutilmente para cima
-    }
-    
-    lastScrollY.current = currentScrollY;
-  }, []);
+  // Scroll handling logic removed to stabilize layout
+  const handleMainScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    // Scroll handling logic removed to stabilize layout
+  };
 
 
   // Carregar Logs de Acesso quando abrir a aba de acessos
@@ -354,20 +343,27 @@ const CreateLandingPage: React.FC = () => {
   // Quando a referência for encontrada, atualizar o bloco bíblico
   useEffect(() => {
     if (verseRef && verseText) {
-      setContent(prev => {
-        const biblicalBlock = prev.blocks.find(b => b.type === 'biblical');
-        if (biblicalBlock) {
-          return {
-            ...prev,
-            blocks: prev.blocks.map(b => 
-              b.type === 'biblical' 
-                ? { ...b, data: { ...b.data, reference: verseRef, text: verseText, verse: verseRef } }
-                : b
-            )
-          };
-        }
-        return prev;
-      });
+      if (editorRef.current?.updateBlock) {
+        // Se o editor estiver montado (TipTap), usamos a ref imperativa
+        editorRef.current.updateBlock('biblical', { reference: verseRef, text: verseText, verse: verseRef });
+      } else {
+        // Caso contrário (estado inicial legível como array), atualizamos o estado
+        setContent(prev => {
+          if (!Array.isArray(prev.blocks)) return prev;
+          const biblicalBlock = prev.blocks.find(b => b.type === 'biblical');
+          if (biblicalBlock) {
+            return {
+              ...prev,
+              blocks: prev.blocks.map(b => 
+                b.type === 'biblical' 
+                  ? { ...b, data: { ...b.data, reference: verseRef, text: verseText, verse: verseRef } }
+                  : b
+              )
+            };
+          }
+          return prev;
+        });
+      }
     }
   }, [verseRef, verseText]);
 
@@ -437,8 +433,13 @@ const CreateLandingPage: React.FC = () => {
         handleRedo();
       }
     };
+    const handleMobileOpenProp = () => setIsMobilePropertiesOpen(true);
+    window.addEventListener('open-mobile-properties', handleMobileOpenProp);
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('open-mobile-properties', handleMobileOpenProp);
+    };
   }, [handleUndo, handleRedo]);
 
   // Seletor de tipo
@@ -481,32 +482,22 @@ const CreateLandingPage: React.FC = () => {
 
   // Blocos
   const addBlock = (type: BlockType) => {
-    const newBlock: Block = createBlock(type);
-    setContent(prev => ({
-      ...prev,
-      blocks: getOrderedBlocks([...prev.blocks, newBlock])
-    }));
-    setSelectedBlock(newBlock.id);
+    if (editorRef.current) {
+        editorRef.current.insertBlock(type);
+    }
   };
 
   const removeBlock = (id: string) => {
-    const block = content.blocks.find(b => b.id === id);
-    if (block && isCoreBlock(block.type)) {
-      showNotification('Esse bloco faz parte da estrutura base da one page.', 'info');
-      return;
+    if (editorRef.current?.removeBlock) {
+        editorRef.current.removeBlock(id);
     }
-    setContent(prev => ({
-      ...prev,
-      blocks: prev.blocks.filter(b => b.id !== id)
-    }));
-    if (selectedBlock === id) setSelectedBlock(null);
   };
 
   const updateBlock = (id: string, data: Record<string, any>) => {
-    setContent(prev => ({
-      ...prev,
-      blocks: prev.blocks.map(b => b.id === id ? { ...b, data: { ...b.data, ...data } } : b)
-    }));
+    if (editorRef.current?.updateBlock) {
+       editorRef.current.updateBlock(id, data);
+       setActiveBlockData((prev: any) => prev?.id === id ? { ...prev, data: { ...prev.data, ...data } } : prev);
+    }
   };
 
   const moveBlock = (fromIndex: number, toIndex: number) => {
@@ -542,8 +533,13 @@ const CreateLandingPage: React.FC = () => {
   };
 
   const addBlockAt = (type: BlockType, index: number) => {
+    if (editorRef.current?.insertBlock) {
+      editorRef.current.insertBlock(type);
+      return;
+    }
     const newBlock = createBlock(type);
     setContent(prev => {
+      if (!Array.isArray(prev.blocks)) return prev;
       const newBlocks = [...prev.blocks];
       newBlocks.splice(index, 0, newBlock);
       return { ...prev, blocks: newBlocks };
@@ -552,13 +548,25 @@ const CreateLandingPage: React.FC = () => {
   };
 
   const duplicateBlock = (id: string, index: number) => {
-    const block = content.blocks.find(b => b.id === id);
+    const block = Array.isArray(content.blocks) 
+      ? content.blocks.find(b => b.id === id) 
+      : (activeBlockData?.id === id ? activeBlockData : null);
+
     if (!block || isCoreBlock(block.type)) {
       showNotification('Este bloco básico não pode ser duplicado.', 'info');
       return;
     }
+
+    if (editorRef.current?.insertBlock) {
+      // No Tiptap, apenas inserimos um novo do mesmo tipo por enquanto
+      // TODO: Implementar clonagem real no Tiptap
+      editorRef.current.insertBlock(block.type);
+      return;
+    }
+
     const newBlock = { ...block, id: `block-${Date.now()}` };
     setContent(prev => {
+      if (!Array.isArray(prev.blocks)) return prev;
       const newBlocks = [...prev.blocks];
       newBlocks.splice(index + 1, 0, newBlock);
       return { ...prev, blocks: getOrderedBlocks(newBlocks) };
@@ -792,7 +800,7 @@ const CreateLandingPage: React.FC = () => {
     showNotification('Link copiado!', 'success');
   };
 
-  const selectedBlockData = content.blocks.find(b => b.id === selectedBlock);
+  const selectedBlockData = activeBlockData || (Array.isArray(content.blocks) ? content.blocks.find((b: any) => b.id === selectedBlock) : null);
 
 
 
@@ -800,12 +808,11 @@ const CreateLandingPage: React.FC = () => {
   if (currentStep === 'create') {
     return (
       <>
-      {/* pt-[xx] will offset the fixed header */}
-      <div className="h-screen w-full flex flex-col bg-gray-100 dark:bg-bible-darkPaper overflow-hidden pt-[120px] lg:pt-[76px]">
+      <div className="min-h-screen md:h-screen w-full flex flex-col bg-gray-100 dark:bg-bible-darkPaper overflow-y-auto md:overflow-hidden">
         <SEO title="Editor de Conteúdo" />
         
-        {/* Header do Editor */}
-        <header className={`fixed top-0 left-0 right-0 z-50 bg-white dark:bg-bible-darkPaper/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-3 md:px-4 py-3 transition-transform duration-300 shadow-sm ${isHeaderVisible ? 'translate-y-0' : '-translate-y-full'}`}>
+        {/* Header do Editor (Estático no topo do flex-col) */}
+        <header className="w-full bg-white dark:bg-bible-darkPaper border-b border-gray-200 dark:border-gray-800 px-3 md:px-4 py-3 shadow-sm z-30">
           <div className="flex flex-col lg:flex-row justify-between w-full mx-auto gap-3">
             
             {/* Top row mobile / Left desktop */}
@@ -917,8 +924,7 @@ const CreateLandingPage: React.FC = () => {
         </header>
 
         {/* Editor Body */}
-        <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-visible md:overflow-hidden">
           {/* Sidebar - Campos Bíblicos e Blocos */}
           <aside className="w-72 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-r border-gray-200 dark:border-gray-800 overflow-y-auto hidden lg:block">
             <div className="p-4">
@@ -995,31 +1001,22 @@ const CreateLandingPage: React.FC = () => {
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-1">
                   Conteúdo da Página
                 </h3>
-                <Droppable droppableId="block-palette" isDropDisabled={true}>
-                  {(provided) => (
-                    <div 
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
-                      className="space-y-2"
-                    >
-                      {(Object.keys(blockLabels) as BlockType[]).map((type, idx) => {
+                    <div className="space-y-3 pr-2">
+                      {(Object.keys(blockLabels) as BlockType[]).filter(t => t !== 'study-content').map((type, idx) => {
                         const isLockedBase = isCoreBlock(type);
-                        const count = content.blocks.filter(b => b.type === type).length;
+                        const count = content.blocks?.filter?.((b: any) => b.type === type)?.length || 0;
                         return (
-                          <Draggable key={`palette-${type}`} draggableId={`palette-${type}`} index={idx} isDragDisabled={isLockedBase}>
-                            {(provided, snapshot) => (
-                              <>
                                 <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
+                                  key={`palette-${type}`}
+                                  draggable={!isLockedBase}
+                                  onDragStart={(e) => {
+                                    e.dataTransfer.setData('application/x-tiptap-block', type);
+                                  }}
                                   onClick={() => addBlock(type)}
                                   className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left group ${
                                     isLockedBase
                                       ? 'bg-gray-100 dark:bg-gray-800/50 opacity-50 cursor-not-allowed' 
-                                      : snapshot.isDragging 
-                                        ? 'bg-white dark:bg-gray-800 shadow-2xl ring-2 ring-bible-gold border-transparent z-[100]'
-                                        : 'bg-gray-50 dark:bg-gray-900 hover:bg-bible-gold/10 active:scale-[0.98]'
+                                      : 'bg-gray-50 dark:bg-gray-900 hover:bg-bible-gold/10 active:scale-[0.98] cursor-grab active:cursor-grabbing'
                                   }`}
                                 >
                                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${blockLabels[type].color}`}>
@@ -1039,33 +1036,11 @@ const CreateLandingPage: React.FC = () => {
                                       {isLockedBase ? 'Bloco fixo' : blockLabels[type].description}
                                     </p>
                                   </div>
-                                  {count > 0 && !isLockedBase ? (
-                                    <span className="text-[10px] font-bold bg-bible-gold/10 text-bible-gold rounded-full px-2 py-0.5 flex-shrink-0">
-                                      ×{count}
-                                    </span>
-                                  ) : (
-                                    <Plus size={16} className="ml-auto text-gray-400 flex-shrink-0 group-hover:rotate-90 transition-transform" />
-                                  )}
+                                  <Plus size={16} className="ml-auto text-gray-400 flex-shrink-0 group-hover:rotate-90 transition-transform" />
                                 </div>
-                                {snapshot.isDragging && (
-                                  <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900 opacity-40 select-none pointer-events-none border-2 border-dashed border-gray-200">
-                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${blockLabels[type].color}`}>
-                                      {/* Placeholder Icon */}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="font-medium text-sm text-bible-ink dark:text-white">{blockLabels[type].label}</p>
-                                    </div>
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </Draggable>
                         );
                       })}
-                      {provided.placeholder}
                     </div>
-                  )}
-                </Droppable>
               </div>
 
               {/* Tags */}
@@ -1083,7 +1058,7 @@ const CreateLandingPage: React.FC = () => {
           </aside>
 
           {/* Canvas Principal */}
-          <main className="flex-1 overflow-y-auto p-4 lg:p-8" onScroll={handleMainScroll}>
+          <main className="flex-1 overflow-visible md:overflow-y-auto p-4 lg:p-8" onScroll={handleMainScroll}>
             {showCreationHelper && (
               <div className="max-w-3xl mx-auto mb-4 animate-in fade-in slide-in-from-top-4 duration-500">
                 <div className="relative rounded-3xl border border-bible-gold/20 bg-white/60 dark:bg-black/40 backdrop-blur-md px-6 py-4 text-sm text-gray-700 dark:text-gray-300 shadow-xl shadow-bible-gold/5 flex items-center justify-between">
@@ -1106,36 +1081,21 @@ const CreateLandingPage: React.FC = () => {
                 </div>
               </div>
             )}
-            <div className={`mx-auto bg-white dark:bg-bible-darkPaper rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 pt-6 canvas-${canvasWidth} ${
+            <div className={`mx-auto bg-white dark:bg-bible-darkPaper rounded-3xl shadow-2xl transition-all duration-300 canvas-${canvasWidth} ${
               canvasWidth === 'mobile' ? 'max-w-[375px] border-4 border-bible-gold'
               : canvasWidth === 'tablet' ? 'max-w-[768px]'
               : canvasWidth === 'full' ? 'w-full'
               : 'max-w-7xl'
             }`}>
-              <ContentBuilder
-                blocks={content.blocks}
-                selectedBlockId={selectedBlock}
-                onSelectBlock={setSelectedBlock}
-                onUpdateBlock={updateBlock}
-                onMoveBlock={moveBlock}
-                onDuplicateBlock={duplicateBlock}
-                onRemoveBlock={removeBlock}
-                onAddBlock={(type, index) => {
-                  const newBlock = createBlock(type);
-                  setContent(prev => {
-                    const newBlocks = [...prev.blocks];
-                    if (index !== undefined) {
-                      newBlocks.splice(index + 1, 0, newBlock);
-                    } else {
-                      newBlocks.push(newBlock);
-                    }
-                    return { ...prev, blocks: newBlocks };
-                  });
-                  setSelectedBlock(newBlock.id);
-                }}
-                isEditing={currentStep === 'create'}
-                canvasWidth={canvasWidth as any}
-                authorName={currentUser?.displayName || undefined}
+              <UnifiedEditor 
+                 ref={editorRef}
+                 content={content.blocks || ''}
+                 onChange={(json) => setContent(prev => ({ ...prev, blocks: json }))} 
+                 onBlockSelect={(blockData) => {
+                    setSelectedBlock(blockData?.id || null);
+                    setActiveBlockData(blockData || null);
+                 }}
+                 readOnly={currentStep !== 'create'}
               />
             </div>
           </main>
@@ -1149,10 +1109,13 @@ const CreateLandingPage: React.FC = () => {
                     {blockLabels[selectedBlockData.type].label}
                   </h3>
                   <button
-                    onClick={() => setSelectedBlock(null)}
-                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                    onClick={() => {
+                        setSelectedBlock(null);
+                        setActiveBlockData(null);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 dark:bg-red-900/10 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest border border-red-200/50 dark:border-red-900/30"
                   >
-                    <X size={16} />
+                    <X size={14} /> Fechar e Desativar
                   </button>
                 </div>
                 
@@ -1160,6 +1123,10 @@ const CreateLandingPage: React.FC = () => {
                   <BlockProperties
                     block={selectedBlockData}
                     onUpdate={(data) => updateBlock(selectedBlockData.id, data)}
+                    onClose={() => {
+                        setSelectedBlock(null);
+                        setActiveBlockData(null);
+                    }}
                     isEditing={currentStep === 'create'}
                   />
                 )}
@@ -1167,31 +1134,10 @@ const CreateLandingPage: React.FC = () => {
             </aside>
           )}
         </div>
-        </DragDropContext>
 
         {/* Mobile Editing Tools */}
         {selectedBlockData && currentStep === 'create' && (
           <>
-            <MobileToolbar
-              blockType={selectedBlockData.type}
-              onMoveUp={() => {
-                const idx = content.blocks.findIndex(b => b.id === selectedBlockData.id);
-                if (idx > 0) moveBlock(idx, idx - 1);
-              }}
-              onMoveDown={() => {
-                const idx = content.blocks.findIndex(b => b.id === selectedBlockData.id);
-                if (idx < content.blocks.length - 1) moveBlock(idx, idx + 1);
-              }}
-              onDuplicate={() => {
-                const idx = content.blocks.findIndex(b => b.id === selectedBlockData.id);
-                duplicateBlock(selectedBlockData.id, idx);
-              }}
-              onRemove={() => removeBlock(selectedBlockData.id)}
-              onOpenProperties={() => setIsMobilePropertiesOpen(true)}
-              onClose={() => setSelectedBlock(null)}
-              canMoveUp={content.blocks.findIndex(b => b.id === selectedBlockData.id) > 0}
-              canMoveDown={content.blocks.findIndex(b => b.id === selectedBlockData.id) < content.blocks.length - 1}
-            />
 
             <MobilePropertiesSheet
               isOpen={isMobilePropertiesOpen}
@@ -1246,9 +1192,8 @@ const CreateLandingPage: React.FC = () => {
           isOpen={isMobileAddMenuOpen}
           onClose={() => setIsMobileAddMenuOpen(false)}
           onSelect={(type) => {
-            const newBlock = createBlock(type);
-            setContent(prev => ({ ...prev, blocks: [...prev.blocks, newBlock] }));
-            setSelectedBlock(newBlock.id);
+            addBlock(type);
+            setIsMobileAddMenuOpen(false);
           }}
           onAIBuild={() => setShowAIBuilderModal(true)}
         />
@@ -1682,15 +1627,23 @@ const CreateLandingPage: React.FC = () => {
 
         {/* Preview Content */}
         <main className="py-8 min-h-screen bg-gray-100 dark:bg-black/90 flex justify-center">
-          <div className={`w-full bg-white dark:bg-bible-darkPaper shadow-2xl transition-all duration-300 overflow-hidden canvas-${canvasWidth} ${
+          <div className={`w-full bg-white dark:bg-bible-darkPaper shadow-2xl transition-all duration-300 canvas-${canvasWidth} ${
             canvasWidth === 'mobile' ? 'max-w-[375px] min-h-[667px] rounded-[3rem] border-[12px] border-gray-800'
             : canvasWidth === 'tablet' ? 'max-w-[768px] min-h-[1024px] rounded-2xl border-8 border-gray-800'
             : canvasWidth === 'full' ? 'w-full'
             : 'max-w-7xl rounded-2xl'
           }`}>
-             {content.blocks.map(block => (
-              <BlockRenderer key={block.id} block={block} isEditing={false} authorName={currentUser?.displayName} canvasWidth={canvasWidth} />
-            ))}
+              {Array.isArray(content.blocks) ? (
+                content.blocks.map(block => (
+                  <BlockRenderer key={block.id} block={block} isEditing={false} authorName={currentUser?.displayName} canvasWidth={canvasWidth} />
+                ))
+              ) : (
+                <UnifiedEditor 
+                  content={content.blocks} 
+                  readOnly={true} 
+                  onChange={() => {}} 
+                />
+              )}
           </div>
         </main>
       </div>

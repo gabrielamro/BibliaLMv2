@@ -59,6 +59,7 @@ export const MobilePropertiesSheet: React.FC<MobilePropertiesSheetProps> = ({
           <BlockProperties 
             block={block} 
             onUpdate={onUpdate} 
+            onClose={onClose}
             isEditing={isEditing} 
           />
         </div>

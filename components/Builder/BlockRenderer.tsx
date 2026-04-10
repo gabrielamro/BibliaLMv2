@@ -66,11 +66,11 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
     } else {
         // Desktop widths diferenciadas
         if (type === 'hero' || type === 'slide' || type === 'video') {
-            containerClass += ' max-w-6xl px-8';
+            containerClass += ' max-w-6xl px-4';
         } else if (type === 'study-content' || type === 'biblical') {
-            containerClass += ' max-w-4xl px-8 md:px-12'; // Mais estreito para melhor legibilidade
+            containerClass += ' max-w-4xl px-2'; // Mais compacto
         } else {
-            containerClass += ' max-w-5xl px-8';
+            containerClass += ' max-w-5xl px-4';
         }
     }
   }
@@ -78,8 +78,8 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   const styles: React.CSSProperties = {
     backgroundColor: data.backgroundColor || 'transparent',
     color: data.textColor || 'inherit',
-    paddingTop: (typeof data.padding === 'number' ? data.padding : (data.padding?.top ?? 0)) * 4,
-    paddingBottom: (typeof data.padding === 'number' ? data.padding : (data.padding?.bottom ?? 0)) * 4,
+    paddingTop: (type === 'slide' || type === 'hero') ? 0 : (typeof data.padding === 'number' ? data.padding : (data.padding?.top ?? 0)) * 4,
+    paddingBottom: (type === 'slide' || type === 'hero') ? 0 : (typeof data.padding === 'number' ? data.padding : (data.padding?.bottom ?? 0)) * 4,
     marginTop: (typeof data.margin === 'object' ? (data.margin?.top ?? 0) : (data.margin ?? 0)) * 4,
     marginBottom: (typeof data.margin === 'object' ? (data.margin?.bottom ?? 0) : (data.margin ?? 0)) * 4,
     fontFamily: data.fontFamily || 'inherit',

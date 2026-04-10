@@ -91,7 +91,7 @@ export const HeroBlock: React.FC<HeroBlockProps> = ({ data, onUpdate, isEditing,
               </button>
 
              {isEditing && (
-               <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 opacity-0 group-hover/cta:opacity-100 transition-opacity z-50 pointer-events-none group-hover/cta:pointer-events-auto flex justify-center">
+               <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 opacity-0 group-hover/cta:opacity-100 transition-opacity z-50 pointer-events-none group-hover/cta:pointer-events-auto hidden md:flex justify-center">
                  <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-1.5 rounded-2xl shadow-2xl flex gap-1.5 items-center">
                     <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
                        <button onClick={() => onUpdate?.({...data, ctaStyle: 'solid'})} className={`p-1.5 rounded-lg text-[10px] uppercase font-bold px-3 transition-colors ${(!data.ctaStyle || data.ctaStyle === 'solid') ? 'bg-white dark:bg-gray-700 shadow-sm text-bible-gold' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>Sólido</button>

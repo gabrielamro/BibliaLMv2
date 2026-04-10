@@ -50,7 +50,7 @@ export const defaultBlockData: Record<BlockType, any> = {
     backgroundColor: '#0f172a',
     textColor: '#ffffff',
     overlayOpacity: 0.5,
-    padding: 16
+    padding: 8
   },
   authority: {
     name: 'Nome do Autor',
@@ -58,7 +58,7 @@ export const defaultBlockData: Record<BlockType, any> = {
     bio: 'Uma breve descrição sobre o autor e sua autoridade no tema.',
     badges: [],
     socials: { instagram: '', youtube: '', website: '' },
-    padding: 12
+    padding: 4
   },
   biblical: {
     verse: 'João 3:16',
@@ -67,14 +67,14 @@ export const defaultBlockData: Record<BlockType, any> = {
     style: 'classic',
     showImage: false,
     imageStyle: 'realistic',
-    padding: 16
+    padding: 8
   },
   video: {
     url: '',
     title: 'Vídeo Introdutório',
     description: '',
     thumbnail: '',
-    padding: 12
+    padding: 4
   },
   footer: {
     logo: '',
@@ -82,7 +82,7 @@ export const defaultBlockData: Record<BlockType, any> = {
     links: [],
     copyright: `© ${new Date().getFullYear()} Todos os direitos reservados`,
     showSocial: true,
-    padding: 12
+    padding: 4
   },
   'study-content': {
     content: '',
@@ -91,7 +91,7 @@ export const defaultBlockData: Record<BlockType, any> = {
     application: '',
     prayer: '',
     conclusion: '',
-    padding: 12
+    padding: 4
   },
   slide: {
     slides: [
@@ -103,10 +103,11 @@ export const defaultBlockData: Record<BlockType, any> = {
         description: 'Pois a palavra de Deus é viva, e eficaz, e mais cortante que qualquer espada de dois gumes, e que penetra até a divisão de alma e espírito, e de juntas e medulas, e pronta para discernir as disposições e pensamentos do coração. Hebreus 4:12',
         mediaUrl: 'https://images.unsplash.com/photo-1509021436665-8f07dbf5bf1d?q=80&w=2000',
         overlayOpacity: 0.6,
-        layout: 'image-right'
+        layout: 'image-right',
+        textColor: '#ffffff'
       }
     ],
-    margin: { top: 40, bottom: 0 },
+    margin: { top: 4, bottom: 0 },
     height: 'medium',
     autoplay: false,
     autoplayInterval: 5000,

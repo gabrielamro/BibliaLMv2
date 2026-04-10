@@ -47,8 +47,8 @@ export const MobileAddBlockMenu: React.FC<MobileAddBlockMenuProps> = ({
 
 
         {/* Grids de Blocos */}
-        <div className="grid grid-cols-2 gap-3 pb-8">
-          {(Object.keys(blockLabels) as BlockType[]).map((type) => (
+        <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pb-4">
+          {(Object.keys(blockLabels) as BlockType[]).filter(t => t !== 'study-content').map((type) => (
             <button
               key={type}
               onClick={() => {
