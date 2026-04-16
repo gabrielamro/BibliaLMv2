@@ -10,6 +10,7 @@ import { HeroSplitBlock } from './blocks/HeroSplitBlock';
 import { StudyOutlineBlock } from './blocks/StudyOutlineBlock';
 import { RelatedVersesBlock } from './blocks/RelatedVersesBlock';
 import { ReflectionQuestionBlock } from './blocks/ReflectionQuestionBlock';
+import { ReferencesChainBlock } from './blocks/ReferencesChainBlock';
 import { SpacerBlock } from './blocks/SpacerBlock';
 import { RichTextBlock } from './blocks/RichTextBlock';
 
@@ -60,6 +61,8 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
         return <StudyOutlineBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} editor={editor} />;
       case 'related-verses':
         return <RelatedVersesBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} />;
+      case 'references-chain':
+        return <ReferencesChainBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} />;
       case 'reflection-question':
         return <ReflectionQuestionBlock data={data} isEditable={isEditing} studyId={studyId} studyTitle={studyTitle} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} />;
       case 'spacer':

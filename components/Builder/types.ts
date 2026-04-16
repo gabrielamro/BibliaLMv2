@@ -10,6 +10,7 @@ export type BlockType =
   | 'study-outline'
   | 'related-verses'
   | 'reflection-question'
+  | 'references-chain'
   | 'rich-text'
   | 'spacer';
 

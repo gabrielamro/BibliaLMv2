@@ -15,3 +15,4 @@ export * from './blocks/HeroSplitBlock';
 export * from './blocks/StudyOutlineBlock';
 export * from './blocks/RelatedVersesBlock';
 export * from './blocks/ReflectionQuestionBlock';
+export * from './blocks/ReferencesChainBlock';

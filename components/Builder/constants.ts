@@ -51,6 +51,11 @@ export const blockLabels: Record<BlockType, { label: string; description: string
     description: 'Fechamento reflexivo com resposta pessoal',
     color: 'bg-rose-600 text-white'
   },
+  'references-chain': {
+    label: 'Referencias Encadeadas',
+    description: 'Versiculos conectados em formato de cadeia',
+    color: 'bg-teal-600 text-white'
+  },
   footer: {
     label: 'Rodape / Social',
     description: 'Copyright e links de redes sociais',
@@ -182,6 +187,16 @@ export const defaultBlockData: Record<BlockType, any> = {
     support: 'A V2 fecha com um convite pessoal e pastoral para transformar leitura em resposta.',
     placeholder: 'Escreva um comentario, oracao guiada, compromisso ou reflexao pastoral...',
     padding: 6
+  },
+  'references-chain': {
+    title: 'Referencias Encadeadas',
+    description: 'Versiculos conectados ao tema principal',
+    references: [
+      { reference: 'Salmos 118:1', text: 'O Senhor e o meu pastor...', summary: 'A gratidao como resposta ao amor de Deus.' },
+      { reference: 'Colossenses 3:17', text: 'Tudo o que fizeres...', summary: 'Viver com gratidao em todas as circunstancias.' }
+    ],
+    showExpandAll: true,
+    padding: 4
   },
   'rich-text': {
     content: '',
