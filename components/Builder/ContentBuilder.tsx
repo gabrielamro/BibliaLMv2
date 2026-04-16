@@ -1,17 +1,34 @@
 import React from 'react';
-import { 
-  Plus, 
-  Minus,
-  Maximize2,
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  defaultDropAnimationSideEffects,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
+  ChevronsLeftRight,
+  Plus,
+  Pencil,
   ChevronsUpDown,
-  ChevronUp, 
-  ChevronDown, 
-  Copy, 
+  ChevronUp,
+  ChevronDown,
+  Copy,
   Trash2,
   X,
-  GripVertical
+  GripVertical,
 } from 'lucide-react';
-import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { BlockRenderer } from './BlockRenderer';
 import { Block, BlockType } from './types';
 import { blockLabels } from './constants';
@@ -28,19 +45,65 @@ interface ContentBuilderProps {
   isEditing: boolean;
   canvasWidth: 'mobile' | 'tablet' | 'desktop' | 'full';
   authorName?: string;
+  layoutGridUnits?: number;
+  getBlockLayoutUnits?: (block: Block) => number;
+  getBlockLayoutWidth?: (block: Block) => string | null;
+  getBlockLayoutAlign?: (block: Block) => string | null;
+  getBlockGridColumn?: (block: Block) => string | undefined;
+  onEditBlock?: (id: string) => void;
+  onCycleBlockWidth?: (id: string) => void;
 }
 
-const SectionResizer = ({ 
-  value, 
-  onChange, 
-  position,
-  isActive
-}: { 
-  value: number; 
-  onChange: (val: number) => void; 
+interface SectionResizerProps {
+  value: number;
+  onChange: (val: number) => void;
   position: 'top' | 'bottom';
   isActive?: boolean;
-}) => {
+}
+
+interface SortableCanvasBlockProps {
+  block: Block;
+  index: number;
+  totalBlocks: number;
+  selectedBlockId: string | null;
+  isEditing: boolean;
+  authorName?: string;
+  canvasWidth: 'mobile' | 'tablet' | 'desktop' | 'full';
+  showResizers: boolean;
+  layoutGridUnits?: number;
+  layoutUnits?: number;
+  layoutWidth?: string | null;
+  layoutAlign?: string | null;
+  gridColumn?: string;
+  onSelectBlock: (id: string | null) => void;
+  onUpdateBlock: (id: string, data: any) => void;
+  onMoveBlock: (index: number, newIndex: number) => void;
+  onDuplicateBlock: (id: string, index: number) => void;
+  onRemoveBlock: (id: string) => void;
+  onEditBlock?: (id: string) => void;
+  onCycleBlockWidth?: (id: string) => void;
+  onToggleResizers: () => void;
+}
+
+const normalizePaddingValue = (padding: Block['data']['padding'], position: 'top' | 'bottom') => {
+  if (typeof padding === 'number') return padding;
+  if (padding && typeof padding === 'object' && typeof padding[position] === 'number') return padding[position];
+  return 0;
+};
+
+const buildPaddingPatch = (padding: Block['data']['padding'], position: 'top' | 'bottom', nextValue: number) => {
+  const currentTop = normalizePaddingValue(padding, 'top');
+  const currentBottom = normalizePaddingValue(padding, 'bottom');
+
+  return {
+    padding: {
+      top: position === 'top' ? nextValue : currentTop,
+      bottom: position === 'bottom' ? nextValue : currentBottom,
+    },
+  };
+};
+
+const SectionResizer: React.FC<SectionResizerProps> = ({ value, onChange, position, isActive }) => {
   const [isDragging, setIsDragging] = React.useState(false);
   const startYRef = React.useRef(0);
   const startValueRef = React.useRef(0);
@@ -48,63 +111,281 @@ const SectionResizer = ({
   React.useEffect(() => {
     if (!isDragging) return;
 
-    const handleMouseMove = (e: MouseEvent | TouchEvent) => {
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const handlePointerMove = (event: MouseEvent | TouchEvent) => {
+      const clientY = 'touches' in event ? event.touches[0]?.clientY ?? startYRef.current : event.clientY;
       const deltaY = (clientY - startYRef.current) * (position === 'top' ? 1 : -1);
-      const newValue = Math.floor((startValueRef.current + deltaY) / 4) * 4;
-      // Padding interno nunca deve ser negativo para não quebrar o layout
-      onChange(Math.max(0, newValue));
+      const snapped = Math.floor((startValueRef.current + deltaY) / 4) * 4;
+      onChange(Math.max(0, snapped));
     };
 
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
+    const handlePointerUp = () => setIsDragging(false);
 
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.addEventListener('touchmove', handleMouseMove, { passive: false });
-      document.addEventListener('touchend', handleMouseUp);
-    }
+    document.addEventListener('mousemove', handlePointerMove);
+    document.addEventListener('mouseup', handlePointerUp);
+    document.addEventListener('touchmove', handlePointerMove, { passive: false });
+    document.addEventListener('touchend', handlePointerUp);
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('touchmove', handleMouseMove);
-      document.removeEventListener('touchend', handleMouseUp);
+      document.removeEventListener('mousemove', handlePointerMove);
+      document.removeEventListener('mouseup', handlePointerUp);
+      document.removeEventListener('touchmove', handlePointerMove);
+      document.removeEventListener('touchend', handlePointerUp);
     };
-  }, [isDragging, position, onChange]);
+  }, [isDragging, onChange, position]);
 
-  const handleStart = (clientY: number, valueAtStart: number) => {
+  const startDrag = (clientY: number) => {
     setIsDragging(true);
     startYRef.current = clientY;
-    startValueRef.current = valueAtStart;
+    startValueRef.current = value;
   };
 
   return (
-    <div 
-      className={`absolute left-0 right-0 h-6 z-50 cursor-ns-resize group/resizer flex items-center justify-center transition-all ${position === 'top' ? 'top-0' : 'bottom-0'}`}
-      onMouseDown={(e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        handleStart(e.clientY, value);
+    <div
+      data-testid={`section-resizer-${position}`}
+      className={`absolute left-0 right-0 z-50 flex h-6 cursor-ns-resize items-center justify-center transition-all ${position === 'top' ? 'top-0' : 'bottom-0'}`}
+      onMouseDown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        startDrag(event.clientY);
       }}
-      onTouchStart={(e: React.TouchEvent) => {
-        e.stopPropagation();
-        handleStart(e.touches[0].clientY, value);
+      onTouchStart={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        startDrag(event.touches[0].clientY);
       }}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
     >
-      <div className={`w-full h-[3px] bg-bible-gold transition-all duration-700 rounded-full ${isDragging ? 'opacity-100 h-[6px] scale-x-105 shadow-[0_0_20px_rgba(234,179,8,0.8)]' : isActive ? 'opacity-100 shadow-[0_0_15px_rgba(234,179,8,0.6)] animate-pulse' : 'opacity-0 group-hover/resizer:opacity-60 h-[3px]'}`} />
-      
-      <div className={`absolute left-1/2 -translate-x-1/2 px-3 py-1.5 bg-bible-gold text-white text-[10px] font-black uppercase rounded-2xl shadow-2xl pointer-events-none transition-all flex items-center gap-2 ${isDragging ? 'opacity-100 scale-110' : 'opacity-0 group-hover/resizer:opacity-100'} ${position === 'top' ? 'top-10' : 'bottom-10'}`}>
-        <ChevronsUpDown size={14} className={isDragging ? 'animate-bounce' : ''} />
-        {position === 'top' ? 'Padding Superior' : 'Padding Inferior'}: <span className="font-mono text-sm ml-1">{value}px</span>
+      <div
+        className={`w-full rounded-full bg-bible-gold transition-all duration-200 ${
+          isDragging ? 'h-[6px] scale-x-[1.02] opacity-100 shadow-[0_0_20px_rgba(234,179,8,0.7)]' : isActive ? 'h-[4px] opacity-100' : 'h-[3px] opacity-0 group-hover/resizer:opacity-60'
+        }`}
+      />
+      <div
+        className={`pointer-events-none absolute left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-2xl bg-bible-gold px-3 py-1.5 text-[10px] font-black uppercase text-white shadow-2xl transition-all ${
+          isDragging ? 'scale-110 opacity-100' : 'opacity-0 group-hover/resizer:opacity-100'
+        } ${position === 'top' ? 'top-10' : 'bottom-10'}`}
+      >
+        <ChevronsUpDown size={14} />
+        {position === 'top' ? 'Padding Superior' : 'Padding Inferior'}:
+        <span className="ml-1 font-mono text-sm">{value}px</span>
       </div>
-      
-      <div className={`absolute w-14 h-8 bg-white dark:bg-gray-900 border-2 border-bible-gold rounded-xl flex items-center justify-center shadow-2xl transition-all duration-200 ${isDragging ? 'scale-125' : 'opacity-0 group-hover/resizer:opacity-100 translate-y-0'}`}>
-        <ChevronsUpDown size={16} className="text-bible-gold" />
-      </div>
+    </div>
+  );
+};
+
+const SortableCanvasBlock: React.FC<SortableCanvasBlockProps> = ({
+  block,
+  index,
+  totalBlocks,
+  selectedBlockId,
+  isEditing,
+  authorName,
+  canvasWidth,
+  showResizers,
+  layoutGridUnits,
+  layoutUnits,
+  layoutWidth,
+  layoutAlign,
+  gridColumn,
+  onSelectBlock,
+  onUpdateBlock,
+  onMoveBlock,
+  onDuplicateBlock,
+  onRemoveBlock,
+  onEditBlock,
+  onCycleBlockWidth,
+  onToggleResizers,
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
+  const isSelected = selectedBlockId === block.id;
+  const paddingTop = normalizePaddingValue(block.data?.padding, 'top');
+  const paddingBottom = normalizePaddingValue(block.data?.padding, 'bottom');
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    gridColumn: gridColumn ?? (layoutUnits ? `span ${layoutUnits} / span ${layoutUnits}` : undefined),
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      data-testid={`builder-block-${block.type}-${index}`}
+      data-width={layoutWidth ?? undefined}
+      data-units={layoutUnits ?? undefined}
+      data-align={layoutAlign ?? undefined}
+      data-padding-top={paddingTop}
+      data-padding-bottom={paddingBottom}
+      className={`group/resizer relative transition-all duration-200 ${
+        isDragging ? 'opacity-60 shadow-2xl' : ''
+      } ${isEditing && isSelected ? 'z-20 ring-2 ring-bible-gold shadow-2xl' : isEditing ? 'hover:ring-1 hover:ring-bible-gold/30' : ''}`}
+      onClick={() => isEditing && onSelectBlock(block.id)}
+    >
+      {isEditing && (
+        <div className="absolute -top-3 left-6 z-30 flex items-center gap-1 group/label">
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className={`flex cursor-grab items-center gap-1.5 rounded-full border border-white/20 px-2 py-1 text-[10px] font-bold uppercase tracking-wider shadow-md transition-all active:cursor-grabbing ${blockLabels[block.type].color} ${
+              isDragging ? 'scale-110 ring-2 ring-white' : 'hover:scale-105'
+            }`}
+            aria-label={`Arrastar ${blockLabels[block.type].label}`}
+          >
+            <GripVertical size={12} />
+            {blockLabels[block.type].label}
+          </button>
+
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="hidden cursor-grab p-2 text-gray-400 transition-opacity hover:text-bible-gold lg:flex active:cursor-grabbing"
+            title="Arrastar Seção"
+            aria-label={`Reordenar ${blockLabels[block.type].label}`}
+          >
+            <GripVertical size={20} />
+          </button>
+        </div>
+      )}
+
+      {isEditing && isSelected && showResizers && (
+        <SectionResizer
+          position="top"
+          isActive={showResizers}
+          value={paddingTop}
+          onChange={(nextValue) => onUpdateBlock(block.id, buildPaddingPatch(block.data?.padding, 'top', nextValue))}
+        />
+      )}
+
+      {isEditing && isSelected && showResizers && (
+        <SectionResizer
+          position="bottom"
+          isActive={showResizers}
+          value={paddingBottom}
+          onChange={(nextValue) => onUpdateBlock(block.id, buildPaddingPatch(block.data?.padding, 'bottom', nextValue))}
+        />
+      )}
+
+      {isEditing && (
+        <div
+          className={`absolute right-4 top-4 z-30 hidden items-center gap-1 transition-all duration-300 lg:flex ${
+            isSelected ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-2 opacity-0 group-hover/resizer:pointer-events-auto group-hover/resizer:translate-y-0 group-hover/resizer:opacity-100'
+          }`}
+        >
+          <div className="flex max-w-[calc(100%-1rem)] flex-wrap items-center justify-end gap-1 rounded-2xl border border-gray-100 bg-white/95 p-1.5 shadow-xl backdrop-blur-md">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onMoveBlock(index, Math.max(0, index - 1));
+              }}
+              disabled={index === 0 || ['hero', 'footer'].includes(block.type)}
+              className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-bible-gold/10 hover:text-bible-gold disabled:opacity-20"
+              title="Mover para cima"
+            >
+              <ChevronUp size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onMoveBlock(index, Math.min(totalBlocks - 1, index + 1));
+              }}
+              disabled={index === totalBlocks - 1 || ['hero', 'footer'].includes(block.type)}
+              className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-bible-gold/10 hover:text-bible-gold disabled:opacity-20"
+              title="Mover para baixo"
+            >
+              <ChevronDown size={18} />
+            </button>
+            <div className="mx-1 h-4 w-px bg-gray-200" />
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onCycleBlockWidth?.(block.id);
+              }}
+              className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-[#8c6b3e]/10 hover:text-[#8c6b3e]"
+              title="Ajustar largura do bloco"
+              aria-label="Ajustar largura do bloco"
+            >
+              <ChevronsLeftRight size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEditBlock?.(block.id);
+              }}
+              className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-[#1f2b3f]/10 hover:text-[#1f2b3f]"
+              title="Editar propriedades"
+              aria-label="Editar propriedades do bloco"
+            >
+              <Pencil size={18} />
+            </button>
+            <div className="mx-1 h-4 w-px bg-gray-200" />
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDuplicateBlock(block.id, index);
+              }}
+              disabled={['hero', 'footer'].includes(block.type)}
+              className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-blue-500/10 hover:text-blue-500 disabled:opacity-20"
+              title="Duplicar"
+            >
+              <Copy size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onRemoveBlock(block.id);
+              }}
+              className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-500"
+              title="Excluir"
+            >
+              <Trash2 size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleResizers();
+              }}
+              className={`rounded-xl p-2 transition-all ${showResizers ? 'bg-bible-gold/10 text-bible-gold' : 'text-gray-500 hover:bg-bible-gold/5 hover:text-bible-gold'}`}
+              title={showResizers ? 'Ocultar ajustes de altura' : 'Mostrar ajustes de altura'}
+              aria-label={showResizers ? 'Ocultar ajustes de altura' : 'Mostrar ajustes de altura'}
+            >
+              <ChevronsUpDown size={18} />
+            </button>
+            <div className="mx-1 h-4 w-px bg-gray-200" />
+            {isSelected && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelectBlock(null);
+                }}
+                className="ml-1 rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                title="Fechar edição"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <BlockRenderer
+        block={block}
+        isEditing={isEditing && isSelected}
+        onUpdate={onUpdateBlock}
+        authorName={authorName}
+        canvasWidth={canvasWidth}
+      />
     </div>
   );
 };
@@ -120,34 +401,69 @@ export const ContentBuilder: React.FC<ContentBuilderProps> = ({
   onAddBlock,
   isEditing,
   canvasWidth,
-  authorName
+  authorName,
+  layoutGridUnits,
+  getBlockLayoutUnits,
+  getBlockLayoutWidth,
+  getBlockLayoutAlign,
+  getBlockGridColumn,
+  onEditBlock,
+  onCycleBlockWidth,
 }) => {
   const [activeSlotMenu, setActiveSlotMenu] = React.useState<number | 'footer' | null>(null);
-  const [showResizers, setShowResizers] = React.useState(false); // Default to false as requested to not hinder usability
+  const [showResizers, setShowResizers] = React.useState(false);
+  const [activeId, setActiveId] = React.useState<string | null>(null);
 
-  const isUniqueBlockAlreadyAdded = (type: BlockType) => {
-    return ['hero', 'footer'].includes(type) && blocks.some(b => b.type === type);
-  };
-  const availableBlocks = (Object.keys(blockLabels) as BlockType[]).filter(t => !isUniqueBlockAlreadyAdded(t));
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const activeBlock = React.useMemo(
+    () => (activeId ? blocks.find((block) => block.id === activeId) ?? null : null),
+    [activeId, blocks],
+  );
+
+  const isUniqueBlockAlreadyAdded = (type: BlockType) => ['hero', 'footer'].includes(type) && blocks.some((block) => block.type === type);
+  const availableBlocks = (Object.keys(blockLabels) as BlockType[]).filter((type) => !isUniqueBlockAlreadyAdded(type));
+
+  const handleDragEnd = React.useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      setActiveId(null);
+
+      if (!over || active.id === over.id) return;
+
+      const currentIndex = blocks.findIndex((block) => block.id === active.id);
+      const nextIndex = blocks.findIndex((block) => block.id === over.id);
+      if (currentIndex < 0 || nextIndex < 0 || currentIndex === nextIndex) return;
+
+      onMoveBlock(currentIndex, nextIndex);
+    },
+    [blocks, onMoveBlock],
+  );
 
   if (blocks.length === 0 && isEditing) {
     return (
-      <div className="p-16 text-center border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-3xl">
-        <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+      <div className="rounded-3xl border-2 border-dashed border-gray-200 p-16 text-center">
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
           <Plus size={32} className="text-gray-400" />
         </div>
-        <h3 className="text-lg font-bold text-gray-600 dark:text-gray-300 mb-2">
-          Adicione blocos para começar
-        </h3>
-        <p className="text-sm text-gray-400 mb-6">
-          Use a paleta à esquerda ou clique nos botões rápidos abaixo
-        </p>
+        <h3 className="mb-2 text-lg font-bold text-gray-600">Adicione blocos para começar</h3>
+        <p className="mb-6 text-sm text-gray-400">Use a biblioteca à esquerda ou clique nos botões rápidos abaixo.</p>
         <div className="flex flex-wrap justify-center gap-2">
-          {availableBlocks.map(type => (
+          {availableBlocks.map((type) => (
             <button
               key={type}
+              type="button"
               onClick={() => onAddBlock(type)}
-              className="px-4 py-2 rounded-xl text-sm font-medium transition-all bg-bible-gold/10 text-bible-gold hover:bg-bible-gold hover:text-white active:scale-95 shadow-sm"
+              className="rounded-xl bg-bible-gold/10 px-4 py-2 text-sm font-medium text-bible-gold shadow-sm transition-all hover:bg-bible-gold hover:text-white active:scale-95"
             >
               + {blockLabels[type].label}
             </button>
@@ -159,195 +475,109 @@ export const ContentBuilder: React.FC<ContentBuilderProps> = ({
 
   return (
     <>
-    <Droppable droppableId="canvas-blocks">
-      {(provided) => (
-        <div 
-          {...provided.droppableProps}
-          ref={provided.innerRef}
-          className="relative min-h-[200px]"
-        >
-          {blocks.map((block, index) => (
-            <Draggable key={block.id} draggableId={block.id} index={index}>
-              {(provided, snapshot) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.draggableProps}
-                  className={`relative group transition-all duration-300 ${
-                    snapshot.isDragging ? 'z-50' : ''
-                  } ${
-                    isEditing && selectedBlockId === block.id 
-                      ? 'ring-2 ring-bible-gold z-20 shadow-2xl' 
-                      : isEditing ? 'hover:ring-1 hover:ring-bible-gold/30' : ''
-                  }`}
-                  onClick={() => isEditing && onSelectBlock(block.id)}
-                >
-                  {/* Drag Handle & Info (Mobile/Desktop) */}
-                  {isEditing && (
-                    <div className="absolute -top-3 left-6 z-30 flex items-center gap-1 group/label">
-                      {/* Control Handle */}
-                      <div 
-                        {...provided.dragHandleProps}
-                        className={`cursor-grab active:cursor-grabbing px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-md border border-white/20 transition-all flex items-center gap-1.5 ${blockLabels[block.type].color} ${snapshot.isDragging ? 'ring-2 ring-white scale-110 shadow-bible-gold/50' : 'hover:scale-105'}`}
-                      >
-                        <GripVertical size={12} className={snapshot.isDragging ? 'animate-pulse' : ''} />
-                        {blockLabels[block.type].label}
-                      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={(event) => setActiveId(event.active.id as string)}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveId(null)}
+      >
+        <SortableContext items={blocks.map((block) => block.id)} strategy={rectSortingStrategy}>
+          <div
+            className={`relative min-h-[200px] ${layoutGridUnits ? 'grid gap-6' : ''}`}
+            style={layoutGridUnits ? { gridTemplateColumns: `repeat(${layoutGridUnits}, minmax(0, 1fr))` } : undefined}
+          >
+            {blocks.map((block, index) => {
+              const layoutUnits = layoutGridUnits ? Math.min(Math.max(getBlockLayoutUnits?.(block) ?? layoutGridUnits, 1), layoutGridUnits) : undefined;
+              const layoutWidth = getBlockLayoutWidth?.(block) ?? null;
+              const layoutAlign = getBlockLayoutAlign?.(block) ?? null;
+              const gridColumn = getBlockGridColumn?.(block);
 
-                      {/* Desktop only side handle (optional, but keeping it for ease of use) */}
-                      <div 
-                        {...provided.dragHandleProps}
-                        className="p-2 text-gray-400 hover:text-bible-gold transition-opacity hidden lg:flex cursor-grab active:cursor-grabbing"
-                        title="Arrastar Seção"
-                      >
-                        <GripVertical size={20} />
-                      </div>
+              return (
+                <SortableCanvasBlock
+                  key={block.id}
+                  block={block}
+                  index={index}
+                  totalBlocks={blocks.length}
+                  selectedBlockId={selectedBlockId}
+                  isEditing={isEditing}
+                  authorName={authorName}
+                  canvasWidth={canvasWidth}
+                  showResizers={showResizers}
+                  layoutGridUnits={layoutGridUnits}
+                  layoutUnits={layoutUnits}
+                  layoutWidth={layoutWidth}
+                  layoutAlign={layoutAlign}
+                  gridColumn={gridColumn}
+                  onSelectBlock={onSelectBlock}
+                  onUpdateBlock={onUpdateBlock}
+                  onMoveBlock={onMoveBlock}
+                  onDuplicateBlock={onDuplicateBlock}
+                  onRemoveBlock={onRemoveBlock}
+                  onEditBlock={onEditBlock}
+                  onCycleBlockWidth={onCycleBlockWidth}
+                  onToggleResizers={() => setShowResizers((current) => !current)}
+                />
+              );
+            })}
+
+            {isEditing && (
+              <div className="relative mt-4 flex justify-center p-8" style={layoutGridUnits ? { gridColumn: `span ${layoutGridUnits} / span ${layoutGridUnits}` } : undefined}>
+                {activeSlotMenu === 'footer' ? (
+                  <div className="animate-in slide-in-from-bottom-2 flex max-w-lg flex-wrap items-center justify-center gap-1.5 rounded-3xl border border-bible-gold/30 bg-white p-3 shadow-2xl duration-300">
+                    <div className="mb-2 flex w-full justify-between px-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Novo bloco no final</span>
+                      <button type="button" onClick={() => setActiveSlotMenu(null)} className="text-gray-400 hover:text-red-500">
+                        <X size={14} />
+                      </button>
                     </div>
-                  )}
-
-                  {/* Dimensionador de Seção (Top) */}
-                  {isEditing && selectedBlockId === block.id && showResizers && (
-                    <SectionResizer 
-                      position="top"
-                      isActive={showResizers}
-                      value={typeof block.data.padding === 'number' ? block.data.padding : (block.data.padding?.top ?? 0)}
-                      onChange={(val: number) => onUpdateBlock(block.id, { 
-                        padding: { 
-                          ...(typeof block.data.padding === 'object' ? block.data.padding : { top: typeof block.data.padding === 'number' ? block.data.padding : 0, bottom: typeof block.data.padding === 'number' ? block.data.padding : 0 }), 
-                          top: val 
-                        } 
-                      })}
-                    />
-                  )}
-
-                  {/* Dimensionador de Seção (Bottom) */}
-                  {isEditing && selectedBlockId === block.id && showResizers && (
-                    <SectionResizer 
-                      position="bottom"
-                      isActive={showResizers}
-                      value={typeof block.data.padding === 'number' ? block.data.padding : (block.data.padding?.bottom ?? 0)}
-                      onChange={(val: number) => onUpdateBlock(block.id, { 
-                        padding: { 
-                          ...(typeof block.data.padding === 'object' ? block.data.padding : { top: typeof block.data.padding === 'number' ? block.data.padding : 0, bottom: typeof block.data.padding === 'number' ? block.data.padding : 0 }), 
-                          bottom: val 
-                        } 
-                      })}
-                    />
-                  )}
-
-                  {/* Controles de Bloco (Apenas em edição - Desktop) */}
-                  {isEditing && (
-                    <div className={`absolute right-4 top-4 items-center gap-1 z-30 transition-all duration-300 hidden lg:flex ${
-                      selectedBlockId === block.id ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto'
-                    }`}>
-                      <div className="flex items-center gap-1 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md p-1.5 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onMoveBlock(index, Math.max(0, index - 1)); }}
-                          disabled={index === 0 || ['hero', 'footer'].includes(block.type)}
-                          className="p-2 text-gray-500 hover:text-bible-gold hover:bg-bible-gold/10 rounded-xl disabled:opacity-20 transition-colors"
-                          title="Mover para cima"
-                        >
-                          <ChevronUp size={18} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onMoveBlock(index, Math.min(blocks.length - 1, index + 1)); }}
-                          disabled={index === blocks.length - 1 || ['hero', 'footer'].includes(block.type)}
-                          className="p-2 text-gray-500 hover:text-bible-gold hover:bg-bible-gold/10 rounded-xl disabled:opacity-20 transition-colors"
-                          title="Mover para baixo"
-                        >
-                          <ChevronDown size={18} />
-                        </button>
-                        <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onDuplicateBlock(block.id, index); }}
-                          disabled={['hero', 'footer'].includes(block.type)}
-                          className="p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-500/10 rounded-xl disabled:opacity-20 transition-colors"
-                          title="Duplicar"
-                        >
-                          <Copy size={18} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onRemoveBlock(block.id); }}
-                          className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
-                          title="Excluir"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setShowResizers(!showResizers); }}
-                          className={`p-2 rounded-xl transition-all ${showResizers ? 'text-bible-gold bg-bible-gold/10' : 'text-gray-500 hover:text-bible-gold hover:bg-bible-gold/5'}`}
-                          title={showResizers ? "Ocultar ajustes de altura" : "Mostrar ajustes de altura"}
-                        >
-                          <ChevronsUpDown size={18} />
-                        </button>
-                        <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
-                        {selectedBlockId === block.id && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onSelectBlock(null); }}
-                            className="p-2 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors ml-1"
-                            title="Fechar edição"
-                          >
-                            <X size={18} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Renderizador do Bloco */}
-                  <BlockRenderer 
-                    block={block} 
-                    isEditing={isEditing && selectedBlockId === block.id} 
-                    onUpdate={onUpdateBlock}
-                    authorName={authorName}
-                    canvasWidth={canvasWidth}
-                  />
-
-                  {/* Insertion Line (Only when dragging over) */}
-                  {snapshot.isDragging && (
-                    <div className="absolute inset-0 bg-bible-gold/5 border-2 border-bible-gold border-dashed rounded-lg pointer-events-none" />
-                  )}
-                </div>
-              )}
-            </Draggable>
-          ))}
-          {provided.placeholder}
-
-          {/* Botão para adicionar bloco no final */}
-          {isEditing && (
-            <div className="flex justify-center p-8 mt-4 relative">
-              {activeSlotMenu === 'footer' ? (
-                <div className="flex flex-wrap justify-center items-center gap-1.5 p-3 bg-white dark:bg-gray-900 border border-bible-gold/30 rounded-3xl shadow-2xl animate-in slide-in-from-bottom-2 duration-300 max-w-lg">
-                  <div className="w-full flex justify-between px-2 mb-2">
-                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Novo Bloco no Final</span>
-                    <button onClick={() => setActiveSlotMenu(null)} className="text-gray-400 hover:text-red-500"><X size={14} /></button>
+                    {availableBlocks.map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => {
+                          onAddBlock(type);
+                          setActiveSlotMenu(null);
+                        }}
+                        className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-2 text-xs font-bold text-gray-600 transition-all hover:bg-bible-gold hover:text-white active:scale-95"
+                      >
+                        {blockLabels[type].label}
+                      </button>
+                    ))}
                   </div>
-                  {availableBlocks.map(type => (
-                    <button
-                      key={type}
-                      onClick={() => {
-                        onAddBlock(type);
-                        setActiveSlotMenu(null);
-                      }}
-                      className="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-bible-gold hover:text-white active:scale-95 border border-gray-100 dark:border-gray-700"
-                    >
-                      {blockLabels[type].label}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <button
-                  onClick={() => setActiveSlotMenu('footer')}
-                  className="flex items-center gap-2 px-6 py-3 bg-gray-50 dark:bg-gray-900 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl text-gray-400 hover:border-bible-gold hover:text-bible-gold transition-all group active:scale-95"
-                >
-                  <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
-                  <span className="font-bold text-sm">Adicionar Seção</span>
-                </button>
-              )}
-            </div>
-          )}
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setActiveSlotMenu('footer')}
+                    className="group flex items-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 px-6 py-3 text-gray-400 transition-all hover:border-bible-gold hover:text-bible-gold active:scale-95"
+                  >
+                    <Plus size={20} className="transition-transform duration-300 group-hover:rotate-90" />
+                    <span className="text-sm font-bold">Adicionar seção</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-        )}
-      </Droppable>
+        </SortableContext>
+
+        <DragOverlay
+          dropAnimation={{
+            sideEffects: defaultDropAnimationSideEffects({
+              styles: {
+                active: {
+                  opacity: '0.5',
+                },
+              },
+            }),
+          }}
+        >
+          {activeBlock ? (
+            <div className="w-full cursor-grabbing opacity-80">
+              <BlockRenderer block={activeBlock} isEditing={false} authorName={authorName} canvasWidth={canvasWidth} />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </>
   );
 };

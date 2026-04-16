@@ -6,6 +6,12 @@ import { VideoBlock } from './blocks/VideoBlock';
 import { FooterBlock } from './blocks/FooterBlock';
 import { StudyContentBlock } from './blocks/StudyContentBlock';
 import { SlideBlock } from './blocks/SlideBlock';
+import { HeroSplitBlock } from './blocks/HeroSplitBlock';
+import { StudyOutlineBlock } from './blocks/StudyOutlineBlock';
+import { RelatedVersesBlock } from './blocks/RelatedVersesBlock';
+import { ReflectionQuestionBlock } from './blocks/ReflectionQuestionBlock';
+import { SpacerBlock } from './blocks/SpacerBlock';
+import { RichTextBlock } from './blocks/RichTextBlock';
 
 interface BlockRendererProps {
   block: any;
@@ -13,6 +19,10 @@ interface BlockRendererProps {
   onUpdate?: (id: string, data: any) => void;
   authorName?: string;
   canvasWidth?: 'mobile' | 'tablet' | 'desktop' | 'full';
+  editor?: any;
+  layoutWidth?: string;
+  studyId?: string;
+  studyTitle?: string;
 }
 
 export const BlockRenderer: React.FC<BlockRendererProps> = ({ 
@@ -20,7 +30,11 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   isEditing, 
   onUpdate, 
   authorName,
-  canvasWidth 
+  canvasWidth,
+  editor,
+  layoutWidth,
+  studyId,
+  studyTitle,
 }) => {
   const { type, data } = block;
 
@@ -40,6 +54,18 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
         return <StudyContentBlock data={data} onUpdate={(newData) => onUpdate?.(block.id, newData)} isEditing={isEditing} authorName={authorName} />;
       case 'slide':
         return <SlideBlock data={data} onUpdate={(newData) => onUpdate?.(block.id, newData)} isEditing={isEditing} authorName={authorName} />;
+      case 'hero-split':
+        return <HeroSplitBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} />;
+      case 'study-outline':
+        return <StudyOutlineBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} editor={editor} />;
+      case 'related-verses':
+        return <RelatedVersesBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} />;
+      case 'reflection-question':
+        return <ReflectionQuestionBlock data={data} isEditable={isEditing} studyId={studyId} studyTitle={studyTitle} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} />;
+      case 'spacer':
+        return <SpacerBlock data={data} isEditing={isEditing} onUpdate={(newData) => onUpdate?.(block.id, newData)} />;
+      case 'rich-text':
+        return <RichTextBlock data={data} onUpdate={(newData) => onUpdate?.(block.id, newData)} isEditing={isEditing} editor={editor} layoutWidth={layoutWidth || data.layoutWidth || '1/1'} />;
       default:
         return (
           <div className="p-8 bg-gray-100 rounded-xl text-center text-gray-400">
@@ -52,25 +78,38 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   // Determinar a largura do container
   let containerClass = 'mx-auto transition-all duration-300 w-full';
   
-  // Se for 'full', ele já é full. Se for 'contained' ou outros, aplicamos limites.
-  if (data.width === 'contained') {
-    containerClass += ' max-w-4xl px-4';
+  const currentLayoutWidth = layoutWidth || data.layoutWidth;
+  const hasExplicitGridWidth =
+    currentLayoutWidth === '1/1' ||
+    currentLayoutWidth === '1/2' ||
+    currentLayoutWidth === '1/3' ||
+    currentLayoutWidth === '2/3';
+
+  // Quando o grid da V2 controla a largura, o bloco deve ocupar toda a coluna atribuída.
+  if (hasExplicitGridWidth) {
+    containerClass += ' max-w-full px-0';
+  } else if (data.width === 'contained') {
+    containerClass += ' max-w-4xl px-0';
   } else if (data.width === 'full') {
     containerClass += ' w-full px-0';
   } else {
     // Default: largura confortável dependendo do tipo de bloco
-    if (canvasWidth === 'mobile') {
-        containerClass += ' max-w-full px-4';
+    if (canvasWidth === 'mobile' || canvasWidth === 'full') {
+        containerClass += ' max-w-full px-0';
     } else if (canvasWidth === 'tablet') {
-        containerClass += ' max-w-2xl px-6';
+        containerClass += ' max-w-2xl px-0';
     } else {
         // Desktop widths diferenciadas
-        if (type === 'hero' || type === 'slide' || type === 'video') {
-            containerClass += ' max-w-6xl px-4';
+        if (type === 'hero' || type === 'slide' || type === 'video' || type === 'hero-split') {
+            containerClass += ' max-w-6xl px-0';
         } else if (type === 'study-content' || type === 'biblical') {
-            containerClass += ' max-w-4xl px-2'; // Mais compacto
+            containerClass += ' max-w-4xl px-0';
+        } else if (type === 'study-outline' || type === 'related-verses') {
+            containerClass += ' max-w-sm px-0';
+        } else if (type === 'rich-text') {
+            containerClass += ' max-w-full px-0';
         } else {
-            containerClass += ' max-w-5xl px-4';
+            containerClass += ' max-w-5xl px-0';
         }
     }
   }
@@ -78,10 +117,10 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   const styles: React.CSSProperties = {
     backgroundColor: data.backgroundColor || 'transparent',
     color: data.textColor || 'inherit',
-    paddingTop: (type === 'slide' || type === 'hero') ? 0 : (typeof data.padding === 'number' ? data.padding : (data.padding?.top ?? 0)) * 4,
-    paddingBottom: (type === 'slide' || type === 'hero') ? 0 : (typeof data.padding === 'number' ? data.padding : (data.padding?.bottom ?? 0)) * 4,
-    marginTop: (typeof data.margin === 'object' ? (data.margin?.top ?? 0) : (data.margin ?? 0)) * 4,
-    marginBottom: (typeof data.margin === 'object' ? (data.margin?.bottom ?? 0) : (data.margin ?? 0)) * 4,
+    paddingTop: 0,
+    paddingBottom: 0,
+    marginTop: 0,
+    marginBottom: 0,
     fontFamily: data.fontFamily || 'inherit',
     fontSize: data.fontSize ? `${data.fontSize}px` : undefined,
     lineHeight: data.lineHeight || 'inherit',
@@ -125,7 +164,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
         />
       )}
       
-      <div className={`${containerClass} relative z-10`}>
+      <div className={`${containerClass} relative z-10 h-full`}>
         {renderBlock()}
       </div>
     </div>

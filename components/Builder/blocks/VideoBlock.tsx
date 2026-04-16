@@ -17,10 +17,17 @@ export const VideoBlock: React.FC<VideoBlockProps> = ({ data, onUpdate, isEditin
       <div className="w-full relative group">
         {data.url ? (
           <div className="aspect-video bg-gray-900 rounded-2xl overflow-hidden shadow-2xl relative">
+            {/* View de Impressão (PDF) - Placeholder para vídeo */}
+            <div className="hidden print:flex absolute inset-0 bg-gray-50 flex-col items-center justify-center p-8 border-2 border-gray-200 rounded-2xl">
+              <Video size={48} className="text-bible-gold mb-4" />
+              <p className="font-black text-bible-ink uppercase tracking-widest text-xs">Vídeo do YouTube</p>
+              <p className="text-[10px] text-gray-400 mt-2 break-all max-w-sm text-center">{data.url}</p>
+            </div>
+            
             <iframe
               src={data.url.replace('watch?v=', 'embed/')}
               title={data.title}
-              className="w-full h-full"
+              className="w-full h-full print:hidden"
               allowFullScreen
             />
             {isEditing && (

@@ -11,9 +11,9 @@ interface HeroBlockProps {
 
 export const HeroBlock: React.FC<HeroBlockProps> = ({ data, onUpdate, isEditing, authorName }) => {
   return (
-    <div className="relative min-h-[100px] md:min-h-[150px] flex items-center justify-center py-4 px-4 child:w-full">
+    <div className="relative min-h-[250px] md:min-h-[350px] flex items-center justify-center py-16 md:py-24 px-6 md:px-12 w-full slide-print-container">
       <div className={`w-full relative z-10 ${data.alignment === 'left' ? 'text-left' : data.alignment === 'right' ? 'text-right' : 'text-center'}`}>
-        <div className={`inline-flex flex-col ${data.alignment === 'left' ? 'items-start' : data.alignment === 'right' ? 'items-end' : 'items-center'}`}>
+        <div className={`inline-flex flex-col w-full max-w-4xl ${data.alignment === 'left' ? 'items-start' : data.alignment === 'right' ? 'items-end' : 'items-center mx-auto'}`}>
           {isEditing && onUpdate && (
             <div className="absolute -top-2 -right-2 flex gap-1">
               <button

@@ -47,6 +47,18 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
     onUpdate?.(newData);
   };
 
+  const handleArrayChange = (key: string, index: number, value: any) => {
+    const current = Array.isArray(localData[key]) ? [...localData[key]] : [];
+    current[index] = value;
+    handleChange(key, current);
+  };
+
+  const handleNestedArrayChange = (key: string, index: number, nestedKey: string, value: any) => {
+    const current = Array.isArray(localData[key]) ? [...localData[key]] : [];
+    current[index] = { ...(current[index] || {}), [nestedKey]: value };
+    handleChange(key, current);
+  };
+
   if (!isEditing) return null;
 
   return (
@@ -131,6 +143,141 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
 
       {/* Editor de Conteúdo */}
       <div className="space-y-4">
+        {(block.type === 'hero-split' || block.type === 'study-outline' || block.type === 'related-verses' || block.type === 'reflection-question') && (
+          <div className="space-y-3">
+            {(block.type === 'hero-split' || block.type === 'study-outline' || block.type === 'related-verses' || block.type === 'reflection-question') && (
+              <div className="group transition-all">
+                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block px-1">Titulo</label>
+                <input
+                  type="text"
+                  aria-label="Titulo"
+                  value={localData.title || ''}
+                  onChange={(e) => handleChange('title', e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all outline-none"
+                />
+              </div>
+            )}
+
+            {block.type === 'hero-split' && (
+              <>
+                <div className="group transition-all">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block px-1">Eyebrow</label>
+                  <input
+                    type="text"
+                    value={localData.eyebrow || ''}
+                    onChange={(e) => handleChange('eyebrow', e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all outline-none"
+                  />
+                </div>
+                <div className="group transition-all">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block px-1">Imagem URL</label>
+                  <input
+                    type="text"
+                    value={localData.imageUrl || ''}
+                    onChange={(e) => handleChange('imageUrl', e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all outline-none"
+                  />
+                </div>
+              </>
+            )}
+
+            {block.type === 'study-outline' && (
+              <>
+                <div className="group transition-all">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block px-1">Descricao</label>
+                  <textarea
+                    value={localData.description || ''}
+                    onChange={(e) => handleChange('description', e.target.value)}
+                    rows={2}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all resize-none outline-none"
+                  />
+                </div>
+                {(localData.items || []).slice(0, 5).map((item: string, index: number) => (
+                  <div key={`${block.id}-outline-${index}`} className="group transition-all">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block px-1">Item {index + 1}</label>
+                  <input
+                      type="text"
+                      aria-label={`Item ${index + 1}`}
+                      value={item || ''}
+                      onChange={(e) => handleArrayChange('items', index, e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all outline-none"
+                    />
+                  </div>
+                ))}
+              </>
+            )}
+
+            {block.type === 'related-verses' && (
+              <>
+                <div className="group transition-all">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block px-1">Descricao</label>
+                  <textarea
+                    value={localData.description || ''}
+                    onChange={(e) => handleChange('description', e.target.value)}
+                    rows={2}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all resize-none outline-none"
+                  />
+                </div>
+                {(localData.verses || []).slice(0, 3).map((verse: any, index: number) => (
+                  <div key={`${block.id}-verse-${index}`} className="rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-2">
+                    <input
+                      type="text"
+                      aria-label={`Referencia ${index + 1}`}
+                      value={verse?.reference || ''}
+                      onChange={(e) => handleNestedArrayChange('verses', index, 'reference', e.target.value)}
+                      placeholder={`Referencia ${index + 1}`}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all outline-none"
+                    />
+                    <textarea
+                      aria-label={`Resumo ${index + 1}`}
+                      value={verse?.summary || ''}
+                      onChange={(e) => handleNestedArrayChange('verses', index, 'summary', e.target.value)}
+                      rows={2}
+                      placeholder={`Resumo ${index + 1}`}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all resize-none outline-none"
+                    />
+                  </div>
+                ))}
+              </>
+            )}
+
+            {block.type === 'reflection-question' && (
+              <>
+                <div className="group transition-all">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block px-1">Pergunta</label>
+                  <textarea
+                    aria-label="Pergunta"
+                    value={localData.question || ''}
+                    onChange={(e) => handleChange('question', e.target.value)}
+                    rows={2}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all resize-none outline-none"
+                  />
+                </div>
+                <div className="group transition-all">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block px-1">Texto de apoio</label>
+                  <textarea
+                    aria-label="Texto de apoio"
+                    value={localData.support || ''}
+                    onChange={(e) => handleChange('support', e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all resize-none outline-none"
+                  />
+                </div>
+                <div className="group transition-all">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block px-1">Placeholder</label>
+                  <input
+                    type="text"
+                    aria-label="Placeholder"
+                    value={localData.placeholder || ''}
+                    onChange={(e) => handleChange('placeholder', e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all outline-none"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {(block.type === 'biblical' || block.type === 'hero' || block.type === 'slide' || block.type === 'authority' || block.type === 'video') && (
           <div className="space-y-3">
              <div className="group transition-all">

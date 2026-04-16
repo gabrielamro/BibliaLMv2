@@ -1,5 +1,5 @@
 import React from 'react';
-import { ImageIcon, X, Quote, Type, Palette, Layout, Settings2 } from 'lucide-react';
+import { ImageIcon, X, Quote, Type, Palette, Layout, Settings2, BookOpen, ExternalLink } from 'lucide-react';
 import { ImageUploadButton } from '../ImageUploadButton';
 
 interface BiblicalBlockProps {
@@ -36,8 +36,8 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
   };
 
   return (
-    <div className="w-full py-6 px-4 flex justify-center">
-      <div className={`w-full max-w-4xl text-center relative transition-all duration-500 ${styles[containerStyle] || styles.classic}`}>
+    <div className="w-full py-12 md:py-16 px-4 flex justify-center">
+      <div className={`w-full text-center relative transition-all duration-500 ${styles[containerStyle] || styles.classic}`}>
         
         {/* Style Selection Toolbar (Visible when editing) */}
         {isEditing && (
@@ -66,6 +66,13 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
                 title="Habilitar/Desabilitar Imagem"
               >
                 <ImageIcon size={16} />
+              </button>
+              <button 
+                onClick={() => onUpdate?.({ ...data, enableHyperlink: !data.enableHyperlink })}
+                className={`p-2 rounded-xl transition-all ${data.enableHyperlink ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}
+                title="Habilitar link para bíblia"
+              >
+                <BookOpen size={16} />
               </button>
           </div>
         )}
@@ -130,6 +137,23 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
           </cite>
           <div className="w-12 h-px bg-bible-gold/30"></div>
         </div>
+
+        {/* Hyperlink para Biblioteca Bíblica */}
+        {(data.enableHyperlink || isEditing) && (
+          <div className="mt-6 flex justify-center">
+            <button 
+              onClick={() => {
+                const ref = data.reference || data.verse || '';
+                window.dispatchEvent(new CustomEvent('open-bible-verse', { detail: { reference: ref } }));
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-bible-gold hover:text-bible-gold/80 bg-bible-gold/5 hover:bg-bible-gold/10 rounded-lg transition-all border border-bible-gold/20 hover:border-bible-gold/40"
+            >
+              <BookOpen size={14} />
+              {isEditing ? 'Habilitar link para bíblia' : 'Ver na Bíblia'}
+              <ExternalLink size={12} />
+            </button>
+          </div>
+        )}
 
         {/* CTA Button */}
         {(data.showCta || isEditing) && (

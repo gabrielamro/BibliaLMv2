@@ -81,12 +81,23 @@ export const buildWrittenContentHtml = (sections?: Partial<Record<'introduction'
 </div>
 `.trim();
 
-export const createBlock = (type: BlockType): Block => ({
-  id: Math.random().toString(36).substr(2, 9),
-  type,
-  data: JSON.parse(JSON.stringify(defaultBlockData[type]))
-});
+export const createBlock = (type: BlockType): Block => {
+  const defaultData = defaultBlockData[type] || { padding: 4 };
+  return {
+    id: Math.random().toString(36).substr(2, 9),
+    type,
+    data: JSON.parse(JSON.stringify(defaultData))
+  };
+};
 
-export const buildBaseBlocks = (types: BlockType[]): Block[] => {
-  return types.map(type => createBlock(type));
+export const buildBaseBlocks = (types: (BlockType | { type: BlockType; layoutWidth?: Block['layoutWidth'] })[]): Block[] => {
+  return types.map(item => {
+    const type = typeof item === 'string' ? item : item.type;
+    const layoutWidth = typeof item === 'string' ? undefined : item.layoutWidth;
+    const block = createBlock(type);
+    if (layoutWidth) {
+      block.layoutWidth = layoutWidth;
+    }
+    return block;
+  });
 };

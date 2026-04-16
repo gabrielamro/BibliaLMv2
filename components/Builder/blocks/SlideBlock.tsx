@@ -120,96 +120,114 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
         ref={containerRef}
         className={`relative ${heightClasses[data.height] || 'h-80 md:h-96'} overflow-hidden rounded-3xl group bg-gray-900 shadow-2xl transition-all duration-500`}
       >
-        <Stage width={Math.floor(dimensions.width)} height={Math.floor(dimensions.height)}>
-          <Layer>
-            {bgImage && dimensions.width > 0 && (
-              <KonvaImage
-                image={bgImage}
-                width={bgImage.width}
-                height={bgImage.height}
-                scaleX={Math.max(dimensions.width / (bgImage.width || 1), dimensions.height / (bgImage.height || 1))}
-                scaleY={Math.max(dimensions.width / (bgImage.width || 1), dimensions.height / (bgImage.height || 1))}
-                offsetX={(bgImage.width || 0) / 2}
-                offsetY={(bgImage.height || 0) / 2}
-                x={dimensions.width / 2}
-                y={dimensions.height / 2}
-                opacity={1}
-                listening={false}
+        {/* Camada de fundo para impressão (quando o Canvas falha) */}
+        <div className="absolute inset-0 hidden print:block overflow-hidden rounded-3xl" style={{ backgroundColor: '#111827' }}>
+           {currentSlideData.backgroundImage && (
+             <img 
+               src={currentSlideData.backgroundImage} 
+               className="w-full h-full object-cover" 
+               alt="Background"
+               style={{ display: 'block' }}
+             />
+           )}
+           <div 
+             className="absolute inset-0 z-[5]" 
+             style={{ 
+                backgroundColor: 'black', 
+                opacity: currentSlideData.overlayOpacity ?? 0.4,
+                display: 'block'
+             }} 
+           />
+        </div>
+
+        <div className="print:hidden h-full"> 
+          <Stage width={Math.floor(dimensions.width)} height={Math.floor(dimensions.height)}>
+            <Layer>
+              {bgImage && dimensions.width > 0 && (
+                <KonvaImage
+                  image={bgImage}
+                  width={bgImage.width}
+                  height={bgImage.height}
+                  scaleX={Math.max(dimensions.width / (bgImage.width || 1), dimensions.height / (bgImage.height || 1))}
+                  scaleY={Math.max(dimensions.width / (bgImage.width || 1), dimensions.height / (bgImage.height || 1))}
+                  offsetX={(bgImage.width || 0) / 2}
+                  offsetY={(bgImage.height || 0) / 2}
+                  x={dimensions.width / 2}
+                  y={dimensions.height / 2}
+                  opacity={1}
+                  listening={false}
+                />
+              )}
+            </Layer>
+            <Layer listening={false}>
+              <Rect
+                x={0}
+                y={0}
+                width={dimensions.width}
+                height={dimensions.height}
+                fill={`rgba(0, 0, 0, ${currentSlideData.overlayOpacity ?? 0.4})`}
               />
-            )}
-          </Layer>
-          <Layer listening={false}>
-            <Rect
-              x={0}
-              y={0}
-              width={dimensions.width}
-              height={dimensions.height}
-              fill={`rgba(0, 0, 0, ${currentSlideData.overlayOpacity ?? 0.4})`}
-            />
-          </Layer>
-          <Layer>
-            {dimensions.width > 0 && dimensions.height > 0 && (
-              <Html divProps={{ style: { position: 'absolute', inset: 0, width: '100%', height: '100%' } }}>
-                <div className="relative z-10 h-full flex items-center justify-center p-5 md:p-8 text-white">
-                  <div className={`w-full max-w-5xl flex flex-col md:flex-row items-center gap-4 md:gap-12 ${currentSlideData.layout === 'image-left' ? 'md:flex-row-reverse' : ''}`}>
-
-                    {/* Content Section */}
-                    <div className="flex-1 text-center md:text-left space-y-4">
-                      <h2
-                        contentEditable={isEditing}
-                        suppressContentEditableWarning={true}
-                        onBlur={(e) => updateSlide(currentSlideData.id, { title: e.currentTarget.innerText })}
-                        className={`text-2xl md:text-4xl font-black drop-shadow-lg leading-tight outline-none ${isEditing ? 'cursor-text hover:bg-white/10 rounded-lg px-2 -mx-2 transition-colors' : ''}`}
-                        style={{ color: currentSlideData.textColor || 'inherit' }}
-                      >
-                        {currentSlideData.title || ''}
-                      </h2>
-                      <div
-                        contentEditable={isEditing}
-                        suppressContentEditableWarning={true}
-                        onBlur={(e) => updateSlide(currentSlideData.id, { description: e.currentTarget.innerText })}
-                        className={`text-sm md:text-base text-white/80 max-w-2xl mx-auto md:mx-0 leading-relaxed font-medium outline-none ${isEditing ? 'cursor-text hover:bg-white/10 rounded-lg px-2 -mx-2 transition-colors' : ''}`}
-                        style={{ color: currentSlideData.textColor ? `${currentSlideData.textColor}cc` : 'rgba(255,255,255,0.8)' }}
-                      >
-                        {currentSlideData.description || ''}
+            </Layer>
+            <Layer>
+              {dimensions.width > 0 && dimensions.height > 0 && (
+                <Html divProps={{ style: { position: 'absolute', inset: 0, width: '100%', height: '100%' } }}>
+                  <div className="relative z-10 h-full flex items-center justify-center p-5 md:p-8 text-white">
+                    <div className={`w-full max-w-5xl flex flex-col md:flex-row items-center gap-4 md:gap-12 ${currentSlideData.layout === 'image-left' ? 'md:flex-row-reverse' : ''}`}>
+                      <div className="flex-1 text-center md:text-left space-y-4">
+                        <h2
+                          contentEditable={isEditing}
+                          suppressContentEditableWarning={true}
+                          onBlur={(e) => updateSlide(currentSlideData.id, { title: e.currentTarget.innerText })}
+                          className={`text-2xl md:text-4xl font-black drop-shadow-lg leading-tight outline-none ${isEditing ? 'cursor-text hover:bg-white/10 rounded-lg px-2 -mx-2 transition-colors' : ''}`}
+                          style={{ color: currentSlideData.textColor || 'inherit' }}
+                        >
+                          {currentSlideData.title || ''}
+                        </h2>
+                        <div
+                          contentEditable={isEditing}
+                          suppressContentEditableWarning={true}
+                          onBlur={(e) => updateSlide(currentSlideData.id, { description: e.currentTarget.innerText })}
+                          className={`text-sm md:text-base text-white/80 max-w-2xl mx-auto md:mx-0 leading-relaxed font-medium outline-none ${isEditing ? 'cursor-text hover:bg-white/10 rounded-lg px-2 -mx-2 transition-colors' : ''}`}
+                          style={{ color: currentSlideData.textColor ? `${currentSlideData.textColor}cc` : 'rgba(255,255,255,0.8)' }}
+                        >
+                          {currentSlideData.description || ''}
+                        </div>
                       </div>
+                      {(currentSlideData.type !== 'text' || currentSlideData.mediaUrl) && (
+                        <div className="flex-1 w-full flex justify-center">
+                           <img src={currentSlideData.mediaUrl} className="w-full max-w-[200px] md:max-w-sm h-auto object-cover rounded-2xl shadow-2xl border border-white/20" />
+                        </div>
+                      )}
                     </div>
-
-                    {/* Media Section */}
-                    {(currentSlideData.type !== 'text' || currentSlideData.mediaUrl) && (
-                      <div className="flex-1 w-full flex justify-center">
-                        {currentSlideData.type === 'video' ? (
-                          <div className="w-full aspect-video bg-black/40 rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
-                            <iframe
-                              src={currentSlideData.mediaUrl?.replace('watch?v=', 'embed/')}
-                              className="w-full h-full"
-                              allowFullScreen
-                            />
-                          </div>
-                        ) : currentSlideData.mediaUrl ? (
-                          <div className="relative group/media w-full max-w-[200px] md:max-w-sm">
-                            <img
-                              src={currentSlideData.mediaUrl}
-                              alt="Slide Content"
-                              onError={(e) => {
-                                e.currentTarget.src = 'https://images.unsplash.com/photo-1509021436665-8f07dbf5bf1d?q=80&w=1000';
-                              }}
-                              className="w-full h-auto max-h-[180px] md:max-h-full object-cover rounded-2xl shadow-2xl border border-white/20 transform group-hover/media:scale-[1.02] transition-transform duration-500"
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
                   </div>
-                </div>
-              </Html>
-            )}
-          </Layer>
-        </Stage>
+                </Html>
+              )}
+            </Layer>
+          </Stage>
+        </div>
+
+        {/* View de Impressão (PDF) - Mesma estrutura mas sem Konva */}
+        <div className="hidden print:flex absolute inset-0 items-center justify-center p-5 md:p-8 text-white z-20 slide-print-container">
+           <div className={`w-full max-w-5xl flex flex-col md:flex-row items-center gap-4 md:gap-12 ${currentSlideData.layout === 'image-left' ? 'md:flex-row-reverse' : ''}`}>
+              <div className="flex-1 text-center md:text-left space-y-4">
+                 <h2 className="text-2xl md:text-4xl font-black drop-shadow-lg leading-tight" style={{ color: currentSlideData.textColor || 'inherit' }}>
+                    {currentSlideData.title}
+                 </h2>
+                 <p className="text-sm md:text-base text-white/80 leading-relaxed font-medium" style={{ color: currentSlideData.textColor ? `${currentSlideData.textColor}cc` : 'rgba(255,255,255,0.8)' }}>
+                    {currentSlideData.description}
+                 </p>
+              </div>
+              {currentSlideData.mediaUrl && currentSlideData.type !== 'text' && (
+                 <div className="flex-1 w-full flex justify-center">
+                    <img src={currentSlideData.mediaUrl} className="w-full max-w-[200px] md:max-w-sm h-auto object-cover rounded-2xl shadow-2xl border border-white/20" />
+                 </div>
+              )}
+           </div>
+        </div>
 
         {/* Floating Quick Controls */}
         {isEditing && (
-          <div className="absolute bottom-6 right-6 z-[60] flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-y-2 group-hover:translate-y-0 duration-300">
+          <div className="absolute bottom-6 right-6 z-[60] flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-y-2 group-hover:translate-y-0 duration-300 print:hidden">
             <button
               onClick={() => setIsEditorOpen(true)}
               className="bg-bible-gold text-white px-4 py-2.5 rounded-2xl font-black uppercase tracking-widest flex items-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition-all text-[10px]"
@@ -220,7 +238,7 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
         )}
 
         {/* Global Nav Arrows */}
-        <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 z-20 flex justify-between pointer-events-none">
+        <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 z-20 flex justify-between pointer-events-none print:hidden">
           <button onClick={() => goToSlide((currentSlide - 1 + slides.length) % slides.length)} className="p-3 bg-black/20 hover:bg-black/50 text-white rounded-full transition-all hover:scale-110 active:scale-90 pointer-events-auto backdrop-blur-sm group/nav">
             <ChevronLeft size={24} className="group-hover/nav:-translate-x-1 transition-transform" />
           </button>
@@ -230,7 +248,7 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
         </div>
 
         {/* Indicators */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-1.5 p-1.5 bg-black/20 backdrop-blur-md rounded-full">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-1.5 p-1.5 bg-black/20 backdrop-blur-md rounded-full print:hidden">
           {slides.map((_: any, idx: number) => (
             <button
               key={idx}
@@ -243,7 +261,7 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
 
       {/* Footer Editor UI */}
       {isEditing && (
-        <div className="mt-8 relative z-[60]">
+        <div className="mt-8 relative z-[60] print:hidden">
           <div className="flex items-center justify-between mb-4 px-2">
             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Gerenciador de Slides ({slides.length})</h4>
             <button
@@ -255,18 +273,20 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
           </div>
 
           <div className="flex flex-wrap gap-3">
-            {slides.map((s: any, idx: number) => (
-              <div
-                key={s.id}
-                className={`group/item flex items-center gap-1 p-1.5 pr-2.5 rounded-2xl border-2 transition-all ${idx === currentSlide ? 'border-bible-gold bg-bible-gold/5 shadow-lg shadow-bible-gold/5 scale-105' : 'border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 bg-white dark:bg-gray-900/50'}`}
-              >
-                <button
-                  onClick={() => goToSlide(idx)}
-                  className="flex items-center gap-2"
+            {slides.map((s: any, idx: number) => {
+              const slideId = s?.id || `temp-slide-${idx}-${s?.title || ''}`;
+              return (
+                <div
+                  key={slideId}
+                  className={`group/item flex items-center gap-1 p-1.5 pr-2.5 rounded-2xl border-2 transition-all ${idx === currentSlide ? 'border-bible-gold bg-bible-gold/5 shadow-lg shadow-bible-gold/5 scale-105' : 'border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 bg-white dark:bg-gray-900/50'}`}
                 >
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs ${idx === currentSlide ? 'bg-bible-gold text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 group-hover/item:bg-bible-gold/10 group-hover/item:text-bible-gold'}`}>
-                    {idx + 1}
-                  </div>
+                  <button
+                    onClick={() => goToSlide(idx)}
+                    className="flex items-center gap-2"
+                  >
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs ${idx === currentSlide ? 'bg-bible-gold text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 group-hover/item:bg-bible-gold/10 group-hover/item:text-bible-gold'}`}>
+                      {idx + 1}
+                    </div>
                   <div className="text-left">
                     <p className={`text-[10px] font-bold truncate max-w-[80px] ${idx === currentSlide ? 'text-bible-gold' : 'text-gray-600 dark:text-gray-400'}`}>
                       {s.title || 'Sem título'}
@@ -284,7 +304,8 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
                   </button>
                 )}
               </div>
-            ))}
+            );
+          })}
           </div>
         </div>
       )}
