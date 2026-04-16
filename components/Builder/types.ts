@@ -11,6 +11,7 @@ export type BlockType =
   | 'related-verses'
   | 'reflection-question'
   | 'references-chain'
+  | 'cta'
   | 'rich-text'
   | 'spacer';
 

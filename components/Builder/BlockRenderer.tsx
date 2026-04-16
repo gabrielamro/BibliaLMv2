@@ -13,6 +13,7 @@ import { ReflectionQuestionBlock } from './blocks/ReflectionQuestionBlock';
 import { ReferencesChainBlock } from './blocks/ReferencesChainBlock';
 import { SpacerBlock } from './blocks/SpacerBlock';
 import { RichTextBlock } from './blocks/RichTextBlock';
+import { CTABlock } from './blocks/CTABlock';
 
 interface BlockRendererProps {
   block: any;
@@ -69,6 +70,8 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
         return <SpacerBlock data={data} isEditing={isEditing} onUpdate={(newData) => onUpdate?.(block.id, newData)} />;
       case 'rich-text':
         return <RichTextBlock data={data} onUpdate={(newData) => onUpdate?.(block.id, newData)} isEditing={isEditing} editor={editor} layoutWidth={layoutWidth || data.layoutWidth || '1/1'} />;
+      case 'cta':
+        return <CTABlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} />;
       default:
         return (
           <div className="p-8 bg-gray-100 rounded-xl text-center text-gray-400">

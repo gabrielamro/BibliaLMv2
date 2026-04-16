@@ -16,3 +16,4 @@ export * from './blocks/StudyOutlineBlock';
 export * from './blocks/RelatedVersesBlock';
 export * from './blocks/ReflectionQuestionBlock';
 export * from './blocks/ReferencesChainBlock';
+export * from './blocks/CTABlock';

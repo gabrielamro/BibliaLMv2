@@ -24,20 +24,17 @@ import EvaluationBuilderModal from '../components/EvaluationBuilderModal';
 import { base64ToBlob } from '../utils/imageOptimizer';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
+import { blockLabels } from '../components/Builder/constants';
 import { 
-    ContentBuilder, 
-    Block, 
-    BlockType, 
     createBlock,
-    buildBaseBlocks,
-    buildWrittenContentHtml,
-    blockLabels 
-} from '../components/Builder';
+    buildBaseBlocks
+} from '../components/Builder/utils';
 import { BlockProperties } from '../components/Builder/BlockProperties';
 import ObreiroIAChatbot from '../components/ObreiroIAChatbot';
 import { MobileToolbar } from '../components/Builder/MobileToolbar';
 import { MobilePropertiesSheet } from '../components/Builder/MobilePropertiesSheet';
 import { MobileAddBlockMenu } from '../components/Builder/MobileAddBlockMenu';
+import { UnifiedEditor, UnifiedEditorRef } from '../components/UnifiedEditor/UnifiedEditor';
 
 
 const getUnitLabel = (freq: PlanningFrequency, index: number) => {
@@ -87,16 +84,14 @@ const PlanBuilderPage: React.FC = () => {
     const isLoadingItemRef = useRef(false);
 
     // --- CONTENT BUILDER STATES ---
-    const [editorBlocks, setEditorBlocks] = useState<Block[]>([]);
+    const [editorBlocks, setEditorBlocks] = useState<any[]>([]);
     const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
     const [canvasWidth, setCanvasWidth] = useState<'mobile' | 'tablet' | 'desktop' | 'full'>('desktop');
     const [isMobilePropertiesOpen, setIsMobilePropertiesOpen] = useState(false);
     const [isMobileAddMenuOpen, setIsMobileAddMenuOpen] = useState(false);
+    const editorRef = useRef<UnifiedEditorRef>(null);
+    const [activeBlockData, setActiveBlockData] = useState<any | null>(null);
 
-    // Undo/Redo History
-    const [blockHistory, setBlockHistory] = useState<Block[][]>([]);
-    const [blockHistoryIndex, setBlockHistoryIndex] = useState(-1);
-    const [isUndoing, setIsUndoing] = useState(false);
 
     // AI Auto-Builder Modal
     const [showAIBuilderModal, setShowAIBuilderModal] = useState(false);
@@ -423,6 +418,15 @@ const PlanBuilderPage: React.FC = () => {
         }
     };
 
+    // Editor actions
+    const handleBlockUndo = useCallback(() => {
+        editorRef.current?.undo();
+    }, []);
+
+    const handleBlockRedo = useCallback(() => {
+        editorRef.current?.redo();
+    }, []);
+
     const openEditor = (weekId: string, dayItem?: PlanDayContent) => {
         setActiveWeekId(weekId);
         setSelectedBlockId(null);
@@ -474,33 +478,68 @@ const PlanBuilderPage: React.FC = () => {
             const referenceToUse = dayRef.trim() ? dayRef : "Indefinida";
             const generatedHtml = await generateStructuredStudy(aiTheme || 'Geral', referenceToUse, aiAudience || 'Geral', studyMode);
             if (generatedHtml) {
-                setHtmlContent(generatedHtml);
+                let extractedTitle = '';
+                const titleMatch = generatedHtml.match(/<h1[^>]*>(.*?)<\/h1>/i);
+                if (titleMatch && titleMatch[1]) {
+                    extractedTitle = titleMatch[1].replace(/<[^>]*>?/gm, '').trim();
+                }
 
-                // Tenta extrair a Referência Escolhida pela IA de forma robusta
-                // Procura por classe bible-subtitle ou qualquer tag P logo após o H1
                 const refMatch = generatedHtml.match(/<p[^>]+(?:class=["'][^"']*bible-subtitle[^"']*["']|bible-subtitle)[^>]*>(.*?)<\/p>/i) ||
                     generatedHtml.match(/<h1[^>]*>.*?<\/h1>\s*<p[^>]*>(.*?)<\/p>/i);
 
                 let newlyExtractedRef = dayRef;
                 if (refMatch && refMatch[1]) {
                     newlyExtractedRef = refMatch[1].replace(/<[^>]*>?/gm, '').trim();
-                    if (!dayRef.trim() || dayRef === 'Indefinida') {
-                        setDayRef(newlyExtractedRef);
-                    }
                 }
 
-                // Tenta extrair o Título Escolhido pela IA (Busca pelo primeiro H1)
-                const titleMatch = generatedHtml.match(/<h1[^>]*>(.*?)<\/h1>/i);
-                if (titleMatch && titleMatch[1]) {
-                    const extractedTitle = titleMatch[1].replace(/<[^>]*>?/gm, '').trim();
-                    if (!dayTitle.trim() || dayTitle === 'Nova Aula' || dayTitle.startsWith('Aula: ')) {
-                        setDayTitle(extractedTitle);
-                        setEditingDayTitle(extractedTitle);
-                    }
-                } else if (!dayTitle.trim() || dayTitle === 'Nova Aula') {
-                    setDayTitle(`Aula: ${newlyExtractedRef}`);
-                    setEditingDayTitle(`Aula: ${newlyExtractedRef}`);
+                // Sincroniza metadados
+                if (extractedTitle) {
+                    setDayTitle(extractedTitle);
+                    setEditingDayTitle(extractedTitle);
                 }
+                if (newlyExtractedRef && (!dayRef.trim() || dayRef === 'Indefinida')) {
+                    setDayRef(newlyExtractedRef);
+                }
+
+                // Popula o editor com os novos blocos estruturados
+                setEditorBlocks([
+                    {
+                        id: `hero-${Date.now()}`,
+                        type: 'hero',
+                        data: {
+                            title: extractedTitle || dayTitle || 'Plano de Estudo Pastoral',
+                            subtitle: newlyExtractedRef || dayRef || '',
+                            alignment: 'center',
+                            showCta: false,
+                            showSubtitle: true
+                        }
+                    },
+                    {
+                        id: `biblical-${Date.now()}`,
+                        type: 'biblical',
+                        data: {
+                            verse: newlyExtractedRef || dayRef || '',
+                            text: '',
+                            reference: newlyExtractedRef || dayRef || '',
+                            style: 'classic'
+                        }
+                    },
+                    {
+                        id: `ai-content-${Date.now()}`,
+                        type: 'study-content',
+                        data: {
+                            content: generatedHtml
+                        }
+                    },
+                    {
+                        id: `footer-${Date.now()}`,
+                        type: 'footer',
+                        data: {
+                            tagline: 'Reflexão gerada para edificar sua jornada.',
+                            showSocial: true
+                        }
+                    }
+                ]);
 
                 await incrementUsage('analysis');
                 showNotification("Roteiro gerado com sucesso!", "success");
@@ -518,19 +557,15 @@ const PlanBuilderPage: React.FC = () => {
         if (!activeWeekId || !editingDayId) return;
         if (!dayTitle) { showNotification("Dê um título para a aula.", "error"); return; }
 
-        // Gerar HTML final a partir dos blocos para retrocompatibilidade
-        const generatedHtml = editorBlocks.map(b => {
-             if (b.type === 'study-content') return b.data.content;
-             if (b.type === 'hero') return `<h1>${b.data.title}</h1>`;
-             return '';
-        }).join('\n');
+        // Mapear blocos do TipTap para as configurações
+        const blocksConfig = Array.isArray(editorBlocks) ? editorBlocks : (editorBlocks as any).content?.filter((n: any) => n.type === 'customBlock').map((n: any) => n.attrs.blockData) || [];
 
         const newDay: PlanDayContent = {
             id: editingDayId,
             title: dayTitle,
             description: dayRef,
-            htmlContent: generatedHtml || '<p>Conteúdo em construção...</p>',
-            blocksConfig: editorBlocks,
+            htmlContent: '<p>Conteúdo em construção...</p>', // Mantido para retrocompatibilidade
+            blocksConfig: editorBlocks, // Agora armazena o TipTap JSON completo ou Array
             isCompleted: false,
             tags: dayTags,
             category: dayCategory
@@ -552,6 +587,7 @@ const PlanBuilderPage: React.FC = () => {
         setEditingDayId(null);
         setActiveWeekId(null);
         setSelectedBlockId(null);
+        setActiveBlockData(null);
         showNotification("Aula salva no plano!", "success");
     };
 
@@ -597,152 +633,25 @@ const PlanBuilderPage: React.FC = () => {
         });
     };
 
+    const handleAddBlock = (type: any) => {
+        editorRef.current?.insertBlock(type);
+    };
+
     const handleUpdateBlock = (id: string, data: any) => {
-        setEditorBlocks(prev => prev.map(b => b.id === id ? { ...b, data: { ...b.data, ...data } } : b));
+        editorRef.current?.updateBlock(id, data);
+        if (activeBlockData?.id === id) {
+            setActiveBlockData((prev: any) => ({ ...prev, data: { ...prev.data, ...data } }));
+        }
     };
 
     const handleRemoveBlock = (id: string) => {
-        pushToBlockHistory(editorBlocks);
-        setEditorBlocks(prev => prev.filter(b => b.id !== id));
+        editorRef.current?.removeBlock(id);
         if (selectedBlockId === id) setSelectedBlockId(null);
+        if (activeBlockData?.id === id) setActiveBlockData(null);
     };
 
-    // --- CONTENT BUILDER HANDLERS ---
-    const handleMoveBlock = (fromIndex: number, toIndex: number) => {
-        pushToBlockHistory(editorBlocks);
-        setEditorBlocks(prev => {
-            const next = [...prev];
-            const [moved] = next.splice(fromIndex, 1);
-            next.splice(toIndex, 0, moved);
-            return next;
-        });
-    };
 
-    const handleAddBlock = (type: BlockType, index?: number) => {
-        pushToBlockHistory(editorBlocks);
-        const newBlock = createBlock(type);
-        setEditorBlocks(prev => {
-            const next = [...prev];
-            if (typeof index === 'number') {
-                next.splice(index, 0, newBlock);
-            } else {
-                next.push(newBlock);
-            }
-            return next;
-        });
-        setSelectedBlockId(newBlock.id);
-        setIsMobileAddMenuOpen(false);
-    };
 
-    const onDragEndBlocks = (result: DropResult) => {
-        const { source, destination, draggableId } = result;
-        if (!destination) return;
-        
-        // Se arrastou para a mesma posição
-        if (source.droppableId === destination.droppableId && source.index === destination.index) return;
-
-        // Caso 1: Reordenação de blocos existentes
-        if (source.droppableId === 'canvas-blocks' && destination.droppableId === 'canvas-blocks') {
-            handleMoveBlock(source.index, destination.index);
-        }
-        
-        // Caso 2: Arrastando novo bloco da sidebar para o canvas
-        if (source.droppableId === 'block-palette' && destination.droppableId === 'canvas-blocks') {
-            const blockType = draggableId.replace('palette-', '') as BlockType;
-            handleAddBlock(blockType, destination.index);
-        }
-    };
-
-    const handleDuplicateBlock = (id: string, index: number) => {
-        pushToBlockHistory(editorBlocks);
-        const block = editorBlocks.find(b => b.id === id);
-        if (block) {
-            const newBlock = { ...block, id: `block-${Date.now()}` };
-            setEditorBlocks(prev => {
-                const next = [...prev];
-                next.splice(index + 1, 0, newBlock);
-                return next;
-            });
-            setSelectedBlockId(newBlock.id);
-        }
-    };
-
-    // Undo/Redo for blocks
-    const handleBlockUndo = useCallback(() => {
-        if (blockHistoryIndex > 0) {
-            setIsUndoing(true);
-            const prevIndex = blockHistoryIndex - 1;
-            setBlockHistoryIndex(prevIndex);
-            setEditorBlocks(blockHistory[prevIndex]);
-        }
-    }, [blockHistory, blockHistoryIndex]);
-
-    const handleBlockRedo = useCallback(() => {
-        if (blockHistoryIndex < blockHistory.length - 1) {
-            setIsUndoing(true);
-            const nextIndex = blockHistoryIndex + 1;
-            setBlockHistoryIndex(nextIndex);
-            setEditorBlocks(blockHistory[nextIndex]);
-        }
-    }, [blockHistory, blockHistoryIndex]);
-
-    // Push current state to history before changes
-    const pushToBlockHistory = useCallback((blocks: Block[]) => {
-        setBlockHistory(prev => {
-            const newHistory = prev.slice(0, blockHistoryIndex + 1);
-            newHistory.push(blocks);
-            if (newHistory.length > 50) newHistory.shift();
-            setBlockHistoryIndex(newHistory.length - 1);
-            return newHistory;
-        });
-    }, [blockHistoryIndex]);
-
-    // Block history tracking effect
-    useEffect(() => {
-        if (isUndoing) {
-            setIsUndoing(false);
-            return;
-        }
-        const timer = setTimeout(() => {
-            setBlockHistory(prev => {
-                const lastBlocks = prev[blockHistoryIndex];
-                const currentBlocksStr = JSON.stringify(editorBlocks);
-                const lastBlocksStr = JSON.stringify(lastBlocks || []);
-                if (currentBlocksStr === lastBlocksStr) return prev;
-                
-                const newHistory = prev.slice(0, blockHistoryIndex + 1);
-                newHistory.push(editorBlocks);
-                if (newHistory.length > 50) newHistory.shift();
-                setBlockHistoryIndex(newHistory.length - 1);
-                return newHistory;
-            });
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [editorBlocks, blockHistoryIndex, isUndoing]);
-
-    // Keyboard shortcuts for undo/redo
-    useEffect(() => {
-        if (!editingDayId) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            const target = e.target as HTMLElement;
-            const isInput = target.tagName === 'INPUT' || 
-                            target.tagName === 'TEXTAREA' || 
-                            target.isContentEditable || 
-                            target.closest('[contenteditable="true"]');
-            if (isInput) return;
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-                e.preventDefault();
-                if (e.shiftKey) handleBlockRedo();
-                else handleBlockUndo();
-            }
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
-                e.preventDefault();
-                handleBlockRedo();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [editingDayId, handleBlockUndo, handleBlockRedo]);
 
     // Load access logs when settings tab is opened
     useEffect(() => {
@@ -1299,7 +1208,6 @@ const PlanBuilderPage: React.FC = () => {
                               <div className="hidden sm:flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-0.5">
                                 <button
                                   onClick={handleBlockUndo}
-                                  disabled={blockHistoryIndex <= 0}
                                   className="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-md text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors disabled:opacity-30"
                                   title="Desfazer (Ctrl+Z)"
                                 >
@@ -1307,7 +1215,6 @@ const PlanBuilderPage: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={handleBlockRedo}
-                                  disabled={blockHistoryIndex >= blockHistory.length - 1}
                                   className="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-md text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors disabled:opacity-30"
                                   title="Refazer (Ctrl+Shift+Z)"
                                 >
@@ -1375,7 +1282,6 @@ const PlanBuilderPage: React.FC = () => {
                         </header>
 
                         {/* Editor Body */}
-                        <DragDropContext onDragEnd={onDragEndBlocks}>
                            <div className="flex-1 flex overflow-hidden">
                                {/* SIDEBAR ESQUERDA */}
                                <aside className="w-72 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-r border-gray-200 dark:border-gray-800 overflow-y-auto hidden lg:block">
@@ -1395,16 +1301,7 @@ const PlanBuilderPage: React.FC = () => {
                                                    className="space-y-1.5"
                                                >
                                                    {(['hero', 'biblical', 'study-content', 'authority', 'video', 'slide', 'footer'] as const).map((type, idx) => {
-                                                       const labels: Record<string, { label: string; description: string; color: string }> = {
-                                                           hero: { label: 'Capa Impactante', description: 'Título, subtítulo e CTA', color: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600' },
-                                                           authority: { label: 'Perfil do Autor', description: 'Foto, nome e bio', color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600' },
-                                                           biblical: { label: 'Versículo em Destaque', description: 'Citação da Bíblia', color: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700' },
-                                                           'study-content': { label: 'Conteúdo do Estudo', description: 'Texto rico e formatado', color: 'bg-purple-100 dark:bg-purple-900/40 text-purple-600' },
-                                                           video: { label: 'Vídeo', description: 'YouTube ou url', color: 'bg-red-100 dark:bg-red-900/40 text-red-600' },
-                                                           slide: { label: 'Slides', description: 'Carrossel de slides', color: 'bg-teal-100 dark:bg-teal-900/40 text-teal-600' },
-                                                           footer: { label: 'Rodapé', description: 'CTA e assinatura final', color: 'bg-gray-200 dark:bg-gray-800 text-gray-600' },
-                                                       };
-                                                       const info = labels[type];
+                                                       const info = blockLabels[type];
                                                        const count = editorBlocks.filter(b => b.type === type).length;
                                                        
                                                        return (
@@ -1524,51 +1421,6 @@ const PlanBuilderPage: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {/* Blocos */}
-                                <div>
-                                    <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Blocos</h3>
-                                    <div className="space-y-1.5">
-                                        {(['hero', 'biblical', 'study-content', 'authority', 'video', 'slide', 'footer'] as const).map(type => {
-                                            const labels: Record<string, { label: string; description: string; color: string }> = {
-                                                hero: { label: 'Capa Impactante', description: 'Título, subtítulo e CTA', color: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600' },
-                                                authority: { label: 'Perfil do Autor', description: 'Foto, nome e bio', color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600' },
-                                                biblical: { label: 'Versículo em Destaque', description: 'Citação da Bíblia', color: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700' },
-                                                'study-content': { label: 'Conteúdo do Estudo', description: 'Texto rico e formatado', color: 'bg-purple-100 dark:bg-purple-900/40 text-purple-600' },
-                                                video: { label: 'Vídeo', description: 'YouTube ou url', color: 'bg-red-100 dark:bg-red-900/40 text-red-600' },
-                                                slide: { label: 'Slides', description: 'Carrossel de slides', color: 'bg-teal-100 dark:bg-teal-900/40 text-teal-600' },
-                                                footer: { label: 'Rodapé', description: 'CTA e assinatura final', color: 'bg-gray-200 dark:bg-gray-800 text-gray-600' },
-                                            };
-                                            const info = labels[type];
-                                            const count = editorBlocks.filter(b => b.type === type).length;
-                                            return (
-                                                <button
-                                                    key={type}
-                                                    onClick={() => handleAddBlock(type)}
-                                                    className="w-full flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 hover:bg-bible-gold/10 active:scale-[0.98] transition-all text-left"
-                                                >
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${info.color}`}>
-                                                        {type === 'hero' && <Layout size={15} />}
-                                                        {type === 'authority' && <Brain size={15} />}
-                                                        {type === 'biblical' && <BookOpen size={15} />}
-                                                        {type === 'study-content' && <FileText size={15} />}
-                                                        {type === 'video' && <PlayCircle size={15} />}
-                                                        {type === 'slide' && <Layers size={15} />}
-                                                        {type === 'footer' && <AlignLeft size={15} />}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="font-bold text-[11px] text-gray-800 dark:text-white">{info.label}</p>
-                                                        <p className="text-[9px] text-gray-500 dark:text-gray-400 truncate">{info.description}</p>
-                                                    </div>
-                                                    {count > 0 ? (
-                                                        <span className="text-[9px] font-bold bg-bible-gold/10 text-bible-gold rounded-full px-1.5 py-0.5 flex-shrink-0">×{count}</span>
-                                                    ) : (
-                                                        <Plus size={13} className="text-gray-400 flex-shrink-0" />
-                                                    )}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
 
                                 {/* Tags */}
                                 <div>
@@ -1592,57 +1444,59 @@ const PlanBuilderPage: React.FC = () => {
                             </aside>
 
                         {/* CANVAS PRINCIPAL — sem header, tela cheia */}
-                        <main className="flex-1 min-w-0 flex flex-col overflow-hidden bg-gray-100 dark:bg-gray-950">
+                        <main className="flex-1 min-w-0 flex flex-col overflow-x-clip overflow-y-auto bg-gray-100 dark:bg-gray-950 w-full max-w-[100vw]">
 
                             {/* ContentBuilder direto, sem sub-header */}
-                            <div className="flex-1 overflow-auto">
+                            <div className="flex-1">
                                 <div className={`mx-auto h-full w-full px-2 sm:px-4 py-6 sm:py-8 transition-all duration-300 ${
-                                    canvasWidth === 'mobile' ? 'max-w-[420px]'
-                                    : canvasWidth === 'tablet' ? 'max-w-[820px]'
+                                    canvasWidth === 'mobile' ? 'max-w-[375px] border-x border-gray-200 dark:border-gray-800'
+                                    : canvasWidth === 'tablet' ? 'max-w-[768px]'
                                     : canvasWidth === 'full' ? 'w-full h-full p-0'
                                     : 'max-w-5xl'
                                 }`}>
-                                    <ContentBuilder
-                                        blocks={editorBlocks}
-                                        selectedBlockId={selectedBlockId}
-                                        onSelectBlock={setSelectedBlockId}
-                                        onUpdateBlock={handleUpdateBlock}
-                                        onMoveBlock={handleMoveBlock}
-                                        onDuplicateBlock={handleDuplicateBlock}
-                                        onRemoveBlock={handleRemoveBlock}
-                                        onAddBlock={handleAddBlock}
-                                        isEditing={true}
-                                        canvasWidth={canvasWidth}
+                                    <UnifiedEditor 
+                                         ref={editorRef}
+                                         content={editorBlocks || ''}
+                                         onChange={(json) => setEditorBlocks(json)} 
+                                         onBlockSelect={(blockData) => {
+                                            setSelectedBlockId(blockData?.id || null);
+                                            setActiveBlockData(blockData || null);
+                                         }}
+                                         readOnly={isPreviewMode}
+                                         studyId={plan.id}
+                                         studyTitle={plan.title}
                                     />
                                 </div>
                             </div>
                         </main>
 
                         {/* Block Properties Sidebar (Desktop) */}
-                        {selectedBlockId && editorBlocks.find(b => b.id === selectedBlockId) && (
+                        {activeBlockData && (
                             <aside className="hidden xl:block w-80 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-l border-gray-200 dark:border-gray-800 overflow-y-auto z-40">
                                 <div className="p-4">
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className="font-bold text-bible-ink dark:text-white">
-                                            {blockLabels[editorBlocks.find(b => b.id === selectedBlockId)!.type]?.label || 'Bloco'}
+                                            {blockLabels[activeBlockData.type]?.label || 'Bloco'}
                                         </h3>
                                         <button
-                                            onClick={() => setSelectedBlockId(null)}
+                                            onClick={() => {
+                                                setSelectedBlockId(null);
+                                                setActiveBlockData(null);
+                                            }}
                                             className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
                                         >
                                             <X size={16} />
                                         </button>
                                     </div>
                                     <BlockProperties
-                                        block={editorBlocks.find(b => b.id === selectedBlockId)!}
-                                        onUpdate={(data) => handleUpdateBlock(selectedBlockId, data)}
+                                        block={activeBlockData}
+                                        onUpdate={(data) => handleUpdateBlock(activeBlockData.id, data)}
                                         isEditing={true}
                                     />
                                 </div>
                             </aside>
                         )}
                     </div>
-                    </DragDropContext>
                 </div>
             )}
 
@@ -1913,16 +1767,14 @@ const PlanBuilderPage: React.FC = () => {
                             <div className="fixed bottom-6 left-6 z-[110] lg:hidden flex gap-2">
                                 <button
                                     onClick={handleBlockUndo}
-                                    disabled={blockHistoryIndex <= 0}
-                                    className="w-12 h-12 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl flex items-center justify-center text-gray-600 dark:text-gray-300 disabled:opacity-30 transition-all active:scale-95"
+                                    className="w-12 h-12 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl flex items-center justify-center text-gray-600 dark:text-gray-300 transition-all active:scale-95"
                                     title="Desfazer"
                                 >
                                     <Undo2 size={20} />
                                 </button>
                                 <button
                                     onClick={handleBlockRedo}
-                                    disabled={blockHistoryIndex >= blockHistory.length - 1}
-                                    className="w-12 h-12 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl flex items-center justify-center text-gray-600 dark:text-gray-300 disabled:opacity-30 transition-all active:scale-95"
+                                    className="w-12 h-12 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl flex items-center justify-center text-gray-600 dark:text-gray-300 transition-all active:scale-95"
                                     title="Refazer"
                                 >
                                     <Redo2 size={20} />
@@ -1946,26 +1798,20 @@ const PlanBuilderPage: React.FC = () => {
                         </>
                     )}
 
-                    {selectedBlockId && editorBlocks.find(b => b.id === selectedBlockId) && (
+                    {activeBlockData && (
                         <MobileToolbar
-                            blockType={editorBlocks.find(b => b.id === selectedBlockId)!.type}
-                            onMoveUp={() => {
-                                const index = editorBlocks.findIndex(b => b.id === selectedBlockId);
-                                if (index > 0) handleMoveBlock(index, index - 1);
-                            }}
-                            onMoveDown={() => {
-                                const index = editorBlocks.findIndex(b => b.id === selectedBlockId);
-                                if (index < editorBlocks.length - 1) handleMoveBlock(index, index + 1);
-                            }}
-                            onDuplicate={() => {
-                                const index = editorBlocks.findIndex(b => b.id === selectedBlockId);
-                                handleDuplicateBlock(selectedBlockId, index);
-                            }}
-                            onRemove={() => handleRemoveBlock(selectedBlockId)}
+                            blockType={activeBlockData.type}
+                            onMoveUp={() => {}}
+                            onMoveDown={() => {}}
+                            onDuplicate={() => {}}
+                            onRemove={() => handleRemoveBlock(activeBlockData.id)}
                             onOpenProperties={() => setIsMobilePropertiesOpen(true)}
-                            onClose={() => setSelectedBlockId(null)}
-                            canMoveUp={editorBlocks.findIndex(b => b.id === selectedBlockId) > 0}
-                            canMoveDown={editorBlocks.findIndex(b => b.id === selectedBlockId) < editorBlocks.length - 1}
+                            onClose={() => {
+                                setSelectedBlockId(null);
+                                setActiveBlockData(null);
+                            }}
+                            canMoveUp={false}
+                            canMoveDown={false}
                         />
                     )}
 
@@ -1976,12 +1822,12 @@ const PlanBuilderPage: React.FC = () => {
                         onAIBuild={handleAiFill}
                     />
 
-                    {selectedBlockId && editorBlocks.find(b => b.id === selectedBlockId) && (
+                    {activeBlockData && (
                         <MobilePropertiesSheet
                             isOpen={isMobilePropertiesOpen}
                             onClose={() => setIsMobilePropertiesOpen(false)}
-                            block={editorBlocks.find(b => b.id === selectedBlockId)!}
-                            onUpdate={(data) => handleUpdateBlock(selectedBlockId, data)}
+                            block={activeBlockData}
+                            onUpdate={(data) => handleUpdateBlock(activeBlockData.id, data)}
                             isEditing={true}
                         />
                     )}

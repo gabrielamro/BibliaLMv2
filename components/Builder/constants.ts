@@ -56,6 +56,11 @@ export const blockLabels: Record<BlockType, { label: string; description: string
     description: 'Versiculos conectados em formato de cadeia',
     color: 'bg-teal-600 text-white'
   },
+  'cta': {
+    label: 'Bloco de CTA',
+    description: 'Chamada para acao com botoes',
+    color: 'bg-violet-600 text-white'
+  },
   footer: {
     label: 'Rodape / Social',
     description: 'Copyright e links de redes sociais',
@@ -197,6 +202,15 @@ export const defaultBlockData: Record<BlockType, any> = {
     ],
     showExpandAll: true,
     padding: 4
+  },
+  'cta': {
+    headline: 'Crie seus proprios estudos',
+    subheadline: 'Junte-se a comunidade BibleLM para acesso ilimitado',
+    primaryText: 'Comecar Gratuitamente',
+    secondaryText: 'Ver mais estudos',
+    primaryStyle: 'gradient',
+    backgroundStyle: 'warm',
+    padding: 8
   },
   'rich-text': {
     content: '',
