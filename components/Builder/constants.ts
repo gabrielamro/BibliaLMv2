@@ -157,10 +157,11 @@ export const defaultBlockData: Record<BlockType, any> = {
     padding: 8
   },
   'study-outline': {
-    title: 'Roteiro do Estudo',
-    description: 'Sidebar dedicada para orientar a leitura e futura navegacao por secoes.',
-    items: ['Introducao', 'Estudo sobre Gratidao e Fe', 'O Poder Transformador', 'Aplicacao Pratica', 'Pergunta ao Coracao'],
-    activeIndex: 1,
+    title: 'Neste Estudo',
+    description: 'Navegue pelas secoes do estudo',
+    items: ['Introducao', 'Contexto Historico', 'Mergulho nas Escrituras', 'Aplicacao Pratica', 'Reflexao Final'],
+    activeIndex: 0,
+    enableScrollSpy: true,
     padding: 4,
     layoutWidth: '1/3'
   },
