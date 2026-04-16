@@ -5,7 +5,7 @@ import {
   Heading1, Heading2, Heading3, 
   List, ListOrdered, Quote, Code, 
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  Undo, Redo, Link as LinkIcon, Unlink, Eraser
+  Undo, Redo, Link as LinkIcon, Unlink, Eraser, FileDown
 } from 'lucide-react';
 
 interface EditorTopBarProps {
@@ -40,10 +40,10 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({ editor }) => {
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`p-2 rounded-md transition-all flexitems-center justify-center ${
+      className={`p-2 rounded-md transition-all flex items-center justify-center flex-shrink-0 snap-start ${
         isActive 
-          ? 'bg-gray-200 dark:bg-gray-700 text-bible-gold dark:text-bible-gold' 
-          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+          ? 'bg-bible-gold/20 dark:bg-bible-gold/10 text-bible-gold dark:text-bible-gold border border-bible-gold/30' 
+          : 'text-gray-600 dark:text-gray-300 hover:bg-bible-gold/10 dark:hover:bg-gray-700/50 border border-transparent'
       } ${disabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
     >
       {children}
@@ -51,7 +51,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({ editor }) => {
   );
 
   return (
-    <div className="flex flex-wrap items-center gap-1 p-2 bg-white dark:bg-[#1a1a1a] border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50 shadow-sm">
+    <div className="flex items-center gap-1.5 p-2 bg-bible-paper dark:bg-bible-darkPaper border-b border-bible-gold/20 dark:border-gray-800 sticky top-0 z-50 shadow-sm w-full self-start rounded-t-3xl border-x border-bible-gold/10 overflow-x-auto no-scrollbar snap-x touch-pan-x">
       <ToolbarButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="Desfazer">
         <Undo size={16} />
       </ToolbarButton>
@@ -126,6 +126,12 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({ editor }) => {
       </ToolbarButton>
       <ToolbarButton onClick={() => editor.chain().focus().unsetLink().run()} disabled={!editor.isActive('link')} title="Remover Link">
         <Unlink size={16} />
+      </ToolbarButton>
+
+      <div className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-1"></div>
+
+      <ToolbarButton onClick={() => window.print()} title="Baixar PDF">
+        <FileDown size={16} />
       </ToolbarButton>
     </div>
   );

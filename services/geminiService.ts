@@ -19,8 +19,8 @@ export const checkAiHealth = async (): Promise<boolean> => {
     }
 };
 
-const TEXT_MODEL = "gemini-2.0-flash"; 
-const TTS_MODEL = "gemini-2.0-flash";
+const TEXT_MODEL = "models/gemini-2.5-flash"; 
+const TTS_MODEL = "models/gemini-2.5-flash";
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
@@ -87,8 +87,8 @@ export const callAi = async (prompt: string, systemInstruction?: string, respons
         const response = await getAiInstance().models.generateContent({
             model: TEXT_MODEL,
             contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
             config: { 
-                systemInstruction,
                 responseMimeType: responseFormat === 'json' ? "application/json" : undefined
             }
         });
@@ -126,7 +126,7 @@ export const sendMessageToGeminiStream = async (
         const response = await getAiInstance().models.generateContentStream({
             model: TEXT_MODEL,
             contents: [{ parts: [{ text: prompt }] }],
-            config: { systemInstruction }
+            systemInstruction: { parts: [{ text: systemInstruction }] }
         });
 
         for await (const chunk of response) {
@@ -541,7 +541,7 @@ export const findNearbyChurches = async (lat: number, lng: number): Promise<Near
         const places: NearbyPlace[] = [];
         const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
         if (chunks) {
-            chunks.forEach((chunk: any) => {
+            chunks.forEach((chunk) => {
                 if (chunk.web && chunk.web.title) {
                     places.push({ name: chunk.web.title, address: chunk.web.uri || "Endereço via Maps" });
                 }
@@ -553,62 +553,66 @@ export const findNearbyChurches = async (lat: number, lng: number): Promise<Near
 
 export const generateAIOnePage = async (userPrompt: string, authorName?: string): Promise<any> => {
     const systemInstruction = `Atue como Dr. Marcos, teólogo sênior e curador de conteúdo estilo NotebookLM. 
-Crie conteúdo bíblico de alta densidade intelectual, elegância literária e visualmente rico.
+Crie conteúdo bíblico de alta densidade intelectual, elegância literária e visualmente rico, seguindo uma estrutura de diagramação de revista digital (Landing Page Premium).
+
+DIRETRIZES DE DIAGRAMAÇÃO (ROADMAP V2):
+Você deve organizar o conteúdo em 6 sessões editoriais dinâmicas:
+Sessão 1: Impacto & Gancho Visual (Hero Split 1/1)
+Sessão 2: Contextualização (Biblical 2/3 + Study Outline 1/3)
+Sessão 3: Mergulho Profundo (Rich Text 1/1 - Conteúdo denso 600+ palavras)
+Sessão 4: Multimídia & Apoio (Related Verses 1/3 + Slide 1/3 + Opcional 1/3 - NÃO use bloco video, pode repetir Related Verses ou Slide se necessário)
+Sessão 5: Desafio & Resposta (Reflection Question 1/2 + Rich Text 1/2 focado em Oração)
+Sessão 6: Encerramento (Spacer 1/1 + Authority 1/1 + Footer 1/1)
+
 DIRETRIZES TÉCNICAS:
-1. Use HTML rico: <h2>, <h3>, <p>, <strong>, blockquote, ul, li.
+1. Use HTML rico para textos: <h2>, <h3>, <p>, <strong>, blockquote.
 2. NotebookLM Depth: Realize uma síntese profunda ligando o versículo a conceitos históricos e aplicações reais.
-3. Multimídia: Forneça dados para um carrossel de slides (resumos visuais). NÃO gere bloco de vídeo.
-4. Responda APENAS com JSON válido.`;
+3. Responda APENAS com JSON válido.
+4. Respeite as larguras (layoutWidth) para cada bloco conforme o roadmap.`;
 
     const prompt = `PEDIDO: "${userPrompt}"
 AUTOR: "${authorName || 'Pr. Gabriel'}"
 
-Gere uma one-page pastoral completa em JSON. O campo blocks deve conter: "hero", "biblical", "slide", "studyContent", "authority", "footer".
+Gere uma one-page pastoral completa em JSON seguindo EXATAMENTE esta sequência de blocos.
+O campo "blocks" deve ser um ARRAY com EXATAMENTE estes 11 blocos NESTA ORDEM e COM ESTES layoutWidth:
 
-REGRAS DE IMAGEM: Para o bloco "slide", utilize EXCLUSIVAMENTE estas URLs default de alta fidelidade:
-- Fondo/Media 1 (Bíblia/Estudo): https://images.unsplash.com/photo-1504052434139-44b419d2826e?q=80&w=2000
-- Fondo/Media 2 (Natureza Sagrada): https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000
-NUNCA utilize imagens de palcos, shows, luzes de neon ou públicos. Mantenha um tom sagrado, pastoral e de paz.
-NÃO invente novas URLs.
+blocks[0]:  type="hero-split",          layoutWidth="1/1"
+blocks[1]:  type="biblical",             layoutWidth="2/3"
+blocks[2]:  type="study-outline",        layoutWidth="1/3"
+blocks[3]:  type="rich-text",            layoutWidth="1/1"
+blocks[4]:  type="related-verses",       layoutWidth="1/3"
+blocks[5]:  type="slide",                layoutWidth="1/3"
+blocks[6]:  type="related-verses",       layoutWidth="1/3"
+blocks[7]:  type="reflection-question",  layoutWidth="1/2"
+blocks[8]:  type="rich-text",            layoutWidth="1/2"
+blocks[9]:  type="authority",            layoutWidth="1/1"
+blocks[10]: type="footer",              layoutWidth="1/1"
 
+⚠️ REGRA ABSOLUTA: Copie os valores de layoutWidth LITERALMENTE. NÃO mude "2/3" para "1/1". NÃO mude "1/3" para "1/1". Se fizer isso, o layout quebra.
+
+IMAGENS (obrigatório para hero-split e slide):
+- Imagem 1: https://images.unsplash.com/photo-1504052434139-44b419d2826e?q=80&w=2000
+- Imagem 2: https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000
+
+JSON EXATO (preencha "..." com conteúdo real):
 {
-  "meta": { "title": "Título Impactante", "description": "Resumo executivo (20 palavras)" },
-  "slug": "link-amigavel",
-  "blocks": {
-    "hero": {
-      "title": "Chamada", "subtitle": "Frase de impacto",
-      "backgroundColor": "#1a2744", "textColor": "#ffffff", "alignment": "center"
-    },
-    "biblical": { "verse": "Ref", "reference": "Ref", "text": "Texto", "style": "elegant", "showImage": false },
-    "slide": {
-      "slides": [
-        { 
-          "id": "s1", 
-          "title": "Revelação Sagrada", 
-          "description": "Mergulhando na profundidade da Escritura", 
-          "backgroundImage": "https://images.unsplash.com/photo-1509021436665-d0371987542d?q=80&w=2000",
-          "mediaUrl": "https://images.unsplash.com/photo-1509021436665-d0371987542d?q=80&w=2000",
-          "layout": "image-right" 
-        },
-        { 
-          "id": "s2", 
-          "title": "Paz e Propósito", 
-          "description": "Encontrando descanso na presença do Criador", 
-          "backgroundImage": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000",
-          "mediaUrl": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000",
-          "layout": "image-left" 
-        }
-      ],
-      "height": "medium"
-    },
-    "studyContent": {
-      "content": "<h2>Estudo NotebookLM</h2><p>[Conteúdo denso e transformador]</p>"
-    },
-    "authority": { "name": "${authorName || 'Pr. Gabriel'}", "bio": "Perfil pastoral." },
-    "footer": { "tagline": "A Palavra que transforma", "showSocial": true }
-  }
+  "meta": { "title": "...", "description": "..." },
+  "slug": "...",
+  "blocks": [
+    { "type": "hero-split", "layoutWidth": "1/1", "data": { "title": "...", "eyebrow": "Hero split", "imageUrl": "https://images.unsplash.com/photo-1504052434139-44b419d2826e?q=80&w=2000" } },
+    { "type": "biblical", "layoutWidth": "2/3", "data": { "verse": "...", "text": "...", "reference": "...", "style": "elegant" } },
+    { "type": "study-outline", "layoutWidth": "1/3", "data": { "title": "Roteiro do Estudo", "description": "...", "items": ["Introducao", "...", "...", "Aplicacao Pratica", "Pergunta ao Coracao"] } },
+    { "type": "rich-text", "layoutWidth": "1/1", "data": { "title": "...", "content": "<h2>...</h2><p>Escreva 600+ palavras de conteudo pastoral profundo aqui...</p>" } },
+    { "type": "related-verses", "layoutWidth": "1/3", "data": { "title": "Versiculos Relacionados", "verses": [{ "reference": "...", "summary": "..." }, { "reference": "...", "summary": "..." }, { "reference": "...", "summary": "..." }] } },
+    { "type": "slide", "layoutWidth": "1/3", "data": { "slides": [{ "id": "slide-1", "title": "...", "description": "...", "backgroundImage": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000", "mediaUrl": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000" }] } },
+    { "type": "related-verses", "layoutWidth": "1/3", "data": { "title": "Mais Escrituras", "verses": [{ "reference": "...", "summary": "..." }, { "reference": "...", "summary": "..." }] } },
+    { "type": "reflection-question", "layoutWidth": "1/2", "data": { "title": "Reflexao", "question": "..." } },
+    { "type": "rich-text", "layoutWidth": "1/2", "data": { "title": "Oracao de Encerramento", "content": "<h2>🙏 Oracao</h2><p>...</p>" } },
+    { "type": "authority", "layoutWidth": "1/1", "data": { "name": "${authorName || 'Pr. Gabriel'}", "bio": "...", "avatarUrl": "" } },
+    { "type": "footer", "layoutWidth": "1/1", "data": { "tagline": "...", "showSocial": true } }
+  ]
 }
-Importante: O campo studyContent.content deve ter 600+ palavras.`;
+`;
 
     try {
         const raw = await callAi(prompt, systemInstruction, "json");
@@ -626,4 +630,3 @@ Importante: O campo studyContent.content deve ter 600+ palavras.`;
         throw new Error(`Falha ao gerar one-page: ${e.message}`);
     }
 };
-

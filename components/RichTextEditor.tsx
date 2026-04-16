@@ -266,8 +266,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             }
             @media (max-width: 768px) {
                 .rich-editor-content {
-                    font-size: 1.25rem; 
-                    padding: 1.5rem !important;
+                    font-size: 1.125rem; 
+                    padding: 1rem !important;
                 }
             }
 

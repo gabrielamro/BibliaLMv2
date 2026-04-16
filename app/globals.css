@@ -118,17 +118,109 @@
 
 .canvas-mobile h3, .canvas-tablet h3 { font-size: 1.25rem !important; }
 
-/* Reset de margens para o Editor Unificado */
-.unified-editor-container .prose > * {
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
+/* Mantém a tipografia nativa do Tailwind Prose para blocos normais (H1, P, listas) respirarem */
+.unified-editor-container .prose p,
+.unified-editor-container .prose h1,
+.unified-editor-container .prose h2,
+.unified-editor-container .prose h3,
+.unified-editor-container .prose h4,
+.unified-editor-container .prose ul,
+.unified-editor-container .prose ol,
+.unified-editor-container .prose blockquote {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 58rem; /* Largura ideal de leitura para texto corrido */
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
 }
 
 .unified-editor-container .prose p {
-  margin-bottom: 1.25em !important; /* Mantém espaço entre parágrafos normais */
+  margin-bottom: 1.5em; /* Respiro gentil » */
 }
 
+/* Blocos customizados não têm margem fixa; o usuário controla o espaçamento 
+   adicionando ou removendo parágrafos vazios no editor */
 .custom-block-wrapper {
+  width: 100%;
   margin-top: 0 !important;
   margin-bottom: 0 !important;
+}
+
+/* Removemos as margens padrão do Tailwind Prose para os blocos */
+.unified-editor-container .prose > .custom-block-wrapper {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Removido o respiro fixo no celular para dar controle total ao usuário */
+@media (max-width: 640px) {
+  .custom-block-wrapper,
+  .unified-editor-container .prose > .custom-block-wrapper {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+}
+
+/* Estilos para impressão (PDF) */
+@media print {
+  .no-print,
+  button,
+  header,
+  nav,
+  aside,
+  .mobile-toolbar,
+  .editor-top-bar,
+  .editor-floating-menu,
+  .editor-bubble-menu,
+  .obreiro-ia-chatbot {
+    display: none !important;
+  }
+
+  /* Ajustes para preservar layout original */
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .unified-editor-container,
+  .unified-editor-container *,
+  .tiptap {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .prose {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .custom-block-wrapper {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Forçar fonte branca em fundos escuros no PDF */
+  [style*="background-color: rgb(17, 24, 39)"],
+  [style*="background-color: #111827"],
+  [style*="background-color: black"],
+  [style*="background-color: #000"],
+  [style*="background-color: rgb(0, 0, 0)"],
+  .bg-gray-900,
+  .bg-black,
+  .bg-bible-darkPaper,
+  .slide-print-container {
+    color: white !important;
+  }
+
+  /* Garantir que textos claros dentro de blocos escuros não sejam "ajustados" para preto pelo navegador */
+  .text-white, 
+  .text-white\/80, 
+  .text-gray-100,
+  .text-gray-200,
+  .slide-print-container h2,
+  .slide-print-container p,
+  .slide-print-container div {
+    color: white !important;
+    -webkit-print-color-adjust: exact !important;
+  }
 }

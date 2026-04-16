@@ -9,7 +9,17 @@ interface EditorBubbleMenuProps {
 
 export const EditorBubbleMenu: React.FC<EditorBubbleMenuProps> = ({ editor }) => {
   return (
-    <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }} className="flex bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden p-1 z-50">
+    <BubbleMenu 
+      editor={editor} 
+      tippyOptions={{ duration: 100 }} 
+      shouldShow={({ state }) => {
+        const { selection } = state;
+        const node = state.doc.nodeAt(selection.from);
+        // Não mostrar se for um bloco customizado ou seleção vazia
+        return !selection.empty && node?.type.name !== 'customBlock';
+      }}
+      className="flex bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden p-1 z-50"
+    >
       <button
         onClick={() => editor.chain().focus().toggleBold().run()}
         className={`p-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors rounded-md ${editor.isActive('bold') ? 'bg-gray-100 dark:bg-gray-700 text-bible-gold' : 'text-gray-600 dark:text-gray-300'}`}

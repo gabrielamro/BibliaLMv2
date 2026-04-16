@@ -221,6 +221,8 @@ export interface Note extends UserContent {
   content: string;
   sourceText?: string;
   userThoughts?: string;
+  sourceStudyId?: string;
+  sourceStudyTitle?: string;
 }
 
 // --- PLANS & ROOMS ---

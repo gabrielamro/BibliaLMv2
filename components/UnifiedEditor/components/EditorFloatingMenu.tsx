@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Editor } from '@tiptap/core';
 import { FloatingMenu } from '@tiptap/react/menus';
-import { Plus, LayoutTemplate, User, BookOpen, Video, Layers, Sparkle, Play } from 'lucide-react';
+import { Plus, LayoutTemplate, User, BookOpen, Video, Layers, Sparkle, Play, PanelRightOpen, HeartHandshake } from 'lucide-react';
 import { blockLabels } from '../../Builder/constants';
 import { BlockType } from '../../Builder/types';
 
@@ -50,8 +50,11 @@ export const EditorFloatingMenu: React.FC<EditorFloatingMenuProps> = ({ editor }
                   {type === 'biblical' && <BookOpen size={14} />}
                   {type === 'video' && <Video size={14} />}
                   {type === 'footer' && <Layers size={14} />}
-                  {type === 'study-content' && <Sparkle size={14} />}
                   {type === 'slide' && <Play size={14} />}
+                  {type === 'hero-split' && <LayoutTemplate size={14} />}
+                  {type === 'study-outline' && <PanelRightOpen size={14} />}
+                  {type === 'related-verses' && <Sparkle size={14} />}
+                  {type === 'reflection-question' && <HeartHandshake size={14} />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{blockLabels[type].label}</p>
