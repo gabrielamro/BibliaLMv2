@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Send, Loader2, CheckCircle, Heart, MessageCircle } from 'lucide-react';
+import { Send, Loader2, CheckCircle, Heart, MessageCircle, X } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { dbService } from '../../../services/supabase';
+import { useNavigate } from '../../../utils/router';
 
 interface ReflectionQuestionBlockProps {
   data: any;
@@ -12,6 +13,68 @@ interface ReflectionQuestionBlockProps {
   onUpdate?: (data: any) => void;
 }
 
+const ConversionModal = ({ isOpen, onClose, onLogin }: {
+  isOpen: boolean;
+  onClose: () => void;
+  onLogin: () => void;
+}) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div 
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative bg-white dark:bg-gray-900 rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-200">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+        >
+          <X size={18} />
+        </button>
+        
+        <div className="text-center">
+          <div className="w-16 h-16 bg-bible-gold/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Heart size={32} className="text-bible-gold" />
+          </div>
+          
+          <h3 className="text-xl font-bold text-bible-ink dark:text-white mb-2">
+            Suas reflexões merecem ser guardadas
+          </h3>
+          
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Crie uma conta gratuita para salvar suas reflexões, acessar de qualquer lugar e acompanhar sua jornada espiritual.
+          </p>
+          
+          <div className="space-y-3 mb-6 text-left">
+            {['Salve reflexões sem limites', 'Acesse de qualquer dispositivo', 'Receba inspiração diária'].map((item, i) => (
+              <div key={i} className="flex items-center gap-3 text-left">
+                <CheckCircle size={18} className="text-green-500 flex-shrink-0" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">{item}</span>
+              </div>
+            ))}
+          </div>
+          
+          <button
+            onClick={onLogin}
+            className="w-full py-4 bg-gradient-to-r from-bible-gold to-amber-600 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all active:scale-95"
+          >
+            Criar Conta Gratuita
+          </button>
+          
+          <button
+            onClick={onClose}
+            className="w-full mt-3 py-2 text-gray-500 hover:text-gray-700 text-sm transition-colors"
+          >
+            Agora não, obrigado
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const ReflectionQuestionBlock: React.FC<ReflectionQuestionBlockProps> = ({ 
   data, 
   isEditable = true,
@@ -19,12 +82,14 @@ export const ReflectionQuestionBlock: React.FC<ReflectionQuestionBlockProps> = (
   studyTitle,
   onUpdate
 }) => {
+  const navigate = useNavigate();
   const { currentUser, earnMana, showNotification } = useAuth();
   const [reflection, setReflection] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [savedReflections, setSavedReflections] = useState<any[]>([]);
   const [showReflections, setShowReflections] = useState(false);
+  const [showConversionModal, setShowConversionModal] = useState(false);
 
   // Carregar reflexões existentes deste estudo
   useEffect(() => {
@@ -47,7 +112,7 @@ export const ReflectionQuestionBlock: React.FC<ReflectionQuestionBlockProps> = (
     if (!reflection.trim()) return;
 
     if (!currentUser) {
-      showNotification?.('Faça login para salvar sua reflexão', 'warning');
+      setShowConversionModal(true);
       return;
     }
 
@@ -144,7 +209,16 @@ export const ReflectionQuestionBlock: React.FC<ReflectionQuestionBlockProps> = (
 
   // Modo leitura (preview / publicado — interativo com textarea)
   return (
-    <section className="rounded-[32px] border border-gray-100 dark:border-white/5 bg-white dark:bg-bible-darkPaper p-6 md:p-8 shadow-lg w-full h-full">
+    <>
+      <ConversionModal
+        isOpen={showConversionModal}
+        onClose={() => setShowConversionModal(false)}
+        onLogin={() => {
+          setShowConversionModal(false);
+          navigate('/login?redirect=' + encodeURIComponent(window.location.pathname));
+        }}
+      />
+      <section className="rounded-[32px] border border-gray-100 dark:border-white/5 bg-white dark:bg-bible-darkPaper p-6 md:p-8 shadow-lg w-full h-full">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
@@ -257,5 +331,6 @@ export const ReflectionQuestionBlock: React.FC<ReflectionQuestionBlockProps> = (
         </div>
       )}
     </section>
+    </>
   );
 };
