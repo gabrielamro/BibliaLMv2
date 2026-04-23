@@ -8,7 +8,7 @@ import {
   Search, Bell, Settings, Home, Wand2, User, Play, Pause,
   Plus, FileText, Image, Mic, History, Trophy, Crown, Target, Heart, ArrowRight, Sun, Moon,
   Users, MessageSquare, Calendar, Sparkles, CreditCard, HelpCircle, Book, Layout, Coffee, Map, Brain,
-  LifeBuoy, Scroll, ShieldCheck, Terminal, ShieldAlert, LogOut, UserCircle, X
+  LifeBuoy, Scroll, ShieldCheck, Terminal, ShieldAlert, LogOut, UserCircle, X, Lock
 } from 'lucide-react';
 
 import { useSettings } from '../contexts/SettingsContext';
@@ -31,6 +31,23 @@ const quickAccessIcons: Record<InicioQuickAccessItem['iconKey'], React.ReactNode
   heart: <Heart size={16} />,
   map: <Map size={16} />,
   brain: <Brain size={16} />,
+};
+
+const LockOverlay: React.FC<{ message?: string; className?: string }> = ({ message = 'Faça login para acessar', className = '' }) => {
+  const { openLogin } = useAuth();
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); openLogin(); }}
+      className={`absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] rounded-2xl cursor-pointer transition-all hover:bg-black/50 ${className}`}
+    >
+      <div className="bg-white/90 p-3 rounded-full mb-2 shadow-lg">
+        <Lock size={20} className="text-gray-900" />
+      </div>
+      <span className="text-white font-bold text-[10px] uppercase tracking-widest bg-black/60 px-3 py-1 rounded-lg backdrop-blur-md">
+        {message}
+      </span>
+    </div>
+  );
 };
 
 const SanctuaryPage: React.FC = () => {
@@ -470,7 +487,8 @@ const SanctuaryPage: React.FC = () => {
                 {/* 2. META LIDA & PÃO DIÁRIO */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Meta de Leitura */}
-                  <div className="bg-gray-50 dark:bg-[#141414] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex justify-between items-center cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors" onClick={() => navigate('/plano')}>
+                  <div className="bg-gray-50 dark:bg-[#141414] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex justify-between items-center cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors relative" onClick={() => navigate('/plano')}>
+                    {!currentUser && <LockOverlay message="Acompanhar progresso" />}
                     <div className="flex flex-col h-full justify-between">
                       <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center mb-6">
                         <Target size={16} className="text-blue-500" />
@@ -502,6 +520,7 @@ const SanctuaryPage: React.FC = () => {
 
                   {/* Pão Diário */}
                   <div className="bg-gray-50 dark:bg-[#141414] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex justify-between relative overflow-hidden cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors" onClick={() => navigate('/devocional')}>
+                    {!currentUser && <LockOverlay message="Ver meu devocional" />}
                     <div className="absolute right-[-20%] top-[-20%] text-[180px] font-serif font-black text-white/5 leading-none select-none pointer-events-none">99</div>
 
                     <div className="flex flex-col h-full justify-between relative z-10 w-1/3">
@@ -618,6 +637,7 @@ const SanctuaryPage: React.FC = () => {
                       className="w-full md:w-[25%] bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col items-center justify-center relative overflow-hidden cursor-pointer hover:border-blue-500/30 transition-colors"
                       onClick={() => navigate('/criar-conteudo')}
                     >
+                      {!currentUser && <LockOverlay message="Criar com IA" />}
                       <div className="w-12 h-12 bg-gray-100 dark:bg-[#2A2A2A] flex items-center justify-center rounded-xl mb-4 relative z-10">
                         <FileText size={24} className="text-gray-900 dark:text-white" />
                       </div>
@@ -654,6 +674,7 @@ const SanctuaryPage: React.FC = () => {
 
                 {/* 5. ESTÚDIO CRIATIVO */}
                 <div className="bg-white dark:bg-[#1A1624] rounded-[2rem] p-6 md:p-8 border border-gray-200 dark:border-[#2A2A2A] relative overflow-hidden">
+                  {!currentUser && <LockOverlay message="Acessar estúdio" />}
                   <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/5 blur-3xl rounded-full" />
 
                   <div className="flex items-center gap-4 mb-6 relative z-10">
@@ -845,6 +866,7 @@ const SanctuaryPage: React.FC = () => {
 
                 {/* HEAD REINO */}
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 md:p-8 flex items-center justify-between relative overflow-hidden">
+                  {!currentUser && <LockOverlay message="Entrar na comunidade" />}
                   <div className="absolute top-[-50%] right-[-10%] w-64 h-64 bg-white/10 blur-3xl rounded-full pointer-events-none" />
                   <div className="relative z-10">
                     <h2 className="text-white font-bold text-2xl md:text-3xl lg:text-4xl flex items-center gap-2 mb-2">
@@ -988,8 +1010,9 @@ const SanctuaryPage: React.FC = () => {
             {/* Minhas Atividades Button */}
             <button
               onClick={() => navigate('/historico')}
-              className="w-full flex items-center justify-between bg-gradient-to-r from-[#9F5FFC] to-[#7D3CF3] rounded-2xl p-5 shadow-lg group hover:opacity-90 transition-opacity"
+              className="w-full flex items-center justify-between bg-gradient-to-r from-[#9F5FFC] to-[#7D3CF3] rounded-2xl p-5 shadow-lg group hover:opacity-90 transition-opacity relative"
             >
+              {!currentUser && <LockOverlay message="Ver histórico" />}
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 border border-white/20 rounded-full flex items-center justify-center bg-transparent">
                   <History size={18} className="text-gray-900 dark:text-white" />
@@ -1037,6 +1060,7 @@ const SanctuaryPage: React.FC = () => {
 
             {/* Descobertas / Flash Quiz Box */}
             <div className="bg-white dark:bg-[#0A0A0A] border border-gray-200 dark:border-[#202020] rounded-[2rem] p-6 relative overflow-hidden">
+              {!currentUser && <LockOverlay message="Participar do Quiz" />}
               <div className="flex items-center gap-2 mb-6 relative z-10">
                 <Zap size={14} className="text-[#c5a059]" />
                 <span className="text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase tracking-wider">DESCOBERTAS</span>

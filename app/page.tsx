@@ -1,20 +1,12 @@
 "use client";
 
-import React, { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 import Inicio03 from '../views/Inicio03';
 
 export default function Home() {
-    const { currentUser, loading } = useAuth();
-    const router = useRouter();
-
-    useEffect(() => {
-        if (!loading && !currentUser) {
-            router.replace('/intro');
-        }
-    }, [currentUser, loading, router]);
+    const { loading } = useAuth();
 
     if (loading) {
         return (
@@ -24,10 +16,5 @@ export default function Home() {
         );
     }
 
-    if (!currentUser) {
-        return null; // vai redirecionar no useEffect
-    }
-
     return <Inicio03 />;
 }
-
