@@ -19,6 +19,7 @@
   - `components/sacred-art-editor/SacredArtCanvas.tsx` (Fix de offset e escala Konva)
   - `utils/imageCompositor.ts` (Sincronização de âncoras de exportação)
   - `constants.ts` (Bump v1.9.0)
+  - `package.json` (Fix: Downgrade react-konva para compatibilidade com React 18)
 
 ---
 
