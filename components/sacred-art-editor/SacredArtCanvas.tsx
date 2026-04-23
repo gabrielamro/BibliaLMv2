@@ -272,8 +272,8 @@ export default function SacredArtCanvas({
               image={image}
               x={bgTransform.x}
               y={bgTransform.y}
-              width={image.width * bgTransform.scaleX}
-              height={image.height * bgTransform.scaleY}
+              scaleX={bgTransform.scaleX}
+              scaleY={bgTransform.scaleY}
               offsetX={bgTransform.offsetX}
               offsetY={bgTransform.offsetY}
               draggable

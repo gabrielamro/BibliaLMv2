@@ -305,12 +305,18 @@ export default function CriarArteSacraPage() {
   };
 
   const handleDownload = () => {
-    if (!currentUser) {
-      openLogin();
-      return;
-    }
-
     if (!finalImg) return;
+
+    if (!currentUser) {
+      const guestUsage = parseInt(localStorage.getItem('guest_sacred_art_usage') || '0', 10);
+      if (guestUsage >= 2) {
+        showNotification('Você atingiu o limite de 2 artes gratuitas. Faça login para continuar criando!', 'info');
+        openLogin();
+        return;
+      }
+      // Incrementar uso do convidado ao baixar
+      localStorage.setItem('guest_sacred_art_usage', (guestUsage + 1).toString());
+    }
 
     const link = document.createElement('a');
     link.href = finalImg;
@@ -318,6 +324,14 @@ export default function CriarArteSacraPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    if (!currentUser) {
+      const guestUsage = parseInt(localStorage.getItem('guest_sacred_art_usage') || '0', 10);
+      const remaining = 2 - guestUsage;
+      if (remaining > 0) {
+        showNotification(`Você ainda tem ${remaining} arte gratuita ${remaining === 1 ? 'restante' : 'restantes'} como convidado.`, 'success');
+      }
+    }
   };
 
   const handleDragEnd = (_event: unknown, info: { point: { x: number; y: number } }) => {
@@ -415,19 +429,22 @@ export default function CriarArteSacraPage() {
         </div>
 
         <div className="flex-1 flex justify-center pointer-events-auto">
-          <div className="flex flex-col items-center gap-1 group">
-            <div className={`flex items-center gap-2 bg-white dark:bg-black p-1 pl-4 pr-1 rounded-full border border-gray-200 dark:border-white/10 shadow-2xl transition-all focus-within:ring-2 focus-within:ring-bible-gold/50 ${TOP_SEARCH_BAR_WIDTH_CLASS}`}>
-              <span className="text-[10px] font-black text-bible-gold uppercase tracking-widest mr-3 hidden sm:inline-block shrink-0">
-                {foundVerse?.ref || 'Bíblia'}
-              </span>
-              <input
-                type="text"
-                value={refInput}
-                onChange={(e) => setRefInput(e.target.value)}
-                className="bg-transparent border-none focus:outline-none text-[12px] font-bold text-gray-900 dark:text-white w-full"
-                placeholder="Buscar versículo..."
-              />
-              <div className="flex items-center gap-1 bg-gray-100 dark:bg-white/5 rounded-full p-1 shrink-0">
+          <div className="flex flex-col items-center gap-2 group">
+            <div className="flex items-center gap-3">
+              {/* Search Bar (Text Entry Style) */}
+              <div className={`flex items-center gap-3 bg-white dark:bg-[#0A0A0A] py-3 px-5 rounded-2xl border border-gray-200 dark:border-white/10 shadow-2xl transition-all focus-within:border-bible-gold/50 focus-within:ring-4 focus-within:ring-bible-gold/5 ${TOP_SEARCH_BAR_WIDTH_CLASS}`}>
+                <div className="w-1 h-5 bg-bible-gold rounded-full shrink-0 animate-pulse" />
+                <input
+                  type="text"
+                  value={refInput}
+                  onChange={(e) => setRefInput(e.target.value)}
+                  className="bg-transparent border-none focus:outline-none text-[13px] font-medium text-gray-900 dark:text-white w-full placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                  placeholder="Adicione o versículo..."
+                />
+              </div>
+
+              {/* Aspect Ratio Controls (Fora) */}
+              <div className="flex items-center gap-1 bg-white/80 dark:bg-black/60 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-full p-1 shadow-xl">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -447,16 +464,20 @@ export default function CriarArteSacraPage() {
                   <Smartphone size={12} /> Story
                 </button>
               </div>
-              <div className="flex items-center gap-1 mr-1 shrink-0">
+
+              {/* AI Button (Fora) */}
+              <div className="flex items-center shrink-0">
                 {isSearchingVerse ? (
-                  <Loader2 size={16} className="animate-spin text-bible-gold mx-2" />
+                  <div className="p-2.5 bg-black/40 rounded-full border border-white/10">
+                    <Loader2 size={16} className="animate-spin text-bible-gold" />
+                  </div>
                 ) : (
                   <button
                     onClick={() => setActiveControlTab('ai')}
-                    className="p-2 bg-bible-gold text-black rounded-full hover:scale-110 active:scale-95 transition-all shadow-lg"
+                    className="p-3 bg-bible-gold text-black rounded-full hover:scale-110 active:scale-95 transition-all shadow-lg shadow-bible-gold/30 hover:shadow-bible-gold/40"
                     title="Gerar com IA"
                   >
-                    <Sparkles size={16} />
+                    <Sparkles size={18} />
                   </button>
                 )}
               </div>
@@ -481,7 +502,7 @@ export default function CriarArteSacraPage() {
       </header>
 
       <main className="flex-1 relative flex flex-col items-center justify-center pt-20 pb-28 md:pb-0 overflow-hidden">
-        <div className="flex-1 w-full flex flex-col items-center justify-center p-4 md:p-12 overflow-auto custom-scrollbar">
+        <div className="flex-1 w-full flex flex-col md:flex-row items-center justify-center p-4 md:p-12 overflow-auto custom-scrollbar md:gap-8">
           <SacredArtCanvas
             canvasContainerRef={canvasContainerRef}
             rawGeneratedBase64={rawGeneratedBase64}
@@ -502,13 +523,26 @@ export default function CriarArteSacraPage() {
             }}
             getCSSFilters={getCSSFilters}
           />
+
+          {/* Dock Desktop (Ao lado da imagem) */}
+          <div className="hidden md:block shrink-0 animate-in slide-in-from-right-4 duration-500">
+            <SacredArtDock
+              activeControlTab={activeControlTab}
+              setActiveControlTab={setActiveControlTab}
+              onDownload={handleDownload}
+              isStatic
+            />
+          </div>
         </div>
 
-        <SacredArtDock
-          activeControlTab={activeControlTab}
-          setActiveControlTab={setActiveControlTab}
-          onDownload={handleDownload}
-        />
+        {/* Dock Mobile (Rodapé) */}
+        <div className="md:hidden">
+          <SacredArtDock
+            activeControlTab={activeControlTab}
+            setActiveControlTab={setActiveControlTab}
+            onDownload={handleDownload}
+          />
+        </div>
 
         <SacredArtDrawer
           activeControlTab={activeControlTab}

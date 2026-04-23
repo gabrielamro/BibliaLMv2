@@ -97,14 +97,11 @@ export const composeImageWithText = (
             const finalScale = baseScale * (options.bgScale ?? 1);
             
             // Centraliza o ponto de zoom e aplica o offset do usuário
-            const offsetX = (options.bgX ?? 50) / 100;
-            const offsetY = (options.bgY ?? 50) / 100;
-            
             const drawW = img.width * finalScale;
             const drawH = img.height * finalScale;
             
-            const dx = (width / 2) - (drawW * offsetX);
-            const dy = (height / 2) - (drawH * offsetY);
+            const dx = (width * (options.bgX ?? 50) / 100) - (drawW / 2);
+            const dy = (height * (options.bgY ?? 50) / 100) - (drawH / 2);
             
             ctx.drawImage(img, dx, dy, drawW, drawH);
             

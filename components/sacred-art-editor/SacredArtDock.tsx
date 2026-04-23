@@ -14,6 +14,7 @@ interface SacredArtDockProps {
   activeControlTab: EditorControlTab;
   setActiveControlTab: React.Dispatch<React.SetStateAction<EditorControlTab>>;
   onDownload: () => void;
+  isStatic?: boolean;
 }
 
 const DOCK_ITEMS = [
@@ -27,13 +28,14 @@ export default function SacredArtDock({
   activeControlTab,
   setActiveControlTab,
   onDownload,
+  isStatic = false,
 }: SacredArtDockProps) {
   return (
     <div
-      className={`fixed bottom-[72px] md:bottom-8 w-auto max-w-[95%] ${MOBILE_DOCK_POSITION_CLASS} ${DESKTOP_DOCK_POSITION_CLASS}`}
+      className={isStatic ? "relative w-auto" : `fixed bottom-[72px] md:bottom-8 w-auto max-w-[95%] ${MOBILE_DOCK_POSITION_CLASS} ${DESKTOP_DOCK_POSITION_CLASS}`}
       style={{ zIndex: EDITOR_LAYER_Z_INDEX.dock }}
     >
-      <div className="bg-white/80 dark:bg-black/60 backdrop-blur-2xl px-2 py-2 rounded-full border border-gray-200/50 dark:border-white/10 shadow-2xl flex items-center gap-1 overflow-x-auto no-scrollbar">
+      <div className="bg-white/80 dark:bg-black/60 backdrop-blur-2xl px-2 py-2 rounded-[32px] border border-gray-200/50 dark:border-white/10 shadow-2xl flex md:flex-col items-center gap-1 overflow-x-auto no-scrollbar">
         {DOCK_ITEMS.map((item) => (
           <button
             key={item.id}
@@ -44,7 +46,7 @@ export default function SacredArtDock({
             <span className="text-[7px] uppercase tracking-tighter font-black">{item.label}</span>
           </button>
         ))}
-        <div className="h-8 w-px bg-gray-200 dark:bg-white/10 mx-1" />
+        <div className="h-8 w-px md:h-px md:w-8 bg-gray-200 dark:bg-white/10 mx-1 md:my-1" />
         <button
           onClick={onDownload}
           className="bg-white dark:bg-white/10 p-3 rounded-full text-bible-gold hover:scale-110 transition-transform shadow-sm"

@@ -10,7 +10,7 @@ export const EDITOR_LAYER_Z_INDEX = {
   header: 100,
 } as const;
 
-export const DESKTOP_DOCK_POSITION_CLASS = 'md:left-auto md:right-8 md:translate-x-0';
+export const DESKTOP_DOCK_POSITION_CLASS = 'md:left-auto md:right-10 md:top-1/2 md:-translate-y-1/2 md:bottom-auto md:translate-x-0';
 export const MOBILE_DOCK_POSITION_CLASS = 'left-1/2 -translate-x-1/2';
 export const FONT_SCALE_LIMITS = {
   min: 0.1,

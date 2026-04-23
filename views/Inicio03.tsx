@@ -33,19 +33,19 @@ const quickAccessIcons: Record<InicioQuickAccessItem['iconKey'], React.ReactNode
   brain: <Brain size={16} />,
 };
 
-const LockOverlay: React.FC<{ message?: string; className?: string }> = ({ message = 'Faça login para acessar', className = '' }) => {
+const LockOverlay: React.FC<{ message?: string; className?: string }> = ({ message = 'Login necessário', className = '' }) => {
   const { openLogin } = useAuth();
   return (
     <div
       onClick={(e) => { e.stopPropagation(); openLogin(); }}
-      className={`absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] rounded-2xl cursor-pointer transition-all hover:bg-black/50 ${className}`}
+      className={`absolute inset-0 z-40 bg-transparent hover:bg-black/5 rounded-2xl cursor-pointer transition-all flex items-start justify-end p-2 md:p-3 ${className}`}
     >
-      <div className="bg-white/90 p-3 rounded-full mb-2 shadow-lg">
-        <Lock size={20} className="text-gray-900" />
+      <div className="bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-md p-1.5 px-2.5 rounded-lg shadow-md border border-gray-200 dark:border-[#333] flex items-center gap-1.5 animate-in fade-in zoom-in duration-300">
+        <Lock size={12} className="text-[#c5a059]" />
+        <span className="text-gray-900 dark:text-white font-bold text-[9px] uppercase tracking-widest whitespace-nowrap">
+          {message}
+        </span>
       </div>
-      <span className="text-white font-bold text-[10px] uppercase tracking-widest bg-black/60 px-3 py-1 rounded-lg backdrop-blur-md">
-        {message}
-      </span>
     </div>
   );
 };
@@ -674,7 +674,7 @@ const SanctuaryPage: React.FC = () => {
 
                 {/* 5. ESTÚDIO CRIATIVO */}
                 <div className="bg-white dark:bg-[#1A1624] rounded-[2rem] p-6 md:p-8 border border-gray-200 dark:border-[#2A2A2A] relative overflow-hidden">
-                  {!currentUser && <LockOverlay message="Acessar estúdio" />}
+
                   <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/5 blur-3xl rounded-full" />
 
                   <div className="flex items-center gap-4 mb-6 relative z-10">
@@ -709,8 +709,9 @@ const SanctuaryPage: React.FC = () => {
 
                     <button
                       onClick={() => navigate('/criar-podcast')}
-                      className="bg-white dark:bg-[#16131D] p-5 rounded-2xl border border-gray-200 dark:border-[#252525] text-left hover:border-pink-500/30 transition-colors"
+                      className="bg-white dark:bg-[#16131D] p-5 rounded-2xl border border-gray-200 dark:border-[#252525] text-left hover:border-pink-500/30 transition-colors relative"
                     >
+                      {!currentUser && <LockOverlay message="Criar Podcast" />}
                       <div className="flex items-center gap-2 mb-3">
                         <div className="p-1 rounded bg-pink-500/10">
                           <Mic size={18} className="text-pink-500" />
@@ -778,6 +779,7 @@ const SanctuaryPage: React.FC = () => {
                     onClick={() => navigate('/criar-podcast')}
                     className="bg-white dark:bg-[#1A1E24] p-5 rounded-2xl border border-gray-200 dark:border-[#2A2A2A] text-left hover:border-pink-500/30 transition-colors group relative overflow-hidden h-[180px] flex flex-col"
                   >
+                    {!currentUser && <LockOverlay message="Criar Podcast" />}
                     <div className="flex items-center gap-2 mb-auto">
                       <div className="p-2 rounded-lg bg-pink-500/10">
                         <Mic size={24} className="text-pink-500" />

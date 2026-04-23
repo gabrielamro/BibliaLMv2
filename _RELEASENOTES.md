@@ -5,6 +5,22 @@
 > **GIT SYNC:** Após atualizar este arquivo, o Arquiteto deve executar `git commit` com a mensagem do release.
 
 ---
+## [v1.9.0] - 2026-04-23 (Acesso Freemium & Estúdio Profissional)
+### Tipo: Feature / UI / UX / Architecture
+- **Resumo:** Transformação do modelo de acesso para "Freemium" (convidados podem explorar sem login) e refatoração completa do Estúdio de Arte Sacra para um design de sidebar profissional.
+- **Novidades:**
+  - **Modelo Freemium**: Removida a obrigatoriedade de login para acessar o app. Visitantes podem explorar o Santuário e usar o Estúdio de Arte (limite de 2 usos gratuitos via localStorage).
+  - **Sidebar Profissional**: O painel de ferramentas da Arte Sacra foi refatorado para uma barra lateral direita em estilo glassmorphic, melhorando a ergonomia e o foco na arte.
+  - **Sincronização de Precisão**: Corrigido erro de desalinhamento (âncora) entre o editor e o exportador de imagem, garantindo exportações 100% fiéis ao preview.
+  - **UI de Entrada de Texto**: Nova barra de busca com indicador visual de inserção de texto e controles de ferramenta externos para maior clareza.
+- **Arquivos Afetados:**
+  - `app/criar-arte-sacra/page.tsx` (Lógica de limites guest e novo layout de header)
+  - `components/sacred-art-editor/SacredArtDrawer.tsx` (Refatoração para Sidebar)
+  - `components/sacred-art-editor/SacredArtCanvas.tsx` (Fix de offset e escala Konva)
+  - `utils/imageCompositor.ts` (Sincronização de âncoras de exportação)
+  - `constants.ts` (Bump v1.9.0)
+
+---
 
 ## [v1.8.0] - 2026-04-22 (Layout Avançado & Sumário Inteligente)
 ### Tipo: Feature / UI / UX
