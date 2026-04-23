@@ -87,8 +87,8 @@ export const callAi = async (prompt: string, systemInstruction?: string, respons
         const response = await getAiInstance().models.generateContent({
             model: TEXT_MODEL,
             contents: [{ parts: [{ text: prompt }] }],
-            systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
             config: { 
+                systemInstruction: systemInstruction || undefined,
                 responseMimeType: responseFormat === 'json' ? "application/json" : undefined
             }
         });
@@ -126,7 +126,7 @@ export const sendMessageToGeminiStream = async (
         const response = await getAiInstance().models.generateContentStream({
             model: TEXT_MODEL,
             contents: [{ parts: [{ text: prompt }] }],
-            systemInstruction: { parts: [{ text: systemInstruction }] }
+            config: { systemInstruction }
         });
 
         for await (const chunk of response) {
@@ -560,9 +560,9 @@ Você deve organizar o conteúdo em 6 sessões editoriais dinâmicas:
 Sessão 1: Impacto & Gancho Visual (Hero Split 1/1)
 Sessão 2: Contextualização (Biblical 2/3 + Study Outline 1/3)
 Sessão 3: Mergulho Profundo (Rich Text 1/1 - Conteúdo denso 600+ palavras)
-Sessão 4: Multimídia & Apoio (Related Verses 1/3 + Slide 1/3 + Opcional 1/3 - NÃO use bloco video, pode repetir Related Verses ou Slide se necessário)
-Sessão 5: Desafio & Resposta (Reflection Question 1/2 + Rich Text 1/2 focado em Oração)
-Sessão 6: Encerramento (Spacer 1/1 + Authority 1/1 + Footer 1/1)
+Sessão 4: Multimídia & Apoio (Slide 1/1 + Related Verses dinâmico)
+Sessão 5: Conclusão & Autoria (Authority 1/1 + Footer 1/1)
+Sessão 6: Desafio Final (Reflection Question 1/1)
 
 DIRETRIZES TÉCNICAS:
 1. Use HTML rico para textos: <h2>, <h3>, <p>, <strong>, blockquote.
@@ -574,19 +574,17 @@ DIRETRIZES TÉCNICAS:
 AUTOR: "${authorName || 'Pr. Gabriel'}"
 
 Gere uma one-page pastoral completa em JSON seguindo EXATAMENTE esta sequência de blocos.
-O campo "blocks" deve ser um ARRAY com EXATAMENTE estes 11 blocos NESTA ORDEM e COM ESTES layoutWidth:
+O campo "blocks" deve ser um ARRAY com EXATAMENTE estes 10 blocos NESTA ORDEM e COM ESTES layoutWidth:
 
 blocks[0]:  type="hero-split",          layoutWidth="1/1"
 blocks[1]:  type="biblical",             layoutWidth="2/3"
 blocks[2]:  type="study-outline",        layoutWidth="1/3"
 blocks[3]:  type="rich-text",            layoutWidth="1/1"
-blocks[4]:  type="related-verses",       layoutWidth="1/3"
-blocks[5]:  type="slide",                layoutWidth="1/3"
-blocks[6]:  type="related-verses",       layoutWidth="1/3"
-blocks[7]:  type="reflection-question",  layoutWidth="1/2"
-blocks[8]:  type="rich-text",            layoutWidth="1/2"
-blocks[9]:  type="authority",            layoutWidth="1/1"
-blocks[10]: type="footer",              layoutWidth="1/1"
+blocks[4]:  type="slide",                layoutWidth="1/1"
+blocks[5]:  type="related-verses",       layoutWidth="1/1" (Será ajustado dinamicamente)
+blocks[6]:  type="authority",            layoutWidth="1/1"
+blocks[7]:  type="footer",               layoutWidth="1/1"
+blocks[8]:  type="reflection-question",  layoutWidth="1/1"
 
 ⚠️ REGRA ABSOLUTA: Copie os valores de layoutWidth LITERALMENTE. NÃO mude "2/3" para "1/1". NÃO mude "1/3" para "1/1". Se fizer isso, o layout quebra.
 
@@ -603,13 +601,11 @@ JSON EXATO (preencha "..." com conteúdo real):
     { "type": "biblical", "layoutWidth": "2/3", "data": { "verse": "...", "text": "...", "reference": "...", "style": "elegant" } },
     { "type": "study-outline", "layoutWidth": "1/3", "data": { "title": "Roteiro do Estudo", "description": "...", "items": ["Introducao", "...", "...", "Aplicacao Pratica", "Pergunta ao Coracao"] } },
     { "type": "rich-text", "layoutWidth": "1/1", "data": { "title": "...", "content": "<h2>...</h2><p>Escreva 600+ palavras de conteudo pastoral profundo aqui...</p>" } },
-    { "type": "related-verses", "layoutWidth": "1/3", "data": { "title": "Versiculos Relacionados", "verses": [{ "reference": "...", "summary": "..." }, { "reference": "...", "summary": "..." }, { "reference": "...", "summary": "..." }] } },
-    { "type": "slide", "layoutWidth": "1/3", "data": { "slides": [{ "id": "slide-1", "title": "...", "description": "...", "backgroundImage": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000", "mediaUrl": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000" }] } },
-    { "type": "related-verses", "layoutWidth": "1/3", "data": { "title": "Mais Escrituras", "verses": [{ "reference": "...", "summary": "..." }, { "reference": "...", "summary": "..." }] } },
-    { "type": "reflection-question", "layoutWidth": "1/2", "data": { "title": "Reflexao", "question": "..." } },
-    { "type": "rich-text", "layoutWidth": "1/2", "data": { "title": "Oracao de Encerramento", "content": "<h2>🙏 Oracao</h2><p>...</p>" } },
+    { "type": "slide", "layoutWidth": "1/1", "data": { "slides": [{ "id": "slide-1", "title": "...", "description": "...", "backgroundImage": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000", "mediaUrl": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000" }] } },
+    { "type": "related-verses", "layoutWidth": "1/1", "data": { "title": "Versículos Relacionados", "verses": [{ "reference": "...", "summary": "..." }] } },
     { "type": "authority", "layoutWidth": "1/1", "data": { "name": "${authorName || 'Pr. Gabriel'}", "bio": "...", "avatarUrl": "" } },
-    { "type": "footer", "layoutWidth": "1/1", "data": { "tagline": "...", "showSocial": true } }
+    { "type": "footer", "layoutWidth": "1/1", "data": { "tagline": "...", "showSocial": true } },
+    { "type": "reflection-question", "layoutWidth": "1/1", "data": { "title": "Reflexão", "question": "..." } }
   ]
 }
 `;

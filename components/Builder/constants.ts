@@ -37,8 +37,8 @@ export const blockLabels: Record<BlockType, { label: string; description: string
     color: 'bg-stone-500 text-white'
   },
   'study-outline': {
-    label: 'Template',
-    description: 'Estrutura base personalizável para o estudo',
+    label: 'Sumário',
+    description: 'Índice automático baseado nos subtítulos (H2) do estudo',
     color: 'bg-yellow-700 text-white'
   },
   'related-verses': {
@@ -167,7 +167,7 @@ export const defaultBlockData: Record<BlockType, any> = {
     padding: 8
   },
   'study-outline': {
-    title: 'Neste Estudo',
+    title: 'Sumário',
     description: 'Navegue pelas secoes do estudo',
     items: ['Introducao', 'Contexto Historico', 'Mergulho nas Escrituras', 'Aplicacao Pratica', 'Reflexao Final'],
     activeIndex: 0,

@@ -6,6 +6,49 @@
 
 ---
 
+## [v1.8.0] - 2026-04-22 (Layout Avançado & Sumário Inteligente)
+### Tipo: Feature / UI / UX
+- **Resumo:** Implementação de ferramentas de layout flexível e automação de conteúdo. O bloco "Template" agora é o "Sumário", com extração automática de H2.
+- **Novidades:**
+  - **Sumário Automático**: O bloco Sumário agora monitora o editor em tempo real e extrai todos os subtítulos (H2) para criar o índice automaticamente.
+  - **Alinhamento de Blocos**: Blocos de 1/3 e 1/2 agora possuem controles de alinhamento (Esquerda, Centro, Direita), permitindo composições mais complexas.
+  - **Grid de Versículos**: Melhoria no bloco de Versículos Relacionados (1/1) para exibir 3 colunas por padrão.
+  - **UI Refinement**: O botão "Configurar" foi redesenhado como um pill flutuante com maior z-index para evitar sobreposições.
+- **Arquivos Afetados:**
+  - `components/Builder/blocks/StudyOutlineBlock.tsx` (Lógica de Auto-ToC)
+  - `components/UnifiedEditor/components/BlockNodeView.tsx` (UI de Alinhamento e Configurar)
+  - `components/Builder/blocks/RelatedVersesBlock.tsx` (Grid 3 colunas)
+  - `components/UnifiedEditor/extensions/BlockExtension.ts` (Sync de Alinhamento)
+  - `constants.ts` (Bump v1.8.0)
+
+---
+
+## [v1.7.2] - 2026-04-22 (Estabilização do Editor Unificado)
+### Tipo: Refactor / UI / UX / Fix
+- **Resumo:** Consolidação do `CreateContentV3Page` como o motor principal de edição para estudos e aulas. Implementada lógica de contexto embutido (`embeddedContext`) para esconder controles irrelevantes no criador de jornadas. Corrigidos múltiplos erros de Tipagem (TypeScript).
+- **Arquivos Afetados:**
+  - `views/CreateContentV3Page.tsx` (Suporte a modo embutido e validações)
+  - `views/PlanBuilderPage.tsx` (Migração para o novo editor unificado)
+  - `components/UnifiedEditor/UnifiedEditor.tsx` (Fix de tipagem e setContent)
+  - `components/Builder/blocks/HeroSplitBlock.tsx` (Fix TS2322)
+  - `components/Builder/blocks/TextNode.tsx` (Fix TS18047)
+  - `constants.ts` (Bump v1.7.2)
+- **Contexto Técnico:** Removida a fragmentação entre a criação de artigos e edição de aulas. O modo embutido agora desabilita automaticamente botões de Preview/Configurações e ajusta o padding do canvas para máxima produtividade.
+
+---
+
+## [v1.7.1] - 2026-04-22 (Manutenção de Agentes)
+### Tipo: Docs / Architecture / UI
+- **Resumo:** Atualização das instruções dos agentes Dev e Arquiteto. Adição da exibição da versão do sistema no rodapé do menu lateral (Sidebar).
+- **Arquivos Afetados:**
+  - `constants.ts` (Bump v1.7.1)
+  - `.agents/skills/dev/SKILL.md` (Novas responsabilidades)
+  - `_ARCHITECT_AGENT.md` (Novas responsabilidades)
+  - `components/Layout.tsx` (Versão no rodapé)
+- **Contexto Técnico:** Formalização do processo de documentação e versionamento. Adição de link mestre para `SYSTEM_VERSION` no Layout.
+
+---
+
 ## [v1.7.0] - 2026-03-16 (Refino de Perfis e Topo Unificado)
 ### Tipo: Style / Refactor / UX
 - **Resumo:** Padronização do topo global para perfis públicos (Usuário, Igreja, Planos e Estudos). Removidas duplicações de cabeçalho e ajustada a visibilidade do topo no modo leitura.

@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { dbService, uploadBlob } from '../services/supabase';
 import { bibleService } from '../services/bibleService';
-import { generateImagePromptForPlan, generateStructuredStudy, generateVerseImage } from '../services/pastorAgent';
+import { generateImagePromptForPlan, generateStructuredStudy, generateVerseImage, generateAIOnePage } from '../services/pastorAgent';
 import { useSettings } from '../contexts/SettingsContext';
 import {
     ArrowLeft, Plus, Save, Trash2, Loader2, Search, Check,
@@ -35,7 +35,7 @@ import { MobileToolbar } from '../components/Builder/MobileToolbar';
 import { MobilePropertiesSheet } from '../components/Builder/MobilePropertiesSheet';
 import { MobileAddBlockMenu } from '../components/Builder/MobileAddBlockMenu';
 import { UnifiedEditor, UnifiedEditorRef } from '../components/UnifiedEditor/UnifiedEditor';
-
+import CreateContentV3Page from './CreateContentV3Page';
 
 const getUnitLabel = (freq: PlanningFrequency, index: number) => {
     switch (freq) {
@@ -158,6 +158,16 @@ const PlanBuilderPage: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const urlTab = params.get('tab');
+        const urlLesson = params.get('lesson');
+
+        // Sempre restaurar a Tab se existir na URL, indepedente de ser sala nova ou existente
+        if (urlTab) {
+            const revTabMap: Record<string, number> = { 'planejamento': 1, 'conteudo': 2, 'configuracoes': 3, 'avaliacao': 4 };
+            if (revTabMap[urlTab]) setCurrentStep(revTabMap[urlTab]);
+        }
+
         if (state?.planData) {
             // Dados vieram via navigation state (ex: WorkspacePage)
             setPlan(state.planData);
@@ -201,6 +211,91 @@ const PlanBuilderPage: React.FC = () => {
             });
         }
     }, [state, urlPlanId]);
+
+    const lessonRestoredRef = useRef(false);
+
+    // Restaurar Aula da URL (Efeito dedicado para garantir que o plano foi carregado)
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const params = new URLSearchParams(window.location.search);
+        const urlLesson = params.get('lesson');
+        
+        if (urlLesson && !editingDayId && !lessonRestoredRef.current && plan.weeks && plan.weeks.length > 0) {
+            const allDays = plan.weeks.flatMap(w => w.days.map(d => ({ ...d, weekId: w.id })));
+            
+            // Busca por ID exato ou por Slug do título
+            const targetDay = allDays.find(d => {
+                const slug = d.title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w\s-]/g, '').replace(/[\s_]+/g, '-').replace(/^-+|-+$/g, '');
+                return d.id === urlLesson || slug === urlLesson;
+            });
+            
+            if (targetDay) {
+                openEditor(targetDay.weekId, targetDay);
+            } else if (urlLesson.match(/^\d+$/) || urlLesson.startsWith('type_')) {
+                // Se for um ID de rascunho (timestamp ou slug temporário) e não estiver no plano, 
+                // abre como aula nova para o CreateContentV3Page recuperar do cache local
+                const firstWeekId = plan.weeks[0].id;
+                openEditor(firstWeekId, { 
+                    id: urlLesson.replace('type_', ''), 
+                    title: 'Aula em Recuperação', 
+                    description: '', 
+                    htmlContent: '', 
+                    isCompleted: false 
+                });
+            }
+            lessonRestoredRef.current = true;
+        } else if (!urlLesson) {
+            lessonRestoredRef.current = true;
+        }
+    }, [plan.weeks, editingDayId]);
+
+    // Sincronizar URL com Estado (Tabs e Aulas)
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const params = new URLSearchParams(window.location.search);
+        
+        const tabMap: Record<number, string> = { 1: 'planejamento', 2: 'conteudo', 3: 'configuracoes', 4: 'avaliacao' };
+        const currentTabName = tabMap[currentStep] || 'planejamento';
+        
+        let changed = false;
+        if (params.get('tab') !== currentTabName) {
+            params.set('tab', currentTabName);
+            changed = true;
+        }
+
+        if (editingDayId) {
+            const day = plan.weeks?.flatMap(w => w.days).find(d => d.id === editingDayId);
+            const lessonSlug = day?.title ? day.title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w\s-]/g, '').replace(/[\s_]+/g, '-').replace(/^-+|-+$/g, '') : editingDayId;
+            
+            if (params.get('lesson') !== lessonSlug) {
+                params.set('lesson', lessonSlug);
+                changed = true;
+            }
+        } else if (params.has('lesson') && lessonRestoredRef.current) {
+            // Só remove 'lesson' se já passamos do restore inicial, para não apagar a URL antes de carregar
+            params.delete('lesson');
+            changed = true;
+        }
+
+        if (changed) {
+            window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+        }
+    }, [currentStep, editingDayId, plan.weeks]);
+
+    // Ouvir mensagens do editor embutido para sincronizar URL
+    useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+            if (event.data?.type === 'SYNC_LESSON_URL' && event.data.slug) {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('lesson') !== event.data.slug) {
+                    params.set('lesson', event.data.slug);
+                    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+                }
+            }
+        };
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, []);
 
     // --- UI AUTO-FOCUS MODE ---
     useEffect(() => {
@@ -461,8 +556,18 @@ const PlanBuilderPage: React.FC = () => {
             setEditingDayTitle('Nova Aula');
             setDayRef('');
             setDayVerseText('');
-            // Template modelo de aula — mesmo padrão do CreateLandingPage
-            setEditorBlocks(buildBaseBlocks(['hero', 'biblical', 'study-content', 'authority', 'footer']));
+            // Template modelo de aula — Sincronizado com CreateLandingPage
+            setEditorBlocks(buildBaseBlocks([
+                { type: 'hero-split', layoutWidth: '1/1' },
+                { type: 'biblical', layoutWidth: '1/2' },
+                { type: 'study-outline', layoutWidth: '1/3' },
+                { type: 'rich-text', layoutWidth: '1/1' },
+                { type: 'slide', layoutWidth: '1/1' },
+                { type: 'related-verses', layoutWidth: '1/1' },
+                { type: 'authority', layoutWidth: '1/1' },
+                { type: 'footer', layoutWidth: '1/1' },
+                { type: 'reflection-question', layoutWidth: '1/1' }
+            ]));
             setHtmlContent('');
         }
     };
@@ -555,6 +660,19 @@ const PlanBuilderPage: React.FC = () => {
 
     const saveDayContent = () => {
         if (!activeWeekId || !editingDayId) return;
+        
+        // Trava de segurança: impede salvar template base sem modificações reais (Sincronizado com CreateLandingPage)
+        const blocksArray = Array.isArray(editorBlocks) 
+            ? editorBlocks 
+            : (editorBlocks as any)?.content?.filter((n: any) => n.type === 'customBlock').map((n: any) => n.attrs.blockData) || [];
+            
+        const isNewAndUnmodified = !dayTitle && blocksArray.length <= 8; // 8 é o tamanho do nosso roadmap padrão
+        
+        if (isNewAndUnmodified) {
+            showNotification("Personalize a aula ou use a IA antes de salvar.", "warning");
+            return;
+        }
+
         if (!dayTitle) { showNotification("Dê um título para a aula.", "error"); return; }
 
         // Mapear blocos do TipTap para as configurações
@@ -670,44 +788,6 @@ const PlanBuilderPage: React.FC = () => {
             fetchLogs();
         }
     }, [showSettingsOverlay, settingsTab, savedPlanId]);
-
-    // AI Auto-Builder for lesson content
-    const handleAIAutoBuilder = async () => {
-        const userPrompt = aiBuilderPrompt.trim();
-        if (!userPrompt && !dayRef) {
-            showNotification('Escreva o que a IA deve criar ou adicione uma referência bíblica', 'warning');
-            return;
-        }
-        setIsAIBuilding(true);
-        try {
-            const enrichedPrompt = [
-                dayRef ? `REFERÊNCIA BÍBLICA PRINCIPAL: ${dayRef}${dayVerseText ? ` — "${dayVerseText}"` : ''}` : '',
-                userPrompt ? `TEMA / COMPLEMENTO: ${userPrompt}` : ''
-            ].filter(Boolean).join('\n');
-
-            const result = await generateStructuredStudy(enrichedPrompt, dayRef || 'Indefinida', aiAudience || 'Geral', studyMode);
-            if (result) {
-                setHtmlContent(result);
-                const refMatch = result.match(/<p[^>]+class=["'][^"']*bible-subtitle[^"']*["'][^>]*>(.*?)<\/p>/i) ||
-                    result.match(/<h1[^>]*>.*?<\/h1>\s*<p[^>]*>(.*?)<\/p>/i);
-                if (refMatch && refMatch[1] && !dayRef.trim()) {
-                    setDayRef(refMatch[1].replace(/<[^>]*>?/gm, '').trim());
-                }
-                const titleMatch = result.match(/<h1[^>]*>(.*?)<\/h1>/i);
-                if (titleMatch && titleMatch[1] && !dayTitle.trim()) {
-                    setDayTitle(titleMatch[1].replace(/<[^>]*>?/gm, '').trim());
-                }
-                showNotification('Lição criada com sucesso pela IA!', 'success');
-                setShowAIBuilderModal(false);
-                setAIBuilderPrompt('');
-            }
-        } catch (e: any) {
-            console.error('AI Auto-Builder:', e);
-            showNotification(`Erro ao construir com IA: ${e.message}`, 'error');
-        } finally {
-            setIsAIBuilding(false);
-        }
-    };
 
 
     const handleSavePlan = async (targetStatus: 'draft' | 'published') => {
@@ -1176,663 +1256,57 @@ const PlanBuilderPage: React.FC = () => {
                         )}
                     </div>
                 ) : (
-                    // --- VIEW: EDITOR STUDIO — Layout duas colunas, tela cheia ---
-                    <div className="flex flex-col h-full min-w-0 overflow-hidden animate-in fade-in">
-                        {/* Header do Editor */}
-                        <header className="flex-shrink-0 bg-white dark:bg-bible-darkPaper border-b border-gray-200 dark:border-gray-800 px-4 py-3 z-50">
-                          <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
-                            <div className="flex items-center gap-4">
-                              <button 
-                                onClick={() => setEditingDayId(null)}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors group"
-                              >
-                                <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300 group-hover:text-bible-gold" />
-                              </button>
-                              <div className="flex items-center gap-3">
-                                <div>
-                                  <h1 className="font-bold text-bible-ink dark:text-white flex items-center gap-2">
-                                    {dayTitle || 'Nova Aula'}
-                                  </h1>
-                                  <div className="flex items-center gap-2">
-                                    <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${plan.status === 'published' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
-                                      {plan.status === 'published' ? 'Publicado' : 'Rascunho'}
-                                    </span>
-                                    <span className="text-[10px] text-gray-400 font-medium">• Aula em Edição</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+                    <div className="flex flex-col h-full min-w-0 animate-in fade-in relative z-50">
+                        <CreateContentV3Page 
+                            embeddedContext={{
+                                initialContent: {
+                                    id: editingDayId,
+                                    title: dayTitle,
+                                    type: 'article',
+                                    status: 'draft',
+                                    blocks: editorBlocks,
+                                    meta: { title: dayTitle, description: dayRef, tags: dayTags, category: dayCategory }
+                                },
+                                onSave: async (content, status) => {
+                                    // Sincroniza o estado do PlanBuilderPage com os dados salvos no CreateLandingPage
+                                    setDayTitle(content.meta.title || '');
+                                    setDayRef(content.meta.description || '');
+                                    setDayTags(content.meta.tags || []);
+                                    setDayCategory(content.meta.category || 'Geral');
+                                    setEditorBlocks(content.blocks || []);
+                                    
+                                    const newDay: PlanDayContent = {
+                                        id: editingDayId,
+                                        title: content.meta.title || dayTitle || 'Nova Aula',
+                                        description: content.meta.description || dayRef,
+                                        htmlContent: '<p>Conteúdo em construção...</p>',
+                                        blocksConfig: content.blocks,
+                                        isCompleted: false,
+                                        tags: content.meta.tags || dayTags,
+                                        category: content.meta.category || dayCategory
+                                    };
 
-                            <div className="flex items-center gap-2">
-                              {/* Undo/Redo Controls */}
-                              <div className="hidden sm:flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-0.5">
-                                <button
-                                  onClick={handleBlockUndo}
-                                  className="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-md text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors disabled:opacity-30"
-                                  title="Desfazer (Ctrl+Z)"
-                                >
-                                  <Undo2 size={16} />
-                                </button>
-                                <button
-                                  onClick={handleBlockRedo}
-                                  className="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-md text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors disabled:opacity-30"
-                                  title="Refazer (Ctrl+Shift+Z)"
-                                >
-                                  <Redo2 size={16} />
-                                </button>
-                              </div>
-
-                              {/* AI Auto-Builder Button */}
-                              <button
-                                onClick={() => { setShowAIBuilderModal(true); setTimeout(() => aiBuilderTextareaRef.current?.focus(), 100); }}
-                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg font-bold text-sm hover:from-violet-700 hover:to-purple-700 transition-all shadow-md shadow-purple-200 dark:shadow-purple-900/30"
-                              >
-                                <Sparkles size={16} />
-                                <span className="hidden sm:inline">IA Auto-Builder</span>
-                              </button>
-                              
-                              {/* Canvas Width Controls */}
-                              <div className="hidden sm:flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-0.5 ml-2 mr-2">
-                                {([
-                                  { key: 'mobile' as const, icon: <Minimize2 size={14} />, label: 'Mobile (375px)' },
-                                  { key: 'tablet' as const, icon: <Tablet size={14} />, label: 'Tablet (768px)' },
-                                  { key: 'desktop' as const, icon: <Monitor size={14} />, label: 'Desktop (900px)' },
-                                  { key: 'full' as const, icon: <Maximize2 size={14} />, label: 'Largura total' },
-                                ]).map(opt => (
-                                  <button
-                                    key={opt.key}
-                                    title={opt.label}
-                                    onClick={() => setCanvasWidth(opt.key)}
-                                    className={`p-1.5 rounded-md transition-colors ${
-                                      canvasWidth === opt.key
-                                        ? 'bg-white dark:bg-gray-900 text-bible-gold shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                                    }`}
-                                  >
-                                    {opt.icon}
-                                  </button>
-                                ))}
-                              </div>
-
-                              <button
-                                onClick={saveDayContent}
-                                className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                              >
-                                <Save size={16} />
-                                <span className="hidden sm:inline">Salvar</span>
-                              </button>
-
-                              <button
-                                onClick={saveDayContent}
-                                className="flex items-center gap-2 px-4 py-2 bg-bible-gold text-white rounded-lg font-bold text-sm hover:bg-bible-gold/90 transition-colors hidden sm:flex"
-                              >
-                                <Eye size={16} />
-                                Preview
-                              </button>
-
-                              <button
-                                onClick={() => setShowSettingsOverlay(true)}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
-                                title="Configurações da Aula"
-                              >
-                                <Settings size={20} />
-                              </button>
-                            </div>
-                          </div>
-                        </header>
-
-                        {/* Editor Body */}
-                           <div className="flex-1 flex overflow-hidden">
-                               {/* SIDEBAR ESQUERDA */}
-                               <aside className="w-72 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-r border-gray-200 dark:border-gray-800 overflow-y-auto hidden lg:block">
-
-                               <div className="p-4 space-y-5 flex-1 overflow-y-auto">
-                                   {/* Paleta de Blocos */}
-                                   <div>
-                                       <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                           <Plus size={12} className="text-bible-gold" /> Componentes
-                                       </h3>
-                                       
-                                       <Droppable droppableId="block-palette" isDropDisabled={true}>
-                                           {(provided) => (
-                                               <div 
-                                                   {...provided.droppableProps}
-                                                   ref={provided.innerRef}
-                                                   className="space-y-1.5"
-                                               >
-                                                   {(['hero', 'biblical', 'study-content', 'authority', 'video', 'slide', 'footer'] as const).map((type, idx) => {
-                                                       const info = blockLabels[type];
-                                                       const count = editorBlocks.filter(b => b.type === type).length;
-                                                       
-                                                       return (
-                                                           <Draggable key={`palette-${type}`} draggableId={`palette-${type}`} index={idx}>
-                                                               {(provided, snapshot) => (
-                                                                   <>
-                                                                       <div
-                                                                           ref={provided.innerRef}
-                                                                           {...provided.draggableProps}
-                                                                           {...provided.dragHandleProps}
-                                                                           onClick={() => handleAddBlock(type)}
-                                                                           className={`w-full flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 hover:bg-white dark:hover:bg-gray-800 border border-transparent hover:border-bible-gold/30 active:scale-[0.98] transition-all text-left shadow-sm ${snapshot.isDragging ? 'shadow-xl ring-2 ring-bible-gold border-transparent z-50 bg-white dark:bg-gray-800' : ''}`}
-                                                                       >
-                                                                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${info.color}`}>
-                                                                               {type === 'hero' && <Layout size={15} />}
-                                                                               {type === 'authority' && <Brain size={15} />}
-                                                                               {type === 'biblical' && <BookOpen size={15} />}
-                                                                               {type === 'study-content' && <FileText size={15} />}
-                                                                               {type === 'video' && <PlayCircle size={15} />}
-                                                                               {type === 'slide' && <Layers size={15} />}
-                                                                               {type === 'footer' && <AlignLeft size={15} />}
-                                                                           </div>
-                                                                           <div className="flex-1 min-w-0">
-                                                                               <p className="font-bold text-[11px] text-gray-800 dark:text-white">{info.label}</p>
-                                                                               <p className="text-[9px] text-gray-500 dark:text-gray-400 truncate text-ellipsis">{info.description}</p>
-                                                                           </div>
-                                                                           {count > 0 ? (
-                                                                               <span className="text-[9px] font-bold bg-bible-gold/10 text-bible-gold rounded-full px-1.5 py-0.5 flex-shrink-0">×{count}</span>
-                                                                           ) : (
-                                                                               <Plus size={13} className="text-gray-400 flex-shrink-0" />
-                                                                           )}
-                                                                       </div>
-                                                                       {snapshot.isDragging && (
-                                                                           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-transparent text-left opacity-30 select-none pointer-events-none">
-                                                                               <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${info.color}`}>
-                                                                                   {type === 'hero' && <Layout size={15} />}
-                                                                                   {type === 'authority' && <Brain size={15} />}
-                                                                                   {type === 'biblical' && <BookOpen size={15} />}
-                                                                                   {type === 'study-content' && <FileText size={15} />}
-                                                                                   {type === 'video' && <PlayCircle size={15} />}
-                                                                                   {type === 'slide' && <Layers size={15} />}
-                                                                                   {type === 'footer' && <AlignLeft size={15} />}
-                                                                               </div>
-                                                                               <div className="flex-1 min-w-0">
-                                                                                   <p className="font-bold text-[11px] text-gray-800 dark:text-white">{info.label}</p>
-                                                                               </div>
-                                                                           </div>
-                                                                       )}
-                                                                   </>
-                                                               )}
-                                                           </Draggable>
-                                                       );
-                                                   })}
-                                                   {provided.placeholder}
-                                               </div>
-                                           )}
-                                       </Droppable>
-                                   </div>
-
-                                   {/* Referência Bíblica */}
-                                <div className="p-3 bg-gradient-to-br from-bible-gold/10 dark:from-bible-gold/5 to-amber-50 dark:to-amber-900/10 rounded-2xl border border-bible-gold/20 dark:border-bible-gold/10">
-                                    <h3 className="text-[10px] font-bold text-bible-gold uppercase tracking-widest mb-2 flex items-center gap-2">
-                                        <BookOpen size={12} /> Referência Bíblica
-                                    </h3>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            value={dayRef}
-                                            onChange={e => setDayRef(e.target.value)}
-                                            onKeyDown={e => { if (e.key === 'Enter') handleSearchBible(); }}
-                                            placeholder="Ex: João 3:16"
-                                            className="w-full pl-8 pr-2 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-600 outline-none focus:border-bible-gold transition-colors"
-                                        />
-                                        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        {isFetchingBible && <Loader2 size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-bible-gold animate-spin" />}
-                                    </div>
-                                    {dayVerseText && (
-                                        <div className="mt-2 p-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700">
-                                            <p className="text-[9px] text-bible-gold font-bold mb-1">{dayRef}</p>
-                                            <p className="text-[10px] italic text-gray-600 dark:text-gray-300 line-clamp-4">"{dayVerseText}"</p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Informações */}
-                                <div>
-                                    <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Informações</h3>
-                                    <div className="space-y-2">
-                                        <div>
-                                            <label className="text-[10px] text-gray-500 block mb-1">Título</label>
-                                            <input
-                                                type="text"
-                                                value={dayTitle}
-                                                onChange={e => { setDayTitle(e.target.value); setEditingDayTitle(e.target.value); }}
-                                                placeholder="Título da aula"
-                                                className="w-full px-2.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-600 outline-none focus:border-bible-gold font-medium"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] text-gray-500 block mb-1">Categoria</label>
-                                            <select
-                                                value={dayCategory}
-                                                onChange={e => setDayCategory(e.target.value)}
-                                                className="w-full px-2.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 outline-none focus:border-bible-gold"
-                                            >
-                                                <option value="Geral">Geral</option>
-                                                <option value="Evangelismo">Evangelismo</option>
-                                                <option value="Discipulado">Discipulado</option>
-                                                <option value="Família">Família</option>
-                                                <option value="Juventude">Juventude</option>
-                                                <option value="Casais">Casais</option>
-                                                <option value="Liderança">Liderança</option>
-                                                <option value="Oração">Oração</option>
-                                                <option value="Teologia">Teologia</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-
-
-                                {/* Tags */}
-                                <div>
-                                    <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Tags</h3>
-                                    <input
-                                        type="text"
-                                        value={dayTags.join(', ')}
-                                        onChange={e => setDayTags(e.target.value.split(',').map(t => t.trim()).filter(Boolean))}
-                                        placeholder="fé, oração, amor"
-                                        className="w-full px-2.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-600 outline-none focus:border-bible-gold"
-                                    />
-                                    {dayTags.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-2">
-                                            {dayTags.map(tag => (
-                                                <span key={tag} className="px-2 py-0.5 bg-bible-gold/10 text-bible-gold rounded-full text-[10px] font-bold">{tag}</span>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            </aside>
-
-                        {/* CANVAS PRINCIPAL — sem header, tela cheia */}
-                        <main className="flex-1 min-w-0 flex flex-col overflow-x-clip overflow-y-auto bg-gray-100 dark:bg-gray-950 w-full max-w-[100vw]">
-
-                            {/* ContentBuilder direto, sem sub-header */}
-                            <div className="flex-1">
-                                <div className={`mx-auto h-full w-full px-2 sm:px-4 py-6 sm:py-8 transition-all duration-300 ${
-                                    canvasWidth === 'mobile' ? 'max-w-[375px] border-x border-gray-200 dark:border-gray-800'
-                                    : canvasWidth === 'tablet' ? 'max-w-[768px]'
-                                    : canvasWidth === 'full' ? 'w-full h-full p-0'
-                                    : 'max-w-5xl'
-                                }`}>
-                                    <UnifiedEditor 
-                                         ref={editorRef}
-                                         content={editorBlocks || ''}
-                                         onChange={(json) => setEditorBlocks(json)} 
-                                         onBlockSelect={(blockData) => {
-                                            setSelectedBlockId(blockData?.id || null);
-                                            setActiveBlockData(blockData || null);
-                                         }}
-                                         readOnly={isPreviewMode}
-                                         studyId={plan.id}
-                                         studyTitle={plan.title}
-                                    />
-                                </div>
-                            </div>
-                        </main>
-
-                        {/* Block Properties Sidebar (Desktop) */}
-                        {activeBlockData && (
-                            <aside className="hidden xl:block w-80 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-l border-gray-200 dark:border-gray-800 overflow-y-auto z-40">
-                                <div className="p-4">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="font-bold text-bible-ink dark:text-white">
-                                            {blockLabels[activeBlockData.type]?.label || 'Bloco'}
-                                        </h3>
-                                        <button
-                                            onClick={() => {
-                                                setSelectedBlockId(null);
-                                                setActiveBlockData(null);
-                                            }}
-                                            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
-                                        >
-                                            <X size={16} />
-                                        </button>
-                                    </div>
-                                    <BlockProperties
-                                        block={activeBlockData}
-                                        onUpdate={(data) => handleUpdateBlock(activeBlockData.id, data)}
-                                        isEditing={true}
-                                    />
-                                </div>
-                            </aside>
-                        )}
-                    </div>
-                </div>
-            )}
-
-        {/* ======== SETTINGS OVERLAY ======== */}
-        {showSettingsOverlay && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-end" onClick={() => setShowSettingsOverlay(false)}>
-                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" />
-                <div 
-                    className="relative w-full max-w-md h-full bg-white dark:bg-gray-900 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
-                    onClick={e => e.stopPropagation()}
-                >
-                    <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                        <h2 className="text-xl font-bold text-bible-ink dark:text-white flex items-center gap-2">
-                            <Settings className="text-bible-gold" size={20} />
-                            Ajustes da Aula
-                        </h2>
-                        <div className="flex items-center gap-2">
-                            <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl flex">
-                                <button 
-                                    onClick={() => setSettingsTab('config')}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${settingsTab === 'config' ? 'bg-white dark:bg-gray-900 text-bible-gold shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                                >
-                                    Ajustes
-                                </button>
-                                <button 
-                                    onClick={() => setSettingsTab('access')}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${settingsTab === 'access' ? 'bg-white dark:bg-gray-900 text-bible-gold shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                                >
-                                    Acessos
-                                </button>
-                            </div>
-                            <button 
-                                onClick={() => setShowSettingsOverlay(false)}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-6">
-                        {settingsTab === 'config' ? (
-                            <div className="space-y-6">
-                                <div>
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5 px-1">Título da Aula</label>
-                                    <input 
-                                        type="text" 
-                                        value={dayTitle}
-                                        onChange={(e) => { setDayTitle(e.target.value); setEditingDayTitle(e.target.value); }}
-                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-2xl text-sm font-bold placeholder:text-gray-400 focus:ring-2 ring-bible-gold/30 transition-all"
-                                        placeholder="Título Principal"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5 px-1">Referência Bíblica</label>
-                                    <div className="relative">
-                                        <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        <input 
-                                            type="text" 
-                                            value={dayRef}
-                                            onChange={(e) => setDayRef(e.target.value)}
-                                            className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-2xl text-sm focus:ring-2 ring-bible-gold/30 transition-all"
-                                            placeholder="Ex: João 3:16"
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5 px-1">Categoria</label>
-                                    <select
-                                        value={dayCategory}
-                                        onChange={(e) => setDayCategory(e.target.value)}
-                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-2xl text-sm outline-none focus:ring-2 ring-bible-gold/30"
-                                    >
-                                        <option value="Geral">Geral</option>
-                                        <option value="Evangelismo">Evangelismo</option>
-                                        <option value="Discipulado">Discipulado</option>
-                                        <option value="Família">Família</option>
-                                        <option value="Juventude">Juventude</option>
-                                        <option value="Casais">Casais</option>
-                                        <option value="Liderança">Liderança</option>
-                                        <option value="Oração">Oração</option>
-                                        <option value="Teologia">Teologia</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5 px-1">Tags (separadas por vírgula)</label>
-                                    <input
-                                        type="text"
-                                        value={dayTags.join(', ')}
-                                        onChange={(e) => setDayTags(e.target.value.split(',').map(t => t.trim()).filter(Boolean))}
-                                        placeholder="fé, oração, amor"
-                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-2xl text-sm outline-none focus:ring-2 ring-bible-gold/30"
-                                    />
-                                </div>
-                                <button
-                                    onClick={() => { saveDayContent(); setShowSettingsOverlay(false); }}
-                                    className="w-full py-4 bg-bible-gold text-white rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-bible-gold/20 active:scale-95 transition-all text-xs"
-                                >
-                                    Salvar Alterações
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Histórico de Quem Acessou</h3>
-                                    <span className="text-[10px] font-bold bg-bible-gold/10 text-bible-gold px-2 py-0.5 rounded-full">
-                                        {accessLogs.length} acessos
-                                    </span>
-                                </div>
-                                {isLoadingLogs ? (
-                                    <div className="py-12 flex flex-col items-center justify-center text-gray-400 gap-3">
-                                        <Loader2 className="animate-spin" size={24} />
-                                        <p className="text-xs italic">Carregando nomes...</p>
-                                    </div>
-                                ) : accessLogs.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {accessLogs.map((log) => (
-                                            <div key={log.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-transparent hover:border-bible-gold/20 transition-all">
-                                                <div className="w-10 h-10 rounded-xl bg-bible-gold/10 flex items-center justify-center overflow-hidden flex-shrink-0 border border-white dark:border-gray-700 shadow-sm">
-                                                    {log.user_photo ? (
-                                                        <img src={log.user_photo} alt={log.user_name} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <Brain size={20} className="text-bible-gold" />
-                                                    )}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{log.user_name}</p>
-                                                    <p className="text-[10px] text-gray-500 flex items-center gap-1">
-                                                        <Clock size={10} />
-                                                        {new Date(log.accessed_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="py-12 flex flex-col items-center justify-center text-gray-400 gap-4 text-center px-4">
-                                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
-                                            <Brain size={32} className="opacity-20" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold">Nenhum acesso detalhado</p>
-                                            <p className="text-[10px] mt-1 italic">Publique a sala para começar a receber acessos.</p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {/* ======== AI AUTO-BUILDER MODAL ======== */}
-        {showAIBuilderModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowAIBuilderModal(false)}>
-                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-                <div
-                    className="relative w-full max-w-2xl max-h-[90vh] bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-y-auto"
-                    onClick={e => e.stopPropagation()}
-                >
-                    <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 p-8 text-white relative overflow-hidden">
-                        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-                        <button
-                            onClick={() => setShowAIBuilderModal(false)}
-                            className="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-xl transition-colors"
-                        >
-                            <X size={18} />
-                        </button>
-                        <div className="flex items-center gap-4 relative">
-                            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center flex-shrink-0">
-                                <Sparkles size={28} className="text-white" />
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-black">IA Auto-Builder</h2>
-                                <p className="text-violet-200 text-sm mt-1">Descreva sua mensagem e a IA constrói toda a aula</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="p-8 space-y-6">
-                        {dayRef ? (
-                            <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl">
-                                <div className="w-8 h-8 bg-bible-gold/20 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                                    <BookOpen size={16} className="text-bible-gold" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-start">
-                                        <p className="text-xs font-bold text-bible-gold uppercase tracking-wider mb-0.5">Referência bíblica detectada</p>
-                                        <button onClick={() => setDayRef('')} className="text-gray-400 hover:text-red-500">
-                                            <X size={14} />
-                                        </button>
-                                    </div>
-                                    <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{dayRef}</p>
-                                    {dayVerseText && (
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 italic mt-1 line-clamp-2">"{dayVerseText}"</p>
-                                    )}
-                                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5">A IA vai usar esta referência como base principal da aula.</p>
-                                </div>
-                            </div>
-                        ) : (
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
-                                    Referência Bíblica (Opcional)
-                                </label>
-                                <div className="relative">
-                                    <BookOpen className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                    <input
-                                        type="text"
-                                        value={dayRef}
-                                        onChange={e => setDayRef(e.target.value)}
-                                        placeholder="Ex: João 3:16 ou Romanos 12"
-                                        className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm outline-none focus:border-bible-gold focus:ring-2 focus:ring-bible-gold/20 transition-all font-medium placeholder-gray-400"
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
-                                {dayRef ? 'Complemento / Tema adicional (opcional)' : 'O que você quer criar?'}
-                            </label>
-                            <textarea
-                                ref={aiBuilderTextareaRef}
-                                value={aiBuilderPrompt}
-                                onChange={e => setAIBuilderPrompt(e.target.value)}
-                                onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleAIAutoBuilder(); }}
-                                placeholder={dayRef
-                                    ? `Ex: Para jovens, tom inspirador, foco na aplicação prática ao dia a dia...`
-                                    : `Ex: Uma aula sobre fé e perseverança baseado em Hebreus 11, para jovens adultos que enfrentam dificuldades. Use tom inspirador e prático.`
-                                }
-                                rows={dayRef ? 3 : 5}
-                                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm resize-none outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200 dark:focus:ring-violet-900 transition-all"
-                            />
-                            <p className="text-xs text-gray-400 mt-1.5">Dica: Quanto mais detalhes, melhor o resultado. <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] font-mono">Ctrl+Enter</kbd> para gerar.</p>
-                        </div>
-
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setShowAIBuilderModal(false)}
-                                className="flex-1 py-3 border border-gray-200 dark:border-gray-700 rounded-2xl font-medium text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleAIAutoBuilder}
-                                disabled={isAIBuilding}
-                                className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-2xl font-bold text-sm hover:from-violet-700 hover:to-purple-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-purple-200 dark:shadow-purple-900/30"
-                            >
-                                {isAIBuilding ? (
-                                    <><Loader2 size={16} className="animate-spin" /> Criando sua aula...</>
-                                ) : (
-                                    <><Sparkles size={16} /> Criar com IA</>  
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )}
-
-            {/* MOBILE CONTROLS */}
-            {editingDayId && (
-                <>
-                    {/* Floating Undo/Redo buttons when no block selected */}
-                    {!selectedBlockId && (
-                        <>
-                            <div className="fixed bottom-6 left-6 z-[110] lg:hidden flex gap-2">
-                                <button
-                                    onClick={handleBlockUndo}
-                                    className="w-12 h-12 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl flex items-center justify-center text-gray-600 dark:text-gray-300 transition-all active:scale-95"
-                                    title="Desfazer"
-                                >
-                                    <Undo2 size={20} />
-                                </button>
-                                <button
-                                    onClick={handleBlockRedo}
-                                    className="w-12 h-12 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl flex items-center justify-center text-gray-600 dark:text-gray-300 transition-all active:scale-95"
-                                    title="Refazer"
-                                >
-                                    <Redo2 size={20} />
-                                </button>
-                            </div>
-                            
-                            {/* Botão Central de Adicionar Bloco */}
-                            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] lg:hidden flex flex-col items-center">
-                                <button
-                                    onClick={() => setIsMobileAddMenuOpen(true)}
-                                    className="w-20 h-20 bg-gradient-to-br from-indigo-600 to-violet-700 text-white rounded-full shadow-[0_10px_30px_-5px_rgba(79,70,229,0.5)] flex items-center justify-center active:scale-90 transition-all hover:scale-105 border-4 border-white dark:border-gray-900 group"
-                                    aria-label="Adicionar Bloco"
-                                >
-                                    <div className="relative">
-                                        <Plus size={36} className="group-hover:rotate-90 transition-transform duration-500" />
-                                        <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-white rounded-full animate-ping" />
-                                    </div>
-                                </button>
-                                <span className="text-[10px] font-black uppercase tracking-widest mt-2 text-bible-gold drop-shadow-sm font-sans">Novo Bloco</span>
-                            </div>
-                        </>
-                    )}
-
-                    {activeBlockData && (
-                        <MobileToolbar
-                            blockType={activeBlockData.type}
-                            onMoveUp={() => {}}
-                            onMoveDown={() => {}}
-                            onDuplicate={() => {}}
-                            onRemove={() => handleRemoveBlock(activeBlockData.id)}
-                            onOpenProperties={() => setIsMobilePropertiesOpen(true)}
-                            onClose={() => {
-                                setSelectedBlockId(null);
-                                setActiveBlockData(null);
+                                    setPlan(prev => ({
+                                        ...prev,
+                                        weeks: prev.weeks?.map(w => {
+                                            if (w.id !== activeWeekId) return w;
+                                            const exists = w.days.find(d => d.id === editingDayId);
+                                            if (exists) {
+                                                return { ...w, days: w.days.map(d => d.id === editingDayId ? newDay : d) };
+                                            } else {
+                                                return { ...w, days: [...w.days, newDay] };
+                                            }
+                                        })
+                                    }));
+                                    showNotification("Aula salva com sucesso!", "success");
+                                    setEditingDayId(null);
+                                },
+                                onClose: () => setEditingDayId(null),
+                                isEmbedded: true
                             }}
-                            canMoveUp={false}
-                            canMoveDown={false}
                         />
-                    )}
-
-                    <MobileAddBlockMenu
-                        isOpen={isMobileAddMenuOpen}
-                        onClose={() => setIsMobileAddMenuOpen(false)}
-                        onSelect={handleAddBlock}
-                        onAIBuild={handleAiFill}
-                    />
-
-                    {activeBlockData && (
-                        <MobilePropertiesSheet
-                            isOpen={isMobilePropertiesOpen}
-                            onClose={() => setIsMobilePropertiesOpen(false)}
-                            block={activeBlockData}
-                            onUpdate={(data) => handleUpdateBlock(activeBlockData.id, data)}
-                            isEditing={true}
-                        />
-                    )}
-                </>
-            )}
+                    </div>
+                )}
 
             <ConfirmationModal isOpen={showSaveSuccessModal} onClose={() => setShowSaveSuccessModal(false)} onConfirm={() => savedPlanId && navigate(`/jornada/${savedPlanId}`)} title="Sucesso!" message="Seu plano foi publicado." confirmText="Ver Plano" variant="success" />
             <EvaluationBuilderModal isOpen={showEvalModal} onClose={() => setShowEvalModal(false)} onSave={handleSaveEvaluation} initialData={evaluationData || undefined} />

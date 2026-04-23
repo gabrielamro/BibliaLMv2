@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react
 import grapesjs, { Editor } from 'grapesjs';
 import 'grapesjs/dist/css/grapes.min.css';
 import webpagePreset from 'grapesjs-preset-webpage';
-import tiptapRtePlugin from './TiptapRtePlugin';
+// import tiptapRtePlugin from './TiptapRtePlugin';
 
 interface GrapesBuilderProps {
   initialContent?: any;
@@ -38,7 +38,7 @@ export const GrapesBuilder = forwardRef<any, GrapesBuilderProps>(({ initialConte
         storageManager: false, 
         plugins: [
           webpagePreset,
-          tiptapRtePlugin
+          // tiptapRtePlugin
         ],
         pluginsOpts: {
           [webpagePreset as any]: {

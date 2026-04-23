@@ -53,7 +53,7 @@ const PlanReader: React.FC = () => {
     if (!dailyReading || !currentReading) return;
     setIsLoading(true); setError(null); setAiAnalysis(null);
     try {
-      const data = await bibleService.getChapter(currentReading.bookId, currentChapterNum);
+      const data = await bibleService.getChapter(currentReading.bookId, currentChapterNum, settings.bibleVersion || 'ara');
       if (data) { setChapterContent(data); window.scrollTo(0, 0); }
       else setError("Falha ao carregar capítulo.");
     } catch (e) { setError("Erro de conexão."); }
@@ -62,7 +62,7 @@ const PlanReader: React.FC = () => {
 
   useEffect(() => { 
       if (!preloadedContent || currentChapterNum !== preloadedContent.number) fetchContent(); 
-  }, [currentChapterNum, currentSectionIdx]);
+  }, [currentChapterNum, currentSectionIdx, settings.bibleVersion]);
 
   const handleNextChapter = async () => {
       if (!currentReading) return;

@@ -137,7 +137,8 @@ export interface AppSettings {
   fontFamily: 'serif' | 'sans';
   lineHeight: 'normal' | 'relaxed';
   smartReadingMode?: boolean;
-  bibleVersion?: string; // ex: 'ara', 'arc', 'nvi'
+  bibleVersion?: string; // versao ativa na leitura atual
+  defaultBibleVersion?: string; // versao padrao persistida do usuario
 }
 
 // --- WORKSPACE & CONTENT TYPES (GENESIS PROJECT) ---
@@ -315,6 +316,7 @@ export interface UserProfile {
   cpf?: string; instagram?: string; facebook?: string; bio?: string;
   isProfilePublic?: boolean; slogan?: string; readingPlan?: PlanProgress;
   theme?: 'light' | 'dark';
+  bibleVersion?: string;
   progress?: GlobalProgress;
   enrolledPlans?: string[]; // IDs dos planos que o usuário participa
   churchData?: {

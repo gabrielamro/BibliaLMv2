@@ -8,6 +8,7 @@ import {
   PenLine, ChevronDown, ListFilter, ImageIcon, Trash2, Camera
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSettings } from '../../contexts/SettingsContext';
 import { bibleService } from '../../services/bibleService';
 import { dbService, uploadBlob } from '../../services/supabase';
 import { findNearbyChurches, NearbyPlace } from '../../services/pastorAgent';
@@ -67,6 +68,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
   prefilledImage, prefilledCaption, initialTab
 }) => {
   const { currentUser, userProfile, showNotification, recordActivity } = useAuth();
+  const { settings } = useSettings();
   
   const [activeTab, setActiveTab] = useState<PostTabType>(initialTab || 'reflection');
   const [content, setContent] = useState('');
@@ -107,7 +109,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
         if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
         searchTimeoutRef.current = setTimeout(async () => {
             setIsSearchingVerse(true);
-            const res = await bibleService.getTextByReference(verseRef);
+            const res = await bibleService.getTextByReference(verseRef, settings.bibleVersion || 'ara');
             if (res) {
                 setFoundVerse({ ref: res.formattedRef, text: res.text });
             }
@@ -116,7 +118,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
     } else if (verseRef.length === 0) {
         setFoundVerse(null);
     }
-  }, [verseRef, activeTab]);
+  }, [verseRef, activeTab, settings.bibleVersion]);
 
   // Geolocation Effect
   useEffect(() => {

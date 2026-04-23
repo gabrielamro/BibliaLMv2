@@ -99,7 +99,7 @@ export const bibleService = {
     /**
      * Busca o texto de um versículo específico e retorna a referência formatada corretamente.
      */
-    async getVerseText(ref: string): Promise<{ text: string, formattedRef: string } | null> {
+    async getVerseText(ref: string, version: string = 'ara'): Promise<{ text: string, formattedRef: string } | null> {
         // Regex flexível para capturar "Livro Cap:Ver" ou "1 Livro Cap.Ver" ou "Livro Cap Ver"
         const match = ref.trim().match(/^([1-3]?\s?[a-zà-ú\ç\ã\õ\s]+)\s+(\d+)[:\.;\s](\d+)$/i);
 
@@ -117,7 +117,7 @@ export const bibleService = {
         const verse = parseInt(verseStr);
 
         try {
-            const chapterData = await this.getChapter(book.id, chapter);
+            const chapterData = await this.getChapter(book.id, chapter, version);
             if (chapterData && chapterData.verses) {
                 const verseData = chapterData.verses.find(v => v.number === verse);
                 if (verseData) {
@@ -182,12 +182,12 @@ export const bibleService = {
      * Busca texto flexível: Capítulo Inteiro, Versículo Único ou Intervalo
      * Ex: "João 3", "João 3:16", "João 3:1-10", "Gênesis 2 10 11"
      */
-    async getTextByReference(ref: string): Promise<{ text: string, formattedRef: string, meta?: { bookId: string, chapter: number, verses: number[] } } | null> {
+    async getTextByReference(ref: string, version: string = 'ara'): Promise<{ text: string, formattedRef: string, meta?: { bookId: string, chapter: number, verses: number[] } } | null> {
         const parsed = this.parseReference(ref);
         if (!parsed) return null;
 
         try {
-            const chapterData = await this.getChapter(parsed.bookId, parsed.chapter);
+            const chapterData = await this.getChapter(parsed.bookId, parsed.chapter, version);
             if (!chapterData || !chapterData.verses) return null;
 
             let selectedVerses = chapterData.verses;
@@ -227,7 +227,7 @@ export const bibleService = {
         }
     },
 
-    prefetchNext(bookId: string, currentChapter: number) {
-        setTimeout(() => { this.getChapter(bookId, currentChapter + 1); }, 3000);
+    prefetchNext(bookId: string, currentChapter: number, version: string = 'ara') {
+        setTimeout(() => { this.getChapter(bookId, currentChapter + 1, version); }, 3000);
     }
 };

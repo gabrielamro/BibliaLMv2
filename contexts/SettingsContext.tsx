@@ -6,6 +6,7 @@ import { AppSettings } from '../types';
 import { DEFAULT_FONT_SIZE } from '../constants';
 import { useAuth } from './AuthContext';
 import { dbService } from '../services/supabase';
+import { DEFAULT_BIBLE_VERSION, normalizeBibleVersion } from '../utils/bibleVersionPreferences';
 
 interface SettingsContextType {
   settings: AppSettings;
@@ -13,6 +14,7 @@ interface SettingsContextType {
   isFocusMode: boolean;
   toggleTheme: () => void;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
+  saveBibleVersionAsDefault: (version?: string) => Promise<boolean>;
   setSelectionMode: (isActive: boolean) => void;
   setIsFocusMode: (isActive: boolean) => void;
 }
@@ -31,40 +33,34 @@ interface SettingsProviderProps {
   children: ReactNode;
 }
 
+const createDefaultSettings = (overrides: Partial<AppSettings> = {}): AppSettings => {
+  const defaultBibleVersion = normalizeBibleVersion(overrides.defaultBibleVersion || overrides.bibleVersion);
+
+  return {
+    theme: 'dark',
+    fontSize: DEFAULT_FONT_SIZE,
+    fontFamily: 'serif',
+    lineHeight: 'normal',
+    smartReadingMode: true,
+    ...overrides,
+    defaultBibleVersion,
+    bibleVersion: defaultBibleVersion,
+  };
+};
+
 export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) => {
   const { userProfile, currentUser } = useAuth();
 
   const [settings, setSettings] = useState<AppSettings>(() => {
     if (typeof window === 'undefined') {
-      return {
-        theme: 'dark',
-        fontSize: DEFAULT_FONT_SIZE,
-        fontFamily: 'serif',
-        lineHeight: 'normal',
-        smartReadingMode: true,
-        bibleVersion: 'ara'
-      };
+      return createDefaultSettings();
     }
     try {
       const saved = localStorage.getItem('bible_app_settings');
       const parsed = saved ? JSON.parse(saved) : null;
-      return parsed ?? {
-        theme: 'dark',
-        fontSize: DEFAULT_FONT_SIZE,
-        fontFamily: 'serif',
-        lineHeight: 'normal',
-        smartReadingMode: true,
-        bibleVersion: 'ara'
-      };
+      return createDefaultSettings(parsed ?? {});
     } catch {
-      return {
-        theme: 'dark',
-        fontSize: DEFAULT_FONT_SIZE,
-        fontFamily: 'serif',
-        lineHeight: 'normal',
-        smartReadingMode: true,
-        bibleVersion: 'ara'
-      };
+      return createDefaultSettings();
     }
   });
 
@@ -73,10 +69,18 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
   // Sync from DB when user logs in
   useEffect(() => {
-    if (userProfile && userProfile.theme && userProfile.theme !== settings.theme) {
-      setSettings(prev => ({ ...prev, theme: userProfile.theme! }));
+    if (userProfile) {
+      setSettings(prev => {
+        const nextDefaultBibleVersion = normalizeBibleVersion(userProfile.bibleVersion || prev.defaultBibleVersion);
+        return {
+          ...prev,
+          theme: userProfile.theme || prev.theme,
+          defaultBibleVersion: nextDefaultBibleVersion,
+          bibleVersion: nextDefaultBibleVersion,
+        };
+      });
     }
-  }, [userProfile]);
+  }, [userProfile?.uid, userProfile?.theme, userProfile?.bibleVersion]);
 
   useEffect(() => {
     if (settings.theme === 'dark') {
@@ -84,7 +88,10 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('bible_app_settings', JSON.stringify(settings));
+    localStorage.setItem('bible_app_settings', JSON.stringify({
+      ...settings,
+      bibleVersion: settings.defaultBibleVersion || DEFAULT_BIBLE_VERSION,
+    }));
   }, [settings]);
 
   const toggleTheme = () => {
@@ -101,6 +108,25 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     setSettings(prev => ({ ...prev, ...newSettings }));
   };
 
+  const saveBibleVersionAsDefault = async (version?: string): Promise<boolean> => {
+    const nextDefaultBibleVersion = normalizeBibleVersion(version || settings.bibleVersion);
+    setSettings(prev => ({
+      ...prev,
+      bibleVersion: nextDefaultBibleVersion,
+      defaultBibleVersion: nextDefaultBibleVersion,
+    }));
+
+    if (currentUser) {
+      try {
+        await dbService.updateUserProfile(currentUser.uid, { bibleVersion: nextDefaultBibleVersion });
+      } catch {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   return (
     <SettingsContext.Provider value={{
       settings,
@@ -108,6 +134,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       isFocusMode,
       toggleTheme,
       updateSettings,
+      saveBibleVersionAsDefault,
       setSelectionMode,
       setIsFocusMode
     }}>

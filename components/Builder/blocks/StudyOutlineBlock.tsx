@@ -47,26 +47,42 @@ export const StudyOutlineBlock: React.FC<StudyOutlineBlockProps> = ({ data, isEd
   const activeIndex = enableScrollSpy ? spyActiveIndex : (typeof data.activeIndex === 'number' ? data.activeIndex : 0);
 
   useEffect(() => {
-    if (!enableScrollSpy || isEditing) return;
+    if (!isEditing) return;
     
-    const observer = new MutationObserver(() => {
+    const syncHeadings = () => {
       const h2s = document.querySelectorAll('.rtb-editor h2');
+      const foundHeadings = Array.from(h2s).map(h => h.textContent || '').filter(Boolean);
+      
+      // Se os itens mudaram, atualiza o bloco
+      if (JSON.stringify(foundHeadings) !== JSON.stringify(items)) {
+        onUpdate?.({ ...data, items: foundHeadings });
+      }
+
+      // Marcar as seções para o scroll spy (mesmo em edição para manter consistência)
       h2s.forEach((h2, idx) => {
         h2.setAttribute('data-study-section', String(idx));
       });
-    });
+    };
+
+    const observer = new MutationObserver(syncHeadings);
     
     const editorEl = document.querySelector('.rtb-editor');
     if (editorEl) {
-      observer.observe(editorEl, { childList: true, subtree: true });
-      const h2s = editorEl.querySelectorAll('h2');
-      h2s.forEach((h2, idx) => {
-        h2.setAttribute('data-study-section', String(idx));
-      });
+      observer.observe(editorEl, { childList: true, subtree: true, characterData: true });
+      syncHeadings();
     }
     
     return () => observer.disconnect();
-  }, [enableScrollSpy, isEditing]);
+  }, [isEditing, items, onUpdate, data]);
+
+  // Efeito adicional para garantir que o scroll spy funcione no modo visualização
+  useEffect(() => {
+    if (isEditing) return;
+    const h2s = document.querySelectorAll('.rtb-editor h2');
+    h2s.forEach((h2, idx) => {
+      h2.setAttribute('data-study-section', String(idx));
+    });
+  }, [isEditing, items]);
 
   const scrollToSection = (index: number) => {
     if (enableScrollSpy) return;
@@ -99,7 +115,7 @@ export const StudyOutlineBlock: React.FC<StudyOutlineBlockProps> = ({ data, isEd
         </div>
       )}
       <div className="p-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#b3874c]">{data.title || 'Template'}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#b3874c]">{data.title || 'Sumário'}</p>
         <p className="mt-1 text-sm text-[#7b6c5e]">{data.description}</p>
 
         {enableScrollSpy && (

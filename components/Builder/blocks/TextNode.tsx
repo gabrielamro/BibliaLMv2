@@ -39,6 +39,7 @@ export const TextNode = ({
 
                 onDragMove={(e) => {
                     const stage = e.target.getStage();
+                    if (!stage) return;
                     const centerX = stage.width() / 2;
 
                     // SNAP NO CENTRO

@@ -1,14 +1,22 @@
 "use client";
 import { useNavigate } from '../../utils/router';
 
-import React, { useState, useMemo, useRef } from 'react';
-import { Search, X, BookOpen, ChevronRight, Sparkles, GraduationCap, Target, Coffee, Palette, Bookmark } from 'lucide-react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { Search, X, BookOpen, ChevronRight, Sparkles, GraduationCap, Target, Coffee, Palette, Bookmark, Languages, Check } from 'lucide-react';
 import { BIBLE_BOOKS_LIST } from '../../constants';
 import { searchMatch } from '../../utils/textUtils';
 import { resolveBibleSearchNavigation } from '../../utils/bibleSearchNavigation';
+import { getBibleBookAutocomplete } from '../../utils/bibleBookAutocomplete';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { useSettings } from '../../contexts/SettingsContext';
 import { bibleService } from '../../services/bibleService';
+import {
+    BIBLE_VERSIONS,
+    DEFAULT_BIBLE_VERSION,
+    findBibleVersion,
+    shouldAskToSaveBibleVersion,
+} from '../../utils/bibleVersionPreferences';
 
 const BOOK_CHAPTER_COUNTS: { [key: string]: number } = {
     'gn': 50, 'ex': 40, 'lv': 27, 'nm': 36, 'dt': 34, 'js': 24, 'jz': 21, 'rt': 4,
@@ -28,10 +36,25 @@ interface LibraryProps {
 
 const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     const navigate = useNavigate();
-    const { userProfile } = useAuth();
+    const { userProfile, showNotification } = useAuth();
+    const { settings, updateSettings, saveBibleVersionAsDefault } = useSettings();
     const [activeTab, setActiveTab] = useState<'old' | 'new' | 'apocryphal'>('old');
     const [searchTerm, setSearchTerm] = useState('');
+    const [isVersionMenuOpen, setIsVersionMenuOpen] = useState(false);
+    const [isDefaultPromptDismissed, setIsDefaultPromptDismissed] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    const activeVersion = settings.bibleVersion || DEFAULT_BIBLE_VERSION;
+    const defaultVersion = settings.defaultBibleVersion || DEFAULT_BIBLE_VERSION;
+    const activeVersionOption = findBibleVersion(activeVersion) || BIBLE_VERSIONS[0];
+    const showDefaultVersionPrompt = !isDefaultPromptDismissed && shouldAskToSaveBibleVersion(activeVersion, defaultVersion);
+    const bookAutocomplete = useMemo(
+        () => getBibleBookAutocomplete(searchTerm, BIBLE_BOOKS_LIST, 4),
+        [searchTerm],
+    );
+
+    useEffect(() => {
+        setIsDefaultPromptDismissed(false);
+    }, [activeVersion]);
 
     const { bibleMatch, filteredBooks } = useMemo(() => {
         const trimmed = searchTerm.trim();
@@ -65,7 +88,10 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     const handleDirectBibleSelection = async () => {
         if (!bibleMatch) return;
 
-        const navigationResult = await resolveBibleSearchNavigation(searchTerm);
+        const navigationResult = await resolveBibleSearchNavigation(searchTerm, {
+            parseReference: (input) => bibleService.parseReference(input),
+            getTextByReference: (input) => bibleService.getTextByReference(input, activeVersion),
+        });
         if (navigationResult) {
             onSelectBook(
                 navigationResult.routeState.bookId,
@@ -96,22 +122,120 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                 </div>
 
                 <div className="max-w-4xl mx-auto p-4 space-y-3">
-                    <div className="relative group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-bible-gold transition-colors" size={18} />
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            placeholder="Buscar livro..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-11 pr-10 py-3 bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-bold outline-none focus:ring-2 ring-bible-gold/50 transition-all text-gray-900 dark:text-white"
-                        />
-                        {searchTerm && (
-                            <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-500">
-                                <X size={16} />
+                    <div className="flex items-stretch gap-2">
+                        <div className="relative group flex-1">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-bible-gold transition-colors" size={18} />
+                            <input
+                                ref={inputRef}
+                                type="text"
+                                placeholder="Buscar livro..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-11 pr-10 py-3 bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-bold outline-none focus:ring-2 ring-bible-gold/50 transition-all text-gray-900 dark:text-white"
+                            />
+                            {searchTerm && (
+                                <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-500" aria-label="Limpar busca">
+                                    <X size={16} />
+                                </button>
+                            )}
+                            {!bibleMatch && bookAutocomplete.length > 0 && (
+                                <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50">
+                                    {bookAutocomplete.map((suggestion) => (
+                                        <button
+                                            key={suggestion.id}
+                                            type="button"
+                                            onClick={() => setSearchTerm(suggestion.completion)}
+                                            className="w-full px-4 py-3 text-left hover:bg-bible-gold/10 dark:hover:bg-bible-gold/10 transition-colors flex items-center justify-between gap-3 border-b border-gray-50 dark:border-gray-800 last:border-0"
+                                        >
+                                            <span className="flex items-center gap-3">
+                                                <BookOpen size={16} className="text-bible-gold" />
+                                                <span>
+                                                    <span className="block font-bold text-sm text-gray-800 dark:text-gray-200">{suggestion.name}</span>
+                                                    <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Completar referência</span>
+                                                </span>
+                                            </span>
+                                            <span className="text-xs font-bold text-bible-gold">{suggestion.completion}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setIsVersionMenuOpen(prev => !prev)}
+                                className="h-full min-h-[46px] px-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-black/40 text-gray-700 dark:text-gray-200 hover:border-bible-gold/50 hover:text-bible-gold transition-all flex items-center gap-2"
+                                aria-label="Selecionar versão da Bíblia"
+                                aria-expanded={isVersionMenuOpen}
+                            >
+                                <Languages size={18} />
+                                <span className="text-[11px] font-black uppercase tracking-wider">{activeVersionOption.label}</span>
                             </button>
-                        )}
+
+                            {isVersionMenuOpen && (
+                                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-2xl overflow-hidden z-50">
+                                    {BIBLE_VERSIONS.map(version => {
+                                        const isSelected = activeVersion === version.id;
+                                        return (
+                                            <button
+                                                key={version.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    updateSettings({ bibleVersion: version.id });
+                                                    setIsVersionMenuOpen(false);
+                                                }}
+                                                className={`w-full px-4 py-3 text-left transition-colors flex items-center justify-between gap-3 ${
+                                                    isSelected
+                                                        ? 'bg-bible-gold/10 text-bible-gold'
+                                                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                                }`}
+                                            >
+                                                <span>
+                                                    <span className="block text-xs font-black">{version.label}</span>
+                                                    <span className="block text-[10px] text-gray-400">{version.desc}</span>
+                                                </span>
+                                                {isSelected && <Check size={14} />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
+
+                    {showDefaultVersionPrompt && (
+                        <div className="rounded-2xl border border-bible-gold/30 bg-bible-gold/10 px-4 py-3 text-gray-700 dark:text-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <p className="text-xs font-bold">
+                                Deseja deixar a versão {activeVersionOption.label} como padrão?
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        const saved = await saveBibleVersionAsDefault(activeVersion);
+                                        setIsDefaultPromptDismissed(true);
+                                        showNotification(
+                                            saved
+                                                ? `Versão ${activeVersionOption.label} definida como padrão.`
+                                                : 'Versão padrão salva neste dispositivo. Execute a migration para salvar no perfil.',
+                                            saved ? 'success' : 'warning',
+                                        );
+                                    }}
+                                    className="px-3 py-2 rounded-xl bg-bible-gold text-white dark:text-black text-[10px] font-black uppercase tracking-wider hover:brightness-105 transition-all"
+                                >
+                                    Sim
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDefaultPromptDismissed(true)}
+                                    className="px-3 py-2 rounded-xl bg-white/70 dark:bg-black/30 text-gray-500 text-[10px] font-black uppercase tracking-wider hover:text-gray-800 dark:hover:text-gray-100 transition-all"
+                                >
+                                    Agora não
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {searchTerm === '' && (
                         <div className="flex bg-gray-100 dark:bg-black/40 border border-gray-200 dark:border-gray-700 rounded-xl p-1">

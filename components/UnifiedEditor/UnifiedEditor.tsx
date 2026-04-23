@@ -134,7 +134,7 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
       if (hasContent) {
         setTimeout(() => {
           if (!editor.isDestroyed && editor.isEmpty) {
-            editor.commands.setContent(parsedContent, false); // false para não disparar update circular
+            editor.commands.setContent(parsedContent, { emitUpdate: false }); // false para não disparar update circular
             // Não limpamos o history aqui para evitar o bug de comandos ausentes,
             // mas o setContent inicial no editor vazio geralmente se torna o baseline.
           }
@@ -170,7 +170,8 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
           onChange([...content, newBlock], '');
         } else {
           // TipTap Doc Mode
-          editor.commands.insertContent([
+          if (editor) {
+            editor.commands.insertContent([
             {
               type: 'customBlock',
               attrs: { blockData: newBlock }
@@ -179,6 +180,7 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
               type: 'paragraph'
             }
           ]);
+          }
         }
       });
     },
@@ -188,7 +190,7 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
           b.id === id ? { ...b, data: { ...b.data, ...data } } : b
         );
         onChange(newBlocks, '');
-      } else {
+      } else if (editor) {
         editor.state.doc.descendants((node, pos) => {
           if (node.type.name === 'customBlock' && node.attrs.blockData?.id === id) {
             editor.commands.command(({ tr }) => {
@@ -214,7 +216,7 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
       if (Array.isArray(content)) {
         const newBlocks = content.filter(b => b.id !== id);
         onChange(newBlocks, '');
-      } else {
+      } else if (editor) {
         editor.state.doc.descendants((node, pos) => {
           if (node.type.name === 'customBlock' && node.attrs.blockData?.id === id) {
             editor.commands.deleteRange({ from: pos, to: pos + node.nodeSize });
@@ -225,10 +227,10 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
       }
     },
     undo: () => {
-      editor.commands.undo();
+      editor?.commands.undo();
     },
     redo: () => {
-      editor.commands.redo();
+      editor?.commands.redo();
     },
     setContent: (newContent: any) => {
       if (editor) {
@@ -243,7 +245,7 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
             }))
           };
         }
-        editor.commands.setContent(formatted, false);
+        editor.commands.setContent(formatted);
       }
     }
   }), [editor]);
@@ -303,7 +305,7 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
           align-items: flex-start !important;
           align-content: flex-start !important;
           justify-content: center !important;
-          gap: 0 !important;
+          gap: 2.5rem !important;
           width: 100% !important;
           box-sizing: border-box !important;
           padding-bottom: 200px !important;
@@ -317,13 +319,12 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
         /* ===== BLOCOS CUSTOMIZADOS — flex items ===== */
         .ProseMirror > div[data-type="custom-block"],
         .ProseMirror > .node-customBlock {
-          margin-bottom: 1rem;
           transition: transform 0.2s ease, opacity 0.2s ease;
           display: flex !important;
           flex-direction: column !important;
           min-width: 0;
-          margin-left: 0 !important;
-          margin-right: 0 !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
         }
 
         /* ===== LARGURAS POR ATRIBUTO layoutwidth ===== */
@@ -333,15 +334,29 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
         }
         .ProseMirror > [data-type="custom-block"][layoutwidth="1/2"],
         .ProseMirror > .node-customBlock[layoutwidth="1/2"] {
-          flex: 0 0 50% !important; width: 50% !important; max-width: 50% !important;
+          flex: 0 0 calc(50% - 1.25rem) !important; width: calc(50% - 1.25rem) !important; max-width: calc(50% - 1.25rem) !important;
         }
         .ProseMirror > [data-type="custom-block"][layoutwidth="1/3"],
         .ProseMirror > .node-customBlock[layoutwidth="1/3"] {
-          flex: 0 0 33.3333% !important; width: 33.3333% !important; max-width: 33.3333% !important;
+          flex: 0 0 calc(33.3333% - 1.666rem) !important; width: calc(33.3333% - 1.666rem) !important; max-width: calc(33.3333% - 1.666rem) !important;
         }
         .ProseMirror > [data-type="custom-block"][layoutwidth="2/3"],
         .ProseMirror > .node-customBlock[layoutwidth="2/3"] {
-          flex: 0 0 66.6666% !important; width: 66.6666% !important; max-width: 66.6666% !important;
+          flex: 0 0 calc(66.6666% - 0.833rem) !important; width: calc(66.6666% - 0.833rem) !important; max-width: calc(66.6666% - 0.833rem) !important;
+        }
+
+        /* ===== ALINHAMENTO DE BLOCOS (Flex Spacing) ===== */
+        .ProseMirror > [layoutalign="center"] {
+          margin-left: auto !important;
+          margin-right: auto !important;
+        }
+        .ProseMirror > [layoutalign="right"] {
+          margin-left: auto !important;
+          margin-right: 0 !important;
+        }
+        .ProseMirror > [layoutalign="left"] {
+          margin-left: 0 !important;
+          margin-right: auto !important;
         }
 
         /* ===== ELEMENTOS NÃO-BLOCO (parágrafos do TipTap) ===== */
@@ -349,7 +364,8 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
           width: 100% !important;
           flex: 0 0 100% !important;
           max-width: 100% !important;
-          margin-bottom: 1rem;
+          margin-left: auto !important;
+          margin-right: auto !important;
         }
 
         /* ===== OCULTAR LIXO DO TIPTAP (p vazios, br soltos) ===== */

@@ -33,6 +33,7 @@ import {
   blockLabels,
   createBlock,
   buildBaseBlocks,
+  buildEstudoPastoralBlocks,
   buildWrittenContentHtml,
   buildStudyGuideHtml
 } from '../components/Builder';
@@ -66,34 +67,16 @@ interface ContentData {
 }
 
 // Template Estudo Profundo V3 - Otimizado para conversão
-const estudoProfundoV3Blocks: BlockType[] = [
-  'hero',
-  'biblical',
-  'rich-text',
-  'study-outline',
-  'references-chain',
-  'rich-text',
-  'biblical',
-  'references-chain',
-  'reflection-question',
-  'authority',
-  'cta',
-  'footer',
-];
-
-const estudoProfundoV3Layout: { type: BlockType; layoutWidth?: '1/1' | '1/2' | '1/3' | '2/3' }[] = [
-  { type: 'hero', layoutWidth: '1/1' },
-  { type: 'biblical', layoutWidth: '1/1' },
-  { type: 'rich-text', layoutWidth: '2/3' },
+const initialOnePageLayout: { type: BlockType; layoutWidth?: '1/1' | '1/2' | '1/3' | '2/3' }[] = [
+  { type: 'hero-split', layoutWidth: '1/1' },
+  { type: 'biblical', layoutWidth: '2/3' },
   { type: 'study-outline', layoutWidth: '1/3' },
-  { type: 'references-chain', layoutWidth: '1/2' },
   { type: 'rich-text', layoutWidth: '1/1' },
-  { type: 'biblical', layoutWidth: '1/2' },
-  { type: 'references-chain', layoutWidth: '1/2' },
-  { type: 'reflection-question', layoutWidth: '1/1' },
-  { type: 'authority', layoutWidth: '1/2' },
-  { type: 'cta', layoutWidth: '1/2' },
+  { type: 'slide', layoutWidth: '1/1' },
+  { type: 'related-verses', layoutWidth: '1/1' },
+  { type: 'authority', layoutWidth: '1/1' },
   { type: 'footer', layoutWidth: '1/1' },
+  { type: 'reflection-question', layoutWidth: '1/1' },
 ];
 
 const typeLabels: Record<string, { singular: string; plural: string; description: string }> = {
@@ -104,7 +87,14 @@ const typeLabels: Record<string, { singular: string; plural: string; description
 
 const isCoreBlock = (_type: BlockType) => false;
 
-const CreateContentV3Page: React.FC = () => {
+export interface EmbeddedContext {
+  initialContent: any;
+  onSave: (content: any, status: ContentStatus) => void;
+  onClose: () => void;
+  isEmbedded: boolean;
+}
+
+const CreateContentV3Page: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ embeddedContext }) => {
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -154,9 +144,19 @@ const CreateContentV3Page: React.FC = () => {
   const [history, setHistory] = useState<Block[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isUndoing, setIsUndoing] = useState(false);
+  const [sessionToken] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('id') || urlParams.get('type') || `v3_${Math.random().toString(36).substring(2, 10)}`;
+    }
+    return `v3_${Math.random().toString(36).substring(2, 10)}`;
+  });
 
   const [showCreationInfo, setShowCreationInfo] = useState(true);
   const [showCreationHelper, setShowCreationHelper] = useState(true);
+  const [isModified, setIsModified] = useState(false);
+  const initialBlocksRef = useRef<string>('');
+  const initialTitleRef = useRef<string>('');
 
   const [showAIBuilderModal, setShowAIBuilderModal] = useState(false);
   const [aiBuilderPrompt, setAIBuilderPrompt] = useState('');
@@ -205,19 +205,85 @@ const CreateContentV3Page: React.FC = () => {
     return () => resetHeader();
   }, [currentStep, content.meta.title, setTitle, setBreadcrumbs, resetHeader]);
 
+  // Sincronizar URL para persistência em refresh e navegação
+  useEffect(() => {
+    if (typeof window !== 'undefined' && content.meta.title && !isLoading) {
+      const url = new URL(window.location.href);
+      const currentType = url.searchParams.get('type');
+      
+      // Gera um slug amigável do título
+      const titleSlug = content.meta.title
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // remove acentos
+        .replace(/[^\w\s-]/g, '')
+        .replace(/[\s_]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      
+      // Se houver um slug válido e for diferente do atual na URL, atualizamos
+      if (titleSlug && currentType !== titleSlug && titleSlug.length > 2) {
+        url.searchParams.set('type', titleSlug);
+        window.history.replaceState({}, '', url.toString());
+
+        // Se estiver em modo embutido (Criador de Jornada), notifica o pai para atualizar a URL externa
+        if (embeddedContext) {
+          window.parent.postMessage({ 
+            type: 'SYNC_LESSON_URL', 
+            title: content.meta.title,
+            slug: titleSlug 
+          }, '*');
+        }
+      }
+    }
+  }, [content.meta.title, isLoading, embeddedContext]);
+
   useEffect(() => {
     const loadContent = async () => {
       const state = location.state as any;
       const urlParams = new URLSearchParams(location.search);
       const targetId = state?.contentId || urlParams.get('id');
 
+      if (embeddedContext) {
+        const data = embeddedContext.initialContent;
+        const parsedBlocks = typeof data.blocks === 'string' ? JSON.parse(data.blocks) : (data.blocks || []);
+        const parsedMeta = typeof data.meta === 'string' ? JSON.parse(data.meta) : (data.meta || { title: '', description: '', tags: [], visibility: 'public' });
+
+        // Verificar Cache (Prioridade: ID real > Parâmetro 'type' da URL > 'embedded' genérico)
+        const urlParams = new URLSearchParams(window.location.search);
+        const typeParam = urlParams.get('type');
+        const cacheKey = `biblialm_v3_cache_${data.id || (typeParam ? `type_${typeParam}` : 'embedded')}`;
+        
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            setContent(prev => ({ ...prev, ...parsed }));
+            setIsModified(true);
+            showNotification('Rascunho restaurado do cache local', 'info');
+          } catch (e) {
+            console.error('Erro ao restaurar cache:', e);
+            setContent({ ...data, blocks: parsedBlocks, meta: parsedMeta });
+          }
+        } else {
+          setContent({ ...data, blocks: parsedBlocks, meta: parsedMeta });
+        }
+        setContentType(data.type || 'article');
+        setCurrentStep('create');
+        setIsLoading(false);
+
+        // Capturar estado inicial para detecção de mudanças
+        initialBlocksRef.current = JSON.stringify(parsedBlocks);
+        initialTitleRef.current = data.meta?.title || '';
+        return;
+      }
+
       if (!targetId && !state?.studyData) {
-        const blocks = buildBaseBlocks(estudoProfundoV3Layout);
+        const blocks = buildBaseBlocks(initialOnePageLayout);
         setContent(prev => ({
           ...prev,
           type: 'article',
           blocks,
-          meta: { ...prev.meta, title: 'Novo Estudo Profundo V3' }
+          meta: { ...prev.meta, title: 'Novo Estudo Bíblico' }
         }));
         setCurrentStep('create');
         return;
@@ -339,11 +405,51 @@ const CreateContentV3Page: React.FC = () => {
         newHistory.push(content.blocks);
         if (newHistory.length > 50) newHistory.shift();
         setHistoryIndex(newHistory.length - 1);
+
+        // Se o histórico cresceu e não estamos no carregamento inicial, marcar como modificado
+        if (!isLoading && prev.length > 0) {
+          setIsModified(true);
+        }
+
         return newHistory;
       });
     }, 500);
     return () => clearTimeout(timer);
-  }, [content.blocks, historyIndex, isUndoing]);
+  }, [content.blocks, historyIndex, isUndoing, isLoading]);
+
+  // Detector de mudanças simplificado e robusto
+  useEffect(() => {
+    if (!isLoading && initialBlocksRef.current) {
+      const currentBlocksStr = JSON.stringify(content.blocks);
+      const currentTitle = content.meta.title || '';
+      
+      const changed = currentBlocksStr !== initialBlocksRef.current || 
+                      currentTitle !== initialTitleRef.current;
+      
+      if (changed !== isModified) {
+        setIsModified(changed);
+      }
+    }
+  }, [content.blocks, content.meta.title, isLoading, isModified]);
+
+  // Auto-save no cache local (localStorage)
+  useEffect(() => {
+    if (!isLoading && isModified) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const typeParam = urlParams.get('type');
+      const effectiveId = embeddedContext 
+        ? (embeddedContext.initialContent?.id || (typeParam ? `type_${typeParam}` : 'embedded')) 
+        : (content.id || (typeParam ? `type_${typeParam}` : sessionToken));
+
+      const cacheKey = `biblialm_v3_cache_${effectiveId}`;
+      localStorage.setItem(cacheKey, JSON.stringify({
+        blocks: content.blocks,
+        meta: content.meta,
+        type: content.type,
+        sessionToken
+      }));
+    }
+  }, [content.blocks, content.meta, content.type, isModified, isLoading, embeddedContext, sessionToken]);
 
   const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
@@ -507,12 +613,23 @@ const CreateContentV3Page: React.FC = () => {
       const result = await generateAIOnePage(enrichedPrompt, currentUser?.displayName || undefined);
       if (!result?.blocks) throw new Error('Estrutura inválida retornada pela IA');
 
-      const { meta, slug, blocks: aiBlocks } = result;
-
       setContent(prev => {
         const aiBlocks = Array.isArray(result.blocks) ? result.blocks : [];
 
-        const roadmapSequence = ['1/1', '2/3', '1/3', '1/3', '1/3', '1/1', '1/2', '1/2', '1/1', '1/2', '1/2', '1/1'];
+        // Mapa de larguras do Roadmap V2: garante o layout correto mesmo se a IA ignorar as instruções
+        const roadmapWidths: Record<string, string> = {
+          'hero-split': '1/1',
+          'biblical': '1/2',
+          'study-outline': '1/3',
+          'rich-text': '1/1',
+          'slide': '1/1',
+          'related-verses': '1/1',
+          'authority': '1/1',
+          'footer': '1/1',
+          'reflection-question': '1/1',
+        };
+        // Sequência exata de layoutWidths do Roadmap V3 (9 blocos)
+        const roadmapSequence = ['1/1', '1/2', '1/3', '1/1', '1/1', '1/1', '1/1', '1/1', '1/1'];
 
         if (aiBlocks.length > 0) {
           const finalBlocks = aiBlocks.map((b: any, idx: number) => {
@@ -523,7 +640,13 @@ const CreateContentV3Page: React.FC = () => {
               }));
             }
 
-            const enforcedWidth = roadmapSequence[idx] || b.layoutWidth || '1/1';
+            // Forçar layoutWidth: 1) valor do Roadmap por índice, 2) valor por tipo, 3) valor da IA, 4) fallback 1/1
+            let enforcedWidth = roadmapSequence[idx] || roadmapWidths[b.type] || b.layoutWidth || '1/1';
+
+            // Lógica dinâmica para Related Verses: Sempre 1/1 para permitir cards lado a lado
+            if (b.type === 'related-verses') {
+              enforcedWidth = '1/1';
+            }
 
             return {
               id: b.id || `${b.type}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -533,7 +656,7 @@ const CreateContentV3Page: React.FC = () => {
             };
           });
 
-          const isTipTapFormat = !Array.isArray(prev.blocks) && prev.blocks?.type === 'doc';
+          const isTipTapFormat = !Array.isArray(prev.blocks) && (prev.blocks as any)?.type === 'doc';
 
           const newState = {
             ...prev,
@@ -546,7 +669,7 @@ const CreateContentV3Page: React.FC = () => {
             blocks: isTipTapFormat
               ? {
                   type: 'doc',
-                  content: finalBlocks.map(b => ({
+                  content: finalBlocks.map((b: any) => ({
                     type: 'customBlock',
                     attrs: {
                       blockData: b,
@@ -566,7 +689,7 @@ const CreateContentV3Page: React.FC = () => {
 
         const currentBlocks = Array.isArray(prev.blocks)
           ? [...prev.blocks]
-          : (prev.blocks?.content?.filter((n: any) => n.type === 'customBlock').map((n: any) => n.attrs.blockData) || []);
+          : ((prev.blocks as any)?.content?.filter((n: any) => n.type === 'customBlock').map((n: any) => n.attrs.blockData) || []);
 
         return prev;
       });
@@ -579,14 +702,36 @@ const CreateContentV3Page: React.FC = () => {
       showNotification(`Erro ao construir com IA: ${e.message}`, 'error');
     } finally {
       setIsAIBuilding(false);
+      setIsModified(true);
     }
   };
 
   const handleSave = async (asStatus?: ContentStatus) => {
-    if (!currentUser) return;
+    // No modo incorporado, permitimos preview imediato sem validações rígidas
+    if (embeddedContext && asStatus === 'preview') {
+      setCurrentStep('preview');
+      setIsSaving(false);
+      return;
+    }
 
-    if (!content.meta?.title?.trim()) {
+    if (!currentUser && !embeddedContext) {
+      showNotification('Você precisa estar logado para salvar.', 'error');
+      setIsSaving(false);
+      return;
+    }
+
+    // Validação: Não permitir salvar se não houver modificações reais
+    const hasNoTitle = !content.meta?.title?.trim();
+
+    if (!isModified && !isAIBuilding) {
+      showNotification('Nenhuma alteração foi detectada no conteúdo. Faça alguma modificação antes de salvar.', 'warning');
+      setIsSaving(false);
+      return;
+    }
+
+    if (hasNoTitle) {
       showNotification('Adicione um título antes de salvar', 'error');
+      setIsSaving(false);
       return;
     }
 
@@ -597,6 +742,25 @@ const CreateContentV3Page: React.FC = () => {
         status: asStatus || 'draft',
         updatedAt: new Date().toISOString()
       };
+
+      if (embeddedContext) {
+        await embeddedContext.onSave(dataToSave, asStatus || 'draft');
+        showNotification('Aula salva com sucesso!', 'success');
+        setIsSaving(false);
+        
+        // Limpar cache e resetar estado modificado após salvar
+        const id = embeddedContext ? (embeddedContext.initialContent?.id || 'embedded') : (content.id || 'new');
+        localStorage.removeItem(`biblialm_v3_cache_${id}`);
+        initialBlocksRef.current = JSON.stringify(content.blocks);
+        initialTitleRef.current = content.meta.title || '';
+        setIsModified(false);
+        
+        // Se não for apenas um preview (ex: clicou em "Concluir Aula"), fechamos o editor
+        if (asStatus !== 'preview') {
+          embeddedContext.onClose();
+        }
+        return;
+      }
 
       if (content.id) {
         await dbService.updatePublicStudy(content.id, dataToSave);
@@ -687,7 +851,7 @@ const CreateContentV3Page: React.FC = () => {
                   <div className="flex items-center justify-between w-full lg:w-auto gap-4">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <button
-                        onClick={() => navigate(-1)}
+                        onClick={() => embeddedContext ? embeddedContext.onClose() : navigate(-1)}
                         className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300 flex-shrink-0"
                       >
                         <ArrowLeft size={20} />
@@ -727,13 +891,15 @@ const CreateContentV3Page: React.FC = () => {
 
                       <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
 
-                      <button
-                        onClick={() => setShowSettingsOverlay(true)}
-                        className="p-1.5 sm:p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
-                        title="Configurações"
-                      >
-                        <Settings size={18} />
-                      </button>
+                      {!embeddedContext && (
+                        <button
+                          onClick={() => setShowSettingsOverlay(true)}
+                          className="p-1.5 sm:p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
+                          title="Configurações"
+                        >
+                          <Settings size={18} />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleSave('draft')}
                         disabled={isSaving}
@@ -747,26 +913,28 @@ const CreateContentV3Page: React.FC = () => {
 
                   <div className="flex items-center gap-2 w-full lg:w-auto">
 
-                    <div className="hidden lg:flex items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-1 gap-0.5 mr-2">
-                      {([
-                        { key: 'mobile' as const, icon: <Minimize2 size={14} />, label: 'Mobile (375px)' },
-                        { key: 'tablet' as const, icon: <Square size={14} />, label: 'Tablet (768px)' },
-                        { key: 'desktop' as const, icon: <Monitor size={14} />, label: 'Desktop (900px)' },
-                        { key: 'full' as const, icon: <Maximize2 size={14} />, label: 'Largura total' },
-                      ]).map(opt => (
-                        <button
-                          key={opt.key}
-                          title={opt.label}
-                          onClick={() => setCanvasWidth(opt.key)}
-                          className={`p-1.5 rounded-lg transition-colors ${canvasWidth === opt.key
-                              ? 'bg-white dark:bg-gray-700 text-bible-gold shadow-sm'
-                              : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                            }`}
-                        >
-                          {opt.icon}
-                        </button>
-                      ))}
-                    </div>
+                    {!embeddedContext && (
+                      <div className="hidden lg:flex items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-1 gap-0.5 mr-2">
+                        {([
+                          { key: 'mobile' as const, icon: <Minimize2 size={14} />, label: 'Mobile (375px)' },
+                          { key: 'tablet' as const, icon: <Square size={14} />, label: 'Tablet (768px)' },
+                          { key: 'desktop' as const, icon: <Monitor size={14} />, label: 'Desktop (900px)' },
+                          { key: 'full' as const, icon: <Maximize2 size={14} />, label: 'Largura total' },
+                        ]).map(opt => (
+                          <button
+                            key={opt.key}
+                            title={opt.label}
+                            onClick={() => setCanvasWidth(opt.key)}
+                            className={`p-1.5 rounded-lg transition-colors ${canvasWidth === opt.key
+                                ? 'bg-white dark:bg-gray-700 text-bible-gold shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                              }`}
+                          >
+                            {opt.icon}
+                          </button>
+                        ))}
+                      </div>
+                    )}
 
                     <div className="flex flex-1 items-center gap-2">
                       <button
@@ -776,6 +944,8 @@ const CreateContentV3Page: React.FC = () => {
                         <Sparkles size={18} />
                         <span>Gerar Build c/ IA</span>
                       </button>
+
+
 
                       <button
                         onClick={() => handleSave('preview')}
@@ -787,6 +957,7 @@ const CreateContentV3Page: React.FC = () => {
                       </button>
                     </div>
                   </div>
+
 
                 </div>
               </header>
@@ -951,19 +1122,21 @@ const CreateContentV3Page: React.FC = () => {
                         : canvasWidth === 'full' ? 'w-full max-w-full'
                           : 'w-full max-w-7xl'
                     }`}>
-                    <UnifiedEditor
-                      ref={editorRef}
-                      content={content.blocks || ''}
-                      onChange={(json) => setContent(prev => ({ ...prev, blocks: json }))}
-                      onBlockSelect={(blockData) => {
-                        setSelectedBlock(blockData?.id || null);
-                        setActiveBlockData(blockData || null);
-                      }}
-                      readOnly={currentStep !== 'create'}
-                      canvasWidth={canvasWidth}
-                      studyId={content.id || content.slug}
-                      studyTitle={content.meta.title}
-                    />
+                    <div className="w-full h-full p-4 md:p-6 lg:p-8">
+                      <UnifiedEditor
+                        ref={editorRef}
+                        content={content.blocks || ''}
+                        onChange={(json) => setContent(prev => ({ ...prev, blocks: json }))}
+                        onBlockSelect={(blockData) => {
+                          setSelectedBlock(blockData?.id || null);
+                          setActiveBlockData(blockData || null);
+                        }}
+                        readOnly={currentStep !== 'create'}
+                        canvasWidth={canvasWidth}
+                        studyId={content.id || content.slug}
+                        studyTitle={content.meta.title}
+                      />
+                    </div>
                   </div>
                 </main>
 
@@ -972,7 +1145,7 @@ const CreateContentV3Page: React.FC = () => {
                     <div className="p-4">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="font-bold text-bible-ink dark:text-white">
-                          {blockLabels[selectedBlockData.type].label}
+                          {blockLabels[selectedBlockData.type as keyof typeof blockLabels]?.label || 'Bloco'}
                         </h3>
                         <button
                           onClick={() => {
@@ -1384,7 +1557,7 @@ const CreateContentV3Page: React.FC = () => {
       case 'preview':
         return (
           <>
-            <div className="min-h-screen bg-gray-100 dark:bg-bible-darkPaper">
+            <div className="h-screen w-full overflow-y-auto bg-gray-100 dark:bg-bible-darkPaper">
               <SEO title="Preview" />
 
               <header className="sticky top-0 z-50 bg-white dark:bg-bible-darkPaper border-b border-gray-200 dark:border-gray-800 px-4 py-3">
@@ -1407,14 +1580,25 @@ const CreateContentV3Page: React.FC = () => {
                     <button onClick={() => setCanvasWidth('desktop')} className={`p-2 rounded-lg transition-all ${canvasWidth === 'desktop' ? 'bg-white dark:bg-gray-700 text-bible-gold shadow-sm' : 'text-gray-400'}`} title="Desktop"><Monitor size={16} /></button>
                     <button onClick={() => setCanvasWidth('full')} className={`p-2 rounded-lg transition-all ${canvasWidth === 'full' ? 'bg-white dark:bg-gray-700 text-bible-gold shadow-sm' : 'text-gray-400'}`} title="Full Width"><Maximize2 size={16} /></button>
                   </div>
-                  <button
-                    onClick={handlePublish}
-                    disabled={isSaving}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-bible-gold text-white rounded-xl font-bold hover:bg-bible-gold/90 transition-colors disabled:opacity-50"
-                  >
-                    {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                    Publicar
-                  </button>
+                  {embeddedContext ? (
+                    <button
+                      onClick={() => handleSave('draft')}
+                      disabled={isSaving}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-bible-gold text-white rounded-xl font-bold hover:bg-bible-gold/90 transition-colors disabled:opacity-50"
+                    >
+                      {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+                      Salvar Aula
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handlePublish}
+                      disabled={isSaving}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-bible-gold text-white rounded-xl font-bold hover:bg-bible-gold/90 transition-colors disabled:opacity-50"
+                    >
+                      {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                      Publicar
+                    </button>
+                  )}
                 </div>
               </header>
 

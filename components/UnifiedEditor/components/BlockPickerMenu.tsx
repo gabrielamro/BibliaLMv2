@@ -24,7 +24,7 @@ interface BlockPickerMenuProps {
 
 const spacerSizes: Array<'1/3' | '1/2' | '1/1'> = ['1/3', '1/2', '1/1'];
 
-const iconByType: Record<BlockType, React.ComponentType<{ size?: number; className?: string }>> = {
+const iconByType: Record<BlockType, any> = {
   hero: LayoutTemplate,
   authority: User,
   biblical: BookOpen,
@@ -37,6 +37,8 @@ const iconByType: Record<BlockType, React.ComponentType<{ size?: number; classNa
   'related-verses': Sparkles,
   'reflection-question': MessageCircle,
   'rich-text': Type,
+  'references-chain': Sparkles,
+  cta: Sparkles,
   spacer: Maximize2,
 };
 

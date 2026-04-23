@@ -11,6 +11,7 @@ export const EditorBubbleMenu: React.FC<EditorBubbleMenuProps> = ({ editor }) =>
   return (
     <BubbleMenu 
       editor={editor} 
+      // @ts-ignore
       tippyOptions={{ duration: 100 }} 
       shouldShow={({ state }) => {
         const { selection } = state;

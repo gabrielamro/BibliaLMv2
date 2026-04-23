@@ -51,7 +51,7 @@ export const SortableBlock: React.FC<SortableBlockProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative group px-1 mb-4 inline-block align-top transition-all duration-300 box-border ${widthClass}`}
+      className={`relative group px-1 mb-10 inline-block align-top transition-all duration-300 box-border ${widthClass}`}
     >
       <div className={`relative rounded-2xl transition-all duration-300 ${isEditing ? 'hover:ring-2 hover:ring-bible-gold/30' : ''}`}>
         
@@ -114,7 +114,7 @@ export const SortableBlock: React.FC<SortableBlockProps> = ({
         {isEditing && (
           <button
             onClick={(e) => { e.stopPropagation(); onSettings?.(); }}
-            className="absolute -bottom-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-bible-gold text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-lg flex items-center gap-1 hover:bg-bible-gold/90"
+            className="absolute -bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-bible-gold text-white px-4 py-1.5 rounded-full text-[10px] font-black shadow-xl flex items-center gap-2 hover:bg-bible-gold/90 z-[60] border-2 border-white"
           >
             <Settings2 size={12} />
             CONFIGURAR

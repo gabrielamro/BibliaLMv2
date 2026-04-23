@@ -191,7 +191,7 @@ const ExplorePage: React.FC = () => {
                                         <BookOpen size={18} className="text-bible-gold" />
                                         <h3 className="text-lg font-serif font-black text-gray-900 dark:text-white">Planos & Salas</h3>
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={() => navigate('/acervo')}
                                         className="flex items-center gap-1.5 px-3 py-1.5 bg-bible-gold/10 hover:bg-bible-gold/20 rounded-lg text-bible-gold text-xs font-bold transition-colors"
                                     >

@@ -142,7 +142,7 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
 
   const handleLayoutWidthChange = (id: string, width: string) => {
     const newBlocks = blocks.map(block => 
-      block.id === id ? { ...block, data: { ...block.data, layoutWidth: width } } : block
+      block.id === id ? { ...block, layoutWidth: width as '1/1' | '1/2' | '1/3' | '2/3', data: { ...block.data, layoutWidth: width } } : block
     );
     onChange(newBlocks);
   };
@@ -168,8 +168,8 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
     };
 
     blocks.forEach((block) => {
-      const widthStr = block.data?.layoutWidth || '1/1';
-      const widthVal = widthStr === '1/1' ? 1 : widthStr === '1/2' ? 0.5 : 0.33;
+      const widthStr = block.layoutWidth || block.data?.layoutWidth || '1/1';
+      const widthVal = widthStr === '1/1' ? 1 : widthStr === '1/2' ? 0.5 : widthStr === '2/3' ? 0.66 : 0.33;
 
       if (currentRowWidth + widthVal > 1.05) {
         fillRow(currentRowWidth, result, rowId++);
@@ -281,8 +281,9 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
                     width={item.width} 
                     onAdd={(type, selectedWidth) => {
                         import('../../Builder').then(({ createBlock }) => {
-                            const nextWidth = selectedWidth || item.width;
+                            const nextWidth = (selectedWidth || item.width) as '1/1' | '1/2' | '1/3' | '2/3';
                             const newBlock = createBlock(type as any);
+                            newBlock.layoutWidth = nextWidth;
                             newBlock.data = { ...newBlock.data, layoutWidth: nextWidth };
                             
                             // Encontrar o índice correto de inserção
@@ -308,7 +309,7 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
                 <SortableBlock
                   key={block.id}
                   id={block.id}
-                  layoutWidth={block.data?.layoutWidth || '1/1'}
+                  layoutWidth={block.layoutWidth || block.data?.layoutWidth || '1/1'}
                   isEditing={isEditing}
                   onRemove={() => handleRemoveBlock(block.id)}
                   onDuplicate={() => handleDuplicateBlock(block.id)}

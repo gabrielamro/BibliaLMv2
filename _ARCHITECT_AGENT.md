@@ -13,6 +13,7 @@ Este documento contém as regras inegociáveis. Violações destas regras result
 - **RN03:** Não use `console.log` em produção.
 - **RN04:** O Firestore nunca é chamado diretamente em Views; use o `firebaseService`.
 - **RN05:** Todo novo módulo deve vir acompanhado de testes de integração (Playwright).
+- **RN06 (VERSÃO):** O Arquiteto é responsável por atualizar o número da versão em `constants.ts` e os `_RELEASENOTES.md` em cada entrega significativa.
 
 ## 3. Protocolo de Commit
 As mensagens de commit devem ser semânticas:

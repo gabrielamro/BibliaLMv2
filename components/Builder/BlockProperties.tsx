@@ -192,18 +192,25 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all resize-none outline-none"
                   />
                 </div>
-                {(localData.items || []).slice(0, 5).map((item: string, index: number) => (
-                  <div key={`${block.id}-outline-${index}`} className="group transition-all">
-                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block px-1">Item {index + 1}</label>
-                  <input
-                      type="text"
-                      aria-label={`Item ${index + 1}`}
-                      value={item || ''}
-                      onChange={(e) => handleArrayChange('items', index, e.target.value)}
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all outline-none"
-                    />
+                <div className="bg-amber-50 dark:bg-amber-900/10 p-3 rounded-xl border border-amber-100 dark:border-amber-800 mb-2">
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider mb-1">💡 Dica de Automação</p>
+                  <p className="text-[10px] text-amber-700/70 dark:text-amber-400/70 leading-relaxed">
+                    Este bloco é inteligente! Ele captura automaticamente todos os <strong>Subtítulos (H2)</strong> que você criar no texto do estudo.
+                  </p>
+                </div>
+                {(localData.items || []).map((item: string, index: number) => (
+                  <div key={`${block.id}-outline-${index}`} className="group transition-all opacity-80">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block px-1">Item {index + 1} (Automático)</label>
+                    <div className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-800/80 border border-transparent rounded-2xl text-xs text-gray-500 italic">
+                      {item || 'Sem título'}
+                    </div>
                   </div>
                 ))}
+                {(!localData.items || localData.items.length === 0) && (
+                  <p className="text-[10px] text-gray-400 italic text-center py-4 px-2">
+                    Nenhum subtítulo (H2) detectado no texto ainda.
+                  </p>
+                )}
               </>
             )}
 
@@ -218,26 +225,54 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all resize-none outline-none"
                   />
                 </div>
-                {(localData.verses || []).slice(0, 3).map((verse: any, index: number) => (
-                  <div key={`${block.id}-verse-${index}`} className="rounded-2xl border border-gray-100 dark:border-gray-800 p-3 space-y-2">
-                    <input
-                      type="text"
-                      aria-label={`Referencia ${index + 1}`}
-                      value={verse?.reference || ''}
-                      onChange={(e) => handleNestedArrayChange('verses', index, 'reference', e.target.value)}
-                      placeholder={`Referencia ${index + 1}`}
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all outline-none"
-                    />
-                    <textarea
-                      aria-label={`Resumo ${index + 1}`}
-                      value={verse?.summary || ''}
-                      onChange={(e) => handleNestedArrayChange('verses', index, 'summary', e.target.value)}
-                      rows={2}
-                      placeholder={`Resumo ${index + 1}`}
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-2xl text-xs transition-all resize-none outline-none"
-                    />
+                {(localData.verses || []).map((verse: any, index: number) => (
+                  <div key={`${block.id}-verse-${index}`} className="rounded-2xl border border-gray-100 dark:border-gray-800 p-4 space-y-3 bg-white dark:bg-gray-900/50 relative group">
+                    <button 
+                      onClick={() => {
+                        const current = [...(localData.verses || [])];
+                        current.splice(index, 1);
+                        handleChange('verses', current);
+                      }}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-100 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                    
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">Referência {index + 1}</label>
+                      <input
+                        type="text"
+                        value={verse?.reference || ''}
+                        onChange={(e) => handleNestedArrayChange('verses', index, 'reference', e.target.value)}
+                        placeholder="Ex: João 3:16"
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-xl text-xs transition-all outline-none"
+                      />
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">Resumo / Comentário</label>
+                      <textarea
+                        value={verse?.summary || ''}
+                        onChange={(e) => handleNestedArrayChange('verses', index, 'summary', e.target.value)}
+                        rows={2}
+                        placeholder="O que este versículo ensina?"
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-bible-gold/30 focus:bg-white dark:focus:bg-gray-900 rounded-xl text-xs transition-all resize-none outline-none"
+                      />
+                    </div>
                   </div>
                 ))}
+                
+                <button
+                  onClick={() => {
+                    const current = [...(localData.verses || [])];
+                    current.push({ reference: '', summary: '' });
+                    handleChange('verses', current);
+                  }}
+                  className="w-full py-4 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl text-gray-400 hover:text-bible-gold hover:border-bible-gold transition-all flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+                >
+                  <Plus size={16} />
+                  Adicionar Versículo
+                </button>
               </>
             )}
 

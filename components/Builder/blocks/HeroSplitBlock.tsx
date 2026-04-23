@@ -3,6 +3,7 @@ import React from 'react';
 interface HeroSplitBlockProps {
   data: any;
   isEditing: boolean;
+  onUpdate?: (data: any) => void;
 }
 
 export const HeroSplitBlock: React.FC<HeroSplitBlockProps> = ({ data, isEditing }) => {

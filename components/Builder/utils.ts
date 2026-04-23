@@ -101,3 +101,52 @@ export const buildBaseBlocks = (types: (BlockType | { type: BlockType; layoutWid
     return block;
   });
 };
+
+export const ESTUDO_PASTORAL_LAYOUT = [
+  { type: 'hero' as const, layoutWidth: '1/1' as const },
+  { type: 'biblical' as const, layoutWidth: '1/1' as const },
+  { type: 'rich-text' as const, layoutWidth: '1/1' as const },
+  { type: 'reflection-question' as const, layoutWidth: '1/1' as const },
+  { type: 'cta' as const, layoutWidth: '1/1' as const },
+  { type: 'footer' as const, layoutWidth: '1/1' as const },
+];
+
+export const buildEstudoPastoralBlocks = (): Block[] => {
+  return ESTUDO_PASTORAL_LAYOUT.map((item) => {
+    const block = createBlock(item.type);
+    block.layoutWidth = item.layoutWidth;
+    block.data = { ...block.data, layoutWidth: item.layoutWidth };
+    
+    if (block.type === 'hero') {
+      block.data = { ...block.data, 
+        title: "Salmo 91: O Abrigo do Altíssimo",
+        subtitle: "Uma promessa de proteção divina para quem busca refúgio em Deus",
+        ctaText: "Começar Estudo"
+      };
+    }
+    if (block.type === 'biblical') {
+      block.data = { ...block.data,
+        verse: "Salmo 91:1-2",
+        text: "Aquele que habita no abrigo do Altíssimo, sob a sombra do Onipotente descansará. Direi do SENHOR: Ele é o meu Deus, o meu refúgio, o meu alto refúgio, o meu Deus, em quem confio.",
+        reference: "Salmo 91:1-2",
+        enableHyperlink: true
+      };
+    }
+    if (block.type === 'reflection-question') {
+      block.data = { ...block.data,
+        question: "Você tem buscado refúgio em Deus ou em outras fontes de proteção?",
+        support: "Reflita sobre as áreas da sua vida onde você precisa confiar mais na proteção divina."
+      };
+    }
+    if (block.type === 'cta') {
+      block.data = { ...block.data,
+        headline: "Continue aprofundando",
+        subheadline: "Explore mais estudos do Saltério ou crie seu próprio estudo",
+        primaryText: "Ver mais estudos",
+        secondaryText: "Criar meu estudo"
+      };
+    }
+    
+    return block;
+  });
+};

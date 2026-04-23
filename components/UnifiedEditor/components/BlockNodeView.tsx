@@ -54,6 +54,12 @@ export const BlockNodeView = (props: any) => {
     props.updateAttributes({ layoutWidth: width });
   };
 
+  const setAlign = (align: string, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    props.updateAttributes({ layoutAlign: align });
+  };
+
   if (!blockData) return null;
 
   const widthClass = widthToClass[layoutWidth] || 'w-full';
@@ -159,7 +165,7 @@ export const BlockNodeView = (props: any) => {
     let myRowSum = 0;
     let foundMyRow = false;
 
-    doc.forEach((node, offset) => {
+    doc.forEach((node: any, offset: number) => {
       if (foundMyRow) return; // Já achamos nossa linha
       const nw = widthFraction(node.attrs.layoutWidth || '1/1');
 
@@ -195,7 +201,7 @@ export const BlockNodeView = (props: any) => {
     let myRowBlockCount = 0;
     let foundRow = false;
 
-    doc.forEach((node, offset) => {
+    doc.forEach((node: any, offset: number) => {
       const nw = widthFraction(node.attrs.layoutWidth || '1/1');
 
       if (nw === 1) {
@@ -253,9 +259,9 @@ export const BlockNodeView = (props: any) => {
   return (
     <NodeViewWrapper
       draggable={!props.editor.isEditable ? 'false' : 'true'}
-      data-drag-handle={!props.editor.isEditable ? 'false' : 'true'}
       data-type="custom-block"
       layoutwidth={layoutWidth}
+      layoutalign={props.node.attrs.layoutAlign || 'left'}
       className={`custom-block-outer relative group box-border px-1 transition-all duration-300 w-full ${isSelected ? 'z-[60]' : 'z-auto'}`}
     >
       <div className={`w-full transition-all duration-300 ${isSelected && props.editor.isEditable ? 'relative rounded-2xl ring-2 ring-bible-gold shadow-2xl' : 'ring-transparent'}`}>
@@ -267,7 +273,10 @@ export const BlockNodeView = (props: any) => {
         )}
 
         {props.editor.isEditable && (
-          <div className="absolute -left-10 top-1/2 hidden -translate-y-1/2 cursor-grab items-center justify-center p-2 text-gray-400 opacity-0 transition-opacity hover:text-bible-gold active:cursor-grabbing lg:flex lg:group-hover:opacity-100">
+          <div 
+            data-drag-handle
+            className="absolute -left-10 top-1/2 hidden -translate-y-1/2 cursor-grab items-center justify-center p-2 text-gray-400 opacity-0 transition-opacity hover:text-bible-gold active:cursor-grabbing lg:flex lg:group-hover:opacity-100"
+          >
             <GripVertical size={20} />
           </div>
         )}
@@ -291,6 +300,20 @@ export const BlockNodeView = (props: any) => {
                   {option}
                 </button>
               ))}
+              {layoutWidth !== '1/1' && (
+                <>
+                  <div className="mx-1 h-4 w-px bg-gray-200" />
+                  {['left', 'center', 'right'].map((align) => (
+                    <button
+                      key={align}
+                      onClick={(event) => setAlign(align, event)}
+                      className={`rounded-full px-2 py-1 text-[10px] font-bold transition-colors uppercase ${props.node.attrs.layoutAlign === align ? 'bg-bible-ink text-white' : 'text-gray-400 hover:bg-gray-100'}`}
+                    >
+                      {align === 'left' ? 'L' : align === 'center' ? 'C' : 'R'}
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
 
             <button
@@ -306,9 +329,10 @@ export const BlockNodeView = (props: any) => {
                 event.stopPropagation();
                 window.dispatchEvent(new CustomEvent('open-mobile-properties', { detail: blockData }));
               }}
-              className="pointer-events-auto absolute -bottom-3 -left-3 flex h-8 w-8 items-center justify-center rounded-full bg-bible-gold text-white shadow-lg transition-all hover:bg-bible-gold/90"
+              className="pointer-events-auto absolute -bottom-5 left-1/2 -translate-x-1/2 flex h-8 px-4 items-center justify-center rounded-full bg-bible-gold text-white shadow-xl transition-all hover:bg-bible-gold/90 z-[75] border-2 border-white font-black text-[10px] gap-2"
             >
-              <Settings2 size={14} />
+              <Settings2 size={12} />
+              CONFIGURAR
             </button>
           </div>
         )}

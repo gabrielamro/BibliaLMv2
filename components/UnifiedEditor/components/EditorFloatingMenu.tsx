@@ -24,6 +24,7 @@ export const EditorFloatingMenu: React.FC<EditorFloatingMenuProps> = ({ editor }
   };
 
   return (
+    // @ts-ignore
     <FloatingMenu editor={editor} tippyOptions={{ duration: 100, placement: 'right' }} className="flex relative z-50">
       <button
         onClick={() => setIsOpen(!isOpen)}

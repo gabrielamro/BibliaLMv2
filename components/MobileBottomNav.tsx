@@ -23,7 +23,7 @@ const MobileBottomNav: React.FC = () => {
       id: 'bible',
       label: 'Palavra',
       icon: BookOpen,
-      path: '/biblia',
+      path: '/bibliasagrada',
       protected: false
     },
     {

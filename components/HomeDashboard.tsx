@@ -34,7 +34,7 @@ const HomeDashboard: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        setTitle('Santuário');
+        setTitle('Início');
         setBreadcrumbs([]);
 
         const handleScrollToTop = () => {

@@ -21,7 +21,7 @@ interface RichTextBlockProps {
 // ─── Default Template ─────────────────────────────────────────────────────
 const DEFAULT_CONTENT = `
 <h1 style="text-align:center;font-family:'Playfair Display',Georgia,serif;color:#b45309;font-size:2.25rem;font-weight:800;margin:0 0 6px 0;line-height:1.2">A Revelação Plena</h1>
-<p style="text-align:center;color:#a8a29e;font-size:0.875rem;letter-spacing:0.15em;text-transform:uppercase;margin:0 0 20px 0">Estudo Bíblico Pastoral</p>
+<p class="bible-subtitle" style="text-align:center;color:#a8a29e;font-size:0.875rem;letter-spacing:0.15em;text-transform:uppercase;margin:0 0 20px 0">Estudo Bíblico Pastoral</p>
 <hr style="border:none;border-top:2px solid #fde68a;width:60%;margin:0 auto 24px auto">
 <h2 style="color:#92400e;font-size:1.25rem;font-weight:700;margin:0 0 10px 0;border-left:4px solid #c5a059;padding-left:12px">1. O Despertar</h2>
 <p style="margin:0 0 14px 0">Apresente o tema com autoridade. Situe o leitor na jornada que ele está prestes a trilhar e ancore a mensagem na urgência espiritual do momento.</p>
@@ -343,9 +343,18 @@ export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, is
         .rtb-editor h1 {
           font-family: 'Playfair Display', 'Georgia', serif;
           font-size: clamp(1.375rem, 4vw, 2rem); font-weight: 800; line-height: 1.25;
-          color: #b45309; margin: 0.1em 0 0.5em 0;
+          color: #b45309; margin: 0.1em auto 0.5em auto;
+          text-align: center;
         }
         .dark .rtb-editor h1 { color: #fbbf24; }
+        .rtb-editor p.bible-subtitle {
+          text-align: center;
+          color: #a8a29e;
+          font-size: 0.875rem;
+          letter-spacing: 0.15em;
+          text-transform: uppercase;
+          margin: 0 auto 20px auto;
+        }
         .rtb-editor h2 {
           font-size: 1.35rem; font-weight: 700; line-height: 1.3;
           color: #92400e; margin: 1.25em 0 0.45em 0;
@@ -377,7 +386,7 @@ export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, is
         .rtb-editor u { text-decoration: underline; }
         .rtb-editor s { text-decoration: line-through; }
         .rtb-editor a { color: #c5a059; text-decoration: underline; }
-        .rtb-editor hr { border: none; border-top: 2px solid #fde68a; margin: 18px 0; }
+        .rtb-editor hr { border: none; border-top: 2px solid #fde68a; width: 60%; margin: 18px auto 24px auto; }
         .rtb-editor img { max-width: 100%; border-radius: 10px; margin: 14px 0; display: block; }
         .rtb-editor cite { font-style: normal; }
       `}</style>
@@ -390,15 +399,35 @@ export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, is
         />
       )}
 
-      <div
-        ref={editorRef}
-        contentEditable={isEditing}
-        suppressContentEditableWarning
-        onInput={handleInput}
-        data-placeholder="Comece a escrever..."
-        className={`rtb-editor flex-1 ${contentPadding} overflow-y-auto`}
-        style={{ outline: 'none' }}
-      />
+      <div 
+        className="flex-1 w-full overflow-y-auto cursor-text"
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          if (isEditing && editorRef.current && e.target !== editorRef.current && !editorRef.current.contains(e.target as Node)) {
+            e.preventDefault();
+            editorRef.current.focus();
+            try {
+              const range = document.createRange();
+              range.selectNodeContents(editorRef.current);
+              range.collapse(false);
+              const sel = window.getSelection();
+              sel?.removeAllRanges();
+              sel?.addRange(range);
+            } catch (err) {}
+          }
+        }}
+      >
+        <div
+          ref={editorRef}
+          contentEditable={isEditing}
+          suppressContentEditableWarning
+          onInput={handleInput}
+          onMouseDown={(e) => e.stopPropagation()}
+          data-placeholder="Comece a escrever..."
+          className={`rtb-editor w-full max-w-[800px] mx-auto ${contentPadding}`}
+          style={{ outline: 'none', minHeight: '100%' }}
+        />
+      </div>
     </div>
   );
 };

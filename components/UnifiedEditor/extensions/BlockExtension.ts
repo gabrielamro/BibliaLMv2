@@ -94,13 +94,29 @@ export const BlockExtension = Node.create({
                 // We apply layout attributes directly to it.
                 const wrapper = domAtPos;
                 const currentLw = wrapper.getAttribute('layoutwidth');
-                if (currentLw !== lw) {
+                const currentLa = wrapper.getAttribute('layoutalign');
+                const la = node.attrs.layoutAlign || 'left';
+
+                if (currentLw !== lw || currentLa !== la) {
                   wrapper.setAttribute('layoutwidth', lw);
+                  wrapper.setAttribute('layoutalign', la);
                   wrapper.setAttribute('data-type', 'custom-block');
                   wrapper.style.flex = `0 0 ${pct}`;
                   wrapper.style.maxWidth = pct;
                   wrapper.style.width = pct;
                   wrapper.style.boxSizing = 'border-box';
+                  
+                  // Aplicar margens para alinhamento se for flex row
+                  if (la === 'center') {
+                    wrapper.style.marginLeft = 'auto';
+                    wrapper.style.marginRight = 'auto';
+                  } else if (la === 'right') {
+                    wrapper.style.marginLeft = 'auto';
+                    wrapper.style.marginRight = '0';
+                  } else {
+                    wrapper.style.marginLeft = '0';
+                    wrapper.style.marginRight = 'auto';
+                  }
                 }
               });
             },

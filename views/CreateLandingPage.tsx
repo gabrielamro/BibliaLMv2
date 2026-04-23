@@ -74,14 +74,11 @@ const initialOnePageLayout: { type: BlockType; layoutWidth?: '1/1' | '1/2' | '1/
   { type: 'biblical', layoutWidth: '2/3' },
   { type: 'study-outline', layoutWidth: '1/3' },
   { type: 'rich-text', layoutWidth: '1/1' },
-  { type: 'related-verses', layoutWidth: '1/3' },
-  { type: 'slide', layoutWidth: '1/3' },
-  { type: 'spacer', layoutWidth: '1/3' },
-  { type: 'reflection-question', layoutWidth: '1/2' },
-  { type: 'rich-text', layoutWidth: '1/2' },
-  { type: 'spacer', layoutWidth: '1/1' },
+  { type: 'slide', layoutWidth: '1/1' },
+  { type: 'related-verses', layoutWidth: '1/1' },
   { type: 'authority', layoutWidth: '1/1' },
   { type: 'footer', layoutWidth: '1/1' },
+  { type: 'reflection-question', layoutWidth: '1/1' },
 ];
 
 const contentTemplates: Record<ContentType, any[]> = {
@@ -102,13 +99,23 @@ const typeLabels: Record<string, { singular: string; plural: string; description
 // Todos os blocos são livres
 const isCoreBlock = (_type: BlockType) => false;
 
-const CreateLandingPage: React.FC = () => {
+// Interface para uso embutido (ex: dentro do Criador de Jornadas)
+export interface EmbeddedContext {
+  initialContent: any;
+  onSave: (content: any, status: ContentStatus) => void;
+  onClose: () => void;
+  isEmbedded: boolean;
+}
 
+// Componente principal para criação de Landing Pages e Estudos Bíblicos
+const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ embeddedContext }) => {
+  // Hooks de navegação, autenticação e cabeçalho global
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser, earnMana, showNotification } = useAuth();
   const { setTitle, setBreadcrumbs, resetHeader, setIsHeaderHidden } = useHeader();
 
+  // Estados principais de controle do fluxo (Criação, Preview, Publicação)
   const [currentStep, setCurrentStep] = useState<'create' | 'preview' | 'publish'>('create');
   const [contentType, setContentType] = useState<ContentType>('article');
   const [creationMode, setCreationMode] = useState<CreationMode>('manual');
@@ -116,6 +123,8 @@ const CreateLandingPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
+  // Dados do conteúdo (blocos, metadados, stats)
   const [content, setContent] = useState<ContentData>({
     type: 'article',
     status: 'draft',
@@ -127,16 +136,17 @@ const CreateLandingPage: React.FC = () => {
     updatedAt: new Date().toISOString()
   });
 
-  // UI State
+  // Estados de interface (bloco selecionado, largura do canvas, etc)
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [activeBlockData, setActiveBlockData] = useState<any>(null); // Guardar dados do Tiptap Node
   const [copiedSlug, setCopiedSlug] = useState(false);
-  // Ref do Editor para comandos imperativos
+  // Ref do Editor para comandos imperativos (TipTap)
   const editorRef = useRef<any>(null);
   const [canvasWidth, setCanvasWidth] = useState<'mobile' | 'tablet' | 'desktop' | 'full'>('desktop');
 
-  // Ajuste inicial inteligente para mobile
+  // Ajuste inicial inteligente para mobile (responsividade automática)
   useEffect(() => {
+
     if (typeof window !== 'undefined') {
       if (window.innerWidth < 768) {
         setCanvasWidth('mobile');
@@ -145,6 +155,7 @@ const CreateLandingPage: React.FC = () => {
       }
     }
   }, []);
+  // Estados para modais e overlays (Configurações, IA, Mobile)
   const [isMobilePropertiesOpen, setIsMobilePropertiesOpen] = useState(false);
   const [isMobileAddMenuOpen, setIsMobileAddMenuOpen] = useState(false);
   const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
@@ -152,7 +163,7 @@ const CreateLandingPage: React.FC = () => {
   const [accessLogs, setAccessLogs] = useState<any[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
-  // Histórico (Undo/Redo)
+  // Histórico de alterações (Desfazer/Refazer)
   const [history, setHistory] = useState<Block[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isUndoing, setIsUndoing] = useState(false);
@@ -160,19 +171,22 @@ const CreateLandingPage: React.FC = () => {
   const [showCreationInfo, setShowCreationInfo] = useState(true);
   const [showCreationHelper, setShowCreationHelper] = useState(true);
 
-  // AI Auto-Builder (Fase 3)
+  // Estados e Refs para o Construtor com IA (Fase 3)
   const [showAIBuilderModal, setShowAIBuilderModal] = useState(false);
   const [aiBuilderPrompt, setAIBuilderPrompt] = useState('');
   const [isAIBuilding, setIsAIBuilding] = useState(false);
   const aiBuilderTextareaRef = useRef<HTMLTextAreaElement>(null);
 
+
   // Campos Bíblicos
+  // Estados para busca e integração com referências bíblicas
   const [mainVerse, setMainVerse] = useState('');
   const [verseText, setVerseText] = useState('');
   const [verseRef, setVerseRef] = useState('');
   const [isSearchingVerse, setIsSearchingVerse] = useState(false);
   const [category, setCategory] = useState('Geral');
   const searchTimeoutRef = useRef<any>(null);
+
 
   // Scroll handling logic removed to stabilize layout
   const handleMainScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -198,7 +212,7 @@ const CreateLandingPage: React.FC = () => {
     }
   }, [showSettingsOverlay, settingsTab, content.id]);
 
-  // Header
+  // Atualiza o título e o breadcrumb do cabeçalho global conforme o passo atual
   useEffect(() => {
     const titles: Record<string, string> = {
       create: content.meta.title || 'Editando',
@@ -215,12 +229,29 @@ const CreateLandingPage: React.FC = () => {
     return () => resetHeader();
   }, [currentStep, content.meta.title, setTitle, setBreadcrumbs, resetHeader]);
 
-  // Inicialização
+  // Função principal de inicialização: carrega estudo existente ou inicializa um novo
   useEffect(() => {
+
     const loadContent = async () => {
       const state = location.state as any;
       const urlParams = new URLSearchParams(location.search);
       const targetId = state?.contentId || urlParams.get('id');
+
+      // Se estiver em modo embutido, pular lógica de URL e DB
+      if (embeddedContext) {
+        const data = embeddedContext.initialContent;
+        const parsedBlocks = typeof data.blocks === 'string' ? JSON.parse(data.blocks) : (data.blocks || []);
+        const parsedMeta = typeof data.meta === 'string' ? JSON.parse(data.meta) : (data.meta || { title: '', description: '', tags: [], visibility: 'public' });
+        setContent({
+          ...data,
+          blocks: parsedBlocks,
+          meta: parsedMeta
+        });
+        setContentType(data.type || 'article');
+        setCurrentStep('create');
+        setIsLoading(false);
+        return;
+      }
 
       // Se vier de "Meus Estudos" ou criar novo, inicializar com template de estudo
       if (!targetId && !state?.studyData) {
@@ -305,7 +336,7 @@ const CreateLandingPage: React.FC = () => {
     loadContent();
   }, [location.state, location.search]);
 
-  // Busca automática de versículo
+  // Lógica de busca automática de texto bíblico ao digitar uma referência (debounce)
   useEffect(() => {
     const ref = mainVerse.trim();
     if (ref.length > 2) {
@@ -353,6 +384,7 @@ const CreateLandingPage: React.FC = () => {
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
   }, [mainVerse]);
 
+
   // Quando a referência for encontrada, atualizar o bloco bíblico
   useEffect(() => {
     if (verseRef && verseText) {
@@ -380,7 +412,7 @@ const CreateLandingPage: React.FC = () => {
     }
   }, [verseRef, verseText]);
 
-  // --- UNDO / REDO ---
+  // Registra alterações no histórico para permitir Desfazer/Refazer (Debounce de 500ms)
   useEffect(() => {
     if (isUndoing) {
       setIsUndoing(false);
@@ -402,6 +434,7 @@ const CreateLandingPage: React.FC = () => {
     }, 500);
     return () => clearTimeout(timer);
   }, [content.blocks, historyIndex, isUndoing]);
+
 
   const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
@@ -456,25 +489,28 @@ const CreateLandingPage: React.FC = () => {
   }, [handleUndo, handleRedo]);
 
 
-  // Blocos
+  // Função para adicionar um bloco ao final do conteúdo ou na posição atual do cursor
   const addBlock = (type: BlockType) => {
     if (editorRef.current) {
       editorRef.current.insertBlock(type);
     }
   };
 
+  // Remove um bloco específico pelo ID
   const removeBlock = (id: string) => {
     if (editorRef.current?.removeBlock) {
       editorRef.current.removeBlock(id);
     }
   };
 
+  // Atualiza os dados de um bloco específico
   const updateBlock = (id: string, data: Record<string, any>) => {
     if (editorRef.current?.updateBlock) {
       editorRef.current.updateBlock(id, data);
       setActiveBlockData((prev: any) => prev?.id === id ? { ...prev, data: { ...prev.data, ...data } } : prev);
     }
   };
+
 
   const moveBlock = (fromIndex: number, toIndex: number) => { return; }; // Reduzido
 
@@ -520,13 +556,14 @@ const CreateLandingPage: React.FC = () => {
     setSelectedBlock(newBlock.id);
   };
 
-  // Meta
+  // Atualiza metadados do documento (título, descrição, capa, etc)
   const updateMeta = (field: string, value: any) => {
     setContent(prev => ({
       ...prev,
       meta: { ...prev.meta, [field]: value }
     }));
   };
+
 
   const stripHtml = (text: string) => text.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 
@@ -555,7 +592,7 @@ const CreateLandingPage: React.FC = () => {
       prayer: extractSectionHtml(cleanHtml, '4. Oração') || extractSectionHtml(cleanHtml, 'Oração Final')
     };
   };
-  // AI Auto-Builder: Gera TODA a estrutura da one-page via prompt livre
+  // Aciona a Inteligência Artificial para gerar toda a estrutura da página com base no prompt do usuário
   const handleAIAutoBuilder = async () => {
     const userPrompt = aiBuilderPrompt.trim();
     if (!userPrompt && !verseRef) {
@@ -583,13 +620,15 @@ const CreateLandingPage: React.FC = () => {
           'hero-split': '1/1',
           'biblical': '2/3',
           'study-outline': '1/3',
-          'reflection-question': '1/2',
+          'rich-text': '1/1',
+          'slide': '1/1',
+          'related-verses': '1/1',
           'authority': '1/1',
           'footer': '1/1',
-          'spacer': '1/1',
+          'reflection-question': '1/1',
         };
-        // Sequência exata de layoutWidths do Roadmap V2 (11 blocos)
-        const roadmapSequence = ['1/1', '2/3', '1/3', '1/1', '1/3', '1/3', '1/3', '1/2', '1/2', '1/1', '1/1'];
+        // Sequência exata de layoutWidths do Roadmap V3 (9 blocos)
+        const roadmapSequence = ['1/1', '2/3', '1/3', '1/1', '1/1', '1/1', '1/1', '1/1', '1/1'];
 
         // Se a IA retornar blocos em formato de array (Roadmap V2)
         if (aiBlocks.length > 0) {
@@ -603,7 +642,15 @@ const CreateLandingPage: React.FC = () => {
             }
 
             // Forçar layoutWidth: 1) valor do Roadmap por índice, 2) valor por tipo, 3) valor da IA, 4) fallback 1/1
-            const enforcedWidth = roadmapSequence[idx] || roadmapWidths[b.type] || b.layoutWidth || '1/1';
+            let enforcedWidth = roadmapSequence[idx] || roadmapWidths[b.type] || b.layoutWidth || '1/1';
+
+            // Lógica dinâmica para Related Verses: Ajusta largura baseada na quantidade (1=1/3, 2=1/2, 3+=1/1)
+            if (b.type === 'related-verses' && b.data?.verses) {
+              const count = b.data.verses.length;
+              if (count === 1) enforcedWidth = '1/3';
+              else if (count === 2) enforcedWidth = '1/2';
+              else if (count >= 3) enforcedWidth = '1/1';
+            }
 
             return {
               id: b.id || `${b.type}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -613,7 +660,7 @@ const CreateLandingPage: React.FC = () => {
             };
           });
 
-          const isTipTapFormat = !Array.isArray(prev.blocks) && prev.blocks?.type === 'doc';
+          const isTipTapFormat = !Array.isArray(prev.blocks) && (prev.blocks as any)?.type === 'doc';
 
           const newState = {
             ...prev,
@@ -624,16 +671,16 @@ const CreateLandingPage: React.FC = () => {
             },
             slug: result.slug || prev.slug,
             blocks: isTipTapFormat
-              ? { 
-                  type: 'doc', 
-                  content: finalBlocks.map(b => ({ 
-                    type: 'customBlock', 
-                    attrs: { 
-                      blockData: b, 
-                      layoutWidth: b.layoutWidth || '1/1' 
-                    } 
-                  })) 
-                }
+              ? {
+                type: 'doc',
+                content: finalBlocks.map((b: any) => ({
+                  type: 'customBlock',
+                  attrs: {
+                    blockData: b,
+                    layoutWidth: b.layoutWidth || '1/1'
+                  }
+                }))
+              }
               : finalBlocks
           };
 
@@ -647,7 +694,7 @@ const CreateLandingPage: React.FC = () => {
         // Fallback para mapeamento antigo se necessário (segurança)
         const currentBlocks = Array.isArray(prev.blocks)
           ? [...prev.blocks]
-          : (prev.blocks?.content?.filter((n: any) => n.type === 'customBlock').map((n: any) => n.attrs.blockData) || []);
+          : ((prev.blocks as any)?.content?.filter((n: any) => n.type === 'customBlock').map((n: any) => n.attrs.blockData) || []);
 
         // ... (resto da lógica de merge se necessário, mas a IA V2 sempre manda array)
         return prev;
@@ -664,11 +711,22 @@ const CreateLandingPage: React.FC = () => {
     }
   };
 
-  // Salvar alterações
+
+  // Salva o estado atual do estudo no banco de dados como rascunho
   const handleSave = async (asStatus?: ContentStatus) => {
     if (!currentUser) return;
 
-    if (!content.meta?.title?.trim()) {
+    // Validação: Não permitir salvar/preview se não houver modificações no template base (apenas para novos estudos)
+    const isNew = !content.id;
+    const hasNoChanges = history.length <= 1;
+    const hasNoTitle = !content.meta?.title?.trim();
+
+    if (isNew && hasNoChanges && hasNoTitle) {
+      showNotification('Faça alguma modificação no template ou use a IA antes de prosseguir.', 'warning');
+      return;
+    }
+
+    if (hasNoTitle) {
       showNotification('Adicione um título antes de salvar', 'error');
       return;
     }
@@ -680,6 +738,13 @@ const CreateLandingPage: React.FC = () => {
         status: asStatus || 'draft',
         updatedAt: new Date().toISOString()
       };
+
+      if (embeddedContext) {
+        await embeddedContext.onSave(dataToSave, asStatus || 'draft');
+        showNotification('Aula salva no plano!', 'success');
+        setIsSaving(false);
+        return;
+      }
 
       if (content.id) {
         await dbService.updatePublicStudy(content.id, dataToSave);
@@ -704,8 +769,14 @@ const CreateLandingPage: React.FC = () => {
     }
   };
 
-  // Publicar
+  // Publica o estudo, gerando o slug (URL amigável) se necessário
   const handlePublish = async () => {
+    // Validação de modificação antes de publicar
+    if (!content.id && history.length <= 1 && !content.meta?.title?.trim()) {
+      showNotification('Você não pode publicar o template base sem modificações.', 'warning');
+      return;
+    }
+
     let finalSlug = content.slug;
 
     // Se não tiver slug, gera a partir do título
@@ -750,7 +821,7 @@ const CreateLandingPage: React.FC = () => {
     }
   };
 
-  // Copiar link
+  // Copia o link público de compartilhamento para a área de transferência
   const copyShareLink = () => {
     const url = `${window.location.origin}/p/${content.slug}`;
     navigator.clipboard.writeText(url);
@@ -759,11 +830,14 @@ const CreateLandingPage: React.FC = () => {
     showNotification('Link copiado!', 'success');
   };
 
+
   const selectedBlockData = activeBlockData || (Array.isArray(content.blocks) ? content.blocks.find((b: any) => b.id === selectedBlock) : null);
 
   // RENDER: Helper Functions
 
+  // Função de renderização principal que alterna entre as telas do fluxo (Criação, Preview, Publicação)
   const renderStepContent = () => {
+
     switch (currentStep) {
       case 'create':
         return (
@@ -771,15 +845,16 @@ const CreateLandingPage: React.FC = () => {
             <div className="min-h-screen md:h-screen w-full max-w-[100vw] flex flex-col bg-gray-100 dark:bg-bible-darkPaper overflow-y-auto overflow-x-clip md:overflow-hidden">
               <SEO title="Editor de Conteúdo" />
 
-              {/* Header do Editor (Estático no topo do flex-col) */}
+              {/* Barra de Ferramentas Superior (Header do Editor) - Contém ações globais como Undo, Redo, Preview e Botão de IA */}
               <header className="w-full bg-white dark:bg-bible-darkPaper border-b border-gray-200 dark:border-gray-800 px-3 md:px-4 py-3 shadow-sm z-30">
+
                 <div className="flex flex-col lg:flex-row justify-between w-full mx-auto gap-3">
 
                   {/* Top row mobile / Left desktop */}
                   <div className="flex items-center justify-between w-full lg:w-auto gap-4">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <button
-                        onClick={() => navigate(-1)}
+                        onClick={() => embeddedContext ? embeddedContext.onClose() : navigate(-1)}
                         className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300 flex-shrink-0"
                       >
                         <ArrowLeft size={20} />
@@ -815,13 +890,15 @@ const CreateLandingPage: React.FC = () => {
 
                       <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
 
-                      <button
-                        onClick={() => setShowSettingsOverlay(true)}
-                        className="p-1.5 sm:p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
-                        title="Configurações"
-                      >
-                        <Settings size={18} />
-                      </button>
+                      {!embeddedContext && (
+                        <button
+                          onClick={() => setShowSettingsOverlay(true)}
+                          className="p-1.5 sm:p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
+                          title="Configurações"
+                        >
+                          <Settings size={18} />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleSave('draft')}
                         disabled={isSaving}
@@ -837,26 +914,28 @@ const CreateLandingPage: React.FC = () => {
                   <div className="flex items-center gap-2 w-full lg:w-auto">
 
                     {/* Responsive layout preview buttons (hidden on mobile) */}
-                    <div className="hidden lg:flex items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-1 gap-0.5 mr-2">
-                      {([
-                        { key: 'mobile' as const, icon: <Minimize2 size={14} />, label: 'Mobile (375px)' },
-                        { key: 'tablet' as const, icon: <Square size={14} />, label: 'Tablet (768px)' },
-                        { key: 'desktop' as const, icon: <Monitor size={14} />, label: 'Desktop (900px)' },
-                        { key: 'full' as const, icon: <Maximize2 size={14} />, label: 'Largura total' },
-                      ]).map(opt => (
-                        <button
-                          key={opt.key}
-                          title={opt.label}
-                          onClick={() => setCanvasWidth(opt.key)}
-                          className={`p-1.5 rounded-lg transition-colors ${canvasWidth === opt.key
+                    {!embeddedContext && (
+                      <div className="hidden lg:flex items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-1 gap-0.5 mr-2">
+                        {([
+                          { key: 'mobile' as const, icon: <Minimize2 size={14} />, label: 'Mobile (375px)' },
+                          { key: 'tablet' as const, icon: <Square size={14} />, label: 'Tablet (768px)' },
+                          { key: 'desktop' as const, icon: <Monitor size={14} />, label: 'Desktop (900px)' },
+                          { key: 'full' as const, icon: <Maximize2 size={14} />, label: 'Largura total' },
+                        ]).map(opt => (
+                          <button
+                            key={opt.key}
+                            title={opt.label}
+                            onClick={() => setCanvasWidth(opt.key)}
+                            className={`p-1.5 rounded-lg transition-colors ${canvasWidth === opt.key
                               ? 'bg-white dark:bg-gray-700 text-bible-gold shadow-sm'
                               : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                            }`}
-                        >
-                          {opt.icon}
-                        </button>
-                      ))}
-                    </div>
+                              }`}
+                          >
+                            {opt.icon}
+                          </button>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Big Buttons */}
                     <div className="flex flex-1 items-center gap-2">
@@ -868,14 +947,25 @@ const CreateLandingPage: React.FC = () => {
                         <span>Gerar Build c/ IA</span>
                       </button>
 
-                      <button
-                        onClick={() => handleSave('preview')}
-                        disabled={isSaving}
-                        className="flex-1 lg:flex-none flex justify-center items-center gap-2 px-4 py-2.5 bg-bible-gold text-white rounded-xl font-bold text-sm hover:bg-bible-gold/90 transition-all active:scale-95 disabled:opacity-50"
-                      >
-                        {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Eye size={18} />}
-                        <span>Preview</span>
-                      </button>
+                      {embeddedContext ? (
+                        <button
+                          onClick={() => handleSave('draft')}
+                          disabled={isSaving}
+                          className="flex-1 lg:flex-none flex justify-center items-center gap-2 px-4 py-2.5 bg-bible-gold text-white rounded-xl font-bold text-sm hover:bg-bible-gold/90 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                          <span>Concluir Aula</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleSave('preview')}
+                          disabled={isSaving}
+                          className="flex-1 lg:flex-none flex justify-center items-center gap-2 px-4 py-2.5 bg-bible-gold text-white rounded-xl font-bold text-sm hover:bg-bible-gold/90 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Eye size={18} />}
+                          <span>Preview</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -884,8 +974,9 @@ const CreateLandingPage: React.FC = () => {
 
               {/* Editor Body */}
               <div className="flex-1 flex overflow-x-clip md:overflow-hidden">
-                {/* Sidebar - Campos Bíblicos e Blocos */}
+                {/* Barra Lateral Esquerda - Painel de controle de referências e menu de adição de blocos por clique/arrasto */}
                 <aside className="w-72 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-r border-gray-200 dark:border-gray-800 overflow-y-auto hidden lg:block">
+
                   <div className="p-4">
 
                     {/* Referência Bíblica */}
@@ -973,8 +1064,8 @@ const CreateLandingPage: React.FC = () => {
                               }}
                               onClick={() => addBlock(type)}
                               className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left group ${isLockedBase
-                                  ? 'bg-gray-100 dark:bg-gray-800/50 opacity-50 cursor-not-allowed'
-                                  : 'bg-gray-50 dark:bg-gray-900 hover:bg-bible-gold/10 active:scale-[0.98] cursor-grab active:cursor-grabbing'
+                                ? 'bg-gray-100 dark:bg-gray-800/50 opacity-50 cursor-not-allowed'
+                                : 'bg-gray-50 dark:bg-gray-900 hover:bg-bible-gold/10 active:scale-[0.98] cursor-grab active:cursor-grabbing'
                                 }`}
                             >
                               <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${blockLabels[type].color}`}>
@@ -1020,8 +1111,10 @@ const CreateLandingPage: React.FC = () => {
                   </div>
                 </aside>
 
-                {/* Canvas Principal */}
-                <main className="flex-1 overflow-x-clip overflow-y-auto w-full max-w-[100vw] text-break-words p-4 lg:p-8" onScroll={handleMainScroll}>
+                {/* Área Central de Edição (Canvas) - Onde o documento é visualizado e editado via TipTap */}
+                {/* Área Central de Edição (Canvas) - Onde o documento é visualizado e editado via TipTap */}
+                <main className="flex-1 overflow-x-clip overflow-y-auto w-full max-w-[100vw] text-break-words p-4 lg:p-10 lg:px-14" onScroll={handleMainScroll}>
+
                   {showCreationHelper && (
                     <div className="max-w-3xl mx-auto mb-4 animate-in fade-in slide-in-from-top-4 duration-500">
                       <div className="relative rounded-3xl border border-bible-gold/20 bg-white/60 dark:bg-black/40 backdrop-blur-md px-6 py-4 text-sm text-gray-700 dark:text-gray-300 shadow-xl shadow-bible-gold/5 flex items-center justify-between">
@@ -1045,10 +1138,11 @@ const CreateLandingPage: React.FC = () => {
                     </div>
                   )}
                   <div className={`mx-auto bg-bible-paper dark:bg-bible-darkPaper rounded-3xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1),_inset_0_0_20px_rgba(197,160,89,0.05)] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-transparent via-bible-gold/5 to-transparent border border-bible-gold/10 transition-all duration-300 canvas-${canvasWidth} ${canvasWidth === 'mobile' ? 'w-full max-w-[375px] border-4 border-bible-gold ring-8 ring-bible-gold/20'
-                      : canvasWidth === 'tablet' ? 'w-full max-w-[768px]'
-                        : canvasWidth === 'full' ? 'w-full max-w-full'
-                          : 'w-full max-w-7xl'
+                    : canvasWidth === 'tablet' ? 'w-full max-w-[768px]'
+                      : canvasWidth === 'full' ? 'w-full max-w-full'
+                        : 'w-full max-w-7xl'
                     }`}>
+                    <div className="w-full h-full p-4 md:p-6 lg:p-8">
                     <UnifiedEditor
                       ref={editorRef}
                       content={content.blocks || ''}
@@ -1062,16 +1156,18 @@ const CreateLandingPage: React.FC = () => {
                       studyId={content.id || content.slug}
                       studyTitle={content.meta.title}
                     />
+                    </div>
                   </div>
                 </main>
 
-                {/* Painel de Propriedades (Desktop) */}
+                {/* Barra Lateral Direita - Configurações detalhadas do bloco selecionado no momento */}
                 {selectedBlockData && (
                   <aside className="w-80 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-l border-gray-200 dark:border-gray-800 overflow-y-auto hidden xl:block">
+
                     <div className="p-4">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="font-bold text-bible-ink dark:text-white">
-                          {blockLabels[selectedBlockData.type].label}
+                          {blockLabels[selectedBlockData.type as keyof typeof blockLabels]?.label || 'Bloco'}
                         </h3>
                         <button
                           onClick={() => {
@@ -1590,23 +1686,25 @@ const CreateLandingPage: React.FC = () => {
               {/* Preview Content */}
               <main className="py-8 min-h-screen bg-gray-100 dark:bg-black/90 flex justify-center">
                 <div className={`w-full bg-white dark:bg-bible-darkPaper shadow-2xl transition-all duration-300 canvas-${canvasWidth} ${canvasWidth === 'mobile' ? 'max-w-[375px] min-h-[667px] rounded-[3rem] border-[12px] border-gray-800'
-                    : canvasWidth === 'tablet' ? 'max-w-[768px] min-h-[1024px] rounded-2xl border-8 border-gray-800'
-                      : canvasWidth === 'full' ? 'w-full'
-                        : 'max-w-7xl rounded-2xl'
+                  : canvasWidth === 'tablet' ? 'max-w-[768px] min-h-[1024px] rounded-2xl border-8 border-gray-800'
+                    : canvasWidth === 'full' ? 'w-full'
+                      : 'max-w-7xl rounded-2xl'
                   }`}>
-                  {Array.isArray(content.blocks) ? (
-                    content.blocks.map(block => (
-                      <BlockRenderer key={block.id} block={block} isEditing={false} authorName={currentUser?.displayName} canvasWidth={canvasWidth} />
-                    ))
-                  ) : (
-                    <UnifiedEditor
-                      content={content.blocks}
-                      readOnly={true}
-                      onChange={() => { }}
-                      studyId={content.id || content.slug}
-                      studyTitle={content.meta.title}
-                    />
-                  )}
+                  <div className="w-full h-full p-6 md:p-12 lg:px-20">
+                    {Array.isArray(content.blocks) ? (
+                      content.blocks.map(block => (
+                        <BlockRenderer key={block.id} block={block} isEditing={false} authorName={currentUser?.displayName} canvasWidth={canvasWidth} />
+                      ))
+                    ) : (
+                      <UnifiedEditor
+                        content={content.blocks}
+                        readOnly={true}
+                        onChange={() => { }}
+                        studyId={content.id || content.slug}
+                        studyTitle={content.meta.title}
+                      />
+                    )}
+                  </div>
                 </div>
               </main>
             </div>

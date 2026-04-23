@@ -118,12 +118,22 @@ const Reader: React.FC = () => {
     // useSearchParams requires Suspense and may return stale/empty values.
     // Reading it inside the effect after pathname change is always accurate.
     const urlParams = new URLSearchParams(window.location.search);
-    const bookParam = urlParams.get('book');
+    let bookParam = urlParams.get('book');
     const capParam = urlParams.get('cap');
     const vsParam = urlParams.get('vs');
 
+    // Suporte ao formato shorthand ?gn&cap=2
+    if (!bookParam) {
+      for (const [key] of urlParams.entries()) {
+        if (BIBLE_BOOKS_LIST.some(b => b.id === key)) {
+          bookParam = key;
+          break;
+        }
+      }
+    }
+
     if (bookParam) {
-      skipUrlUpdateRef.current = true; // prevent URL update effect from overwriting
+      skipUrlUpdateRef.current = true;
       setCurrentBookId(bookParam);
       if (capParam) {
         setCurrentChapterNum(parseInt(capParam, 10));
@@ -168,16 +178,9 @@ const Reader: React.FC = () => {
       setTargetVerses(nextTargetVerses);
       setViewMode('reader');
     } else if (!initialLoadDone) {
-      // 4. Fallback to Last Read (Only on initial load)
-      const saved = localStorage.getItem('biblia_last_read');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          setCurrentBookId(parsed.bookId);
-          setCurrentChapterNum(parsed.chapter);
-          setViewMode('reader');
-        } catch (e) { }
-      }
+      // 4. Iniciar sempre na Biblioteca (conforme solicitado pelo usuário)
+      setTargetVerses([]);
+      setViewMode('library');
     }
 
     if (!initialLoadDone) {
@@ -192,7 +195,7 @@ const Reader: React.FC = () => {
       skipUrlUpdateRef.current = false;
       return;
     }
-    const url = `/biblia?book=${currentBookId}&cap=${currentChapterNum}`;
+    const url = `/bibliasagrada?${currentBookId}&cap=${currentChapterNum}`;
     window.history.replaceState(null, '', url);
   }, [viewMode, currentBookId, currentChapterNum, initialLoadDone]);
 

@@ -61,7 +61,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
       case 'study-outline':
         return <StudyOutlineBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} editor={editor} />;
       case 'related-verses':
-        return <RelatedVersesBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} />;
+        return <RelatedVersesBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} layoutWidth={layoutWidth || data.layoutWidth || '1/1'} />;
       case 'references-chain':
         return <ReferencesChainBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} />;
       case 'reflection-question':
@@ -110,7 +110,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             containerClass += ' max-w-6xl px-0';
         } else if (type === 'study-content' || type === 'biblical') {
             containerClass += ' max-w-4xl px-0';
-        } else if (type === 'study-outline' || type === 'related-verses') {
+        } else if ((type === 'study-outline' || type === 'related-verses') && (currentLayoutWidth === '1/2' || currentLayoutWidth === '1/3')) {
             containerClass += ' max-w-sm px-0';
         } else if (type === 'rich-text') {
             containerClass += ' max-w-full px-0';

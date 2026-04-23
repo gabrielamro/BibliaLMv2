@@ -31,7 +31,8 @@ Voce atua como orquestrador tecnico, implementador e reviewer do BibliaLM.
 4. Faca mudancas pequenas, legiveis e faceis de verificar.
 5. Preserve os padroes do repositorio.
 6. Prefira clareza a abstracoes prematuras.
-7. Comente apenas quando a logica nao for obvia.
+7. DOCUMENTAÇÃO: Sempre documentar correções ou melhorias e comentar trechos complexos de código.
+8. Comente apenas quando a logica nao for obvia.
 
 ### Analise e Revisao
 1. Encontrar bugs e regressao comportamental.

@@ -40,6 +40,10 @@ const now = () => new Date().toISOString();
 const clean = <T extends object>(obj: T): Partial<T> =>
     Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
 
+const isMissingBibleVersionColumnError = (error: any) =>
+    error?.code === 'PGRST204' ||
+    String(error?.message || error?.details || '').toLowerCase().includes('bible_version');
+
 // ─── AUTH functions (mesmos nomes do firebase.ts) ───────────────────────────
 
 export const loginWithGoogle = async () => {
@@ -265,6 +269,7 @@ export const dbService = {
             subscription_status: data.subscriptionStatus ?? 'active',
             subscription_expires_at: data.subscriptionExpiresAt ?? null,
             theme: data.theme ?? 'light',
+            bible_version: data.bibleVersion ?? 'ara',
             activity_log: data.activityLog ?? [],
             stats: data.stats ?? {},
             last_reading_position: data.lastReadingPosition ?? {},
@@ -279,7 +284,15 @@ export const dbService = {
             created_at: now(),
         };
         const { error } = await supabase.from('profiles').upsert(mapped);
-        if (error) throw error;
+        if (error) {
+            if (isMissingBibleVersionColumnError(error)) {
+                const { bible_version: _bibleVersion, ...fallbackMapped } = mapped;
+                const { error: fallbackError } = await supabase.from('profiles').upsert(fallbackMapped);
+                if (fallbackError) throw fallbackError;
+                return;
+            }
+            throw error;
+        }
     },
 
     updateUserProfile: async (uid: string, data: any) => {
@@ -305,6 +318,7 @@ export const dbService = {
             subscriptionStatus: 'subscription_status',
             subscriptionExpiresAt: 'subscription_expires_at',
             theme: 'theme',
+            bibleVersion: 'bible_version',
             activityLog: 'activity_log',
             stats: 'stats',
             lastReadingPosition: 'last_reading_position',
@@ -326,7 +340,16 @@ export const dbService = {
 
         if (Object.keys(mapped).length > 0) {
             const { error } = await supabase.from('profiles').update(mapped).eq('id', uid);
-            if (error) throw error;
+            if (error) {
+                if (isMissingBibleVersionColumnError(error) && mapped.bible_version !== undefined) {
+                    const { bible_version: _bibleVersion, ...fallbackMapped } = mapped;
+                    if (Object.keys(fallbackMapped).length === 0) return;
+                    const { error: fallbackError } = await supabase.from('profiles').update(fallbackMapped).eq('id', uid);
+                    if (fallbackError) throw fallbackError;
+                    return;
+                }
+                throw error;
+            }
         }
     },
 
@@ -1318,6 +1341,7 @@ function mapProfileToUserProfile(d: any): UserProfile {
         readingPlan: safeJson(d.reading_plan),
         progress: safeJson(d.progress),
         theme: d.theme ?? 'light',
+        bibleVersion: d.bible_version ?? 'ara',
         followersCount: d.followers_count ?? 0,
         followingCount: d.following_count ?? 0,
     };
