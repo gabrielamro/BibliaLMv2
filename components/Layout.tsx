@@ -13,7 +13,7 @@ import {
     ArrowLeft, ArrowRight, Home, PlusCircle, Plus, Compass, Church, Grid,
     ImageIcon, HandHeart, PenLine, Edit2, Smile, Send, Rss, Boxes,
     GraduationCap, BookMarked, Layers, LayoutGrid, Zap, FileText, Layout as LayoutIcon,
-    PenTool, LibraryBig, MonitorPlay, UserCircle, Book, Palette, Wand2, Activity, Target, Map,
+    PenTool, LibraryBig, MonitorPlay, UserCircle, Book, Palette, Wand2, Activity, Target,
     Briefcase, Bell, Clock, Trophy, Info, X, Trash2, Check, MoreHorizontal, LifeBuoy, Scroll, ShieldAlert,
     History, Menu
 } from 'lucide-react';
@@ -31,6 +31,7 @@ import OmniSearch from './OmniSearch';
 import { dbService } from '../services/supabase';
 import ObreiroIAChatbot from './ObreiroIAChatbot';
 import { SYSTEM_VERSION } from '../constants';
+import { getLayoutShellState } from './layoutShell';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -84,12 +85,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         '/apresentacao',
         '/login',
         '/criar-conteudo',
-        '/criador-jornada'
+        '/criar-sala'
     ];
 
     const showBackButton = !rootPaths.includes(location.pathname);
-    const showMobileShell = !isFocusMode && !isCustomHomeShell && !isHeaderHidden;
-    const showMobileNav = !isFocusMode;
+    const { showMobileShell, showMobileNav, showSidebar, sidebarStartsCollapsed } = getLayoutShellState({
+        pathname: location.pathname,
+        isFocusMode,
+        isCustomHomeShell,
+        isHeaderHidden,
+    });
 
     const isAdmin = userProfile?.username === 'gabrielamaro' || currentUser?.email === 'gabrielamaro@live.com';
     const isPastor = userProfile?.subscriptionTier === 'pastor';
@@ -164,7 +169,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     { label: 'Bíblia Sagrada', path: '/biblia', icon: <Book size={18} />, type: 'bible' as NavType, description: 'Leitura, áudio e versões' },
                     { label: 'Pão Diário', path: '/devocional', icon: <Coffee size={18} />, type: 'bible' as NavType, description: 'Mensagem e oração do dia' },
                     { label: 'Orações', path: '/oracoes', icon: <HandHeart size={18} />, type: 'bible' as NavType, description: 'Guiadas por temas' },
-                    { label: 'Trilhas', path: '/trilhas', icon: <Map size={18} />, type: 'bible' as NavType, description: 'Leituras temáticas' },
                     { label: 'Meta de Leitura', path: '/plano', icon: <Target size={18} />, protected: true, type: 'bible' as NavType, description: 'Acompanhe seu plano anual' },
                     { label: 'Quiz Bíblico', path: '/quiz', icon: <Brain size={18} />, type: 'bible' as NavType, description: 'Teste seus conhecimentos' },
                 ]
@@ -436,8 +440,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="flex flex-1 overflow-hidden relative w-full"> {/* REMOVED pt-safe from here to fix top bar on desktop */}
 
                 {/* Desktop Sidebar — novo componente Canva-style */}
-                {!isFocusMode && (
-                    <Sidebar onOpenLogin={openLogin} />
+                {showSidebar && (
+                    <Sidebar onOpenLogin={openLogin} initiallyCollapsed={sidebarStartsCollapsed} />
                 )}
 
                 {/* Main Content Area */}

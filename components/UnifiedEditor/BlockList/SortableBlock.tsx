@@ -51,7 +51,7 @@ export const SortableBlock: React.FC<SortableBlockProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative group px-1 mb-10 inline-block align-top transition-all duration-300 box-border ${widthClass}`}
+      className={`relative group px-1 mb-10 transition-all duration-300 box-border ${widthClass}`}
     >
       <div className={`relative rounded-2xl transition-all duration-300 ${isEditing ? 'hover:ring-2 hover:ring-bible-gold/30' : ''}`}>
         
@@ -60,9 +60,11 @@ export const SortableBlock: React.FC<SortableBlockProps> = ({
           <div 
             {...attributes} 
             {...listeners}
-            className="absolute left-2 top-2 p-2 bg-white/80 dark:bg-black/80 backdrop-blur-sm rounded-lg shadow-sm cursor-grab active:cursor-grabbing text-gray-400 hover:text-bible-gold transition-all z-40 lg:opacity-0 lg:group-hover:opacity-100"
+            className="absolute left-2 -top-10 flex items-center gap-1.5 rounded-full border border-gray-100 dark:border-gray-800 bg-white/90 dark:bg-black/90 backdrop-blur-sm px-2 py-1 shadow-sm cursor-grab active:cursor-grabbing text-gray-400 hover:text-bible-gold transition-all z-40 opacity-0 group-hover:opacity-40 hover:!opacity-100 pointer-events-none"
           >
-            <GripVertical size={18} />
+            <div className="flex items-center justify-center p-1 pointer-events-auto">
+              <GripVertical size={16} />
+            </div>
           </div>
         )}
 

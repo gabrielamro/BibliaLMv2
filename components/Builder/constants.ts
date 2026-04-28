@@ -1,6 +1,11 @@
 import { BlockType } from './types';
 
 export const blockLabels: Record<BlockType, { label: string; description: string; color: string }> = {
+  'free-text': {
+    label: 'Editor de Texto',
+    description: 'Bloco em branco para edição livre de conteúdo',
+    color: 'bg-bible-gold text-white'
+  },
   hero: {
     label: 'Capa Impactante',
     description: 'Titulo, subtitulo e CTA com fundo visual',
@@ -79,6 +84,10 @@ export const blockLabels: Record<BlockType, { label: string; description: string
 };
 
 export const defaultBlockData: Record<BlockType, any> = {
+  'free-text': {
+    content: '',
+    padding: 4
+  },
   hero: {
     title: 'A Revelacao Plena',
     subtitle: 'Uma jornada profunda pelas bases da fe crista e o poder da Palavra.',
@@ -173,7 +182,8 @@ export const defaultBlockData: Record<BlockType, any> = {
     activeIndex: 0,
     enableScrollSpy: true,
     padding: 4,
-    layoutWidth: '1/3'
+    layoutWidth: '1/3',
+    showOnMobile: false
   },
   'related-verses': {
     title: 'Versiculos Relacionados',

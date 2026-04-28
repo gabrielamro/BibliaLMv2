@@ -73,6 +73,14 @@
     font-size: clamp(0.9rem, 1.2vw, 1.2rem);
     line-height: 1.5;
   }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 /* Custom Scrollbar */

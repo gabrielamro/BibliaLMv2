@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { Text, Transformer } from 'react-konva';
+"use client";
+import React, { useRef, useEffect, useState } from 'react';
 
 export const TextNode = ({
     text,
@@ -14,13 +14,30 @@ export const TextNode = ({
 }: any) => {
     const textRef = useRef<any>(null);
     const trRef = useRef<any>(null);
+    const [Konva, setKonva] = useState<any>(null);
 
     useEffect(() => {
-        if (isSelected) {
+        // Emergency Bridge
+        const r = React as any;
+        if (!r.ReactSharedInternals && r.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED) {
+            r.ReactSharedInternals = r.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+        }
+
+        import('react-konva').then(mod => {
+            setKonva(mod);
+        });
+    }, []);
+
+    useEffect(() => {
+        if (isSelected && trRef.current && textRef.current) {
             trRef.current.nodes([textRef.current]);
             trRef.current.getLayer().batchDraw();
         }
-    }, [isSelected]);
+    }, [isSelected, Konva]);
+
+    if (!Konva) return null;
+
+    const { Text, Transformer } = Konva;
 
     return (
         <>
@@ -37,7 +54,7 @@ export const TextNode = ({
                 onClick={onSelect}
                 onTap={onSelect}
 
-                onDragMove={(e) => {
+                onDragMove={(e: any) => {
                     const stage = e.target.getStage();
                     if (!stage) return;
                     const centerX = stage.width() / 2;
@@ -48,7 +65,7 @@ export const TextNode = ({
                     }
                 }}
 
-                onDragEnd={(e) => {
+                onDragEnd={(e: any) => {
                     onChange({
                         x: e.target.x(),
                         y: e.target.y()
@@ -78,7 +95,7 @@ export const TextNode = ({
                         'middle-left',
                         'middle-right'
                     ]}
-                    boundBoxFunc={(oldBox, newBox) => {
+                    boundBoxFunc={(oldBox: any, newBox: any) => {
                         if (newBox.width < 100) return oldBox;
                         return newBox;
                     }}

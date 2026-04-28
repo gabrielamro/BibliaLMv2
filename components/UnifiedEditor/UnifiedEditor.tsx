@@ -241,14 +241,17 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
             type: 'doc',
             content: newContent.map(block => ({
               type: 'customBlock',
-              attrs: { blockData: block }
+              attrs: { 
+                blockData: block,
+                layoutWidth: block.layoutWidth || block.data?.layoutWidth || '1/1'
+              }
             }))
           };
         }
         editor.commands.setContent(formatted);
       }
     }
-  }), [editor]);
+  }), [editor, content, onChange]);
 
   if (!editor) {
     return null;
@@ -323,8 +326,8 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
           display: flex !important;
           flex-direction: column !important;
           min-width: 0;
-          margin-left: auto !important;
-          margin-right: auto !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
         }
 
         /* ===== LARGURAS POR ATRIBUTO layoutwidth ===== */

@@ -1,4 +1,5 @@
 export type BlockType =
+  | 'free-text'
   | 'hero'
   | 'authority'
   | 'biblical'

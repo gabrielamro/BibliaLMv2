@@ -10,7 +10,7 @@ export * from './blocks/BiblicalBlock';
 export * from './blocks/VideoBlock';
 export * from './blocks/FooterBlock';
 export * from './blocks/StudyContentBlock';
-export * from './blocks/SlideBlock';
+// export * from './blocks/SlideBlock';
 export * from './blocks/HeroSplitBlock';
 export * from './blocks/StudyOutlineBlock';
 export * from './blocks/RelatedVersesBlock';

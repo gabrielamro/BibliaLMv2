@@ -24,7 +24,7 @@ export const StudyContentBlock: React.FC<StudyContentBlockProps> = ({ data, onUp
         {isEditing ? (
           <div className="w-full font-inherit">
             <RichTextEditor
-              content={data.content || studyTemplate}
+              content={data.content || ''}
               onChange={(newContent) => onUpdate?.({ ...data, content: newContent })}
               placeholder="Comece a escrever seu conteúdo bíblico profundo..."
             />
@@ -32,7 +32,7 @@ export const StudyContentBlock: React.FC<StudyContentBlockProps> = ({ data, onUp
         ) : (
           <div
             className="rich-editor-content prose prose-slate dark:prose-invert prose-sm md:prose-base max-w-none transition-all duration-500 font-inherit w-full overflow-x-auto break-words"
-            dangerouslySetInnerHTML={{ __html: data.content || studyTemplate }}
+            dangerouslySetInnerHTML={{ __html: data.content || '' }}
           />
         )}
       </div>

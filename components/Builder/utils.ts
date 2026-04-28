@@ -102,6 +102,200 @@ export const buildBaseBlocks = (types: (BlockType | { type: BlockType; layoutWid
   });
 };
 
+export const aiBuildLayoutWidths: Record<string, NonNullable<Block['layoutWidth']>> = {
+  'hero-split': '1/1',
+  biblical: '1/2',
+  'study-outline': '1/3',
+  'rich-text': '1/1',
+  slide: '1/1',
+  'related-verses': '1/1',
+  authority: '1/1',
+  footer: '1/1',
+  'reflection-question': '1/1',
+};
+
+export const aiBuildLayoutSequence: NonNullable<Block['layoutWidth']>[] = [
+  '1/1',
+  '1/2',
+  '1/3',
+  '1/1',
+  '1/1',
+  '1/1',
+  '1/1',
+  '1/1',
+  '1/1',
+];
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const hasHtmlTags = (value: string) => /<\/?[a-z][\s\S]*>/i.test(value);
+
+const stripHtml = (value: string) => value.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+
+const isLikelyHeadingText = (value: string) => {
+  const text = stripHtml(value);
+  if (!text || text.length > 90) return false;
+  if (/[.!?;:]$/.test(text)) return false;
+
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 0 || words.length > 12) return false;
+
+  const normalized = text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  const headingSignals = [
+    'introducao',
+    'contexto',
+    'profundeza',
+    'autoridade',
+    'poder',
+    'aplicacao',
+    'transformacao',
+    'conclusao',
+    'reflexao',
+    'chamado',
+    'amor de deus',
+  ];
+
+  if (headingSignals.some((signal) => normalized.includes(signal))) return true;
+
+  const startsLikeTitle = /^[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ0-9]/.test(text);
+  return startsLikeTitle && words.length <= 8;
+};
+
+const normalizePlainTextRichContent = (content: string, fallbackTitle: string) => {
+  const lines = content
+    .split(/\r?\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    return `<h2>${escapeHtml(fallbackTitle)}</h2>\n<p>Desenvolva aqui o paragrafo principal do estudo.</p>`;
+  }
+
+  return lines
+    .map((line, index) => {
+      if (index === 0 || isLikelyHeadingText(line)) {
+        return `<h2>${escapeHtml(stripHtml(line))}</h2>`;
+      }
+      return `<p>${escapeHtml(line)}</p>`;
+    })
+    .join('\n');
+};
+
+const normalizeHtmlRichHeadings = (content: string, fallbackTitle: string) => {
+  let normalized = content.replace(/<h1\b/gi, '<h2').replace(/<\/h1>/gi, '</h2>');
+
+  normalized = normalized.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (match, _attrs, inner) => {
+    if (!isLikelyHeadingText(inner)) return match;
+    return `<h2>${stripHtml(inner)}</h2>`;
+  });
+
+  if (!/<h2[\s>]/i.test(normalized)) {
+    normalized = `<h2>${escapeHtml(fallbackTitle)}</h2>\n${normalized}`;
+  }
+
+  return normalized;
+};
+
+export const ensureRichTextH2Title = (data: any = {}) => {
+  const content = typeof data.content === 'string' ? data.content.trim() : '';
+  const title = data.title || data.heading || 'Desenvolvimento da Mensagem';
+  const body = content || data.body || data.text || '<p>Desenvolva aqui o paragrafo principal do estudo.</p>';
+
+  return {
+    ...data,
+    content: hasHtmlTags(body)
+      ? normalizeHtmlRichHeadings(body, title)
+      : normalizePlainTextRichContent(body, title),
+  };
+};
+
+export const normalizeAIBuildBlock = (block: any, index: number): Block => {
+  const type = block.type as BlockType;
+  const data = type === 'rich-text' ? ensureRichTextH2Title(block.data || {}) : block.data;
+
+  return {
+    id: block.id || `${type}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    type,
+    layoutWidth: aiBuildLayoutSequence[index] || aiBuildLayoutWidths[type] || block.layoutWidth || '1/1',
+    data,
+  };
+};
+
+const getAIBuildBlockData = (block: any) => block?.data || block || {};
+
+export const normalizeAIBuildBlocks = (rawBlocks: any): Block[] => {
+  if (Array.isArray(rawBlocks)) {
+    return rawBlocks
+      .filter((block) => block?.type)
+      .map((block, index) => normalizeAIBuildBlock(block, index));
+  }
+
+  if (!rawBlocks || typeof rawBlocks !== 'object') return [];
+
+  const orderedBlocks = [
+    {
+      type: 'hero-split',
+      source: rawBlocks['hero-split'] || rawBlocks.heroSplit || rawBlocks.hero,
+    },
+    {
+      type: 'biblical',
+      source: rawBlocks.biblical,
+    },
+    {
+      type: 'study-outline',
+      source: rawBlocks['study-outline'] || rawBlocks.studyOutline || rawBlocks.outline,
+    },
+    {
+      type: 'rich-text',
+      source: rawBlocks['rich-text'] || rawBlocks.richText || rawBlocks.studyContent || rawBlocks['study-content'],
+    },
+    {
+      type: 'slide',
+      source: rawBlocks.slide,
+    },
+    {
+      type: 'related-verses',
+      source: rawBlocks['related-verses'] || rawBlocks.relatedVerses,
+    },
+    {
+      type: 'authority',
+      source: rawBlocks.authority,
+    },
+    {
+      type: 'footer',
+      source: rawBlocks.footer,
+    },
+    {
+      type: 'reflection-question',
+      source: rawBlocks['reflection-question'] || rawBlocks.reflectionQuestion || rawBlocks.reflection,
+    },
+  ];
+
+  return orderedBlocks
+    .filter((item) => item.source)
+    .map((item, index) =>
+      normalizeAIBuildBlock(
+        {
+          id: item.source.id,
+          type: item.source.type || item.type,
+          layoutWidth: item.source.layoutWidth,
+          data: getAIBuildBlockData(item.source),
+        },
+        index
+      )
+    );
+};
+
 export const ESTUDO_PASTORAL_LAYOUT = [
   { type: 'hero' as const, layoutWidth: '1/1' as const },
   { type: 'biblical' as const, layoutWidth: '1/1' as const },

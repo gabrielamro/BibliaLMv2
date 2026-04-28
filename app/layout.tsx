@@ -1,4 +1,5 @@
 import React from 'react';
+
 import type { Metadata, Viewport } from 'next';
 import { Lora, Inter, Great_Vibes, Oswald, Cinzel, Playfair_Display, Merriweather, Montserrat, Lato, Roboto_Slab } from 'next/font/google';
 import './globals.css';

@@ -28,15 +28,15 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
   };
 
   const textStyles: Record<string, string> = {
-    classic: "text-2xl md:text-3xl font-serif italic text-bible-ink dark:text-gray-100",
-    modern: "text-3xl md:text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-bible-gold to-amber-700",
-    royal: "text-2xl md:text-4xl font-serif italic text-white drop-shadow-md",
-    minimal: "text-xl md:text-3xl font-medium text-gray-700 dark:text-gray-200",
-    card: "text-2xl md:text-4xl font-serif text-bible-ink dark:text-white leading-tight"
+    classic: "text-lg sm:text-2xl md:text-3xl font-serif italic text-bible-ink dark:text-gray-100",
+    modern: "text-xl sm:text-3xl md:text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-bible-gold to-amber-700",
+    royal: "text-lg sm:text-2xl md:text-4xl font-serif italic text-white drop-shadow-md",
+    minimal: "text-base sm:text-xl md:text-3xl font-medium text-gray-700 dark:text-gray-200",
+    card: "text-lg sm:text-2xl md:text-4xl font-serif text-bible-ink dark:text-white leading-tight"
   };
 
   return (
-    <div className="w-full py-12 md:py-16 px-4 flex justify-center">
+    <div className="w-full py-6 md:py-12 lg:py-16 px-2 sm:px-4 flex justify-center">
       <div className={`w-full text-center relative transition-all duration-500 ${styles[containerStyle] || styles.classic}`}>
         
         {/* Style Selection Toolbar (Visible when editing) */}
@@ -79,7 +79,7 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
 
         {/* Optional Image */}
         {data.showImage && (
-          <div className="w-full aspect-[21/9] rounded-2xl overflow-hidden mb-10 shadow-2xl border-4 border-white dark:border-gray-800 rotate-1 relative group">
+          <div className="w-full aspect-[21/9] rounded-xl md:rounded-2xl overflow-hidden mb-6 md:mb-10 shadow-xl md:shadow-2xl border-2 md:border-4 border-white dark:border-gray-800 md:rotate-1 relative group">
             <img 
               src={data.imageUrl || 'https://images.unsplash.com/photo-1504052434139-44b419d2826e?q=80&w=1000'} 
               alt="Biblical"
@@ -100,14 +100,15 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
 
         {/* Decorative elements for specific styles */}
         {containerStyle === 'classic' && (
-          <div className="mb-6 text-bible-gold/20 flex justify-center">
-            <Quote size={48} />
+          <div className="mb-4 md:mb-6 text-bible-gold/20 flex justify-center">
+            <Quote size={32} className="md:hidden" />
+            <Quote size={48} className="hidden md:block" />
           </div>
         )}
         {containerStyle === 'royal' && (
            <div className="absolute inset-0 opacity-10 pointer-events-none">
-              <div className="absolute top-0 left-0 w-32 h-32 border-l-2 border-t-2 border-bible-gold"></div>
-              <div className="absolute bottom-0 right-0 w-32 h-32 border-r-2 border-b-2 border-bible-gold"></div>
+              <div className="absolute top-0 left-0 w-16 h-16 md:w-32 md:h-32 border-l-2 border-t-2 border-bible-gold"></div>
+              <div className="absolute bottom-0 right-0 w-16 h-16 md:w-32 md:h-32 border-r-2 border-b-2 border-bible-gold"></div>
            </div>
         )}
 
@@ -115,8 +116,8 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
           className={`relative z-10 italic leading-relaxed outline-none transition-all ${textStyles[containerStyle] || textStyles.classic} ${isEditing ? 'cursor-text focus:bg-bible-gold/5 rounded-xl px-4' : ''}`}
           style={{ 
             fontFamily: data.fontFamily || 'inherit',
-            fontSize: data.fontSize ? (containerStyle === 'minimal' ? `${data.fontSize}px` : `${data.fontSize * 1.5}px`) : 'inherit',
-            lineHeight: data.lineHeight || 'inherit'
+            fontSize: data.fontSize ? (containerStyle === 'minimal' ? `${data.fontSize}px` : `${data.fontSize * 1.5}px`) : undefined,
+            lineHeight: data.lineHeight || undefined
           }}
           contentEditable={isEditing}
           onBlur={handleTextChange}
@@ -125,50 +126,52 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
           "{data.text || 'Digite o versículo bíblico aqui...'}"
         </blockquote>
 
-        <div className={`mt-8 flex items-center gap-3 transition-all ${containerStyle === 'minimal' ? 'justify-start' : 'justify-center font-bold'}`}>
-          <div className="w-12 h-px bg-bible-gold/30"></div>
+        <div className={`mt-4 md:mt-8 flex items-center gap-2 md:gap-3 transition-all ${containerStyle === 'minimal' ? 'justify-start' : 'justify-center font-bold'}`}>
+          <div className="w-6 md:w-12 h-px bg-bible-gold/30"></div>
           <cite 
             contentEditable={isEditing}
             onBlur={handleRefChange}
             suppressContentEditableWarning
-            className={`text-bible-gold font-black uppercase tracking-[0.2em] text-sm outline-none ${isEditing ? 'cursor-text focus:bg-bible-gold/5 px-2 rounded-lg' : ''}`}
+            className={`text-bible-gold font-black uppercase tracking-[0.15em] md:tracking-[0.2em] text-xs md:text-sm outline-none ${isEditing ? 'cursor-text focus:bg-bible-gold/5 px-2 rounded-lg' : ''}`}
           >
             {data.reference || 'Referência Bíblica'}
           </cite>
-          <div className="w-12 h-px bg-bible-gold/30"></div>
+          <div className="w-6 md:w-12 h-px bg-bible-gold/30"></div>
         </div>
 
         {/* Hyperlink para Biblioteca Bíblica */}
         {(data.enableHyperlink || isEditing) && (
-          <div className="mt-6 flex justify-center">
+          <div className="mt-4 md:mt-6 flex justify-center">
             <button 
               onClick={() => {
                 const ref = data.reference || data.verse || '';
                 window.dispatchEvent(new CustomEvent('open-bible-verse', { detail: { reference: ref } }));
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-bible-gold hover:text-bible-gold/80 bg-bible-gold/5 hover:bg-bible-gold/10 rounded-lg transition-all border border-bible-gold/20 hover:border-bible-gold/40"
+              className="inline-flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 text-[10px] md:text-xs font-semibold text-bible-gold hover:text-bible-gold/80 bg-bible-gold/5 hover:bg-bible-gold/10 rounded-lg transition-all border border-bible-gold/20 hover:border-bible-gold/40"
             >
-              <BookOpen size={14} />
+              <BookOpen size={12} className="md:hidden" />
+              <BookOpen size={14} className="hidden md:block" />
               {isEditing ? 'Habilitar link para bíblia' : 'Ver na Bíblia'}
-              <ExternalLink size={12} />
+              <ExternalLink size={10} className="md:hidden" />
+              <ExternalLink size={12} className="hidden md:block" />
             </button>
           </div>
         )}
 
         {/* CTA Button */}
         {(data.showCta || isEditing) && (
-          <div className="mt-12 flex flex-col items-center gap-4">
+          <div className="mt-6 md:mt-12 flex flex-col items-center gap-4">
             {isEditing && !data.showCta ? (
               <button 
                 onClick={() => onUpdate?.({ ...data, showCta: true, ctaText: 'Saber Mais', ctaStyle: 'solid' })}
-                className="text-[10px] font-black uppercase tracking-widest text-bible-gold/60 border-2 border-dashed border-bible-gold/20 px-8 py-3 rounded-2xl hover:border-bible-gold/40 transition-all hover:bg-bible-gold/5"
+                className="text-[10px] font-black uppercase tracking-widest text-bible-gold/60 border-2 border-dashed border-bible-gold/20 px-6 md:px-8 py-2.5 md:py-3 rounded-2xl hover:border-bible-gold/40 transition-all hover:bg-bible-gold/5"
               >
                 + Adicionar Botão de Ação
               </button>
             ) : data.showCta && (
               <div className="relative group/cta">
                 <button 
-                  className={`px-10 py-4 font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl transition-all hover:scale-105 active:scale-95 outline-none ${
+                  className={`px-6 md:px-10 py-3 md:py-4 font-black uppercase tracking-widest text-[10px] md:text-xs rounded-2xl shadow-xl transition-all hover:scale-105 active:scale-95 outline-none ${
                     data.ctaStyle === 'outline' ? 'border-2 border-bible-gold text-bible-gold bg-transparent hover:bg-bible-gold/5 shadow-none'
                     : data.ctaStyle === 'royal' ? 'bg-gradient-to-r from-bible-gold to-amber-600 text-white shadow-bible-gold/30'
                     : data.ctaStyle === 'dark' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-xl'

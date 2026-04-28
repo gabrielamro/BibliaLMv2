@@ -14,7 +14,7 @@ import {
 import SEO from '../components/SEO';
 import StandardCard from '../components/ui/StandardCard';
 import ConfirmationModal from '../components/ConfirmationModal';
-import { getEditDestinationForContent } from '../utils/contentEditing';
+import { getEditDestinationForContent, isStandaloneStudyContent } from '../utils/contentEditing';
 
 const SavedStudiesPage: React.FC = () => {
   const { currentUser, showNotification } = useAuth();
@@ -58,7 +58,10 @@ const SavedStudiesPage: React.FC = () => {
           };
         });
 
-        setStudies([...normalize(studiesData as any[]), ...normalize(publicStudiesData as any[])]);
+        setStudies([
+          ...normalize(studiesData as any[]).filter(isStandaloneStudyContent),
+          ...normalize(publicStudiesData as any[]).filter(isStandaloneStudyContent),
+        ]);
         setNotes(notesData as Note[]);
       } catch (e) {
         console.error(e);

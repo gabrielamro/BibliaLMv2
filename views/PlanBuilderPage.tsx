@@ -69,7 +69,7 @@ const PlanBuilderPage: React.FC = () => {
     // Content Inputs
     const [dayTitle, setDayTitle] = useState('');
     const [dayRef, setDayRef] = useState('');
-    const [dayVerseText, setDayVerseText] = useState('');
+    const [dayVerseText, setDayVerseText] = useState(''); // Mantido para exibição rápida na lista se necessário
     const [dayCategory, setDayCategory] = useState('Geral');
     const [dayTags, setDayTags] = useState<string[]>([]);
     const [htmlContent, setHtmlContent] = useState('');
@@ -134,6 +134,12 @@ const PlanBuilderPage: React.FC = () => {
     const [isSuggestingPrompt, setIsSuggestingPrompt] = useState(false);
     const [coverPrompt, setCoverPrompt] = useState('');
     const [isPreviewMode, setIsPreviewMode] = useState(false);
+
+    // Confirmation modals (replace native confirm())
+    const [showFreqConfirm, setShowFreqConfirm] = useState(false);
+    const [pendingFrequency, setPendingFrequency] = useState<PlanningFrequency | null>(null);
+    const [showDeleteDayConfirm, setShowDeleteDayConfirm] = useState(false);
+    const [pendingDeleteDay, setPendingDeleteDay] = useState<{weekId: string; dayId: string} | null>(null);
 
     // Teams for Ranked Mode
     const [pastorTeams, setPastorTeams] = useState<PlanTeam[]>([]);
@@ -314,8 +320,8 @@ const PlanBuilderPage: React.FC = () => {
             setGlobalTitle(aulLabel);
             setBreadcrumbs([
                 { label: 'Criador de Jornada', path: '/workspace-pastoral' },
-                { label: planTitle, path: `/criador-jornada?id=${savedPlanId}`, onClick: () => window.location.assign(`/criador-jornada?id=${savedPlanId}`) },
-                { label: 'Conteúdo', path: `/criador-jornada?id=${savedPlanId}`, onClick: () => { setEditingDayId(null); setCurrentStep(2); } },
+                { label: planTitle, path: `/criar-sala?id=${savedPlanId}`, onClick: () => window.location.assign(`/criar-sala?id=${savedPlanId}`) },
+                { label: 'Conteúdo', path: `/criar-sala?id=${savedPlanId}`, onClick: () => { setEditingDayId(null); setCurrentStep(2); } },
                 { label: aulLabel }
             ]);
             return;
@@ -325,7 +331,7 @@ const PlanBuilderPage: React.FC = () => {
              setGlobalTitle(planTitle);
              setBreadcrumbs([
                  { label: 'Criador de Jornada', path: '/workspace-pastoral' },
-                 { label: planTitle, path: `/criador-jornada?id=${savedPlanId}`, onClick: () => window.location.assign(`/criador-jornada?id=${savedPlanId}`) },
+                 { label: planTitle, path: `/criar-sala?id=${savedPlanId}`, onClick: () => window.location.assign(`/criar-sala?id=${savedPlanId}`) },
                  { label: 'Conteúdo' }
              ]);
              return;
@@ -334,7 +340,7 @@ const PlanBuilderPage: React.FC = () => {
         setGlobalTitle(planTitle);
         setBreadcrumbs([
             { label: 'Criador de Jornada', path: '/workspace-pastoral' },
-            { label: planTitle, path: `/criador-jornada?id=${savedPlanId}` }
+            { label: planTitle, path: `/criar-sala?id=${savedPlanId}` }
         ]);
     }, [plan.title, editingDayId, editingDayTitle, currentStep, setGlobalTitle, setBreadcrumbs, savedPlanId, setEditingDayId, setCurrentStep]);
 
@@ -351,99 +357,18 @@ const PlanBuilderPage: React.FC = () => {
         loadTeams();
     }, [plan.isRanked, currentUser]);
 
-    // Busca automática da Bíblia ao digitar referência (Debounce)
-    useEffect(() => {
-        // Se estamos carregando um item existente, ignoramos esta mudança automática do dayRef
-        // Resetamos o ref indepentemente do tamanho do texto para não travar a próxima busca
-        if (isLoadingItemRef.current) {
-            isLoadingItemRef.current = false;
-            return;
-        }
-
-        const ref = dayRef.trim();
-        // Otimização: Não busca se for muito curto, se já estiver gerando IA ou se não houver aula ativa
-        if (ref.length < 3 || !editingDayId || isGeneratingAI) return;
-
-        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-        searchTimeoutRef.current = setTimeout(() => {
-            handleSearchBible();
-        }, 1200); // Aumentado um pouco o delay para otimizar chamadas
-
-        return () => {
-            if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-        };
-    }, [dayRef, editingDayId, isGeneratingAI]);
-
-    const handleSearchBible = async () => {
-        const ref = dayRef.trim();
-        if (ref.length < 3 || !editingDayId) return;
-
-        setIsFetchingBible(true);
-        try {
-            const verseData = await bibleService.getTextByReference(ref);
-            if (verseData) {
-                setDayVerseText(verseData.text);
-                if (!dayTitle || dayTitle === 'Nova Aula') setDayTitle(`Aula: ${verseData.formattedRef}`);
-
-                let htmlBlockquoteContent = `"${verseData.text}"`;
-
-                // Formatação interativa para textos com múltiplos versículos
-                const verseMatches = Array.from(verseData.text.matchAll(/\[(\d+)\]\s+([^\[]+)/g));
-                if (verseMatches.length > 3) {
-                    const first3 = verseMatches.slice(0, 3).map(m => `[${m[1]}] ${m[2].trim()}`).join(' ');
-                    const rest = verseMatches.slice(3).map(m => `[${m[1]}] ${m[2].trim()}`).join('<br/><br/>');
-
-                    htmlBlockquoteContent = `"${first3}..." 
-<details class="bible-details">
-  <summary>&#128065; Ver todo o texto bíblico (${verseMatches.length} versículos)</summary>
-  <div class="bible-details-content">
-    ${rest}
-  </div>
-</details>`;
-                }
-
-                setHtmlContent(prev => {
-                    let newHtml = prev;
-
-                    // Altera título se tiver padrão 'Nova Aula'
-                    if (newHtml.includes('Nova Aula') && (!dayTitle || dayTitle === 'Nova Aula')) {
-                        newHtml = newHtml.replace('Nova Aula', `Aula: ${verseData.formattedRef}`);
-                    }
-
-                    // Altera a Referência (Subtítulo abaixo do H1) de forma robusta com Regex
-                    // Independente de ser a 1Ã‚Âª busca ou n-ésima busca
-                    if (newHtml.includes('Referência Bíblica Base')) {
-                        newHtml = newHtml.replace('Referência Bíblica Base', verseData.formattedRef);
-                    } else {
-                        newHtml = newHtml.replace(
-                            /<p (?:style="text-align: center; color: #888; font-style: italic; font-size: 1.1em; margin-bottom: 30px;"|class="bible-subtitle")>.*?<\/p>/i,
-                            `<p class="bible-subtitle">${verseData.formattedRef}</p>`
-                        );
-                    }
-
-                    // Força a inserção atualizada do bloco de citação completo toda vez!
-                    newHtml = newHtml.replace(
-                        /<blockquote[^>]*>[\s\S]*?<\/blockquote>/i,
-                        `<blockquote>\n    ${htmlBlockquoteContent}\n  </blockquote>`
-                    );
-
-                    return newHtml;
-                });
-            } else {
-                showNotification("Referência não encontrada na base.", "warning");
-            }
-        } catch (e) {
-            console.error(e);
-            showNotification("Erro ao buscar texto bíblico.", "error");
-        } finally {
-            setIsFetchingBible(false);
-        }
-    };
+    // Busca automática e handleSearchBible removidos: Agora processados pelo CreateContentV3Page embutido
 
     const handleFrequencyChange = (freq: PlanningFrequency) => {
         if (plan.weeks && plan.weeks.length > 0 && plan.weeks[0].days.length > 0) {
-            if (!confirm("Alterar a frequência pode renomear suas unidades. Continuar?")) return;
+            setPendingFrequency(freq);
+            setShowFreqConfirm(true);
+            return;
         }
+        applyFrequencyChange(freq);
+    };
+
+    const applyFrequencyChange = (freq: PlanningFrequency) => {
         setPlan(prev => ({
             ...prev,
             planningFrequency: freq,
@@ -559,7 +484,7 @@ const PlanBuilderPage: React.FC = () => {
             // Template modelo de aula — Sincronizado com CreateLandingPage
             setEditorBlocks(buildBaseBlocks([
                 { type: 'hero-split', layoutWidth: '1/1' },
-                { type: 'biblical', layoutWidth: '1/2' },
+                { type: 'biblical', layoutWidth: '2/3' },
                 { type: 'study-outline', layoutWidth: '1/3' },
                 { type: 'rich-text', layoutWidth: '1/1' },
                 { type: 'slide', layoutWidth: '1/1' },
@@ -572,153 +497,25 @@ const PlanBuilderPage: React.FC = () => {
         }
     };
 
-    const handleAiFill = async () => {
-        if (!dayRef.trim() && !aiTheme.trim()) {
-            showNotification("Informe um tema ou uma referência para a IA.", "info");
-            return;
-        }
-
-        setIsGeneratingAI(true);
-        try {
-            const referenceToUse = dayRef.trim() ? dayRef : "Indefinida";
-            const generatedHtml = await generateStructuredStudy(aiTheme || 'Geral', referenceToUse, aiAudience || 'Geral', studyMode);
-            if (generatedHtml) {
-                let extractedTitle = '';
-                const titleMatch = generatedHtml.match(/<h1[^>]*>(.*?)<\/h1>/i);
-                if (titleMatch && titleMatch[1]) {
-                    extractedTitle = titleMatch[1].replace(/<[^>]*>?/gm, '').trim();
-                }
-
-                const refMatch = generatedHtml.match(/<p[^>]+(?:class=["'][^"']*bible-subtitle[^"']*["']|bible-subtitle)[^>]*>(.*?)<\/p>/i) ||
-                    generatedHtml.match(/<h1[^>]*>.*?<\/h1>\s*<p[^>]*>(.*?)<\/p>/i);
-
-                let newlyExtractedRef = dayRef;
-                if (refMatch && refMatch[1]) {
-                    newlyExtractedRef = refMatch[1].replace(/<[^>]*>?/gm, '').trim();
-                }
-
-                // Sincroniza metadados
-                if (extractedTitle) {
-                    setDayTitle(extractedTitle);
-                    setEditingDayTitle(extractedTitle);
-                }
-                if (newlyExtractedRef && (!dayRef.trim() || dayRef === 'Indefinida')) {
-                    setDayRef(newlyExtractedRef);
-                }
-
-                // Popula o editor com os novos blocos estruturados
-                setEditorBlocks([
-                    {
-                        id: `hero-${Date.now()}`,
-                        type: 'hero',
-                        data: {
-                            title: extractedTitle || dayTitle || 'Plano de Estudo Pastoral',
-                            subtitle: newlyExtractedRef || dayRef || '',
-                            alignment: 'center',
-                            showCta: false,
-                            showSubtitle: true
-                        }
-                    },
-                    {
-                        id: `biblical-${Date.now()}`,
-                        type: 'biblical',
-                        data: {
-                            verse: newlyExtractedRef || dayRef || '',
-                            text: '',
-                            reference: newlyExtractedRef || dayRef || '',
-                            style: 'classic'
-                        }
-                    },
-                    {
-                        id: `ai-content-${Date.now()}`,
-                        type: 'study-content',
-                        data: {
-                            content: generatedHtml
-                        }
-                    },
-                    {
-                        id: `footer-${Date.now()}`,
-                        type: 'footer',
-                        data: {
-                            tagline: 'Reflexão gerada para edificar sua jornada.',
-                            showSocial: true
-                        }
-                    }
-                ]);
-
-                await incrementUsage('analysis');
-                showNotification("Roteiro gerado com sucesso!", "success");
-            } else {
-                showNotification("A IA não gerou conteúdo.", "error");
-            }
-        } catch (e) {
-            console.error("Erro na geração da AI:", e);
-        } finally {
-            setIsGeneratingAI(false);
-        }
-    };
-
-    const saveDayContent = () => {
-        if (!activeWeekId || !editingDayId) return;
-        
-        // Trava de segurança: impede salvar template base sem modificações reais (Sincronizado com CreateLandingPage)
-        const blocksArray = Array.isArray(editorBlocks) 
-            ? editorBlocks 
-            : (editorBlocks as any)?.content?.filter((n: any) => n.type === 'customBlock').map((n: any) => n.attrs.blockData) || [];
-            
-        const isNewAndUnmodified = !dayTitle && blocksArray.length <= 8; // 8 é o tamanho do nosso roadmap padrão
-        
-        if (isNewAndUnmodified) {
-            showNotification("Personalize a aula ou use a IA antes de salvar.", "warning");
-            return;
-        }
-
-        if (!dayTitle) { showNotification("Dê um título para a aula.", "error"); return; }
-
-        // Mapear blocos do TipTap para as configurações
-        const blocksConfig = Array.isArray(editorBlocks) ? editorBlocks : (editorBlocks as any).content?.filter((n: any) => n.type === 'customBlock').map((n: any) => n.attrs.blockData) || [];
-
-        const newDay: PlanDayContent = {
-            id: editingDayId,
-            title: dayTitle,
-            description: dayRef,
-            htmlContent: '<p>Conteúdo em construção...</p>', // Mantido para retrocompatibilidade
-            blocksConfig: editorBlocks, // Agora armazena o TipTap JSON completo ou Array
-            isCompleted: false,
-            tags: dayTags,
-            category: dayCategory
-        };
-
-        setPlan(prev => ({
-            ...prev,
-            weeks: prev.weeks?.map(w => {
-                if (w.id !== activeWeekId) return w;
-                const exists = w.days.find(d => d.id === editingDayId);
-                if (exists) {
-                    return { ...w, days: w.days.map(d => d.id === editingDayId ? newDay : d) };
-                } else {
-                    return { ...w, days: [...w.days, newDay] };
-                }
-            })
-        }));
-
-        setEditingDayId(null);
-        setActiveWeekId(null);
-        setSelectedBlockId(null);
-        setActiveBlockData(null);
-        showNotification("Aula salva no plano!", "success");
-    };
+    // handleAiFill e saveDayContent removidos: delegados ao componente CreateContentV3Page embutido
 
     const handleDeleteDay = (weekId: string, dayId: string) => {
-        if (!confirm("Deseja realmente excluir esta aula?")) return;
+        setPendingDeleteDay({ weekId, dayId });
+        setShowDeleteDayConfirm(true);
+    };
+
+    const confirmDeleteDay = () => {
+        if (!pendingDeleteDay) return;
         setPlan(prev => ({
             ...prev,
             weeks: prev.weeks?.map(w => {
-                if (w.id !== weekId) return w;
-                return { ...w, days: w.days.filter(d => d.id !== dayId) };
+                if (w.id !== pendingDeleteDay.weekId) return w;
+                return { ...w, days: w.days.filter(d => d.id !== pendingDeleteDay.dayId) };
             })
         }));
         showNotification("Aula removida.", "success");
+        setPendingDeleteDay(null);
+        setShowDeleteDayConfirm(false);
     };
 
     const onDragEnd = (result: DropResult) => {
@@ -1309,6 +1106,26 @@ const PlanBuilderPage: React.FC = () => {
                 )}
 
             <ConfirmationModal isOpen={showSaveSuccessModal} onClose={() => setShowSaveSuccessModal(false)} onConfirm={() => savedPlanId && navigate(`/jornada/${savedPlanId}`)} title="Sucesso!" message="Seu plano foi publicado." confirmText="Ver Plano" variant="success" />
+            <ConfirmationModal
+                isOpen={showFreqConfirm}
+                onClose={() => { setShowFreqConfirm(false); setPendingFrequency(null); }}
+                onConfirm={() => { if (pendingFrequency) applyFrequencyChange(pendingFrequency); setShowFreqConfirm(false); setPendingFrequency(null); }}
+                title="Alterar frequência?"
+                message="Alterar a frequência pode renomear suas unidades. Deseja continuar?"
+                confirmText="Sim, alterar"
+                cancelText="Cancelar"
+                variant="warning"
+            />
+            <ConfirmationModal
+                isOpen={showDeleteDayConfirm}
+                onClose={() => { setShowDeleteDayConfirm(false); setPendingDeleteDay(null); }}
+                onConfirm={confirmDeleteDay}
+                title="Excluir aula?"
+                message="Deseja realmente excluir esta aula? Esta ação não pode ser desfeita."
+                confirmText="Sim, excluir"
+                cancelText="Cancelar"
+                variant="danger"
+            />
             <EvaluationBuilderModal isOpen={showEvalModal} onClose={() => setShowEvalModal(false)} onSave={handleSaveEvaluation} initialData={evaluationData || undefined} />
             <ObreiroIAChatbot />
         </div>

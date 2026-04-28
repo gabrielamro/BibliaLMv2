@@ -558,7 +558,7 @@ Crie conteúdo bíblico de alta densidade intelectual, elegância literária e v
 DIRETRIZES DE DIAGRAMAÇÃO (ROADMAP V2):
 Você deve organizar o conteúdo em 6 sessões editoriais dinâmicas:
 Sessão 1: Impacto & Gancho Visual (Hero Split 1/1)
-Sessão 2: Contextualização (Biblical 2/3 + Study Outline 1/3)
+Sessão 2: Contextualização (Biblical 1/2 + Study Outline 1/3)
 Sessão 3: Mergulho Profundo (Rich Text 1/1 - Conteúdo denso 600+ palavras)
 Sessão 4: Multimídia & Apoio (Slide 1/1 + Related Verses dinâmico)
 Sessão 5: Conclusão & Autoria (Authority 1/1 + Footer 1/1)
@@ -568,25 +568,26 @@ DIRETRIZES TÉCNICAS:
 1. Use HTML rico para textos: <h2>, <h3>, <p>, <strong>, blockquote.
 2. NotebookLM Depth: Realize uma síntese profunda ligando o versículo a conceitos históricos e aplicações reais.
 3. Responda APENAS com JSON válido.
-4. Respeite as larguras (layoutWidth) para cada bloco conforme o roadmap.`;
+4. Respeite as larguras (layoutWidth) para cada bloco conforme o roadmap.
+5. No bloco rich-text, todo titulo de secao deve ser HTML <h2>. Nunca escreva titulos como texto solto ou paragrafos comuns. Use pelo menos 4 titulos <h2> para alimentar o sumario automaticamente.`;
 
     const prompt = `PEDIDO: "${userPrompt}"
 AUTOR: "${authorName || 'Pr. Gabriel'}"
 
 Gere uma one-page pastoral completa em JSON seguindo EXATAMENTE esta sequência de blocos.
-O campo "blocks" deve ser um ARRAY com EXATAMENTE estes 10 blocos NESTA ORDEM e COM ESTES layoutWidth:
+O campo "blocks" deve ser um ARRAY com EXATAMENTE estes 9 blocos NESTA ORDEM e COM ESTES layoutWidth:
 
 blocks[0]:  type="hero-split",          layoutWidth="1/1"
-blocks[1]:  type="biblical",             layoutWidth="2/3"
+blocks[1]:  type="biblical",             layoutWidth="1/2"
 blocks[2]:  type="study-outline",        layoutWidth="1/3"
-blocks[3]:  type="rich-text",            layoutWidth="1/1"
+blocks[3]:  type="rich-text",            layoutWidth="1/1" (conteudo com multiplos <h2>)
 blocks[4]:  type="slide",                layoutWidth="1/1"
 blocks[5]:  type="related-verses",       layoutWidth="1/1" (Será ajustado dinamicamente)
 blocks[6]:  type="authority",            layoutWidth="1/1"
 blocks[7]:  type="footer",               layoutWidth="1/1"
 blocks[8]:  type="reflection-question",  layoutWidth="1/1"
 
-⚠️ REGRA ABSOLUTA: Copie os valores de layoutWidth LITERALMENTE. NÃO mude "2/3" para "1/1". NÃO mude "1/3" para "1/1". Se fizer isso, o layout quebra.
+⚠️ REGRA ABSOLUTA: Copie os valores de layoutWidth LITERALMENTE. NÃO mude "1/2" para "1/1". NÃO mude "1/3" para "1/1". Se fizer isso, o layout quebra.
 
 IMAGENS (obrigatório para hero-split e slide):
 - Imagem 1: https://images.unsplash.com/photo-1504052434139-44b419d2826e?q=80&w=2000
@@ -598,9 +599,9 @@ JSON EXATO (preencha "..." com conteúdo real):
   "slug": "...",
   "blocks": [
     { "type": "hero-split", "layoutWidth": "1/1", "data": { "title": "...", "eyebrow": "Hero split", "imageUrl": "https://images.unsplash.com/photo-1504052434139-44b419d2826e?q=80&w=2000" } },
-    { "type": "biblical", "layoutWidth": "2/3", "data": { "verse": "...", "text": "...", "reference": "...", "style": "elegant" } },
+    { "type": "biblical", "layoutWidth": "1/2", "data": { "verse": "...", "text": "...", "reference": "...", "style": "elegant" } },
     { "type": "study-outline", "layoutWidth": "1/3", "data": { "title": "Roteiro do Estudo", "description": "...", "items": ["Introducao", "...", "...", "Aplicacao Pratica", "Pergunta ao Coracao"] } },
-    { "type": "rich-text", "layoutWidth": "1/1", "data": { "title": "...", "content": "<h2>...</h2><p>Escreva 600+ palavras de conteudo pastoral profundo aqui...</p>" } },
+    { "type": "rich-text", "layoutWidth": "1/1", "data": { "title": "...", "content": "<h2>A Profundeza da Mensagem</h2><p>Escreva a abertura pastoral profunda aqui...</p><h2>Autoridade e Fundamento Biblico</h2><p>Explique o fundamento textual e teologico aqui...</p><h2>Aplicacao Pratica</h2><p>Mostre como viver essa verdade hoje...</p><h2>Conclusao</h2><p>Feche com chamado, consolo e direcao espiritual.</p>" } },
     { "type": "slide", "layoutWidth": "1/1", "data": { "slides": [{ "id": "slide-1", "title": "...", "description": "...", "backgroundImage": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000", "mediaUrl": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000" }] } },
     { "type": "related-verses", "layoutWidth": "1/1", "data": { "title": "Versículos Relacionados", "verses": [{ "reference": "...", "summary": "..." }] } },
     { "type": "authority", "layoutWidth": "1/1", "data": { "name": "${authorName || 'Pr. Gabriel'}", "bio": "...", "avatarUrl": "" } },

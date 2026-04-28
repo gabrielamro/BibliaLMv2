@@ -14,11 +14,13 @@ import {
 import { useSettings } from '../contexts/SettingsContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { bibleService } from '../services/bibleService';
+import { dbService } from '../services/supabase';
 import { resolveUserDailyDevotional } from '../services/devotionalResolver';
 import { BIBLE_BOOKS_LIST, DAILY_BIBLE_VERSES } from '../constants';
 import { resolveBibleSearchNavigation } from '../utils/bibleSearchNavigation';
 import { getBibleBookAutocomplete } from '../utils/bibleBookAutocomplete';
 import { getReadingGoalProgress, INICIO_QUICK_ACCESS_GROUPS, type InicioQuickAccessItem } from '../utils/inicioHome';
+import { isStandaloneStudyContent } from '../utils/contentEditing';
 
 const quickAccessIcons: Record<InicioQuickAccessItem['iconKey'], React.ReactNode> = {
   book: <BookOpen size={16} />,
@@ -78,6 +80,7 @@ const SanctuaryPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [dailyDevotional, setDailyDevotional] = useState<any>(null);
   const [loadingDevotional, setLoadingDevotional] = useState(true);
+  const [userStudies, setUserStudies] = useState<any[]>([]);
   const [searchPreview, setSearchPreview] = useState<{ text: string, formattedRef: string, routeState: any } | null>(null);
   const bookAutocomplete = useMemo(
     () => getBibleBookAutocomplete(searchTerm, BIBLE_BOOKS_LIST, 4),
@@ -168,6 +171,51 @@ const SanctuaryPage: React.FC = () => {
       }
     };
     loadDevotional();
+  }, [currentUser]);
+
+  useEffect(() => {
+    const loadUserStudies = async () => {
+      if (!currentUser) {
+        setUserStudies([]);
+        return;
+      }
+
+      const uid = currentUser.id ?? currentUser.uid;
+      try {
+        const [studiesData, publicStudiesData] = await Promise.all([
+          dbService.getAll(uid, 'studies'),
+          dbService.getAll(uid, 'public_studies'),
+        ]);
+
+        const normalizeStudy = (study: any) => {
+          let blocks = study.blocks;
+          let meta = study.meta;
+          try { if (typeof blocks === 'string') blocks = JSON.parse(blocks); } catch (e) { blocks = []; }
+          try { if (typeof meta === 'string') meta = JSON.parse(meta); } catch (e) { meta = {}; }
+          return {
+            ...study,
+            type: study.type || 'study',
+            blocks,
+            meta,
+            title: study.title || meta?.title || 'Estudo sem titulo',
+            coverUrl: study.cover_image || meta?.coverImage || study.coverUrl,
+          };
+        };
+
+        const studies = [...(studiesData as any[]), ...(publicStudiesData as any[])]
+          .map(normalizeStudy)
+          .filter(isStandaloneStudyContent)
+          .sort((a, b) => new Date(b.updatedAt || b.updated_at || b.createdAt || b.created_at || 0).getTime() - new Date(a.updatedAt || a.updated_at || a.createdAt || a.created_at || 0).getTime())
+          .slice(0, 2);
+
+        setUserStudies(studies);
+      } catch (error) {
+        console.error('[Inicio03] Erro ao carregar estudos:', error);
+        setUserStudies([]);
+      }
+    };
+
+    loadUserStudies();
   }, [currentUser]);
 
   useEffect(() => {
@@ -339,7 +387,8 @@ const SanctuaryPage: React.FC = () => {
               onKeyDown={e => {
                 if (e.key === 'Enter' && searchTerm.trim()) {
                   if (searchPreview) {
-                    navigate('/biblia', { state: searchPreview.routeState });
+                    const { bookId, chapter, scrollToVerse } = searchPreview.routeState;
+                    navigate(`/biblia?book=${bookId}&cap=${chapter}${scrollToVerse ? `&vs=${scrollToVerse}` : ''}`);
                   } else {
                     navigate(`/social/explore?q=${encodeURIComponent(searchTerm.trim())}`);
                   }
@@ -365,7 +414,8 @@ const SanctuaryPage: React.FC = () => {
               type="button"
               onClick={() => {
                 if (searchPreview) {
-                  navigate('/biblia', { state: searchPreview.routeState });
+                  const { bookId, chapter, scrollToVerse } = searchPreview.routeState;
+                  navigate(`/biblia?book=${bookId}&cap=${chapter}${scrollToVerse ? `&vs=${scrollToVerse}` : ''}`);
                 } else if (searchTerm.trim()) {
                   navigate(`/social/explore?q=${encodeURIComponent(searchTerm.trim())}`);
                 } else {
@@ -380,7 +430,10 @@ const SanctuaryPage: React.FC = () => {
             {/* Search Preview Autocomplete */}
             {searchPreview && (
               <div className={`absolute top-full left-0 right-0 mt-2 rounded-xl shadow-xl overflow-hidden z-50 p-4 border cursor-pointer flex flex-col gap-2 ${isLightTheme ? 'bg-white border-gray-200 hover:bg-gray-50' : 'bg-[#1A1A1A] border-[#2A2A2A] hover:bg-[#202020]'}`}
-                onClick={() => navigate('/biblia', { state: searchPreview.routeState })}>
+                onClick={() => {
+                  const { bookId, chapter, scrollToVerse } = searchPreview.routeState;
+                  navigate(`/biblia?book=${bookId}&cap=${chapter}${scrollToVerse ? `&vs=${scrollToVerse}` : ''}`);
+                }}>
                 <div className="flex items-center gap-2 text-[#c5a059]">
                   <BookOpen size={16} />
                   <span className="font-bold text-xs uppercase tracking-widest">{searchPreview.formattedRef}</span>
@@ -567,7 +620,7 @@ const SanctuaryPage: React.FC = () => {
                     <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
                       {/* Nova Sala */}
                       <button
-                        onClick={() => navigate('/criador-jornada')}
+                        onClick={() => navigate('/criar-sala')}
                         className="min-w-[180px] h-[190px] rounded-2xl border border-dashed border-[#c5a059]/40 bg-transparent flex flex-col items-center justify-center gap-4 hover:bg-[#c5a059]/5 transition-colors cursor-pointer shrink-0"
                       >
                         <div className="w-12 h-12 bg-[#c5a059] rounded-xl flex items-center justify-center text-black">
@@ -648,14 +701,14 @@ const SanctuaryPage: React.FC = () => {
 
                     {/* Box Cards Escuros */}
                     <div className="w-full md:w-[75%] flex gap-4 h-full">
-                      {plans.length > 0 ? plans.slice(0, 2).map((plan, i) => (
-                        <div key={`box-${plan.id || i}`} onClick={() => navigate(`/plano/${plan.id}`)} className="flex-1 bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-between cursor-pointer hover:border-[#c5a059]/30 transition-colors">
+                      {userStudies.length > 0 ? userStudies.map((study, i) => (
+                        <div key={`study-${study.id || i}`} onClick={() => navigate(`/criar-conteudo?id=${study.id}`, { state: { contentId: study.id, studyData: study } })} className="flex-1 bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-between cursor-pointer hover:border-[#c5a059]/30 transition-colors">
                           <div className="flex justify-between items-start mb-2">
-                            <h3 className="text-gray-900 dark:text-white font-bold text-sm line-clamp-2">{plan.title}</h3>
-                            <span className="text-gray-500 dark:text-gray-500 text-[10px] font-bold shrink-0">{new Date(plan.createdAt || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                            <h3 className="text-gray-900 dark:text-white font-bold text-sm line-clamp-2">{study.title}</h3>
+                            <span className="text-gray-500 dark:text-gray-500 text-[10px] font-bold shrink-0">{new Date(study.updatedAt || study.updated_at || study.createdAt || study.created_at || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
                           </div>
                           <div className="flex items-center gap-2 text-[#c5a059]">
-                            <BookOpen size={14} /> <span className="text-xs font-bold uppercase">{plan.planningFrequency === 'daily' ? 'Diário' : 'Leitura'}</span>
+                            <BookOpen size={14} /> <span className="text-xs font-bold uppercase">{study.status === 'published' ? 'Publicado' : 'Estudo'}</span>
                           </div>
                         </div>
                       )) : (
@@ -1100,3 +1153,4 @@ const SanctuaryPage: React.FC = () => {
 };
 
 export default SanctuaryPage;
+

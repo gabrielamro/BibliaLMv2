@@ -28,7 +28,6 @@ export const INICIO_QUICK_ACCESS_GROUPS: InicioQuickAccessGroup[] = [
       { label: 'Bíblia Sagrada', path: '/biblia', iconKey: 'book', colorClass: 'text-blue-500' },
       { label: 'Pão Diário', path: '/devocional', iconKey: 'coffee', colorClass: 'text-amber-500' },
       { label: 'Orações', path: '/oracoes', iconKey: 'heart', colorClass: 'text-rose-500' },
-      { label: 'Trilhas', path: '/trilhas', iconKey: 'map', colorClass: 'text-emerald-500' },
       { label: 'Meta de Leitura', path: '/plano', iconKey: 'target', colorClass: 'text-green-500' },
       { label: 'Quiz Bíblico', path: '/quiz', iconKey: 'brain', colorClass: 'text-yellow-500' },
     ],

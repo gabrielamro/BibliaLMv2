@@ -4,25 +4,27 @@ import * as assert from 'node:assert/strict';
 import { getEditDestinationForContent } from '../utils/contentEditing.ts';
 
 test('study items always edit in criar-conteudo with contentId', () => {
-  const destination = getEditDestinationForContent({
+  const study = {
     id: 'study-1',
     type: 'study',
     title: 'Estudo',
-  });
+  };
+
+  const destination = getEditDestinationForContent(study);
 
   assert.deepEqual(destination, {
-    path: '/criar-conteudo',
-    state: { contentId: 'study-1' },
+    path: '/criar-conteudo?id=study-1',
+    state: { contentId: 'study-1', studyData: study },
   });
 });
 
-test('plan items keep editing in criador-jornada', () => {
+test('plan items edit in criar-sala studio', () => {
   const plan = { id: 'plan-1', type: 'plan', title: 'Plano' };
 
   const destination = getEditDestinationForContent(plan);
 
   assert.deepEqual(destination, {
-    path: '/criador-jornada',
+    path: '/criar-sala?id=plan-1',
     state: { planData: plan },
   });
 });

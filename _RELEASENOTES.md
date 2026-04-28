@@ -4,7 +4,47 @@
 > **VERSION SYNC:** Lembre-se de atualizar `constants.ts`, `_ARCHITECTURE.md` e `_PROJECT_CONTEXT.md` ao mudar a versão aqui.
 > **GIT SYNC:** Após atualizar este arquivo, o Arquiteto deve executar `git commit` com a mensagem do release.
 
+## [v1.9.3] - 2026-04-24 (Estabilidade Global de Internals)
+### Tipo: Infrastructure / Fix / DOM
+- **Resumo:** Expansão do sistema de auto-cura para neutralizar erros de `isBatchingLegacy` no `react-dom`.
+- **Novidades:**
+  - **React DOM Patch**: Proteção contra falhas de `ReactCurrentActQueue` em 23 arquivos do `react-dom`.
+  - **Bridge v2**: Reforço da ponte de runtime no `layout.tsx` para garantir estabilidade do `ErrorBoundary` no navegador.
+  - **Zero-Crash Build**: Validada a renderização estática de 61 páginas sem erros de reconciliador.
+
 ---
+
+## [v1.9.2] - 2026-04-24 (Estabilização Nuclear do Reconciler)
+### Tipo: Infrastructure / Fix / Security
+- **Resumo:** Implementação de um sistema de auto-cura universal que neutraliza falhas de internos do React diretamente no `node_modules`.
+- **Novidades:**
+  - **Nuclear Reconciler Patch**: Patch cirúrgico injetado no `react-reconciler` (dev/prod) para prevenir o erro de `ReactSharedInternals is undefined`.
+  - **Auto-Healing System (v2)**: Novo script `fix-konva-crash.cjs` que monitora e cura automaticamente `its-fine`, `react-konva` e `react-reconciler` após cada instalação.
+  - **ESM Compatibility**: Script de automação convertido para CommonJS para garantir execução estável em ambientes Next.js com módulos nativos.
+- **Arquivos Afetados:**
+  - `scripts/fix-konva-crash.cjs` (Novo motor de estabilização)
+  - `package.json` (Vínculo do patch ao ciclo de vida de instalação)
+  - `constants.ts` (Bump v1.9.2)
+
+---
+
+## [v1.9.1] - 2026-04-24 (Estabilização do Motor de Canvas)
+### Tipo: Infrastructure / Fix / DevOps
+- **Resumo:** Estabilização crítica do motor de renderização Konva para resolver erros de "ReactSharedInternals is undefined" no Turbopack.
+- **Novidades:**
+  - **React Internals Bridge**: Implementada ponte de compatibilidade no `layout.tsx` para garantir que o Konva acesse corretamente os segredos do React em ambientes Next.js modernos.
+  - **Isolamento de SSR**: Refatoração de todos os componentes de Canvas (`SlideKonva`, `SacredArtCanvas`, `TextNode`) para importação dinâmica 100% isolada do servidor.
+  - **Dependency Overrides**: Forçada a consistência de instâncias do React via `package.json` para evitar duplicidade de bibliotecas no bundle final.
+- **Arquivos Afetados:**
+  - `app/layout.tsx` (Implementação da Ponte Global)
+  - `package.json` (Adicionado `overrides` de React)
+  - `next.config.ts` (Otimização de `transpilePackages`)
+  - `components/Builder/blocks/SlideKonva.tsx` (Ponte local e isolamento)
+  - `components/sacred-art-editor/SacredArtCanvas.tsx` (Ponte local e isolamento)
+  - `constants.ts` (Bump v1.9.1)
+
+---
+
 ## [v1.9.0] - 2026-04-23 (Acesso Freemium & Estúdio Profissional)
 ### Tipo: Feature / UI / UX / Architecture
 - **Resumo:** Transformação do modelo de acesso para "Freemium" (convidados podem explorar sem login) e refatoração completa do Estúdio de Arte Sacra para um design de sidebar profissional.

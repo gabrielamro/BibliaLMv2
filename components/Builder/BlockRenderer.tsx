@@ -1,11 +1,18 @@
+"use client";
 import React from 'react';
+import { Monitor, Smartphone, EyeOff } from 'lucide-react';
 import { HeroBlock } from './blocks/HeroBlock';
 import { AuthorityBlock } from './blocks/AuthorityBlock';
 import { BiblicalBlock } from './blocks/BiblicalBlock';
 import { VideoBlock } from './blocks/VideoBlock';
 import { FooterBlock } from './blocks/FooterBlock';
 import { StudyContentBlock } from './blocks/StudyContentBlock';
-import { SlideBlock } from './blocks/SlideBlock';
+import dynamic from 'next/dynamic';
+
+const SlideBlock = dynamic(() => import('./blocks/SlideBlock').then(mod => mod.SlideBlock), { 
+  ssr: false,
+  loading: () => <div className="h-80 md:h-96 bg-gray-900 rounded-3xl animate-pulse flex items-center justify-center text-gray-500 font-bold uppercase tracking-widest text-[10px]">Carregando Slide...</div>
+});
 import { HeroSplitBlock } from './blocks/HeroSplitBlock';
 import { StudyOutlineBlock } from './blocks/StudyOutlineBlock';
 import { RelatedVersesBlock } from './blocks/RelatedVersesBlock';
@@ -39,6 +46,24 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   studyTitle,
 }) => {
   const { type, data } = block;
+  
+  // Lógica de Visibilidade
+  const showOnDesktop = data.showOnDesktop !== false;
+  
+  // Regra: Sumário não aparece no mobile por padrão (showOnMobile deve ser explicitamente true)
+  const showOnMobile = type === 'study-outline' 
+    ? (data.showOnMobile === true)  // Precisa ser explicitamente ativado
+    : (data.showOnMobile !== false); // Outros blocos: visíveis por padrão
+
+  const isMobileView = canvasWidth === 'mobile';
+  const isDesktopView = !isMobileView; // tablet and full also count as desktop-ish for this logic
+
+  const isHiddenOnCurrentViewport = (isMobileView && !showOnMobile) || (isDesktopView && !showOnDesktop);
+
+  // No modo produção (não editando), se estiver escondido, não renderiza nada
+  if (!isEditing && isHiddenOnCurrentViewport) {
+    return null;
+  }
 
   const renderBlock = () => {
     switch (type) {
@@ -68,8 +93,9 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
         return <ReflectionQuestionBlock data={data} isEditable={isEditing} studyId={studyId} studyTitle={studyTitle} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} />;
       case 'spacer':
         return <SpacerBlock data={data} isEditing={isEditing} onUpdate={(newData) => onUpdate?.(block.id, newData)} />;
+      case 'free-text':
       case 'rich-text':
-        return <RichTextBlock data={data} onUpdate={(newData) => onUpdate?.(block.id, newData)} isEditing={isEditing} editor={editor} layoutWidth={layoutWidth || data.layoutWidth || '1/1'} />;
+        return <RichTextBlock data={data} onUpdate={(newData) => onUpdate?.(block.id, newData)} isEditing={isEditing} editor={editor} layoutWidth={layoutWidth || data.layoutWidth || '1/1'} blockType={type} />;
       case 'cta':
         return <CTABlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} />;
       default:
@@ -110,9 +136,9 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             containerClass += ' max-w-6xl px-0';
         } else if (type === 'study-content' || type === 'biblical') {
             containerClass += ' max-w-4xl px-0';
-        } else if ((type === 'study-outline' || type === 'related-verses') && (currentLayoutWidth === '1/2' || currentLayoutWidth === '1/3')) {
-            containerClass += ' max-w-sm px-0';
-        } else if (type === 'rich-text') {
+        } else if (type === 'study-outline' || type === 'related-verses') {
+            containerClass += ' max-w-4xl px-0';
+        } else if (type === 'rich-text' || type === 'free-text') {
             containerClass += ' max-w-full px-0';
         } else {
             containerClass += ' max-w-5xl px-0';
@@ -148,6 +174,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
     xl: 'shadow-2xl'
   };
 
+
   return (
     <div 
       className={`${shadowClasses[data.shadow || 'none']} ${data.borderRadius ? 'overflow-hidden' : ''} transition-all duration-300 w-full`}
@@ -169,8 +196,22 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
           }} 
         />
       )}
+
+      {/* Indicador de Bloco Escondido (Apenas no Editor) */}
+      {isEditing && isHiddenOnCurrentViewport && (
+        <div className="absolute inset-0 z-[20] bg-white/60 dark:bg-gray-900/60 backdrop-blur-[2px] flex items-center justify-center pointer-events-none border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-inherit">
+          <div className="flex flex-col items-center gap-2 text-gray-500 animate-pulse">
+            <EyeOff size={24} />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Oculto nesta visualização</span>
+            <div className="flex gap-2">
+               {!showOnDesktop && <Monitor size={12} className="opacity-50" />}
+               {!showOnMobile && <Smartphone size={12} className="opacity-50" />}
+            </div>
+          </div>
+        </div>
+      )}
       
-      <div className={`${containerClass} relative z-10 h-full`}>
+      <div className={`${containerClass} relative z-10 h-full ${isEditing && isHiddenOnCurrentViewport ? 'opacity-30' : ''}`}>
         {renderBlock()}
       </div>
     </div>

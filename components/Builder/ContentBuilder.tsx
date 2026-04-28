@@ -201,6 +201,20 @@ const SortableCanvasBlock: React.FC<SortableCanvasBlockProps> = ({
   const paddingTop = normalizePaddingValue(block.data?.padding, 'top');
   const paddingBottom = normalizePaddingValue(block.data?.padding, 'bottom');
 
+  const layoutClasses = React.useMemo(() => {
+    if (layoutGridUnits) return '';
+    const width = layoutWidth || block.data.layoutWidth;
+    if (!width || width === '1/1') return 'w-full block';
+    
+    const widthMap: Record<string, string> = {
+      '1/2': 'md:w-1/2',
+      '1/3': 'md:w-1/3',
+      '2/3': 'md:w-2/3'
+    };
+    
+    return `w-full ${widthMap[width] || 'w-full'} inline-block align-top`;
+  }, [layoutGridUnits, layoutWidth, block.data.layoutWidth]);
+
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -218,35 +232,23 @@ const SortableCanvasBlock: React.FC<SortableCanvasBlockProps> = ({
       data-align={layoutAlign ?? undefined}
       data-padding-top={paddingTop}
       data-padding-bottom={paddingBottom}
-      className={`group/resizer relative transition-all duration-200 ${
+      className={`group/resizer relative transition-all duration-200 ${layoutClasses} ${
         isDragging ? 'opacity-60 shadow-2xl' : ''
       } ${isEditing && isSelected ? 'z-20 ring-2 ring-bible-gold shadow-2xl' : isEditing ? 'hover:ring-1 hover:ring-bible-gold/30' : ''}`}
       onClick={() => isEditing && onSelectBlock(block.id)}
     >
       {isEditing && (
-        <div className="absolute -top-3 left-6 z-30 flex items-center gap-1 group/label">
+        <div className="absolute -top-10 left-4 z-30 flex items-center gap-1 group/label transition-opacity opacity-0 group-hover/resizer:opacity-40 hover:!opacity-100 pointer-events-none">
           <button
             type="button"
             {...attributes}
             {...listeners}
-            className={`flex cursor-grab items-center gap-1.5 rounded-full border border-white/20 px-2 py-1 text-[10px] font-bold uppercase tracking-wider shadow-md transition-all active:cursor-grabbing ${blockLabels[block.type].color} ${
+            className={`flex cursor-grab items-center justify-center rounded-full border border-white/20 p-2 shadow-md transition-all active:cursor-grabbing pointer-events-auto ${blockLabels[block.type].color} ${
               isDragging ? 'scale-110 ring-2 ring-white' : 'hover:scale-105'
             }`}
-            aria-label={`Arrastar ${blockLabels[block.type].label}`}
+            aria-label="Mover bloco"
           >
-            <GripVertical size={12} />
-            {blockLabels[block.type].label}
-          </button>
-
-          <button
-            type="button"
-            {...attributes}
-            {...listeners}
-            className="hidden cursor-grab p-2 text-gray-400 transition-opacity hover:text-bible-gold lg:flex active:cursor-grabbing"
-            title="Arrastar Seção"
-            aria-label={`Reordenar ${blockLabels[block.type].label}`}
-          >
-            <GripVertical size={20} />
+            <GripVertical size={16} />
           </button>
         </div>
       )}
@@ -484,7 +486,7 @@ export const ContentBuilder: React.FC<ContentBuilderProps> = ({
       >
         <SortableContext items={blocks.map((block) => block.id)} strategy={rectSortingStrategy}>
           <div
-            className={`relative min-h-[200px] ${layoutGridUnits ? 'grid gap-6' : ''}`}
+            className={`relative min-h-[200px] ${layoutGridUnits ? 'grid gap-6' : 'flex flex-wrap items-start'}`}
             style={layoutGridUnits ? { gridTemplateColumns: `repeat(${layoutGridUnits}, minmax(0, 1fr))` } : undefined}
           >
             {blocks.map((block, index) => {

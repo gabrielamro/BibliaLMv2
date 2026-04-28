@@ -315,7 +315,7 @@ const AcervoPage: React.FC = () => {
               </p>
             </div>
             <button 
-              onClick={() => navigate('/criador-jornada')}
+              onClick={() => navigate('/criar-sala')}
               className="flex items-center gap-2 px-4 py-2 bg-bible-gold text-white font-bold rounded-xl hover:bg-bible-gold/90 transition-colors"
             >
               <Plus size={18} />

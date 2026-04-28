@@ -49,7 +49,7 @@ const WorkspacePlansTab: React.FC = () => {
           
           {isPastor ? (
             <button 
-              onClick={() => navigate('/criador-jornada')}
+              onClick={() => navigate('/criar-sala')}
               className="bg-bible-leather dark:bg-bible-gold text-white dark:text-black px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg flex items-center gap-2 hover:scale-105 transition-transform whitespace-nowrap"
             >
               <Plus size={14} /> Novo Plano
@@ -83,7 +83,7 @@ const WorkspacePlansTab: React.FC = () => {
           </p>
           
           {isPastor && (
-            <button onClick={() => navigate('/criador-jornada')} className="text-bible-gold font-bold hover:underline">Criar Plano</button>
+            <button onClick={() => navigate('/criar-sala')} className="text-bible-gold font-bold hover:underline">Criar Plano</button>
           )}
         </div>
       ) : (
@@ -107,7 +107,7 @@ const WorkspacePlansTab: React.FC = () => {
                 onAction={(e: React.MouseEvent) => {
                   e.stopPropagation();
                   isPastor 
-                    ? navigate(`/criador-jornada`, { state: { planId: plan.id, planData: plan } })
+                    ? navigate(`/criar-sala?id=${plan.id}`, { state: { planId: plan.id, planData: plan } })
                     : navigate(`/jornada/${plan.id}`)
                 }}
                 onSecondaryAction={isPastor && isPublished ? (e: React.MouseEvent) => openManager(e, plan) : undefined}

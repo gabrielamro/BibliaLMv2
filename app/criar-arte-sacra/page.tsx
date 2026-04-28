@@ -4,7 +4,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, LayoutGrid, Loader2, Smartphone, Sparkles } from 'lucide-react';
 
 import SEO from '../../components/SEO';
-import SacredArtCanvas from '../../components/sacred-art-editor/SacredArtCanvas';
+import dynamic from 'next/dynamic';
+
+const SacredArtCanvas = dynamic(() => import('../../components/sacred-art-editor/SacredArtCanvas'), { 
+  ssr: false,
+  loading: () => <div className="aspect-square h-[45vh] md:h-[70vh] bg-gray-900 rounded-[28px] animate-pulse flex items-center justify-center text-gray-500 font-bold uppercase tracking-widest text-[10px]">Carregando Estúdio...</div>
+});
 import SacredArtDock from '../../components/sacred-art-editor/SacredArtDock';
 import SacredArtDrawer from '../../components/sacred-art-editor/SacredArtDrawer';
 import type {

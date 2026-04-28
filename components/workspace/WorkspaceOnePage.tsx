@@ -52,7 +52,7 @@ const WorkspaceOnePage: React.FC = () => {
 
     try {
       if (action === 'edit') {
-        if (type === 'plan') navigate(`/criador-jornada?id=${id}`);
+        if (type === 'plan') navigate(`/criar-sala?id=${id}`);
         else if (type === 'track') navigate(`/trilhas/gerenciar?id=${id}`);
         else if (type === 'prayer') navigate(`/oracoes/gerenciar?id=${id}`);
       } else if (action === 'delete') {
@@ -166,7 +166,7 @@ const WorkspaceOnePage: React.FC = () => {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div
-            onClick={() => navigate('/criador-jornada?type=sala')}
+            onClick={() => navigate('/criar-sala?type=sala')}
             className="bg-gradient-to-br from-bible-gold/5 to-transparent p-6 rounded-[1.5rem] border-2 border-dashed border-bible-gold/30 flex flex-col items-start justify-center cursor-pointer hover:border-bible-gold hover:bg-bible-gold/10 transition-all min-h-[200px] group"
           >
             <div className="w-12 h-12 bg-bible-gold/20 rounded-xl flex items-center justify-center mb-4 text-bible-gold group-hover:scale-110 transition-transform">

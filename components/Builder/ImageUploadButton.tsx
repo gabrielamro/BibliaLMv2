@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Upload, Loader2, ImagePlus } from 'lucide-react';
 import { uploadBlob } from '../../services/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ImageUploadButtonProps {
   onUpload: (url: string) => void;
@@ -15,6 +16,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const { showNotification } = useAuth();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -28,7 +30,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
       onUpload(url);
     } catch (error) {
       console.error('Error uploading image:', error);
-      alert('Erro ao fazer upload da imagem.');
+      showNotification('Erro ao fazer upload da imagem.', 'error');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {

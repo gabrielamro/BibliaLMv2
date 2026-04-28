@@ -22,7 +22,9 @@ import {
   Maximize2,
   X,
   Quote,
-  Type
+  Type,
+  Monitor,
+  Smartphone
 } from 'lucide-react';
 import { Block, BlockType } from './types';
 import { ImageUploadButton } from './ImageUploadButton';
@@ -63,6 +65,39 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
 
   return (
     <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Seção de Visibilidade */}
+      <div className="bg-gray-50/50 dark:bg-gray-800/30 p-4 rounded-[2rem] border border-gray-100 dark:border-gray-800">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 block px-1">Exibição e Visibilidade</label>
+        
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => handleChange('showOnDesktop', localData.showOnDesktop === false)}
+            className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${localData.showOnDesktop !== false ? 'bg-white dark:bg-gray-900 border-bible-gold/20 shadow-sm' : 'bg-gray-100/50 dark:bg-gray-800/20 border-transparent opacity-60'}`}
+          >
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${localData.showOnDesktop !== false ? 'bg-bible-gold/10 text-bible-gold' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'}`}>
+              <Monitor size={16} />
+            </div>
+            <div className="flex flex-col items-start">
+              <span className={`text-[9px] font-bold uppercase tracking-tight ${localData.showOnDesktop !== false ? 'text-bible-ink dark:text-white' : 'text-gray-400'}`}>Desktop</span>
+              <span className="text-[8px] text-gray-400">{localData.showOnDesktop !== false ? 'Ativado' : 'Oculto'}</span>
+            </div>
+          </button>
+
+          <button
+            onClick={() => handleChange('showOnMobile', localData.showOnMobile === false)}
+            className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${localData.showOnMobile !== false ? 'bg-white dark:bg-gray-900 border-bible-gold/20 shadow-sm' : 'bg-gray-100/50 dark:bg-gray-800/20 border-transparent opacity-60'}`}
+          >
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${localData.showOnMobile !== false ? 'bg-bible-gold/10 text-bible-gold' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'}`}>
+              <Smartphone size={16} />
+            </div>
+            <div className="flex flex-col items-start">
+              <span className={`text-[9px] font-bold uppercase tracking-tight ${localData.showOnMobile !== false ? 'text-bible-ink dark:text-white' : 'text-gray-400'}`}>Mobile</span>
+              <span className="text-[8px] text-gray-400">{localData.showOnMobile !== false ? 'Ativado' : 'Oculto'}</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
       {/* Seção de Estilo Visual */}
       {(block.type === 'biblical') && (
         <div className="bg-gray-50/50 dark:bg-gray-800/30 p-4 rounded-[2rem] border border-gray-100 dark:border-gray-800">

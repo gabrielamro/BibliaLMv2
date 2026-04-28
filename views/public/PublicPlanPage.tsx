@@ -462,7 +462,7 @@ const PublicPlanPage: React.FC = () => {
                                 </button>
                                 {isOwner && (
                                     <button
-                                        onClick={() => navigate('/criador-jornada', { state: { planData: plan } })}
+                                        onClick={() => navigate(`/criar-sala?id=${plan.id}`, { state: { planData: plan } })}
                                         className="px-3 py-1 bg-bible-gold/10 text-bible-gold rounded-lg font-bold text-[10px] uppercase tracking-widest hover:bg-bible-gold hover:text-white transition-all flex items-center gap-1.5"
                                         title="Voltar para Edição"
                                     >
@@ -555,7 +555,7 @@ const PublicPlanPage: React.FC = () => {
                             <div className="flex flex-1 sm:flex-none justify-between sm:justify-end gap-2 w-full sm:w-auto">
                                 {isOwner && (
                                     <button
-                                        onClick={() => navigate('/criador-jornada', { state: { planData: plan } })}
+                                        onClick={() => navigate(`/criar-sala?id=${plan.id}`, { state: { planData: plan } })}
                                         className="flex-1 sm:flex-none p-2.5 sm:px-5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-white dark:bg-bible-darkPaper text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-800 flex items-center justify-center gap-2"
                                     >
                                         <Edit3 size={14} /> <span className="hidden sm:inline">Editar</span>
@@ -764,7 +764,7 @@ const PublicPlanPage: React.FC = () => {
                             </button>
                             {isOwner && (
                                 <button
-                                    onClick={() => navigate('/criador-jornada', { state: { planData: plan } })}
+                                    onClick={() => navigate(`/criar-sala?id=${plan.id}`, { state: { planData: plan } })}
                                     className="bg-white/5 text-white/80 border border-white/20 w-8 h-8 md:w-10 md:h-10 rounded-full hover:bg-white/10 hover:text-white transition-all flex items-center justify-center shrink-0 backdrop-blur-md"
                                     title="Editar Sala"
                                 >
@@ -795,7 +795,7 @@ const PublicPlanPage: React.FC = () => {
                                 <h3 className="text-lg font-black text-gray-900 dark:text-white mb-2">Jornada Vazia</h3>
                                 <p className="text-sm text-gray-500 max-w-sm mx-auto">Esta jornada ainda não possui nenhum conteúdo, semana ou aula cadastrada.</p>
                                 {isOwner && (
-                                    <button onClick={() => navigate('/criador-jornada', { state: { planData: plan } })} className="mt-8 px-6 py-3 bg-bible-gold text-white rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg hover:scale-105 transition-transform">
+                                    <button onClick={() => navigate(`/criar-sala?id=${plan.id}`, { state: { planData: plan } })} className="mt-8 px-6 py-3 bg-bible-gold text-white rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg hover:scale-105 transition-transform">
                                         Adicionar Aulas
                                     </button>
                                 )}

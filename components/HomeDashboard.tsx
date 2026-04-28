@@ -281,7 +281,7 @@ const HomeDashboard: React.FC = () => {
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {/* NEW ROOM CTA - PREMIUM DARK */}
                                     <div
-                                        onClick={() => navigate('/criador-jornada')}
+                                        onClick={() => navigate('/criar-sala')}
                                         className="h-[200px] flex flex-col items-center justify-center border-2 border-dashed border-bible-gold/30 rounded-[2.5rem] bg-gray-900 dark:bg-black hover:bg-gray-800 transition-colors cursor-pointer group shadow-xl relative overflow-hidden"
                                     >
                                         <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>

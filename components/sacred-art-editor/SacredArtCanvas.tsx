@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useMemo, useLayoutEffect } from 'react';
-import { Stage, Layer, Image as KonvaImage, Rect, Group, Text as KonvaText, Transformer, Line } from 'react-konva';
 import useImage from 'use-image';
 import { Sparkles, Plus } from 'lucide-react';
 
@@ -27,6 +26,7 @@ export default function SacredArtCanvas({
   getCSSFilters,
 }: SacredArtCanvasProps) {
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [Konva, setKonva] = useState<any>(null);
   const [image] = useImage(rawGeneratedBase64 || '');
   
   const stageRef = useRef<any>(null);
@@ -38,6 +38,19 @@ export default function SacredArtCanvas({
 
   const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null });
   const [isDragging, setIsDragging] = useState(false);
+
+  // Load Konva only on client
+  useEffect(() => {
+    // Emergency Bridge
+    const r = React as any;
+    if (!r.ReactSharedInternals && r.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED) {
+        r.ReactSharedInternals = r.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+    }
+
+    import('react-konva').then(mod => {
+      setKonva(mod);
+    });
+  }, []);
 
   // Responsive stage sizing
   useEffect(() => {
@@ -81,7 +94,7 @@ export default function SacredArtCanvas({
       textGroupRef.current.offsetX(box.width / 2 + box.x);
       textGroupRef.current.offsetY(box.height / 2 + box.y);
     }
-  }, [foundVerse, canvasSize, textLayout, editOptions.fontFamily, editOptions.alignment]);
+  }, [foundVerse, canvasSize, textLayout, editOptions.fontFamily, editOptions.alignment, Konva]);
 
   // Transformer node management
   useEffect(() => {
@@ -94,7 +107,7 @@ export default function SacredArtCanvas({
       transformerRef.current.nodes([]);
       transformerRef.current.getLayer().batchDraw();
     }
-  }, [selectedLayer]);
+  }, [selectedLayer, Konva]);
 
   const pctToPx = (pct: number, total: number) => (pct / 100) * total;
   const pxToPct = (px: number, total: number) => (px / total) * 100;
@@ -249,6 +262,19 @@ export default function SacredArtCanvas({
 
   const bgTransform = getBgTransform();
 
+  if (!Konva) {
+    return (
+      <div 
+        ref={canvasContainerRef}
+        className={`relative isolate overflow-hidden rounded-[28px] bg-gray-900 border border-white/10 shadow-2xl animate-pulse flex items-center justify-center ${editOptions.aspectRatio === 'story' ? 'aspect-[9/16] h-[55vh] md:h-[75vh]' : 'aspect-square h-[45vh] md:h-[70vh]'}`}
+      >
+        <span className="text-white/20 text-[10px] font-black uppercase tracking-[0.3em]">Carregando Estúdio...</span>
+      </div>
+    );
+  }
+
+  const { Stage, Layer, Image: KonvaImage, Rect, Group, Text: KonvaText, Transformer, Line } = Konva;
+
   return (
     <div
       ref={canvasContainerRef}
@@ -258,7 +284,7 @@ export default function SacredArtCanvas({
         width={canvasSize.width}
         height={canvasSize.height}
         ref={stageRef}
-        onMouseDown={(e) => {
+        onMouseDown={(e: any) => {
           if (e.target === e.target.getStage()) {
             setSelectedLayer(null);
           }
@@ -283,7 +309,7 @@ export default function SacredArtCanvas({
               }}
               onDragMove={handleBgDragMove}
               onDragEnd={handleBgDragEnd}
-              onClick={(e) => {
+              onClick={(e: any) => {
                 e.cancelBubble = true;
                 setSelectedLayer('bg');
               }}
@@ -323,7 +349,7 @@ export default function SacredArtCanvas({
               onDragMove={handleTextDragMove}
               onDragEnd={handleTextDragEnd}
               onTransformEnd={handleTransformEnd}
-              onClick={(e) => {
+              onClick={(e: any) => {
                 e.cancelBubble = true;
                 setSelectedLayer('text');
               }}
@@ -361,7 +387,7 @@ export default function SacredArtCanvas({
               rotateEnabled={false}
               keepRatio={true}
               enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
-              boundBoxFunc={(oldBox, newBox) => {
+              boundBoxFunc={(oldBox: any, newBox: any) => {
                 if (newBox.width < 50 || newBox.height < 50) return oldBox;
                 return newBox;
               }}

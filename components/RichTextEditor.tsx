@@ -11,6 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { generateVerseImage } from '../services/pastorAgent';
 import { optimizeImage, base64ToBlob } from '../utils/imageOptimizer';
 import { uploadBlob } from '../services/supabase';
+import PromptModal from './PromptModal';
 
 interface RichTextEditorProps {
     content: string;
@@ -34,6 +35,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     const recognitionRef = useRef<any>(null);
     const templateRef = useRef<HTMLDivElement>(null);
     const [isFullScreen, setIsFullScreen] = useState(false);
+    const [isAiPromptOpen, setIsAiPromptOpen] = useState(false);
 
     // Close templates dropdown on click outside
     useEffect(() => {
@@ -215,18 +217,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         }
     };
 
-    const handleAiImageGeneration = async () => {
-        // 1. Verificação de Plano (Gold ou Pastor)
-        // const isPremium = userProfile?.subscriptionTier === 'gold' || userProfile?.subscriptionTier === 'pastor';
-        // if (!isPremium) {
-        //     if (confirm("A geração de imagens no editor é exclusiva para membros Visionários e Pastores. Deseja fazer o upgrade?")) {
-        //         openSubscription();
-        //     }
-        //     return;
-        // }
-
-        // 2. Solicitar Prompt
-        const promptText = prompt("Descreva a imagem que deseja gerar (ex: Um pastor de ovelhas em um vale verde):");
+    const handleAiImageGeneration = async (promptText: string) => {
         if (!promptText || !promptText.trim()) return;
 
         setIsGeneratingAi(true);
@@ -445,7 +436,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 />
 
                 <button
-                    onClick={handleAiImageGeneration}
+                    onClick={() => setIsAiPromptOpen(true)}
                     disabled={isGeneratingAi}
                     className={`p-2 rounded-lg transition-colors flex-shrink-0 relative group ${isGeneratingAi ? 'bg-purple-100' : 'hover:bg-purple-50 dark:hover:bg-purple-900/20 text-purple-600'}`}
                     title="Gerar Imagem com IA (Premium)"
@@ -508,6 +499,14 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 onInput={handleInput}
                 className="rich-editor-content prose prose-slate dark:prose-invert flex-1 w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-white p-8 outline-none shadow-inner overflow-y-auto empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400"
                 data-placeholder={placeholder}
+            />
+            <PromptModal
+                isOpen={isAiPromptOpen}
+                onClose={() => setIsAiPromptOpen(false)}
+                onConfirm={handleAiImageGeneration}
+                title="Gerar Imagem com IA"
+                label="Descreva a imagem"
+                placeholder="Ex: Um pastor de ovelhas em um vale verde, estilo cinematográfico"
             />
         </div>
     );

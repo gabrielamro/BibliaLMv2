@@ -18,7 +18,6 @@ import {
   Book,
   Coffee,
   HandHeart,
-  Map,
   Target,
   Brain,
   Rss,
@@ -57,6 +56,7 @@ interface SidebarProps {
   onOpenLogin: () => void;
   /** Callback para abrir modal de configurações de conta */
   onOpenSettings?: () => void;
+  initiallyCollapsed?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -133,13 +133,16 @@ const NavItem: React.FC<{
 // ---------------------------------------------------------------------------
 // Componente Principal
 // ---------------------------------------------------------------------------
-const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings }) => {
+const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiallyCollapsed = false }) => {
   const { currentUser, userProfile, notifications, unreadNotificationsCount, markNotificationsAsRead, signOut } = useAuth();
   const { settings, toggleTheme } = useSettings();
   const location = useLocation();
 
   // Colapso com persistência
   const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (initiallyCollapsed) {
+      return true;
+    }
     if (typeof window !== 'undefined') {
       return localStorage.getItem(STORAGE_KEY) === 'true';
     }
@@ -157,6 +160,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings }) => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, String(collapsed));
   }, [collapsed]);
+
+  useEffect(() => {
+    if (initiallyCollapsed) {
+      setCollapsed(true);
+    }
+  }, [initiallyCollapsed]);
 
   // Fechar dropdowns ao clicar fora
   useEffect(() => {
@@ -181,7 +190,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings }) => {
     { label: 'Conselheiro IA', path: '/chat', icon: <MessageCircle size={20} /> },
     { label: 'Pão Diário', path: '/devocional', icon: <Coffee size={20} /> },
     { label: 'Orações', path: '/oracoes', icon: <HandHeart size={20} /> },
-    { label: 'Trilhas', path: '/trilhas', icon: <Map size={20} /> },
     { label: 'Meta de Leitura', path: '/plano', icon: <Target size={20} />, protected: true },
     { label: 'Quiz Bíblico', path: '/quiz', icon: <Brain size={20} /> },
     { label: 'Feed', path: '/social', icon: <Rss size={20} /> },
@@ -310,7 +318,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings }) => {
               Criar Estudo
             </Link>
             <Link
-              href="/criador-jornada"
+              href="/criar-sala"
               onClick={() => setCreateMenuOpen(false)}
               className="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-[#c5a059]/10 transition-colors"
             >

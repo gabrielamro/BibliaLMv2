@@ -40,6 +40,11 @@ const now = () => new Date().toISOString();
 const clean = <T extends object>(obj: T): Partial<T> =>
     Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
 
+const normalizeStandaloneStudyType = (type: any) => {
+    const value = String(type || '').toLowerCase();
+    return ['article', 'devotional', 'series', 'study'].includes(value) ? value : 'article';
+};
+
 const isMissingBibleVersionColumnError = (error: any) =>
     error?.code === 'PGRST204' ||
     String(error?.message || error?.details || '').toLowerCase().includes('bible_version');
@@ -1043,7 +1048,7 @@ export const dbService = {
                 user_photo: data.authorPhoto,
                 title: data.meta?.title || 'Novo Conteúdo',
                 description: data.meta?.description || '',
-                type: data.type || 'article',
+                type: normalizeStandaloneStudyType(data.type),
                 slug,
                 blocks: JSON.stringify(data.blocks || []),
                 meta: JSON.stringify(data.meta || {}),
@@ -1062,7 +1067,7 @@ export const dbService = {
     },
     updatePublicStudy: async (id: string, data: any): Promise<void> => {
         // Tenta atualizar na tabela pública
-        const updateData = {
+        const baseUpdateData = {
             title: data.meta?.title,
             description: data.meta?.description,
             blocks: typeof data.blocks === 'string' ? data.blocks : JSON.stringify(data.blocks || []),
@@ -1072,10 +1077,14 @@ export const dbService = {
             published_at: data.status === 'published' ? (data.published_at || now()) : null,
             updated_at: now()
         };
+        const publicUpdateData = {
+            ...baseUpdateData,
+            type: normalizeStandaloneStudyType(data.type),
+        };
 
         const { error: publicError, data: publicResult } = await supabase
             .from('public_studies')
-            .update(updateData)
+            .update(publicUpdateData)
             .eq('id', id)
             .select();
 
@@ -1083,7 +1092,7 @@ export const dbService = {
         if (publicError || !publicResult || publicResult.length === 0) {
             const { error: privateError } = await supabase
                 .from('studies')
-                .update(updateData)
+                .update(baseUpdateData)
                 .eq('id', id);
             
             if (privateError && !publicError) throw privateError;

@@ -37,6 +37,7 @@ const iconByType: Record<BlockType, any> = {
   'related-verses': Sparkles,
   'reflection-question': MessageCircle,
   'rich-text': Type,
+  'free-text': Type,
   'references-chain': Sparkles,
   cta: Sparkles,
   spacer: Maximize2,

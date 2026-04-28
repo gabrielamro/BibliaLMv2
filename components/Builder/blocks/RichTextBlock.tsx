@@ -9,6 +9,8 @@ import {
   Link, Unlink,
   BookOpen, Heart, Zap, Hand, LayoutTemplate, ChevronDown, ChevronRight, Paintbrush,
 } from 'lucide-react';
+import { useAuth } from '../../../contexts/AuthContext';
+import PromptModal from '../../PromptModal';
 
 interface RichTextBlockProps {
   data: any;
@@ -16,6 +18,7 @@ interface RichTextBlockProps {
   isEditing: boolean;
   editor?: any;
   layoutWidth?: string;
+  blockType?: string;
 }
 
 // ─── Default Template ─────────────────────────────────────────────────────
@@ -51,6 +54,7 @@ const FullToolbar: React.FC<ToolbarProps> = ({ onExec, onInsertHtml }) => {
   const blocksRef = useRef<HTMLDivElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLDivElement>(null);
+  const [isLinkPromptOpen, setIsLinkPromptOpen] = useState(false);
 
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -179,13 +183,22 @@ const FullToolbar: React.FC<ToolbarProps> = ({ onExec, onInsertHtml }) => {
         title="Inserir Link"
         onMouseDown={(e) => {
           e.preventDefault();
-          const url = prompt('URL do link:');
-          if (url) onExec('createLink', url);
+          setIsLinkPromptOpen(true);
         }}
         className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
       >
         <Link size={15} />
       </button>
+      <PromptModal
+        isOpen={isLinkPromptOpen}
+        onClose={() => setIsLinkPromptOpen(false)}
+        onConfirm={(url) => {
+          if (url) onExec('createLink', url);
+        }}
+        title="Inserir Link"
+        placeholder="https://exemplo.com"
+        label="URL do link"
+      />
       <B title="Remover Link" icon={<Unlink size={15} />} cmd="unlink" />
 
       <Divider />
@@ -275,10 +288,12 @@ const FullToolbar: React.FC<ToolbarProps> = ({ onExec, onInsertHtml }) => {
 };
 
 // ─── Main Block ────────────────────────────────────────────────────────────
-export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, isEditing, layoutWidth = '1/1' }) => {
+export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, isEditing, layoutWidth = '1/1', blockType }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const isInitialized = useRef(false);
-  const content = data.content || DEFAULT_CONTENT;
+  
+  // Se for free-text, começa vazio. Se for rich-text, usa o template se estiver vazio.
+  const content = data.content || (blockType === 'free-text' ? '' : DEFAULT_CONTENT);
 
   // Responsive padding based on column width
   const contentPadding =

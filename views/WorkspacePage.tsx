@@ -15,7 +15,7 @@ import SEO from '../components/SEO';
 import StandardCard from '../components/ui/StandardCard';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { useHeader } from '../contexts/HeaderContext';
-import { getEditDestinationForContent } from '../utils/contentEditing';
+import { getEditDestinationForContent, isStandaloneStudyContent } from '../utils/contentEditing';
 
 // --- TYPES ---
 type ViewMode = 'grid' | 'list';
@@ -64,18 +64,11 @@ const WorkspacePage: React.FC = () => {
             setLoading(true);
             try {
                 // Fetch parallel base data
-                const [studiesData, publicStudiesData, notesData, profileData] = await Promise.all([
+                const [studiesData, publicStudiesData, notesData] = await Promise.all([
                     dbService.getAll(currentUser.uid, 'studies'),
                     dbService.getAll(currentUser.uid, 'public_studies'),
                     dbService.getAll(currentUser.uid, 'notes'),
-                    dbService.getUserProfile(currentUser.uid)
                 ]);
-
-                // Fetch enrolled plans (only those the user is following/viewing)
-                const enrolledPlanIds = profileData?.enrolledPlans || [];
-                const plansData = enrolledPlanIds.length > 0 
-                    ? await dbService.getEnrolledPlans(enrolledPlanIds)
-                    : [];
 
                 // Normalize data
                 const normalizedStudies = (studiesData as any[]).map(s => {
@@ -90,7 +83,7 @@ const WorkspacePage: React.FC = () => {
                         meta, 
                         coverUrl: s.cover_image || meta?.coverImage || s.coverUrl 
                     };
-                });
+                }).filter(isStandaloneStudyContent);
                 const normalizedPublicStudies = (publicStudiesData as any[]).map(s => {
                     let blocks = s.blocks;
                     let meta = s.meta;
@@ -103,7 +96,7 @@ const WorkspacePage: React.FC = () => {
                         meta, 
                         coverUrl: s.cover_image || meta?.coverImage || s.coverUrl 
                     };
-                });
+                }).filter(isStandaloneStudyContent);
                 const normalizedNotes = (notesData as any[]).map(n => ({ ...n, type: 'note', title: n.title || 'Anotação sem título' }));
 
                 setContent([...normalizedStudies, ...normalizedPublicStudies, ...normalizedNotes]);

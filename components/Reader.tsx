@@ -186,7 +186,7 @@ const Reader: React.FC = () => {
     if (!initialLoadDone) {
       setInitialLoadDone(true);
     }
-  }, [location.pathname, location.state, initialLoadDone]);
+  }, [location.pathname, location.search, location.state, initialLoadDone]);
 
   // Keep URL in sync when user navigates chapters within the reader
   useEffect(() => {

@@ -35,7 +35,8 @@ import {
   buildBaseBlocks,
   buildEstudoPastoralBlocks,
   buildWrittenContentHtml,
-  buildStudyGuideHtml
+  buildStudyGuideHtml,
+  normalizeAIBuildBlocks
 } from '../components/Builder';
 import { ImageUploadButton } from '../components/Builder/ImageUploadButton';
 import ObreiroIAChatbot from '../components/ObreiroIAChatbot';
@@ -613,86 +614,28 @@ const CreateContentV3Page: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ 
       const result = await generateAIOnePage(enrichedPrompt, currentUser?.displayName || undefined);
       if (!result?.blocks) throw new Error('Estrutura inválida retornada pela IA');
 
-      setContent(prev => {
-        const aiBlocks = Array.isArray(result.blocks) ? result.blocks : [];
+      // 1. Atualizar Metadados
+      setContent(prev => ({
+        ...prev,
+        meta: {
+          ...prev.meta,
+          title: result.meta?.title || prev.meta.title,
+          description: result.meta?.description || prev.meta.description
+        },
+        slug: result.slug || prev.slug
+      }));
 
-        // Mapa de larguras do Roadmap V2: garante o layout correto mesmo se a IA ignorar as instruções
-        const roadmapWidths: Record<string, string> = {
-          'hero-split': '1/1',
-          'biblical': '1/2',
-          'study-outline': '1/3',
-          'rich-text': '1/1',
-          'slide': '1/1',
-          'related-verses': '1/1',
-          'authority': '1/1',
-          'footer': '1/1',
-          'reflection-question': '1/1',
-        };
-        // Sequência exata de layoutWidths do Roadmap V3 (9 blocos)
-        const roadmapSequence = ['1/1', '1/2', '1/3', '1/1', '1/1', '1/1', '1/1', '1/1', '1/1'];
+      // 2. Normalizar blocos da IA
+      const finalBlocks = normalizeAIBuildBlocks(result.blocks);
 
-        if (aiBlocks.length > 0) {
-          const finalBlocks = aiBlocks.map((b: any, idx: number) => {
-            if (b.type === 'slide' && b.data?.slides) {
-              b.data.slides = b.data.slides.map((s: any, sIdx: number) => ({
-                ...s,
-                id: s.id || `slide-${Date.now()}-${sIdx}-${Math.random().toString(36).substring(2, 5)}`
-              }));
-            }
-
-            // Forçar layoutWidth: 1) valor do Roadmap por índice, 2) valor por tipo, 3) valor da IA, 4) fallback 1/1
-            let enforcedWidth = roadmapSequence[idx] || roadmapWidths[b.type] || b.layoutWidth || '1/1';
-
-            // Lógica dinâmica para Related Verses: Sempre 1/1 para permitir cards lado a lado
-            if (b.type === 'related-verses') {
-              enforcedWidth = '1/1';
-            }
-
-            return {
-              id: b.id || `${b.type}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-              type: b.type,
-              layoutWidth: enforcedWidth,
-              data: b.data
-            };
-          });
-
-          const isTipTapFormat = !Array.isArray(prev.blocks) && (prev.blocks as any)?.type === 'doc';
-
-          const newState = {
-            ...prev,
-            meta: {
-              ...prev.meta,
-              title: result.meta?.title || prev.meta.title,
-              description: result.meta?.description || prev.meta.description
-            },
-            slug: result.slug || prev.slug,
-            blocks: isTipTapFormat
-              ? {
-                  type: 'doc',
-                  content: finalBlocks.map((b: any) => ({
-                    type: 'customBlock',
-                    attrs: {
-                      blockData: b,
-                      layoutWidth: b.layoutWidth || '1/1'
-                    }
-                  }))
-                }
-              : finalBlocks
-          };
-
-          setTimeout(() => {
-            editorRef.current?.setContent(newState.blocks);
-          }, 100);
-
-          return newState;
+      // 3. Atualizar Editor (TipTap) e Estado de Blocos
+      setTimeout(() => {
+        if (editorRef.current?.setContent) {
+          editorRef.current.setContent(finalBlocks);
         }
-
-        const currentBlocks = Array.isArray(prev.blocks)
-          ? [...prev.blocks]
-          : ((prev.blocks as any)?.content?.filter((n: any) => n.type === 'customBlock').map((n: any) => n.attrs.blockData) || []);
-
-        return prev;
-      });
+        // Atualizar também o estado local para persistência
+        setContent(prev => ({ ...prev, blocks: finalBlocks }));
+      }, 100);
 
       showNotification('✨ One-page criada com sucesso pela IA!', 'success');
       setShowAIBuilderModal(false);
@@ -936,7 +879,7 @@ const CreateContentV3Page: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ 
                       </div>
                     )}
 
-                    <div className="flex flex-1 items-center gap-2">
+                    <div className="flex flex-wrap justify-center items-start gap-2">
                       <button
                         onClick={() => { setShowAIBuilderModal(true); setTimeout(() => aiBuilderTextareaRef.current?.focus(), 100); }}
                         className="flex-1 lg:flex-none flex justify-center items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:from-violet-700 hover:to-purple-700 transition-all shadow-xl shadow-purple-200/50 dark:shadow-purple-900/30 active:scale-95 whitespace-nowrap"
@@ -1609,9 +1552,25 @@ const CreateContentV3Page: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ 
                         : 'max-w-7xl rounded-2xl'
                   }`}>
                   {Array.isArray(content.blocks) ? (
-                    content.blocks.map(block => (
-                      <BlockRenderer key={block.id} block={block} isEditing={false} authorName={currentUser?.displayName} canvasWidth={canvasWidth} />
-                    ))
+                    <div className="flex flex-wrap justify-center items-start">
+                      {content.blocks.map(block => {
+                        const lw = block.layoutWidth || '1/1';
+                        const isMobileOutline = block.type === 'study-outline' && (canvasWidth === 'mobile' || canvasWidth === 'tablet');
+                        const widthClass = isMobileOutline ? 'w-full' : (lw === '1/2' ? 'w-full md:w-1/2' : lw === '1/3' ? 'w-full md:w-1/3' : lw === '2/3' ? 'w-full md:w-2/3' : 'w-full');
+                        
+                        return (
+                          <div key={block.id} className={`${widthClass} px-1 mb-10`}>
+                            <BlockRenderer 
+                              block={block} 
+                              isEditing={false} 
+                              authorName={currentUser?.displayName} 
+                              canvasWidth={canvasWidth} 
+                              layoutWidth={lw}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
                     <UnifiedEditor
                       content={content.blocks}

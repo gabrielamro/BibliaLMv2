@@ -61,7 +61,7 @@ const routesConfig = `
                   <Route path="/workspace-pastoral" element={<ProtectedRoute><PastoralWorkspacePage /></ProtectedRoute>} />
                   <Route path="/trilhas/gerenciar" element={<ProtectedRoute><TracksManagerPage /></ProtectedRoute>} />
                   <Route path="/oracoes/gerenciar" element={<ProtectedRoute><PrayersManagerPage /></ProtectedRoute>} />
-                  <Route path="/criador-jornada" element={<ProtectedRoute><PlanBuilderPage /></ProtectedRoute>} />
+                  <Route path="/criar-sala" element={<CreateRoomStudioPage />} />
                   <Route path="/pulpito" element={<ProtectedRoute><PulpitDashboardPage /></ProtectedRoute>} />
                   <Route path="/pulpito/editor" element={<ProtectedRoute><SermonBuilderPage /></ProtectedRoute>} />
                   <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
@@ -103,6 +103,7 @@ const importMap = {
     ModulePlayerPage: 'views/ModulePlayerPage',
     PublicStudyPage: 'views/public/PublicStudyPage',
     PlanBuilderPage: 'views/PlanBuilderPage',
+    CreateRoomStudioPage: 'views/CreateRoomStudioPage',
     PastoralWorkspacePage: 'views/PastoralWorkspacePage',
     PublicPlanPage: 'views/public/PublicPlanPage',
     PublicUserPlansPage: 'views/public/PublicUserPlansPage',

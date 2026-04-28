@@ -7,26 +7,22 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Undo, Redo, Link as LinkIcon, Unlink, Eraser, FileDown
 } from 'lucide-react';
+import PromptModal from '../../PromptModal';
+import { useState } from 'react';
 
 interface EditorTopBarProps {
   editor: Editor;
 }
 
 export const EditorTopBar: React.FC<EditorTopBarProps> = ({ editor }) => {
-  const setLink = () => {
-    const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('URL', previousUrl);
+  const [isLinkPromptOpen, setIsLinkPromptOpen] = useState(false);
 
-    if (url === null) {
-      return;
-    }
-
+  const handleSetLink = (url: string) => {
     if (url === '') {
       editor.chain().focus().extendMarkRange('link').unsetLink().run();
-      return;
+    } else {
+      editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
     }
-
-    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
 
   const ToolbarButton = ({ 
@@ -121,7 +117,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({ editor }) => {
 
       <div className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-1"></div>
 
-      <ToolbarButton onClick={setLink} isActive={editor.isActive('link')} title="Adicionar/Editar Link">
+      <ToolbarButton onClick={() => setIsLinkPromptOpen(true)} isActive={editor.isActive('link')} title="Adicionar/Editar Link">
         <LinkIcon size={16} />
       </ToolbarButton>
       <ToolbarButton onClick={() => editor.chain().focus().unsetLink().run()} disabled={!editor.isActive('link')} title="Remover Link">
@@ -133,6 +129,16 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({ editor }) => {
       <ToolbarButton onClick={() => window.print()} title="Baixar PDF">
         <FileDown size={16} />
       </ToolbarButton>
+
+      <PromptModal
+        isOpen={isLinkPromptOpen}
+        onClose={() => setIsLinkPromptOpen(false)}
+        onConfirm={handleSetLink}
+        title="Inserir Link"
+        label="URL do link"
+        placeholder="https://exemplo.com"
+        defaultValue={editor.getAttributes('link').href || ''}
+      />
     </div>
   );
 }

@@ -271,7 +271,7 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
           items={gridItems.map(item => item.id)}
           strategy={rectSortingStrategy}
         >
-          <div className="flex flex-wrap w-full -mx-1">
+          <div className="flex flex-wrap justify-center w-full -mx-1">
             {gridItems.map((item) => {
               if (item.type === 'ghost') {
                 return (

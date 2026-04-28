@@ -34,7 +34,8 @@ import {
   createBlock,
   buildBaseBlocks,
   buildWrittenContentHtml,
-  buildStudyGuideHtml
+  buildStudyGuideHtml,
+  normalizeAIBuildBlocks
 } from '../components/Builder';
 import { ImageUploadButton } from '../components/Builder/ImageUploadButton';
 import ObreiroIAChatbot from '../components/ObreiroIAChatbot';
@@ -610,29 +611,15 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
       const result = await generateAIOnePage(enrichedPrompt, currentUser?.displayName || undefined);
       if (!result?.blocks) throw new Error('Estrutura inválida retornada pela IA');
 
-      const { meta, slug, blocks: aiBlocks } = result;
-
       setContent(prev => {
-        const aiBlocks = Array.isArray(result.blocks) ? result.blocks : [];
+        const aiBlocks = normalizeAIBuildBlocks(result.blocks);
 
         // Mapa de larguras do Roadmap V2: garante o layout correto mesmo se a IA ignorar as instruções
-        const roadmapWidths: Record<string, string> = {
-          'hero-split': '1/1',
-          'biblical': '2/3',
-          'study-outline': '1/3',
-          'rich-text': '1/1',
-          'slide': '1/1',
-          'related-verses': '1/1',
-          'authority': '1/1',
-          'footer': '1/1',
-          'reflection-question': '1/1',
-        };
         // Sequência exata de layoutWidths do Roadmap V3 (9 blocos)
-        const roadmapSequence = ['1/1', '2/3', '1/3', '1/1', '1/1', '1/1', '1/1', '1/1', '1/1'];
 
         // Se a IA retornar blocos em formato de array (Roadmap V2)
         if (aiBlocks.length > 0) {
-          const finalBlocks = aiBlocks.map((b: any, idx: number) => {
+          const finalBlocks = aiBlocks.map((b: any) => {
             // Garantir que slides tenham IDs únicos para evitar erro de "key"
             if (b.type === 'slide' && b.data?.slides) {
               b.data.slides = b.data.slides.map((s: any, sIdx: number) => ({
@@ -642,18 +629,12 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
             }
 
             // Forçar layoutWidth: 1) valor do Roadmap por índice, 2) valor por tipo, 3) valor da IA, 4) fallback 1/1
-            let enforcedWidth = roadmapSequence[idx] || roadmapWidths[b.type] || b.layoutWidth || '1/1';
+            const enforcedWidth = b.layoutWidth || '1/1';
 
             // Lógica dinâmica para Related Verses: Ajusta largura baseada na quantidade (1=1/3, 2=1/2, 3+=1/1)
-            if (b.type === 'related-verses' && b.data?.verses) {
-              const count = b.data.verses.length;
-              if (count === 1) enforcedWidth = '1/3';
-              else if (count === 2) enforcedWidth = '1/2';
-              else if (count >= 3) enforcedWidth = '1/1';
-            }
 
             return {
-              id: b.id || `${b.type}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+              id: b.id,
               type: b.type,
               layoutWidth: enforcedWidth,
               data: b.data
@@ -662,7 +643,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
 
           const isTipTapFormat = !Array.isArray(prev.blocks) && (prev.blocks as any)?.type === 'doc';
 
-          const newState = {
+          const newState: any = {
             ...prev,
             meta: {
               ...prev.meta,
@@ -697,7 +678,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
           : ((prev.blocks as any)?.content?.filter((n: any) => n.type === 'customBlock').map((n: any) => n.attrs.blockData) || []);
 
         // ... (resto da lógica de merge se necessário, mas a IA V2 sempre manda array)
-        return prev;
+        throw new Error('A IA retornou uma estrutura sem blocos editáveis.');
       });
 
       showNotification('✨ One-page criada com sucesso pela IA!', 'success');

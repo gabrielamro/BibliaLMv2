@@ -88,7 +88,8 @@ const OmniSearch: React.FC<OmniSearchProps> = ({ onClose, mobileMode }) => {
                     subtitle,
                     icon: <BookOpen size={16} />,
                     action: () => {
-                        navigate('/biblia', { state: bibleResult.routeState });
+                        const { bookId, chapter, scrollToVerse } = bibleResult.routeState;
+                        navigate(`/biblia?book=${bookId}&cap=${chapter}${scrollToVerse ? `&vs=${scrollToVerse}` : ''}`);
                         setIsOpen(false);
                         setQuery('');
                         if (onClose) onClose();

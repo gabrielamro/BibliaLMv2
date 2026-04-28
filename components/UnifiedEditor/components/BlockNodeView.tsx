@@ -265,12 +265,7 @@ export const BlockNodeView = (props: any) => {
       className={`custom-block-outer relative group box-border px-1 transition-all duration-300 w-full ${isSelected ? 'z-[60]' : 'z-auto'}`}
     >
       <div className={`w-full transition-all duration-300 ${isSelected && props.editor.isEditable ? 'relative rounded-2xl ring-2 ring-bible-gold shadow-2xl' : 'ring-transparent'}`}>
-        {props.editor.isEditable && blockInfo && (
-          <div className="pointer-events-none absolute left-2 top-2 z-[65] flex items-center gap-1 rounded bg-white/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-bible-ink opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
-            <span className={`h-2 w-2 rounded-full ${blockInfo.color.split(' ')[0]}`} />
-            {blockInfo.label}
-          </div>
-        )}
+
 
         {props.editor.isEditable && (
           <div 
