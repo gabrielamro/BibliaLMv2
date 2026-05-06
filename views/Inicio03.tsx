@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from '../utils/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
@@ -8,7 +8,8 @@ import {
   Search, Bell, Settings, Home, Wand2, User, Play, Pause,
   Plus, FileText, Image, Mic, History, Trophy, Crown, Target, Heart, ArrowRight, Sun, Moon,
   Users, MessageSquare, Calendar, Sparkles, CreditCard, HelpCircle, Book, Layout, Coffee, Map, Brain,
-  LifeBuoy, Scroll, ShieldCheck, Terminal, ShieldAlert, LogOut, UserCircle, X, Lock
+  LifeBuoy, Scroll, ShieldCheck, Terminal, ShieldAlert, LogOut, UserCircle, X, Lock,
+  HandHeart, Loader2, Globe, PenLine, Church
 } from 'lucide-react';
 
 import { useSettings } from '../contexts/SettingsContext';
@@ -21,6 +22,10 @@ import { resolveBibleSearchNavigation } from '../utils/bibleSearchNavigation';
 import { getBibleBookAutocomplete } from '../utils/bibleBookAutocomplete';
 import { getReadingGoalProgress, INICIO_QUICK_ACCESS_GROUPS, type InicioQuickAccessItem } from '../utils/inicioHome';
 import { isStandaloneStudyContent } from '../utils/contentEditing';
+import { useKingdomFeed } from '../hooks/useKingdomFeed';
+import { usePrayerWall } from '../hooks/usePrayerWall';
+import { FeedPostCard } from '../components/social/FeedPostCard';
+import KingdomComposer from '../components/social/KingdomComposer';
 
 const quickAccessIcons: Record<InicioQuickAccessItem['iconKey'], React.ReactNode> = {
   book: <BookOpen size={16} />,
@@ -81,6 +86,287 @@ const HomeSectionHeader: React.FC<{
     )}
   </div>
 );
+
+// ─── REINO TAB COMPONENT ────────────────────────────────────────────────────
+
+interface ReinoTabProps {
+  isLightTheme: boolean;
+  currentUser: any;
+  userProfile: any;
+  notifications: any[];
+  navigate: (path: string) => void;
+  openLogin: () => void;
+  showNotification: (msg: string, type: any) => void;
+}
+
+const FeedSkeleton = () => (
+  <div className="space-y-4 animate-pulse">
+    {[0, 1].map(i => (
+      <div key={i} className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-[#2A2A2A]" />
+          <div className="space-y-2 flex-1">
+            <div className="h-3 bg-gray-200 dark:bg-[#2A2A2A] rounded w-1/3" />
+            <div className="h-2 bg-gray-100 dark:bg-[#222] rounded w-1/4" />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="h-3 bg-gray-100 dark:bg-[#222] rounded w-full" />
+          <div className="h-3 bg-gray-100 dark:bg-[#222] rounded w-4/5" />
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const PrayerSkeleton = () => (
+  <div className="space-y-3 animate-pulse">
+    {[0, 1].map(i => (
+      <div key={i} className="p-3 bg-gray-50 dark:bg-[#1A1A1A] rounded-xl border border-gray-100 dark:border-[#252525]">
+        <div className="h-3 bg-gray-200 dark:bg-[#2A2A2A] rounded w-1/3 mb-2" />
+        <div className="h-2 bg-gray-100 dark:bg-[#222] rounded w-full mb-1" />
+        <div className="h-2 bg-gray-100 dark:bg-[#222] rounded w-3/4 mb-3" />
+        <div className="h-7 bg-gray-200 dark:bg-[#2A2A2A] rounded-lg" />
+      </div>
+    ))}
+  </div>
+);
+
+const ReinoTab: React.FC<ReinoTabProps> = ({
+  isLightTheme, currentUser, userProfile, notifications, navigate, openLogin, showNotification
+}) => {
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const churchId = userProfile?.churchData?.churchId;
+  const churchName = userProfile?.churchData?.churchName;
+
+  const { posts, isLoading: feedLoading, reload: reloadFeed } = useKingdomFeed(userProfile);
+  const { prayers, isLoading: prayersLoading, intercede } = usePrayerWall(churchId);
+
+  // Menções: filtra notificações do tipo social/info dos últimas 5 entradas
+  const mentions = (notifications || [])
+    .filter((n: any) => n.type === 'social' || n.link?.includes('/p/'))
+    .slice(0, 2);
+
+  const handleInteraction = useCallback(async (postId: string, type: 'like' | 'comment' | 'share' | 'save') => {
+    if (!currentUser) { openLogin(); return; }
+    if (type === 'like') {
+      const target = posts.find(p => p.id === postId);
+      if (!target) return;
+      const isLiked = target.likedBy?.includes(currentUser.uid);
+      await dbService.togglePostLike(postId, currentUser.uid, !!isLiked);
+      reloadFeed();
+    } else if (type === 'comment') {
+      navigate(`/p/${postId}`);
+    } else if (type === 'share') {
+      const url = `${window.location.origin}/p/${postId}`;
+      if (navigator.share) {
+        await navigator.share({ title: 'BíbliaLM', url });
+      } else {
+        navigator.clipboard.writeText(url);
+        showNotification('Link copiado!', 'success');
+      }
+    }
+  }, [currentUser, posts, reloadFeed, openLogin, navigate, showNotification]);
+
+  const handleInterced = useCallback(async (prayerId: string) => {
+    if (!currentUser) { openLogin(); return; }
+    const prayer = prayers.find(p => p.id === prayerId);
+    if (!prayer) return;
+    const isActive = !prayer.intercessors.includes(currentUser.uid);
+    await intercede(prayerId, currentUser.uid, isActive);
+    showNotification(isActive ? '🙏 Oração registrada!' : 'Intercessão removida.', 'success');
+  }, [currentUser, prayers, intercede, openLogin, showNotification]);
+
+  return (
+    <div className="space-y-6">
+
+      {/* HEAD REINO */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 md:p-8 flex items-center justify-between relative overflow-hidden">
+        {!currentUser && <LockOverlay message="Entrar na comunidade" />}
+        <div className="absolute top-[-50%] right-[-10%] w-64 h-64 bg-white/10 blur-3xl rounded-full pointer-events-none" />
+        <div className="relative z-10 flex-1">
+          <h2 className="text-white font-bold text-2xl md:text-3xl lg:text-4xl flex items-center gap-2 mb-1">
+            <Users size={24} /> Comunidade do Reino
+          </h2>
+          {churchName ? (
+            <p className="text-blue-200 text-sm font-semibold flex items-center gap-1.5">
+              <Church size={13} /> {churchName}
+            </p>
+          ) : (
+            <p className="text-blue-100 text-sm max-w-lg">
+              Conecte-se com sua igreja local, veja os pedidos de oração e acompanhe as novidades da célula.
+            </p>
+          )}
+        </div>
+        <button
+          onClick={() => currentUser ? setIsComposerOpen(true) : openLogin()}
+          className="relative z-10 bg-white text-indigo-700 font-bold text-[11px] px-4 py-2 uppercase tracking-wide rounded-lg shadow-lg hover:bg-gray-100 transition-colors shrink-0 hidden md:flex items-center gap-1.5"
+        >
+          <PenLine size={13} /> Novo Post
+        </button>
+      </div>
+
+      {/* CONTEÚDO REINO GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+
+        {/* FEED PRINCIPAL */}
+        <div className="md:col-span-8 space-y-4">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-gray-900 dark:text-white font-bold flex items-center gap-2">
+              <Layout size={16} className="text-[#c5a059]" />
+              {churchId ? 'Feed da Sua Igreja' : 'Feed Global do Reino'}
+            </h3>
+            {!churchId && (
+              <button
+                onClick={() => navigate('/social/igrejas')}
+                className="text-[10px] text-blue-500 font-bold uppercase tracking-widest hover:text-blue-400 flex items-center gap-1"
+              >
+                <Globe size={11} /> Vincular Igreja
+              </button>
+            )}
+          </div>
+
+          {feedLoading ? (
+            <FeedSkeleton />
+          ) : (
+            <>
+              {posts.map(post => (
+                <div key={post.id} className="rounded-2xl overflow-hidden border border-gray-200 dark:border-[#2A2A2A] bg-white dark:bg-[#141414]">
+                  <FeedPostCard
+                    post={post}
+                    currentUser={currentUser}
+                    onInteraction={handleInteraction}
+                    showNotification={showNotification}
+                  />
+                </div>
+              ))}
+              {posts.length === 0 && (
+                <div className="text-center py-12 text-gray-400">
+                  <Users size={32} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-sm font-medium">Ainda não há posts no feed.</p>
+                  <p className="text-xs mt-1">Seja o primeiro a compartilhar!</p>
+                </div>
+              )}
+              <button
+                onClick={() => navigate('/social')}
+                className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-gray-300 dark:border-[#2A2A2A] rounded-2xl text-gray-500 dark:text-gray-400 hover:border-[#c5a059]/50 hover:text-[#c5a059] transition-colors text-xs font-bold uppercase tracking-widest"
+              >
+                Ver Tudo no Reino <ArrowRight size={14} />
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* SIDEBAR REINO */}
+        <div className="md:col-span-4 space-y-6">
+
+          {/* Mural de Oração */}
+          <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-gray-900 dark:text-white font-bold text-[13px] flex items-center gap-2">
+                <HandHeart size={14} className="text-pink-500" /> Mural de Oração
+              </h3>
+              <button
+                onClick={() => navigate('/sala-de-oracao')}
+                className="text-[10px] text-pink-500 font-bold uppercase tracking-widest hover:text-pink-400"
+              >
+                Ver Todos
+              </button>
+            </div>
+
+            {prayersLoading ? <PrayerSkeleton /> : (
+              <div className="space-y-3">
+                {prayers.length === 0 && (
+                  <p className="text-xs text-gray-400 text-center py-4">Nenhum pedido no mural ainda.</p>
+                )}
+                {prayers.map(prayer => {
+                  const isInterceeding = prayer.intercessors.includes(currentUser?.uid || '');
+                  return (
+                    <div key={prayer.id} className="p-3 bg-gray-50 dark:bg-[#1A1A1A] rounded-xl border border-gray-100 dark:border-[#252525]">
+                      <span className="text-gray-900 dark:text-white font-bold text-xs inline-block mb-1">{prayer.userName}</span>
+                      <p className="text-gray-600 dark:text-gray-400 text-[11px] leading-tight mb-1">{prayer.content}</p>
+                      {prayer.intercessorsCount > 0 && (
+                        <p className="text-[10px] text-pink-400 font-semibold mb-2">
+                          🙏 {prayer.intercessorsCount} {prayer.intercessorsCount === 1 ? 'pessoa orou' : 'pessoas oraram'}
+                        </p>
+                      )}
+                      <button
+                        onClick={() => handleInterced(prayer.id)}
+                        className={`w-full text-center py-1.5 rounded-lg font-bold text-[10px] transition-colors border ${
+                          isInterceeding
+                            ? 'bg-pink-500 border-pink-500 text-white hover:bg-pink-600'
+                            : 'border-gray-300 dark:border-[#3A3A3A] hover:bg-gray-100 dark:hover:bg-[#2A2A2A] text-gray-600 dark:text-gray-400'
+                        }`}
+                      >
+                        {isInterceeding ? '✓ ORANDO JUNTO' : 'ORAR JUNTO'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Menções */}
+          <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-gray-900 dark:text-white font-bold text-[13px] flex items-center gap-2">
+                <MessageSquare size={14} className="text-[#c5a059]" /> Notificações Sociais
+              </h3>
+            </div>
+            <div className="space-y-3">
+              {mentions.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-4">Nenhuma novidade ainda.</p>
+              ) : (
+                mentions.map((n: any) => {
+                  const initials = n.title?.substring(0, 2).toUpperCase() || '??';
+                  return (
+                    <button
+                      key={n.id}
+                      onClick={() => n.link && navigate(n.link)}
+                      className="w-full flex gap-3 text-left hover:bg-gray-50 dark:hover:bg-[#1A1A1A] rounded-xl p-2 -mx-2 transition-colors"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-[#c5a059]/20 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="font-bold text-[#c5a059] text-[10px]">{initials}</span>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-700 dark:text-gray-300 leading-snug">{n.message}</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5 font-medium">
+                          {n.timestamp ? new Date(n.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Recente'}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* KingdomComposer: Novo Post */}
+      <KingdomComposer
+        isOpen={isComposerOpen}
+        onClose={() => setIsComposerOpen(false)}
+        onPostSuccess={() => { setIsComposerOpen(false); reloadFeed(); }}
+      />
+
+      {/* Floating Novo Post (mobile) */}
+      {currentUser && (
+        <button
+          onClick={() => setIsComposerOpen(true)}
+          className="md:hidden fixed bottom-24 right-5 z-50 w-14 h-14 rounded-full bg-indigo-600 text-white shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-4 border-white dark:border-black"
+          aria-label="Criar novo post no Reino"
+        >
+          <PenLine size={22} />
+        </button>
+      )}
+    </div>
+  );
+};
+
+// ─── SANCTUARY PAGE ──────────────────────────────────────────────────────────
 
 const SanctuaryPage: React.FC = () => {
   const navigate = useNavigate();
@@ -940,142 +1226,15 @@ const SanctuaryPage: React.FC = () => {
 
             {/* ==================== ABA REINO ==================== */}
             {activeTab === 'reino' && (
-              <div className="space-y-6">
-
-                {/* HEAD REINO */}
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 md:p-8 flex items-center justify-between relative overflow-hidden">
-                  {!currentUser && <LockOverlay message="Entrar na comunidade" />}
-                  <div className="absolute top-[-50%] right-[-10%] w-64 h-64 bg-white/10 blur-3xl rounded-full pointer-events-none" />
-                  <div className="relative z-10">
-                    <h2 className="text-white font-bold text-2xl md:text-3xl lg:text-4xl flex items-center gap-2 mb-2">
-                      <Users size={24} /> Comunidade do Reino
-                    </h2>
-                    <p className="text-blue-100 text-sm max-w-lg">
-                      Conecte-se com sua igreja local, veja os pedidos de oração da semana e acompanhe as novidades da sua célula.
-                    </p>
-                  </div>
-                  <button className="relative z-10 bg-white text-indigo-700 font-bold text-[11px] px-4 py-2 uppercase tracking-wide rounded-lg shadow-lg hover:bg-gray-100 transition-colors shrink-0 hidden md:block">
-                    Novo Post
-                  </button>
-                </div>
-
-                {/* CONTEÚDO REINO GRID */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-
-                  {/* FEED PRINCIPAL */}
-                  <div className="md:col-span-8 space-y-4">
-                    <h3 className="text-gray-900 dark:text-white font-bold flex items-center gap-2 px-1">
-                      <Layout size={16} className="text-[#c5a059]" /> Feed da Igreja & Células
-                    </h3>
-
-                    {/* Post Exemplo Igreja */}
-                    <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-5 hover:border-blue-500/30 transition-colors">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
-                          <Users size={16} className="text-blue-500" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-gray-900 dark:text-white text-sm">Comunidade Vida</p>
-                          <p className="text-xs text-gray-500 font-medium">Igreja Local • Há 2 horas</p>
-                        </div>
-                      </div>
-                      <p className="text-gray-800 dark:text-gray-300 text-sm leading-relaxed mb-4">
-                        Culto de Celebração maravilhoso neste domingo! A mensagem sobre fé e perseverança nos renovou. Não perca nosso estudo desta semana na célula.
-                      </p>
-                      <div className="h-[200px] bg-[#1A1A1A] rounded-xl overflow-hidden mb-4">
-                        <img src="https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800" className="w-full h-full object-cover opacity-80" alt="Culto" />
-                      </div>
-                      <div className="flex items-center gap-4 border-t border-gray-100 dark:border-[#202020] pt-3 mt-2">
-                        <button className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${isLightTheme ? 'text-gray-600 hover:text-[#111111]' : 'text-gray-600 dark:text-gray-400 hover:text-white'}`}>
-                          <Heart size={14} /> Amém (45)
-                        </button>
-                        <button className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${isLightTheme ? 'text-gray-600 hover:text-[#111111]' : 'text-gray-600 dark:text-gray-400 hover:text-white'}`}>
-                          <MessageSquare size={14} /> Comentar (12)
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Post Exemplo Célula */}
-                    <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-5 hover:border-[#c5a059]/30 transition-colors">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-full bg-[#c5a059]/20 flex items-center justify-center shrink-0">
-                          <Book size={16} className="text-[#c5a059]" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-gray-900 dark:text-white text-sm">Célula Multiplicadores</p>
-                          <p className="text-xs text-gray-500 font-medium">Pequenos Grupos • Ontem</p>
-                        </div>
-                      </div>
-                      <p className="text-gray-800 dark:text-gray-300 text-sm leading-relaxed mb-3">
-                        Estudo da semana finalizado e compartilhado com o grupo! Quem não pôde ir no encontro de ontem, acesse a sala no painel para acompanhar a discussão sobre o Sermão da Montanha.
-                      </p>
-                      <div className="flex items-center justify-between bg-gray-50 dark:bg-[#1A1A1A] p-3 rounded-xl border border-gray-200 dark:border-[#252525]">
-                        <div className="flex items-center gap-2">
-                          <BookOpen size={16} className="text-[#c5a059]" />
-                          <span className="text-gray-900 dark:text-white font-bold text-sm">Sermão da Montanha (Parte 2)</span>
-                        </div>
-                        <button className="text-[10px] bg-[#c5a059] text-black font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide">Abrir</button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* SIDEBAR REINO */}
-                  <div className="md:col-span-4 space-y-6">
-
-                    {/* Pedidos de Oração */}
-                    <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-gray-900 dark:text-white font-bold text-[13px] flex items-center gap-2">
-                          <HelpCircle size={14} className="text-pink-500" /> Mural de Oração
-                        </h3>
-                        <button className="text-[10px] text-pink-500 font-bold uppercase tracking-widest hover:text-pink-400">Ver Todos</button>
-                      </div>
-                      <div className="space-y-3">
-                        <div className="p-3 bg-gray-50 dark:bg-[#1A1A1A] rounded-xl border border-gray-100 dark:border-[#252525]">
-                          <span className="text-gray-900 dark:text-white font-bold text-xs inline-block mb-1">Família Santos</span>
-                          <p className="text-gray-600 dark:text-gray-400 text-[11px] leading-tight mb-3">Peço oração pela saúde do meu pai que fará uma cirurgia amanhã.</p>
-                          <button className="w-full text-center py-1.5 border border-gray-300 dark:border-[#3A3A3A] hover:bg-gray-100 dark:hover:bg-[#2A2A2A] rounded-lg text-gray-600 dark:text-gray-400 font-bold text-[10px] transition-colors">ORAR JUNTO</button>
-                        </div>
-                        <div className="p-3 bg-gray-50 dark:bg-[#1A1A1A] rounded-xl border border-gray-100 dark:border-[#252525]">
-                          <span className="text-gray-900 dark:text-white font-bold text-xs inline-block mb-1">Lucas M.</span>
-                          <p className="text-gray-600 dark:text-gray-400 text-[11px] leading-tight mb-3">Oração por provisão e uma nova porta de emprego.</p>
-                          <button className="w-full text-center py-1.5 border border-gray-300 dark:border-[#3A3A3A] hover:bg-gray-100 dark:hover:bg-[#2A2A2A] rounded-lg text-gray-600 dark:text-gray-400 font-bold text-[10px] transition-colors">ORAR JUNTO</button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Menções */}
-                    <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-gray-900 dark:text-white font-bold text-[13px] flex items-center gap-2">
-                          <MessageSquare size={14} className="text-[#c5a059]" /> Menções
-                        </h3>
-                      </div>
-                      <div className="space-y-3">
-                        <div className="flex gap-3">
-                          <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                            <span className="font-bold text-purple-600 text-[10px]">PA</span>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-700 dark:text-gray-300"><strong className="text-gray-900 dark:text-white font-bold">Pr. André</strong> mencionou você em comentário.</p>
-                            <p className="text-[10px] text-gray-500 mt-0.5 font-medium">Há 3 horas</p>
-                          </div>
-                        </div>
-                        <div className="flex gap-3">
-                          <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                            <span className="font-bold text-orange-600 text-[10px]">CE</span>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-700 dark:text-gray-300">Nova resposta na sala <strong className="text-gray-900 dark:text-white font-bold">Célula Multiplicadores</strong>.</p>
-                            <p className="text-[10px] text-gray-500 mt-0.5 font-medium">Ontem</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-              </div>
+              <ReinoTab
+                isLightTheme={isLightTheme}
+                currentUser={currentUser}
+                userProfile={userProfile}
+                notifications={notifications}
+                navigate={navigate}
+                openLogin={openLogin}
+                showNotification={showNotification}
+              />
             )}
 
           </div>
