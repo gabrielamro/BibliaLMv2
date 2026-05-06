@@ -370,7 +370,7 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
 
 const SanctuaryPage: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser, userProfile, notifications, unreadNotificationsCount, markNotificationsAsRead, openLogin, signOut } = useAuth();
+  const { currentUser, userProfile, notifications, unreadNotificationsCount, markNotificationsAsRead, openLogin, signOut, showNotification } = useAuth();
   const { resetHeader, setIsHeaderHidden } = useHeader();
   const { settings, toggleTheme } = useSettings();
   const { plans } = useWorkspace();
