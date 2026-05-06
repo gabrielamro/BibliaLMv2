@@ -1819,26 +1819,6 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                 </div>
               </header>
 
-              <div className="bg-white dark:bg-bible-darkPaper border-b border-gray-200 dark:border-gray-800 px-4 py-3 print:hidden">
-                <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                    {(content.meta.visibility || 'public') === 'public' ? <Globe size={15} className="text-bible-gold" /> : <Lock size={15} className="text-bible-gold" />}
-                    <span>{(content.meta.visibility || 'public') === 'public' ? 'Publico' : 'Privado'}</span>
-                    {content.meta.allowPdfDownload && <span className="rounded-full bg-green-50 px-2 py-1 text-[10px] font-black uppercase text-green-600">PDF liberado</span>}
-                  </div>
-                  <div className="flex min-w-0 items-center gap-2">
-                    <input
-                      value={getPreviewShareUrl()}
-                      readOnly
-                      className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                    />
-                    <button onClick={copyPreviewShareLink} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-bible-gold text-white" title="Copiar link">
-                      {copiedSlug ? <Check size={16} /> : <Copy size={16} />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
               {/* Preview Content */}
               <main className="py-8 min-h-screen bg-gray-100 dark:bg-black/90 flex justify-center">
                 <div className={`w-full bg-white dark:bg-bible-darkPaper shadow-2xl transition-all duration-300 canvas-${canvasWidth} ${canvasWidth === 'mobile' ? 'max-w-[375px] min-h-[667px] rounded-[3rem] border-[12px] border-gray-800'

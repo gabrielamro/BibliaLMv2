@@ -69,6 +69,14 @@ test('does not render blocks hidden for the current editor canvas', async ({ pag
   await expect(page.getByText(/Oculto nesta visualiza/i)).toHaveCount(0);
 });
 
+test('keeps preview sharing controls inside the share button modal', async ({ page }) => {
+  await page.goto('/criar-conteudo?id=preview-test&step=preview', { waitUntil: 'domcontentloaded' });
+
+  await expect(page.getByRole('heading', { name: 'Preview' })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('content-preview-share-button')).toBeVisible();
+  await expect(page.locator('input[readonly]')).toHaveCount(0);
+});
+
 test('keeps the criar-conteudo editor fitted in mobile canvas', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/criar-conteudo', { waitUntil: 'domcontentloaded' });
