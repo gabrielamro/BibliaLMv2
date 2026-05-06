@@ -118,6 +118,36 @@ export interface AppNotification {
   icon?: string;
 }
 
+export type GroupPrivacy = 'public' | 'private';
+export type ContentPrivacyLevel = 'public' | 'private' | 'invite_only' | 'church' | 'group' | 'church_groups';
+export type ContentCreationScope = 'user' | 'church' | 'group';
+export type GroupAccessInviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+export type GroupAccessInviteSource = 'invite' | 'mention';
+
+export interface GroupAccessInvite {
+  id: string;
+  groupId: string;
+  churchId: string;
+  invitedUserId: string;
+  invitedByUserId: string;
+  status: GroupAccessInviteStatus;
+  source: GroupAccessInviteSource;
+  token?: string;
+  expiresAt?: string;
+  acceptedAt?: string;
+  createdAt: string;
+}
+
+export interface ContentVisibilityContext {
+  scope: ContentCreationScope;
+  visibility: ContentPrivacyLevel;
+  churchId?: string;
+  churchName?: string;
+  groupId?: string;
+  groupName?: string;
+  contextLabel?: string;
+}
+
 // --- CMS TYPES ---
 export interface Banner {
   id?: string;
@@ -195,6 +225,13 @@ export interface SavedStudy extends UserContent {
   // Novos campos para o Estúdio Pastoral / Academia
   frequency?: 'daily' | 'weekly' | 'monthly';
   visibility?: 'public' | 'private_invite' | 'private';
+  privacyLevel?: ContentPrivacyLevel;
+  churchId?: string;
+  groupId?: string;
+  allowedGroupIds?: string[];
+  allowedUserIds?: string[];
+  inviteRequired?: boolean;
+  createdFromContext?: ContentCreationScope | 'profile' | 'workspace';
 
   // Seguimento (Acompanhar)
   isFollowed?: boolean;
@@ -231,6 +268,14 @@ export interface CustomPlan extends UserContent {
   category: string;
   weeks: PlanWeek[];
   privacyType: 'public' | 'followers' | 'church' | 'group';
+  privacyLevel?: ContentPrivacyLevel;
+  allowedGroupIds?: string[];
+  allowedUserIds?: string[];
+  inviteRequired?: boolean;
+  allowPdfDownload?: boolean;
+  shareSlug?: string;
+  lastSharedAt?: string;
+  createdFromContext?: ContentCreationScope | 'profile' | 'workspace';
   isRanked: boolean;
   churchId?: string;
   groupId?: string;
@@ -280,7 +325,7 @@ export interface Post {
   userDisplayName: string;
   userUsername: string;
   userPhotoURL?: string;
-  type: 'image' | 'prayer' | 'reflection' | 'devotional' | 'quiz' | 'feeling' | 'cell_meeting' | 'podcast';
+  type: 'image' | 'prayer' | 'reflection' | 'devotional' | 'quiz' | 'feeling' | 'cell_meeting' | 'podcast' | 'study' | 'room';
   content: string;
   likesCount: number;
   commentsCount: number;
@@ -303,6 +348,11 @@ export interface Post {
   churchId?: string;
   isRepost?: boolean;
   originalPost?: { userUsername: string; };
+  studyId?: string;
+  studyTitle?: string;
+  studyCoverUrl?: string;
+  studyUrl?: string;
+  studySourceLabel?: string;
 }
 
 export interface PostComment { id: string; postId: string; userId: string; userDisplayName: string; userPhotoURL?: string | null; content: string; createdAt: string; }
@@ -507,8 +557,8 @@ export interface SystemSettings {
 }
 export interface FeatureFlag { id: string; key: string; label: string; description: string; isEnabled: boolean; rolloutPercentage: number; }
 export interface PlanFeatures { aiChatAccess: boolean; aiImageGen: boolean; aiPodcastGen: boolean; aiDeepAnalysis: boolean; aiSermonBuilder: boolean; aiNoteImprovement: boolean; aiSocialCaptions: boolean; churchFoundation: boolean; churchAdminPanel: boolean; cellCreation: boolean; muralPosting: boolean; teamCompetition: boolean; socialFeedRead: boolean; socialFeedPost: boolean; globalHighlight: boolean; followingSystem: boolean; profileCustomization: boolean; readingPlans: boolean; audioNarration: boolean; unlimitedNotes: boolean; achievementBadges: boolean; advancedSearch: boolean; focusMode: boolean; customThemes: boolean; noAds: boolean; }
-export interface Church { id: string; name: string; acronym: string; slug: string; denomination: string; location: { city: string; state: string; address: string }; stats: { memberCount: number; totalMana: number; totalChaptersRead: number; totalStudiesCreated: number; followersCount?: number }; teams: string[]; teamScores: Record<string, number>; admins: string[]; logoUrl?: string; pastorName?: string; churchSlug?: string; }
-export interface ChurchGroup { id: string; churchId: string; parentGroupId?: string; name: string; slug: string; stats: { memberCount: number; totalMana: number }; leaderName?: string; leaderUid?: string; createdBy: string; createdAt: string; }
+export interface Church { id: string; name: string; acronym: string; slug: string; denomination: string; location: { city: string; state: string; address: string }; stats: { memberCount: number; totalMana: number; totalChaptersRead: number; totalStudiesCreated: number; followersCount?: number }; teams: string[]; teamScores: Record<string, number>; admins: string[]; logoUrl?: string; pastorName?: string; churchSlug?: string; externalProvider?: string; externalPlaceId?: string; sourceAttribution?: string; verificationStatus?: 'external' | 'unclaimed' | 'claimed' | 'verified'; lat?: number | null; lng?: number | null; isExternal?: boolean; }
+export interface ChurchGroup { id: string; churchId: string; parentGroupId?: string; name: string; slug: string; privacy?: GroupPrivacy; stats: { memberCount: number; totalMana: number }; leaderName?: string; leaderUid?: string; createdBy: string; createdAt: string; }
 export interface DailyReading { day: number; dateDisplay: string; readings: ReadingSection[]; }
 export interface ReadingSection { section: string; bookId: string; name: string; ref: string; startChapter: number; endChapter: number; }
 export interface SystemLog { id: string; type: 'error' | 'user_report' | 'admin_action'; message?: string; description?: string; stack?: string; timestamp: string; url: string; userAgent: string; userId?: string; severity?: 'low' | 'medium' | 'high'; action?: string; target?: string; details?: string; }

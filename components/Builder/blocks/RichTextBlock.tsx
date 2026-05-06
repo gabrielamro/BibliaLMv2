@@ -19,6 +19,7 @@ interface RichTextBlockProps {
   editor?: any;
   layoutWidth?: string;
   blockType?: string;
+  canvasWidth?: 'mobile' | 'tablet' | 'desktop' | 'full';
 }
 
 // ─── Default Template ─────────────────────────────────────────────────────
@@ -40,7 +41,7 @@ const DEFAULT_CONTENT = `
 
 // ─── Toolbar ──────────────────────────────────────────────────────────────
 interface ToolbarProps {
-  editorRef: React.RefObject<HTMLDivElement>;
+  editorRef: React.RefObject<HTMLDivElement | null>;
   onExec: (cmd: string, val?: string) => void;
   onInsertHtml: (html: string) => void;
 }
@@ -288,7 +289,7 @@ const FullToolbar: React.FC<ToolbarProps> = ({ onExec, onInsertHtml }) => {
 };
 
 // ─── Main Block ────────────────────────────────────────────────────────────
-export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, isEditing, layoutWidth = '1/1', blockType }) => {
+export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, isEditing, layoutWidth = '1/1', blockType, canvasWidth }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const isInitialized = useRef(false);
   
@@ -296,7 +297,8 @@ export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, is
   const content = data.content || (blockType === 'free-text' ? '' : DEFAULT_CONTENT);
 
   // Responsive padding based on column width
-  const contentPadding =
+  const contentPadding = 
+    canvasWidth === 'mobile' ? 'px-4 py-5' :
     layoutWidth === '1/3' ? 'px-4 py-5' :
     layoutWidth === '1/2' ? 'px-6 py-6' :
     'px-8 py-8';
@@ -345,11 +347,13 @@ export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, is
       <style>{`
         .rtb-editor {
           font-family: 'Lora', 'Georgia', serif;
-          font-size: 1.0625rem;
-          line-height: 1.8;
+          font-size: ${canvasWidth === 'mobile' ? '0.98rem' : '1.0625rem'};
+          line-height: ${canvasWidth === 'mobile' ? '1.7' : '1.8'};
           color: #1c1917;
-          min-height: 360px;
+          min-height: ${canvasWidth === 'mobile' ? '300px' : '360px'};
           caret-color: #c5a059;
+          overflow-wrap: anywhere;
+          word-break: normal;
         }
         .dark .rtb-editor { color: #e7e5e4; background: #1c1917; }
         .rtb-editor:focus { outline: none; }
@@ -357,7 +361,7 @@ export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, is
         .rtb-editor > *:last-child { margin-bottom: 0; }
         .rtb-editor h1 {
           font-family: 'Playfair Display', 'Georgia', serif;
-          font-size: clamp(1.375rem, 4vw, 2rem); font-weight: 800; line-height: 1.25;
+          font-size: ${canvasWidth === 'mobile' ? 'clamp(1.25rem, 6vw, 1.55rem)' : 'clamp(1.375rem, 4vw, 2rem)'}; font-weight: 800; line-height: 1.25;
           color: #b45309; margin: 0.1em auto 0.5em auto;
           text-align: center;
         }
@@ -365,13 +369,13 @@ export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, is
         .rtb-editor p.bible-subtitle {
           text-align: center;
           color: #a8a29e;
-          font-size: 0.875rem;
-          letter-spacing: 0.15em;
+          font-size: ${canvasWidth === 'mobile' ? '0.72rem' : '0.875rem'};
+          letter-spacing: ${canvasWidth === 'mobile' ? '0.08em' : '0.15em'};
           text-transform: uppercase;
           margin: 0 auto 20px auto;
         }
         .rtb-editor h2 {
-          font-size: 1.35rem; font-weight: 700; line-height: 1.3;
+          font-size: ${canvasWidth === 'mobile' ? '1.08rem' : '1.35rem'}; font-weight: 700; line-height: 1.3;
           color: #92400e; margin: 1.25em 0 0.45em 0;
           border-left: 4px solid #c5a059; padding-left: 12px;
         }

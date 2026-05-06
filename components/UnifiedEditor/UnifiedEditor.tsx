@@ -284,8 +284,13 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
     });
   };
 
+  const isMobileCanvas = canvasWidth === 'mobile';
+
   return (
-    <div className={`unified-editor-container bg-transparent w-full mx-auto relative flex flex-col ${!readOnly ? 'min-h-screen' : ''} ${readOnly ? 'is-readonly' : ''}`}>
+    <div
+      data-canvas-width={canvasWidth}
+      className={`unified-editor-container bg-transparent w-full mx-auto relative flex flex-col ${!readOnly ? (isMobileCanvas ? 'min-h-[520px]' : 'min-h-screen') : ''} ${readOnly ? 'is-readonly' : ''}`}
+    >
       <style>{`
         /* Modo Foco (Fade) - APENAS EM EDIÇÃO */
         .unified-editor-container:not(.is-readonly) .ProseMirror-focused > * {
@@ -313,6 +318,19 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
           box-sizing: border-box !important;
           padding-bottom: 200px !important;
           min-height: 500px;
+        }
+
+        .unified-editor-container[data-canvas-width="mobile"] .ProseMirror {
+          gap: 1rem !important;
+          min-height: 360px;
+          padding-bottom: 96px !important;
+        }
+
+        .unified-editor-container[data-canvas-width="mobile"] .ProseMirror > [data-type="custom-block"],
+        .unified-editor-container[data-canvas-width="mobile"] .ProseMirror > .node-customBlock {
+          flex: 0 0 100% !important;
+          width: 100% !important;
+          max-width: 100% !important;
         }
 
         .ProseMirror * {
@@ -391,17 +409,18 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
       {!readOnly && editor && <EditorBubbleMenu editor={editor} />}
       {!readOnly && editor && <EditorFloatingMenu editor={editor} />}
 
-      <div className={`mx-auto relative w-full ${!readOnly ? 'pt-8 pb-32 px-2 sm:px-4' : ''}`}>
+      <div className={`mx-auto relative w-full ${!readOnly ? (isMobileCanvas ? 'pt-3 pb-24 px-0' : 'pt-8 pb-32 px-2 sm:px-4') : ''}`}>
         {Array.isArray(content) ? (
           <BlockListEditor
             blocks={content}
             onChange={(newBlocks) => onChange(newBlocks, '')}
             onBlockSelect={onBlockSelect}
             isEditing={!readOnly}
+            canvasWidth={canvasWidth}
           />
         ) : (
           <div className="w-full max-w-none mx-auto">
-            <div className={`w-full shadow-[0_0_50px_rgba(0,0,0,0.05)] bg-white/30 dark:bg-bible-ink/10 backdrop-blur-sm ring-1 ring-bible-gold/10 rounded-[3rem] ${!readOnly ? 'py-12 px-8 min-h-[600px]' : 'py-8 px-4'}`}>
+            <div className={`w-full shadow-[0_0_50px_rgba(0,0,0,0.05)] bg-white/30 dark:bg-bible-ink/10 backdrop-blur-sm ring-1 ring-bible-gold/10 ${isMobileCanvas ? 'rounded-[1.5rem]' : 'rounded-[3rem]'} ${!readOnly ? (isMobileCanvas ? 'py-6 px-3 min-h-[460px]' : 'py-12 px-8 min-h-[600px]') : 'py-8 px-4'}`}>
               <EditorContent editor={editor} />
             </div>
             {!readOnly && (

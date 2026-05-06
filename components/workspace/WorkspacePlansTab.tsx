@@ -33,7 +33,7 @@ const WorkspacePlansTab: React.FC = () => {
 
   return (
     <>
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 bg-white dark:bg-bible-darkPaper p-2 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 bg-white dark:bg-bible-darkPaper p-2 rounded-2xl border border-purple-100 dark:border-purple-900/40 shadow-sm">
         <div className="flex items-center gap-2 w-full md:w-auto">
           <Filter size={16} className="text-gray-400 ml-2" />
           <select 
@@ -50,9 +50,9 @@ const WorkspacePlansTab: React.FC = () => {
           {isPastor ? (
             <button 
               onClick={() => navigate('/criar-sala')}
-              className="bg-bible-leather dark:bg-bible-gold text-white dark:text-black px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg flex items-center gap-2 hover:scale-105 transition-transform whitespace-nowrap"
+              className="bg-purple-700 text-white px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-purple-900/15 flex items-center gap-2 hover:scale-105 hover:bg-purple-800 transition-transform whitespace-nowrap dark:bg-violet-500"
             >
-              <Plus size={14} /> Novo Plano
+              <Plus size={14} /> Nova Sala
             </button>
           ) : (
             <button 
@@ -83,7 +83,7 @@ const WorkspacePlansTab: React.FC = () => {
           </p>
           
           {isPastor && (
-            <button onClick={() => navigate('/criar-sala')} className="text-bible-gold font-bold hover:underline">Criar Plano</button>
+            <button onClick={() => navigate('/criar-sala')} className="text-purple-700 dark:text-violet-300 font-bold hover:underline">Criar Sala</button>
           )}
         </div>
       ) : (
@@ -98,7 +98,7 @@ const WorkspacePlansTab: React.FC = () => {
                 imageUrl={plan.coverUrl}
                 badges={[
                   { label: plan.category || 'Geral', color: 'bg-purple-50 text-purple-600' },
-                  { label: plan.planningFrequency === 'daily' ? 'Diário' : 'Semanal', color: 'bg-blue-50 text-blue-600' }
+                  { label: plan.planningFrequency === 'daily' ? 'Diário' : 'Semanal', color: 'bg-violet-50 text-violet-600' }
                 ]}
                 metrics={plan.metrics}
                 statusLabel={isPublished ? 'Sala Ativa' : 'Rascunho'}
@@ -113,6 +113,7 @@ const WorkspacePlansTab: React.FC = () => {
                 onSecondaryAction={isPastor && isPublished ? (e: React.MouseEvent) => openManager(e, plan) : undefined}
                 secondaryIcon={isPastor && isPublished ? <Settings size={14}/> : undefined}
                 onClick={() => navigate(`/jornada/${plan.id}`)}
+                contentKind="room"
               />
             );
           })}

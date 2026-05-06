@@ -6,10 +6,12 @@ import Link from "next/link";
 import { 
   Heart, MessageCircle, Share2, MoreHorizontal, Bookmark, 
   Edit2, Trash2, Quote, MapPin, HandHeart, Sparkles, 
-  Smile, Users, Trophy, Headphones, Image as ImageIcon, BookOpen
+  Smile, Users, Trophy, Headphones, Image as ImageIcon, BookOpen, Church, DoorOpen
 } from 'lucide-react';
 import { Post, MoodType } from '../../types';
 import SmartText from '../reader/SmartText';
+import { getPostImageSource } from '../../utils/socialPostMedia';
+import { normalizeBiblialmInternalUrl } from '../../utils/internalLinks';
 
 interface FeedPostCardProps {
   post: Post;
@@ -89,6 +91,20 @@ const TYPE_IDENTITY: Record<string, { label: string, icon: React.ElementType, co
         bg: 'bg-blue-50 dark:bg-blue-900/10', 
         border: 'border-blue-100 dark:border-blue-900/30' 
     },
+    study: {
+        label: 'Estudo Premium',
+        icon: BookOpen,
+        color: 'text-bible-gold',
+        bg: 'bg-bible-gold/10',
+        border: 'border-bible-gold/30'
+    },
+    room: {
+        label: 'Sala do Reino',
+        icon: DoorOpen,
+        color: 'text-purple-700 dark:text-violet-300',
+        bg: 'bg-purple-50 dark:bg-purple-950/20',
+        border: 'border-purple-200 dark:border-purple-800/50'
+    },
     default: {
         label: 'Postagem',
         icon: MessageCircle,
@@ -146,13 +162,76 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
     
     const identity = TYPE_IDENTITY[post.type] || TYPE_IDENTITY['default'];
     const IdentityIcon = identity.icon;
+    const postImage = getPostImageSource(post);
 
     const renderContent = () => {
-        if (post.image) {
+        if (post.type === 'study' || post.type === 'room') {
+            const isRoomShare = post.type === 'room';
+            const cover = post.studyCoverUrl || postImage;
+            const href = normalizeBiblialmInternalUrl(post.studyUrl) || (post.studyId ? (isRoomShare ? `/jornada/${post.studyId}` : `/v/${post.studyId}`) : '#');
+            const shellClass = isRoomShare
+                ? 'border-purple-300/60 bg-gradient-to-br from-[#2b174f] via-purple-800 to-violet-600 shadow-purple-900/20'
+                : 'border-bible-gold/30 bg-gradient-to-br from-[#1f1710] via-[#2c2117] to-black shadow-bible-gold/10';
+            const chipClass = isRoomShare
+                ? 'border-purple-200/40 bg-white/10 text-violet-100'
+                : 'border-bible-gold/30 bg-black/50 text-bible-gold';
+            const sourceClass = isRoomShare ? 'text-violet-100/90' : 'text-bible-gold/90';
+            const ctaClass = isRoomShare ? 'bg-white text-purple-900' : 'bg-bible-gold text-black';
+            return (
+                <div className="px-4 pb-5">
+                    <Link
+                        href={href}
+                        className={`block overflow-hidden rounded-[1.75rem] border shadow-2xl transition-transform hover:scale-[1.01] active:scale-[0.99] ${shellClass}`}
+                    >
+                        <div className="relative h-56 bg-black">
+                            {cover ? (
+                                <img
+                                    src={cover}
+                                    className="h-full w-full object-cover opacity-80 transition-transform duration-700 hover:scale-105"
+                                    loading="lazy"
+                                    alt={post.studyTitle || (isRoomShare ? 'Capa da sala' : 'Capa do estudo')}
+                                />
+                            ) : (
+                                <div className={`h-full w-full flex items-center justify-center ${isRoomShare ? 'bg-purple-950/40' : 'bg-bible-gold/10'}`}>
+                                    {isRoomShare ? <DoorOpen className="text-violet-100/50" size={52} /> : <BookOpen className="text-bible-gold/40" size={52} />}
+                                </div>
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent" />
+                            <div className={`absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.24em] backdrop-blur-md ${chipClass}`}>
+                                {isRoomShare ? <DoorOpen size={12} /> : <Sparkles size={12} />} {isRoomShare ? 'Sala publicada' : 'Estudo em destaque'}
+                            </div>
+                            <div className="absolute bottom-0 left-0 right-0 p-5">
+                                <p className={`mb-2 text-[10px] font-black uppercase tracking-[0.24em] ${sourceClass}`}>
+                                    {post.studySourceLabel || (isRoomShare ? 'Sala do Reino' : 'Estudo')}
+                                </p>
+                                <h3 className="font-serif text-2xl font-black leading-tight text-white line-clamp-2">
+                                    {post.studyTitle || (isRoomShare ? 'Sala compartilhada' : 'Estudo compartilhado')}
+                                </h3>
+                            </div>
+                        </div>
+                        <div className="space-y-4 p-5">
+                            {post.content && (
+                                <p className="text-sm font-medium leading-relaxed text-amber-50/85">
+                                    <SmartText text={post.content} enabled={true} />
+                                </p>
+                            )}
+                            <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                                <span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">{isRoomShare ? 'Comunidade de ensino' : 'Biblioteca do Reino'}</span>
+                                <span className={`rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest ${ctaClass}`}>
+                                    {isRoomShare ? 'Entrar na sala' : 'Abrir estudo'}
+                                </span>
+                            </div>
+                        </div>
+                    </Link>
+                </div>
+            );
+        }
+
+        if (postImage) {
             return (
                 <div className="w-full bg-gray-50 dark:bg-black/20 mt-3 mb-2">
                     <img 
-                        src={post.image} 
+                        src={postImage}
                         className="w-full h-auto object-cover max-h-[75vh]" 
                         loading="lazy" 
                         alt="Conteúdo espiritual" 
@@ -258,7 +337,9 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
                             <Link href={`/social/u/${post.userUsername}`} className="text-sm font-bold text-gray-900 dark:text-white leading-none hover:underline">
                                 {post.userDisplayName}
                             </Link>
-                            {post.type === 'cell_meeting' && <span className="bg-green-100 text-green-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase">Célula</span>}
+                            {post.destination === 'cell' && <span className="bg-indigo-100 text-indigo-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase flex items-center gap-1"><Users size={8} /> Célula</span>}
+                            {post.destination === 'church' && <span className="bg-blue-100 text-blue-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase flex items-center gap-1"><Church size={8} /> Igreja</span>}
+                            {post.type === 'cell_meeting' && <span className="bg-green-100 text-green-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase">Encontro</span>}
                         </div>
                         <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-0.5">
                             <span>{postDate}</span>
@@ -268,13 +349,13 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
                     </div>
                 </div>
                 <div className="flex items-center">
-                    {isOwner && <PostMenu post={post} onEdit={onEdit} onDelete={onDelete} />}
+                    {isOwner && <PostMenu post={post} onEdit={post.type === 'study' ? undefined : onEdit} onDelete={onDelete} />}
                 </div>
             </div>
 
             {renderContent()}
 
-            {post.location && !post.image && (
+            {post.location && !postImage && (
                 <div className="px-6 pb-2">
                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                         <MapPin size={12} className="text-bible-gold" /> {post.location}

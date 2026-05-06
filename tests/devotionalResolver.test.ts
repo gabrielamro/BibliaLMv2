@@ -1,8 +1,10 @@
 import test from 'node:test';
 import * as assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   normalizeVerseReference,
+  pickSeenVerseReferencesFromDevotionals,
   pickResolvedDevotional,
   type ResolvedDevotionalCandidate,
 } from '../services/devotionalResolverCore.ts';
@@ -30,6 +32,24 @@ const fallbackCandidate: ResolvedDevotionalCandidate = {
 test('normalizeVerseReference removes case and accent differences', () => {
   assert.equal(normalizeVerseReference(' João  3:16 '), 'joao 3:16');
   assert.equal(normalizeVerseReference('JOÃO 3:16'), 'joao 3:16');
+});
+
+test('pickSeenVerseReferencesFromDevotionals reads Supabase snake_case verse fields', () => {
+  const references = pickSeenVerseReferencesFromDevotionals([
+    { verse_reference: 'Joao 3:16' },
+    { verseReference: 'Salmos 23:1' },
+    { reference: 'Romanos 8:1' },
+    { verse_reference: '' },
+  ]);
+
+  assert.deepEqual(references, ['Joao 3:16', 'Salmos 23:1', 'Romanos 8:1']);
+});
+
+test('production resolver wires seen-verse selection into normal daily resolution', () => {
+  const source = readFileSync(new URL('../services/devotionalResolver.ts', import.meta.url), 'utf8');
+
+  assert.match(source, /pickResolvedDevotional/);
+  assert.match(source, /collectSeenVerseReferences\(userId\)/);
 });
 
 test('pickResolvedDevotional returns the official devotional when user has not seen its verse in 6 months', () => {

@@ -1,7 +1,7 @@
 "use client";
 import { useNavigate, useLocation, useSearchParams } from '../utils/router';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
@@ -14,11 +14,12 @@ import {
   Brain, Zap, GraduationCap, PenTool, Layers, CheckCircle2,
   X, Layout
 } from 'lucide-react';
-import { BibleCategory, StudySource } from '../types';
+import { BibleCategory, StudySource, type ContentPrivacyLevel } from '../types';
 import SEO from '../components/SEO';
 import { BIBLE_BOOKS_LIST } from '../constants';
 import { searchMatch } from '../utils/textUtils';
 import RichTextEditor from '../components/RichTextEditor';
+import { getContentDefaultsFromSearchParams, toLegacyStudyVisibility } from '../utils/contentPrivacy';
 
 const DEFAULT_TEMPLATE = `
 <h1>Título do Estudo</h1>
@@ -44,7 +45,9 @@ const CreateStudyPage: React.FC = () => {
   const { setTitle: setHeaderTitle, setBreadcrumbs, resetHeader } = useHeader();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const state = location.state as any;
+  const contentDefaults = useMemo(() => getContentDefaultsFromSearchParams(searchParams), [searchParams]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -80,6 +83,7 @@ const CreateStudyPage: React.FC = () => {
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishFrequency, setPublishFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [publishVisibility, setPublishVisibility] = useState<'public' | 'private_invite' | 'private'>('private');
+  const [publishPrivacyLevel, setPublishPrivacyLevel] = useState<ContentPrivacyLevel>(contentDefaults.visibility);
 
   // --- HEADER MANAGEMENT ---
   useEffect(() => {
@@ -112,7 +116,9 @@ const CreateStudyPage: React.FC = () => {
       } else {
           setEditorContent(DEFAULT_TEMPLATE);
       }
-  }, [state]);
+      setPublishPrivacyLevel(contentDefaults.visibility);
+      setPublishVisibility(toLegacyStudyVisibility(contentDefaults.visibility));
+  }, [contentDefaults, state]);
 
   // Busca automática do versículo
   useEffect(() => {
@@ -227,6 +233,11 @@ const CreateStudyPage: React.FC = () => {
               status: targetStatus,
               frequency: publishFrequency,
               visibility: publishVisibility,
+              privacyLevel: publishPrivacyLevel,
+              churchId: contentDefaults.churchId,
+              groupId: contentDefaults.groupId,
+              createdFromContext: contentDefaults.scope,
+              inviteRequired: publishPrivacyLevel === 'invite_only',
               publishedAt: targetStatus === 'published' ? new Date().toISOString() : undefined,
               createdAt: new Date().toISOString()
           };
@@ -289,20 +300,39 @@ const CreateStudyPage: React.FC = () => {
                         <div className="space-y-3">
                             <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Visibilidade</label>
                             <div className="space-y-2">
-                                <button onClick={() => setPublishVisibility('public')} className={`w-full p-4 rounded-xl border-2 text-left transition-all flex items-center gap-4 ${publishVisibility === 'public' ? 'border-bible-gold bg-bible-gold/10' : 'border-gray-100 dark:border-gray-800 hover:border-gray-300'}`}>
+                                <button onClick={() => { setPublishPrivacyLevel('public'); setPublishVisibility('public'); }} className={`w-full p-4 rounded-xl border-2 text-left transition-all flex items-center gap-4 ${publishVisibility === 'public' ? 'border-bible-gold bg-bible-gold/10' : 'border-gray-100 dark:border-gray-800 hover:border-gray-300'}`}>
                                     <div className={`p-2 rounded-full ${publishVisibility === 'public' ? 'bg-bible-gold text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}><Sparkles size={16}/></div>
                                     <div>
                                         <div className={`font-bold ${publishVisibility === 'public' ? 'text-bible-gold' : 'text-gray-700 dark:text-gray-300'}`}>Público (Global)</div>
                                         <div className="text-[10px] text-gray-500">Disponível para toda a comunidade. Gera autoridade.</div>
                                     </div>
                                 </button>
-                                <button onClick={() => setPublishVisibility('private_invite')} className={`w-full p-4 rounded-xl border-2 text-left transition-all flex items-center gap-4 ${publishVisibility === 'private_invite' ? 'border-bible-gold bg-bible-gold/10' : 'border-gray-100 dark:border-gray-800 hover:border-gray-300'}`}>
+                                <button onClick={() => { setPublishPrivacyLevel('invite_only'); setPublishVisibility('private_invite'); }} className={`w-full p-4 rounded-xl border-2 text-left transition-all flex items-center gap-4 ${publishVisibility === 'private_invite' ? 'border-bible-gold bg-bible-gold/10' : 'border-gray-100 dark:border-gray-800 hover:border-gray-300'}`}>
                                     <div className={`p-2 rounded-full ${publishVisibility === 'private_invite' ? 'bg-bible-gold text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}><Layout size={16}/></div>
                                     <div>
                                         <div className={`font-bold ${publishVisibility === 'private_invite' ? 'text-bible-gold' : 'text-gray-700 dark:text-gray-300'}`}>Apenas Convidados</div>
                                         <div className="text-[10px] text-gray-500">Apenas quem tiver o link ou for da sua igreja.</div>
                                     </div>
                                 </button>
+                                <select
+                                    value={publishPrivacyLevel}
+                                    onChange={(event) => {
+                                        const visibility = event.target.value as ContentPrivacyLevel;
+                                        setPublishPrivacyLevel(visibility);
+                                        setPublishVisibility(toLegacyStudyVisibility(visibility));
+                                    }}
+                                    className="w-full rounded-xl border-2 border-gray-100 bg-white p-4 text-sm font-black text-gray-700 outline-none transition-colors focus:border-bible-gold dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200"
+                                >
+                                    <option value="public">Público</option>
+                                    <option value="private">Privado do usuário</option>
+                                    <option value="invite_only">Apenas convidados</option>
+                                    <option value="church">Membros da igreja</option>
+                                    <option value="group">Membros do grupo</option>
+                                    <option value="church_groups">Grupos específicos da igreja</option>
+                                </select>
+                                {contentDefaults.contextLabel && contentDefaults.scope !== 'user' && (
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-bible-gold">Predefinido por atalho: {contentDefaults.contextLabel}</p>
+                                )}
                             </div>
                         </div>
                     </div>

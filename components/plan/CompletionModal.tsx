@@ -45,7 +45,7 @@ const CompletionModal: React.FC<CompletionModalProps> = ({ isOpen, dailyReading,
           {isLastSection ? <CheckCircle2 size={32} /> : <BookOpen size={32} />}
         </div>
         
-        <h2 className="text-2xl font-serif font-bold text-bible-leather dark:text-bible-gold mb-1">
+        <h2 className="text-2xl font-serif font-bold text-purple-800 dark:text-violet-200 mb-1">
           {isLastSection ? 'Leitura Diária Concluída!' : 'Seção Finalizada'}
         </h2>
         <p className="text-gray-500 mb-8 text-sm">
@@ -78,7 +78,7 @@ const CompletionModal: React.FC<CompletionModalProps> = ({ isOpen, dailyReading,
                     onClick={() => setSelectedMood(m.id)}
                     className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all border ${
                       selectedMood === m.id 
-                      ? `border-bible-gold ${m.bg} scale-105 ring-2 ring-bible-gold/30` 
+                      ? `border-purple-500 ${m.bg} scale-105 ring-2 ring-purple-500/30` 
                       : 'border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}
                   >
@@ -94,14 +94,14 @@ const CompletionModal: React.FC<CompletionModalProps> = ({ isOpen, dailyReading,
                value={journalEntry}
                onChange={(e) => setJournalEntry(e.target.value)}
                placeholder="Escreva um breve resumo ou oração sobre o que aprendeu hoje..."
-               className="w-full h-32 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-bible-gold outline-none resize-none text-sm"
+               className="w-full h-32 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-purple-500/30 outline-none resize-none text-sm"
              />
            </div>
 
            <button 
              onClick={handleFinishClick}
              disabled={isSaving}
-             className="w-full py-4 bg-bible-leather dark:bg-bible-gold text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 mb-4 hover:opacity-90 transition-opacity"
+             className="w-full py-4 bg-purple-700 dark:bg-violet-500 text-white font-bold rounded-xl shadow-lg shadow-purple-900/15 flex items-center justify-center gap-2 mb-4 hover:opacity-90 transition-opacity"
            >
              {isSaving ? <Loader2 className="animate-spin" /> : <Save size={20} />}
              {isSaving ? 'Salvando...' : (isLastSection ? 'Registrar e Finalizar' : 'Salvar e Próxima Leitura')}

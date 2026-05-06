@@ -23,7 +23,7 @@ import { bibleService } from '../../services/bibleService';
 import { generateVerseImage } from '../../services/pastorAgent';
 import { dbService, uploadBlob } from '../../services/supabase';
 import { composeImageWithText, CompositionOptions } from '../../utils/imageCompositor';
-import { optimizeImage } from '../../utils/imageOptimizer';
+import { base64ToBlob, optimizeImage } from '../../utils/imageOptimizer';
 import { useLocation, useNavigate } from '../../utils/router';
 import {
   EDITOR_LAYER_Z_INDEX,
@@ -86,6 +86,7 @@ export default function CriarArteSacraPage() {
     openSubscription,
     recordActivity,
     showNotification,
+    userProfile,
   } = useAuth();
   const { setBreadcrumbs, setTitle } = useHeader();
   const navigate = useNavigate();
@@ -104,6 +105,7 @@ export default function CriarArteSacraPage() {
   const [selectedStyle, setSelectedStyle] = useState(state.initialPrompt ? 'custom' : 'realistic');
   const [customPrompt, setCustomPrompt] = useState(state.initialPrompt || '');
   const [isGeneratingImg, setIsGeneratingImg] = useState(false);
+  const [isPostingToFeed, setIsPostingToFeed] = useState(false);
   const [rawGeneratedBase64, setRawGeneratedBase64] = useState<string | null>(null);
   const [finalImg, setFinalImg] = useState<string | null>(null);
   const [activeControlTab, setActiveControlTab] = useState<EditorControlTab>(null);
@@ -339,6 +341,60 @@ export default function CriarArteSacraPage() {
     }
   };
 
+  const handlePostToFeed = async () => {
+    if (!finalImg) {
+      showNotification('Gere ou selecione uma arte antes de publicar no Reino.', 'info');
+      return;
+    }
+
+    if (!currentUser) {
+      openLogin();
+      return;
+    }
+
+    if (!userProfile) {
+      showNotification('Carregando seu perfil. Tente novamente em instantes.', 'info');
+      return;
+    }
+
+    setIsPostingToFeed(true);
+    try {
+      const blob = finalImg.startsWith('data:')
+        ? await base64ToBlob(finalImg)
+        : await fetch(finalImg).then((response) => response.blob());
+      const imageUrl = await uploadBlob(blob, `posts/${currentUser.uid}/${Date.now()}.webp`);
+
+      const caption = foundVerse
+        ? `📖 ${foundVerse.ref}\n\n"${foundVerse.text}"`
+        : customPrompt || 'Arte sacra criada no BíbliaLM';
+
+      await dbService.createPost({
+        userId: currentUser.uid,
+        userDisplayName: userProfile.displayName,
+        userUsername: userProfile.username,
+        userPhotoURL: userProfile.photoURL,
+        type: 'image',
+        content: caption,
+        image: imageUrl,
+        destination: 'global',
+      });
+
+      try {
+        await recordActivity('social_post', 'Postou uma arte sacra no Reino');
+      } catch (activityError) {
+        console.warn('Arte publicada, mas a atividade não foi registrada.', activityError);
+      }
+
+      showNotification('Arte publicada no Reino!', 'success');
+      navigate('/social', { state: { refreshFeed: true } });
+    } catch (error) {
+      console.error('Erro ao publicar arte no Reino:', error);
+      showNotification('Erro ao publicar no Reino. Tente novamente.', 'error');
+    } finally {
+      setIsPostingToFeed(false);
+    }
+  };
+
   const handleDragEnd = (_event: unknown, info: { point: { x: number; y: number } }) => {
     if (!canvasContainerRef.current) return;
 
@@ -443,7 +499,7 @@ export default function CriarArteSacraPage() {
                   type="text"
                   value={refInput}
                   onChange={(e) => setRefInput(e.target.value)}
-                  className="bg-transparent border-none focus:outline-none text-[13px] font-medium text-gray-900 dark:text-white w-full placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                  className="bg-transparent border-none focus:outline-none text-sm md:text-base font-medium text-gray-900 dark:text-white w-full placeholder:text-gray-400 dark:placeholder:text-gray-600"
                   placeholder="Adicione o versículo..."
                 />
               </div>
@@ -489,8 +545,8 @@ export default function CriarArteSacraPage() {
             </div>
 
             {foundVerse && (
-              <div className="animate-in slide-in-from-top-2 fade-in duration-300">
-                <p className="text-[10px] text-gray-500 font-serif italic text-center max-w-[300px] line-clamp-1">
+              <div className="animate-in slide-in-from-top-2 fade-in duration-300 mt-1">
+                <p className="text-xs md:text-sm text-white/40 font-serif italic text-center max-w-[450px] line-clamp-2 px-4 leading-relaxed">
                   “{foundVerse.text}”
                 </p>
               </div>
@@ -535,6 +591,8 @@ export default function CriarArteSacraPage() {
               activeControlTab={activeControlTab}
               setActiveControlTab={setActiveControlTab}
               onDownload={handleDownload}
+              onPostToFeed={handlePostToFeed}
+              canPostToFeed={!!finalImg && !isPostingToFeed}
               isStatic
             />
           </div>
@@ -546,6 +604,8 @@ export default function CriarArteSacraPage() {
             activeControlTab={activeControlTab}
             setActiveControlTab={setActiveControlTab}
             onDownload={handleDownload}
+            onPostToFeed={handlePostToFeed}
+            canPostToFeed={!!finalImg && !isPostingToFeed}
           />
         </div>
 

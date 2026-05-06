@@ -24,6 +24,11 @@ export const normalizeVerseReference = (reference: string) =>
     .trim()
     .toLowerCase();
 
+export const pickSeenVerseReferencesFromDevotionals = (devotionals: any[]) =>
+  devotionals
+    .map((item: any) => item.verseReference ?? item.verse_reference ?? item.reference ?? '')
+    .filter(Boolean);
+
 const isEligibleCandidate = (candidate: ResolvedDevotionalCandidate | null, seen: Set<string>) => {
   if (!candidate) return false;
   return !seen.has(normalizeVerseReference(candidate.verseReference));

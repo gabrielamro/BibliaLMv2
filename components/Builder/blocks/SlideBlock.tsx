@@ -30,9 +30,10 @@ interface SlideBlockProps {
   onUpdate?: (data: any) => void;
   isEditing: boolean;
   authorName?: string;
+  canvasWidth?: 'mobile' | 'tablet' | 'desktop' | 'full';
 }
 
-export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditing, authorName }) => {
+export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditing, authorName, canvasWidth }) => {
   const { showNotification } = useAuth();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPlaying, setIsPlaying] = useState(data.autoplay || false);
@@ -41,11 +42,12 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
   const slides = data.slides || [];
   const currentSlideData = slides[currentSlide] || {};
   const intervalRef = useRef<any>(null);
+  const isMobileCanvas = canvasWidth === 'mobile';
 
   const heightClasses: Record<string, string> = {
-    small: 'min-h-[320px] md:h-64',
-    medium: 'min-h-[450px] md:h-96',
-    large: 'min-h-[600px] md:h-[600px]'
+    small: isMobileCanvas ? 'aspect-square min-h-0' : 'min-h-[320px] md:h-64',
+    medium: isMobileCanvas ? 'aspect-[5/6] min-h-0' : 'min-h-[450px] md:h-96',
+    large: isMobileCanvas ? 'aspect-[4/5] min-h-0' : 'min-h-[600px] md:h-[600px]'
   };
 
   const [bgImage] = useImage(currentSlideData.backgroundImage || '');
@@ -123,7 +125,8 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
       {/* Slide Canvas Container */}
       <div
         ref={containerRef}
-        className={`relative ${heightClasses[data.height] || 'h-80 md:h-96'} overflow-hidden rounded-3xl group bg-gray-900 shadow-2xl transition-all duration-500`}
+        data-testid="slide-block-canvas"
+        className={`relative ${heightClasses[data.height] || (isMobileCanvas ? 'aspect-[4/5] min-h-0' : 'h-80 md:h-96')} overflow-hidden ${isMobileCanvas ? 'rounded-[1.75rem] shadow-xl' : 'rounded-3xl shadow-2xl'} group bg-gray-900 transition-all duration-500`}
       >
         {/* Camada de fundo para impressão (quando o Canvas falha) */}
         <div className="absolute inset-0 hidden print:block overflow-hidden rounded-3xl" style={{ backgroundColor: '#111827' }}>
@@ -152,6 +155,7 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
             currentSlideData={currentSlideData}
             isEditing={isEditing}
             updateSlide={updateSlide}
+            canvasWidth={canvasWidth}
           />
         </div>
 
@@ -176,10 +180,10 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
 
         {/* Floating Quick Controls */}
         {isEditing && (
-          <div className="absolute bottom-6 right-6 z-[60] flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-y-2 group-hover:translate-y-0 duration-300 print:hidden">
+          <div className={`${isMobileCanvas ? 'bottom-4 right-4 opacity-100 translate-y-0' : 'bottom-6 right-6 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0'} absolute z-[60] flex gap-2 transition-opacity duration-300 print:hidden`}>
             <button
               onClick={() => setIsEditorOpen(true)}
-              className="bg-bible-gold text-white px-4 py-2.5 rounded-2xl font-black uppercase tracking-widest flex items-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition-all text-[10px]"
+              className={`${isMobileCanvas ? 'px-3 py-2 rounded-xl' : 'px-4 py-2.5 rounded-2xl'} bg-bible-gold text-white font-black uppercase tracking-widest flex items-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition-all text-[10px]`}
             >
               <Edit3 size={14} /> Editar Slide
             </button>
@@ -187,17 +191,17 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
         )}
 
         {/* Global Nav Arrows */}
-        <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 z-20 flex justify-between pointer-events-none print:hidden">
-          <button onClick={() => goToSlide((currentSlide - 1 + slides.length) % slides.length)} className="p-3 bg-black/20 hover:bg-black/50 text-white rounded-full transition-all hover:scale-110 active:scale-90 pointer-events-auto backdrop-blur-sm group/nav">
-            <ChevronLeft size={24} className="group-hover/nav:-translate-x-1 transition-transform" />
+        <div className={`${isMobileCanvas ? 'inset-x-3' : 'inset-x-4'} absolute top-1/2 -translate-y-1/2 z-20 flex justify-between pointer-events-none print:hidden`}>
+          <button onClick={() => goToSlide((currentSlide - 1 + slides.length) % slides.length)} className={`${isMobileCanvas ? 'p-2' : 'p-3'} bg-black/20 hover:bg-black/50 text-white rounded-full transition-all hover:scale-110 active:scale-90 pointer-events-auto backdrop-blur-sm group/nav`}>
+            <ChevronLeft size={isMobileCanvas ? 18 : 24} className="group-hover/nav:-translate-x-1 transition-transform" />
           </button>
-          <button onClick={() => goToSlide((currentSlide + 1) % slides.length)} className="p-3 bg-black/20 hover:bg-black/50 text-white rounded-full transition-all hover:scale-110 active:scale-90 pointer-events-auto backdrop-blur-sm group/nav">
-            <ChevronRight size={24} className="group-hover/nav:translate-x-1 transition-transform" />
+          <button onClick={() => goToSlide((currentSlide + 1) % slides.length)} className={`${isMobileCanvas ? 'p-2' : 'p-3'} bg-black/20 hover:bg-black/50 text-white rounded-full transition-all hover:scale-110 active:scale-90 pointer-events-auto backdrop-blur-sm group/nav`}>
+            <ChevronRight size={isMobileCanvas ? 18 : 24} className="group-hover/nav:translate-x-1 transition-transform" />
           </button>
         </div>
 
         {/* Indicators */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-1.5 p-1.5 bg-black/20 backdrop-blur-md rounded-full print:hidden">
+        <div className={`${isMobileCanvas ? 'bottom-4' : 'bottom-6'} absolute left-1/2 -translate-x-1/2 z-20 flex gap-1.5 p-1.5 bg-black/20 backdrop-blur-md rounded-full print:hidden`}>
           {slides.map((_: any, idx: number) => (
             <button
               key={idx}
@@ -210,8 +214,8 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
 
       {/* Footer Editor UI */}
       {isEditing && (
-        <div className="mt-8 relative z-[60] print:hidden">
-          <div className="flex items-center justify-between mb-4 px-2">
+        <div className={`${isMobileCanvas ? 'mt-4' : 'mt-8'} relative z-[60] print:hidden`}>
+          <div className="flex items-center justify-between mb-3 px-1 sm:px-2">
             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Gerenciador de Slides ({slides.length})</h4>
             <button
               onClick={addSlide}
@@ -221,7 +225,7 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className={`${isMobileCanvas ? 'flex-nowrap overflow-x-auto pb-2' : 'flex-wrap'} flex gap-3`}>
             {slides.map((s: any, idx: number) => {
               const slideId = s?.id || `temp-slide-${idx}-${s?.title || ''}`;
               return (

@@ -6,10 +6,12 @@ interface BiblicalBlockProps {
   data: any;
   onUpdate?: (data: any) => void;
   isEditing: boolean;
+  canvasWidth?: 'mobile' | 'tablet' | 'desktop' | 'full';
 }
 
-export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, isEditing }) => {
+export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, isEditing, canvasWidth }) => {
   const containerStyle = data.style || 'classic';
+  const isMobileCanvas = canvasWidth === 'mobile';
   
   const handleTextChange = (e: React.FocusEvent<HTMLElement>) => {
     onUpdate?.({ ...data, text: e.currentTarget.textContent || '' });
@@ -41,8 +43,14 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
         
         {/* Style Selection Toolbar (Visible when editing) */}
         {isEditing && (
-          <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-50 hidden md:flex items-center gap-1.5 p-1.5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl">
-              <div className="flex bg-gray-50 dark:bg-gray-800 p-1 rounded-xl gap-0.5">
+          <div
+            data-testid="biblical-style-toolbar"
+            className={isMobileCanvas
+              ? 'absolute left-3 right-3 top-3 z-50 flex items-center gap-1 overflow-x-auto rounded-2xl border border-gray-100 bg-white/95 p-1.5 shadow-xl backdrop-blur dark:border-gray-800 dark:bg-gray-900/95'
+              : 'absolute -top-6 left-1/2 z-50 hidden -translate-x-1/2 items-center gap-1.5 rounded-2xl border border-gray-100 bg-white p-1.5 shadow-2xl dark:border-gray-800 dark:bg-gray-900 md:flex'
+            }
+          >
+              <div className={`${isMobileCanvas ? 'flex min-w-max gap-1' : 'flex gap-0.5'} rounded-xl bg-gray-50 p-1 dark:bg-gray-800`}>
                 {[
                   { id: 'classic', label: 'Clássico', icon: Quote },
                   { id: 'modern', label: 'Moderno', icon: Palette },
@@ -53,23 +61,26 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
                   <button
                     key={s.id}
                     onClick={() => onUpdate?.({ ...data, style: s.id })}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${containerStyle === s.id ? 'bg-bible-gold text-white shadow-lg' : 'text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                    title={s.label}
+                    aria-label={s.label}
+                    className={`${isMobileCanvas ? 'h-9 w-9 justify-center px-0' : 'gap-1.5 px-3 py-1.5'} flex flex-none items-center rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${containerStyle === s.id ? 'bg-bible-gold text-white shadow-lg' : 'text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
                   >
-                    <s.icon size={12} /> {s.label}
+                    <s.icon size={isMobileCanvas ? 15 : 12} />
+                    {!isMobileCanvas && s.label}
                   </button>
                 ))}
               </div>
-              <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
+              <div className="mx-1 h-4 w-[1px] flex-none bg-gray-200 dark:bg-gray-800" />
               <button 
                 onClick={() => onUpdate?.({ ...data, showImage: !data.showImage })}
-                className={`p-2 rounded-xl transition-all ${data.showImage ? 'text-bible-gold bg-bible-gold/10' : 'text-gray-400 hover:text-bible-gold hover:bg-bible-gold/5'}`}
+                className={`${isMobileCanvas ? 'h-9 w-9 p-0' : 'p-2'} flex flex-none items-center justify-center rounded-xl transition-all ${data.showImage ? 'text-bible-gold bg-bible-gold/10' : 'text-gray-400 hover:text-bible-gold hover:bg-bible-gold/5'}`}
                 title="Habilitar/Desabilitar Imagem"
               >
                 <ImageIcon size={16} />
               </button>
               <button 
                 onClick={() => onUpdate?.({ ...data, enableHyperlink: !data.enableHyperlink })}
-                className={`p-2 rounded-xl transition-all ${data.enableHyperlink ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}
+                className={`${isMobileCanvas ? 'h-9 w-9 p-0' : 'p-2'} flex flex-none items-center justify-center rounded-xl transition-all ${data.enableHyperlink ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}
                 title="Habilitar link para bíblia"
               >
                 <BookOpen size={16} />

@@ -4,7 +4,19 @@
 > **VERSION SYNC:** Lembre-se de atualizar `constants.ts`, `_ARCHITECTURE.md` e `_PROJECT_CONTEXT.md` ao mudar a versão aqui.
 > **GIT SYNC:** Após atualizar este arquivo, o Arquiteto deve executar `git commit` com a mensagem do release.
 
-## [v1.9.3] - 2026-04-24 (Estabilidade Global de Internals)
+## [v2.0.0] - 2026-05-06 (Ecossistema Social & Expansão Eclesiástica)
+### Tipo: Feature / Architecture / UX
+- **Resumo:** Lançamento da v2.0 com foco total em comunidade e remoção de barreiras financeiras.
+- **Novidades:**
+  - **Remoção de Monetização**: Todo o sistema de planos e pagamentos foi desativado. Usuários agora possuem acesso total às funcionalidades premium globalmente.
+  - **Ecossistema de Igrejas**: Sistema completo de gestão de igrejas, incluindo administração, perfis públicos e fundação de comunidades.
+  - **Grupos Sociais**: Implementação de grupos sociais com regras de acesso, convites e moderação.
+  - **Privacidade de Conteúdo**: Novos controles de privacidade para posts e estudos.
+  - **Infraestrutura Social**: Fallback inteligente para o feed do Reino e melhorias no payload de posts.
+  - **Testes de Integridade**: Adição de suíte de testes abrangente para regras de atividade, busca de igrejas e segurança de grupos.
+
+---
+
 ### Tipo: Infrastructure / Fix / DOM
 - **Resumo:** Expansão do sistema de auto-cura para neutralizar erros de `isBatchingLegacy` no `react-dom`.
 - **Novidades:**

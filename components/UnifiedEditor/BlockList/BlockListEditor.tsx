@@ -31,6 +31,7 @@ interface BlockListEditorProps {
   onChange: (blocks: Block[]) => void;
   onBlockSelect?: (block: Block | null) => void;
   isEditing?: boolean;
+  canvasWidth?: 'mobile' | 'tablet' | 'desktop' | 'full';
   editor?: any;
 }
 
@@ -41,6 +42,7 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
   onChange,
   onBlockSelect,
   isEditing = true,
+  canvasWidth = 'desktop',
   editor
 }) => {
   const { currentUser } = useAuth();
@@ -253,7 +255,9 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
 
   return (
     <div 
-        className={`w-full max-w-5xl mx-auto py-8 min-h-[500px] transition-all duration-300 rounded-3xl ${
+        className={`w-full max-w-5xl mx-auto min-h-[500px] transition-all duration-300 rounded-3xl ${
+          canvasWidth === 'mobile' ? 'py-3' : 'py-8'
+        } ${
           isNativeDraggingOver ? 'bg-bible-gold/5 ring-4 ring-bible-gold/20 ring-inset' : ''
         }`}
         onDragOver={handleDragOver}
@@ -315,6 +319,7 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
                   onDuplicate={() => handleDuplicateBlock(block.id)}
                   onSettings={() => handleSettings(block)}
                   onLayoutWidthChange={(w) => handleLayoutWidthChange(block.id, w)}
+                  canvasWidth={canvasWidth}
                 >
                   <div data-sortable-id={block.id}>
                       <BlockRenderer
@@ -324,6 +329,7 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
                         authorName={currentUser?.displayName || ''}
                         editor={editor}
                         layoutWidth={block.data?.layoutWidth || '1/1'}
+                        canvasWidth={canvasWidth}
                       />
                   </div>
                 </SortableBlock>

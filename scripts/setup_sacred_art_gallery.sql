@@ -16,22 +16,29 @@ CREATE TABLE IF NOT EXISTS public.sacred_art_gallery (
 -- Habilitar RLS
 ALTER TABLE public.sacred_art_gallery ENABLE ROW LEVEL SECURITY;
 
--- Políticas de Segurança
-CREATE POLICY "Leitura livre galeria" 
-ON public.sacred_art_gallery FOR SELECT 
+-- Politicas de seguranca idempotentes
+DROP POLICY IF EXISTS "Leitura livre galeria" ON public.sacred_art_gallery;
+CREATE POLICY "Leitura livre galeria"
+ON public.sacred_art_gallery FOR SELECT
 USING (true);
 
-CREATE POLICY "Usuários adicionam galeria" 
-ON public.sacred_art_gallery FOR INSERT 
-TO authenticated 
+DROP POLICY IF EXISTS "Usuarios adicionam galeria" ON public.sacred_art_gallery;
+DROP POLICY IF EXISTS "Usuários adicionam galeria" ON public.sacred_art_gallery;
+CREATE POLICY "Usuarios adicionam galeria"
+ON public.sacred_art_gallery FOR INSERT
+TO authenticated
 WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Usuários editam galeria" 
-ON public.sacred_art_gallery FOR UPDATE 
-TO authenticated 
+DROP POLICY IF EXISTS "Usuarios editam galeria" ON public.sacred_art_gallery;
+DROP POLICY IF EXISTS "Usuários editam galeria" ON public.sacred_art_gallery;
+CREATE POLICY "Usuarios editam galeria"
+ON public.sacred_art_gallery FOR UPDATE
+TO authenticated
 USING (auth.uid() = user_id);
 
-CREATE POLICY "Usuários deletam galeria" 
-ON public.sacred_art_gallery FOR DELETE 
-TO authenticated 
+DROP POLICY IF EXISTS "Usuarios deletam galeria" ON public.sacred_art_gallery;
+DROP POLICY IF EXISTS "Usuários deletam galeria" ON public.sacred_art_gallery;
+CREATE POLICY "Usuarios deletam galeria"
+ON public.sacred_art_gallery FOR DELETE
+TO authenticated
 USING (auth.uid() = user_id);

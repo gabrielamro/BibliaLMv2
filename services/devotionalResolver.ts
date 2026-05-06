@@ -2,6 +2,8 @@ import { generateDailyDevotional } from './pastorAgent';
 import { dbService } from './supabase';
 import {
   normalizeVerseReference,
+  pickResolvedDevotional,
+  pickSeenVerseReferencesFromDevotionals,
   type ResolvedDevotionalCandidate,
 } from './devotionalResolverCore';
 
@@ -28,8 +30,8 @@ export const normalizeDevotionalCandidate = (data: any, fallbackDate?: string): 
     id: stableId,
     date,
     title: data.title || 'Pao Diario',
-    verseReference: data.verseReference ?? data.reference ?? '',
-    verseText: data.verseText ?? data.verse ?? '',
+    verseReference: data.verseReference ?? data.verse_reference ?? data.reference ?? '',
+    verseText: data.verseText ?? data.verse_text ?? data.verse ?? '',
     content: data.content ?? data.text ?? '',
     prayer: data.prayer ?? '',
     source: data.source,
@@ -75,9 +77,7 @@ const collectSeenVerseReferences = async (userId: string) => {
   }
 
   const devotionals = await dbService.getDailyDevotionalsByContentIds(contentIds);
-  const verseReferences = devotionals
-    .map((item: any) => item.verseReference ?? item.reference ?? '')
-    .filter(Boolean);
+  const verseReferences = pickSeenVerseReferencesFromDevotionals(devotionals);
 
   for (const entry of recentHistory) {
     if (typeof entry.content_id !== 'string' || !entry.content_id.includes(':alt:')) {
@@ -170,9 +170,7 @@ export const resolveUserDailyDevotional = async ({ userId, forceNew }: ResolveUs
   if (!officialRaw || !isFromToday) {
     // Busca devocionais do último ano para não repetir referências
     const pastYearDevotionals = await dbService.getRecentDailyDevotionals(365);
-    const seenReferences = pastYearDevotionals
-        .map((d: any) => d.reference || d.verseReference)
-        .filter(Boolean);
+    const seenReferences = pickSeenVerseReferencesFromDevotionals(pastYearDevotionals);
 
     const generatedOfficial = await generateDailyDevotional(true, 'gemini', { excludedVerseReferences: seenReferences });
     if (generatedOfficial) {
@@ -196,8 +194,39 @@ export const resolveUserDailyDevotional = async ({ userId, forceNew }: ResolveUs
   }
 
   if (userId) {
-     // Primeira vez do dia pra esse usuario, gravar o "view"
-     const picked = { ...official, source: 'official' } as ResolvedDevotionalCandidate;
+     const seenVerseReferences = await collectSeenVerseReferences(userId);
+     let picked = pickResolvedDevotional({
+       official: { ...official, source: 'official' },
+       persistedForToday: null,
+       fallbackPool: [],
+       seenVerseReferences,
+     }) as ResolvedDevotionalCandidate | null;
+
+     if (!picked) {
+       const fallbackPool = (await dbService.getRecentDailyDevotionals(240))
+         .map((item: any) => normalizeDevotionalCandidate(item))
+         .filter((item: ResolvedDevotionalCandidate | null): item is ResolvedDevotionalCandidate => Boolean(item))
+         .map((item: ResolvedDevotionalCandidate) => ({
+           ...item,
+           id: buildGeneratedAltId(todayDate, item.verseReference),
+           date: todayDate,
+           source: 'catalog' as const,
+         }));
+
+       picked = pickResolvedDevotional({
+         official: null,
+         persistedForToday: null,
+         fallbackPool,
+         seenVerseReferences,
+       });
+     }
+
+     if (!picked) {
+       picked = await generateUniqueFallback(todayDate, seenVerseReferences);
+     }
+
+     // Se nao houver alternativa unica disponivel, preserva o Pao Diario oficial.
+     picked = picked ?? ({ ...official, source: 'official' } as ResolvedDevotionalCandidate);
      await persistUserResolution(userId, picked);
      
      // Força no cache local para blindar contra falha silenciosa de DB (RLS ou tabela inexistente)

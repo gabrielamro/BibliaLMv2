@@ -9,20 +9,23 @@ import { CustomPlan, PlanComment, PlanDayContent, PlanParticipant, PlanTeam, Sav
 import {
     Loader2, ArrowLeft, Calendar, Play, Lock, Trophy, BookOpen, CheckCircle2,
     ChevronDown, Share2, Flag, X, User, Activity, Edit3, BookmarkPlus,
-    Send, MessageSquare, Coffee, Type, Moon, Sun, Volume2, PauseCircle
+    Send, MessageSquare, Coffee, Type, Moon, Sun, Volume2, PauseCircle, FileText
 } from 'lucide-react';
 import SEO from '../../components/SEO';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHeader } from '../../contexts/HeaderContext';
 import StandardHeader from '../../components/ui/StandardHeader';
 import { ContentBuilder } from '../../components/Builder/ContentBuilder';
+import PlanOwnerPreviewActions from '../../components/plan/PlanOwnerPreviewActions';
+import PlanShareModal from '../../components/plan/PlanShareModal';
+import { buildPlanSharePostContent, canUserAccessPlan, getPlanSharePath, getPlanShareUrl } from '../../utils/planSharing';
 
 type Tab = 'content' | 'ranking';
 
 const PublicPlanPage: React.FC = () => {
     const { planId } = useParams<{ planId: string }>();
     const navigate = useNavigate();
-    const { currentUser, userProfile, openLogin, showNotification, earnMana, updateProfile } = useAuth();
+    const { currentUser, userProfile, openLogin, showNotification, earnMana, updateProfile, recordActivity } = useAuth();
     const { setTitle, setBreadcrumbs, resetHeader, setIsHeaderHidden } = useHeader();
 
     const [plan, setPlan] = useState<CustomPlan | null>(null);
@@ -82,14 +85,18 @@ const PublicPlanPage: React.FC = () => {
     // Presence System
     const [activeParticipants, setActiveParticipants] = useState<PlanParticipant[]>([]);
     const [showActiveUsersModal, setShowActiveUsersModal] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [isSavingShareSettings, setIsSavingShareSettings] = useState(false);
+    const [isSharingToFeed, setIsSharingToFeed] = useState(false);
 
     const loadPlan = useCallback(async () => {
         if (!planId) return;
+        const decodedId = decodeURIComponent(planId);
         try {
-            const data = await dbService.getCustomPlan(planId);
+            const data = await dbService.getCustomPlan(decodedId);
             setPlan(data);
             // Telemetria
-            dbService.incrementMetric('custom_plans', planId, 'views').catch(console.error);
+            dbService.incrementMetric('custom_plans', decodedId, 'views').catch(console.error);
 
             if (data?.weeks.length) setExpandedWeeks({ [data.weeks[0].id]: true });
 
@@ -429,7 +436,7 @@ const PublicPlanPage: React.FC = () => {
         };
     }, [plan, readingDay, setTitle, setBreadcrumbs, resetHeader, setIsHeaderHidden]);
 
-    if (loading) return <div className="h-screen flex items-center justify-center bg-bible-paper dark:bg-bible-darkPaper"><Loader2 className="animate-spin text-bible-gold" size={40} /></div>;
+    if (loading) return <div className="h-screen flex items-center justify-center bg-purple-50 dark:bg-bible-darkPaper"><Loader2 className="animate-spin text-purple-700 dark:text-violet-300" size={40} /></div>;
     if (!plan) return <div>Plano não encontrado</div>;
 
     // --- READING VIEW (INLINE) ---
@@ -444,7 +451,7 @@ const PublicPlanPage: React.FC = () => {
                 {/* Glassmorphism Progress Bar */}
                 <div className={`fixed top-0 left-0 w-full z-[100] h-1 transition-all duration-500 ${isFocusedMode ? 'opacity-0' : 'opacity-100'} bg-black/5 dark:bg-white/5 backdrop-blur-sm`}>
                     <div
-                        className="h-full bg-gradient-to-r from-bible-gold to-yellow-600 transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(197,160,89,0.5)]"
+                        className="h-full bg-gradient-to-r from-purple-700 to-violet-500 transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(124,58,237,0.45)]"
                         style={{ width: `${calculateProgress()}%` }}
                     />
                 </div>
@@ -455,7 +462,7 @@ const PublicPlanPage: React.FC = () => {
                         <div className="bg-white/80 dark:bg-bible-darkPaper/80 backdrop-blur-md border border-gray-100 dark:border-gray-800 p-2 rounded-2xl shadow-xl flex items-center gap-2">
                                 <button
                                     onClick={() => setReadingDay(null)}
-                                    className="p-2 text-gray-400 hover:text-bible-gold transition-colors"
+                                    className="p-2 text-gray-400 hover:text-purple-700 dark:hover:text-violet-300 transition-colors"
                                     title="Voltar"
                                 >
                                     <ArrowLeft size={18} />
@@ -463,7 +470,7 @@ const PublicPlanPage: React.FC = () => {
                                 {isOwner && (
                                     <button
                                         onClick={() => navigate(`/criar-sala?id=${plan.id}`, { state: { planData: plan } })}
-                                        className="px-3 py-1 bg-bible-gold/10 text-bible-gold rounded-lg font-bold text-[10px] uppercase tracking-widest hover:bg-bible-gold hover:text-white transition-all flex items-center gap-1.5"
+                                        className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg font-bold text-[10px] uppercase tracking-widest hover:bg-purple-700 hover:text-white transition-all flex items-center gap-1.5 dark:bg-purple-950/40 dark:text-violet-200"
                                         title="Voltar para Edição"
                                     >
                                         <Edit3 size={12} />
@@ -474,9 +481,9 @@ const PublicPlanPage: React.FC = () => {
 
                             {/* Font Size Controls */}
                             <div className="flex items-center bg-gray-50 dark:bg-gray-900 rounded-xl p-1">
-                                <button onClick={() => setFontSize(Math.max(14, fontSize - 2))} className="p-1.5 text-gray-500 hover:text-bible-gold transition-colors"><Type size={14} /></button>
+                                <button onClick={() => setFontSize(Math.max(14, fontSize - 2))} className="p-1.5 text-gray-500 hover:text-purple-700 dark:hover:text-violet-300 transition-colors"><Type size={14} /></button>
                                 <span className="text-[10px] font-bold w-8 text-center text-gray-400">{fontSize}</span>
-                                <button onClick={() => setFontSize(Math.min(32, fontSize + 2))} className="p-1.5 text-gray-500 hover:text-bible-gold transition-colors"><Type size={18} /></button>
+                                <button onClick={() => setFontSize(Math.min(32, fontSize + 2))} className="p-1.5 text-gray-500 hover:text-purple-700 dark:hover:text-violet-300 transition-colors"><Type size={18} /></button>
                             </div>
 
                             <div className="w-px h-6 bg-gray-100 dark:bg-gray-800 mx-1" />
@@ -496,7 +503,7 @@ const PublicPlanPage: React.FC = () => {
                                         window.speechSynthesis.speak(utter);
                                     }
                                 }}
-                                className={`p-2 rounded-xl transition-all ${isAudioPlaying ? 'bg-bible-gold text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                                className={`p-2 rounded-xl transition-all ${isAudioPlaying ? 'bg-purple-700 text-white dark:bg-violet-500' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                                 title="Escutar Leitura"
                             >
                                 {isAudioPlaying ? <PauseCircle size={20} /> : <Volume2 size={20} />}
@@ -505,7 +512,7 @@ const PublicPlanPage: React.FC = () => {
                             {/* Focused Mode */}
                             <button
                                 onClick={() => setIsFocusedMode(!isFocusedMode)}
-                                className={`p-2 rounded-xl transition-all ${isFocusedMode ? 'bg-bible-gold text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                                className={`p-2 rounded-xl transition-all ${isFocusedMode ? 'bg-purple-700 text-white dark:bg-violet-500' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                                 title="Modo Leitura Focada"
                             >
                                 <Moon size={20} />
@@ -515,11 +522,11 @@ const PublicPlanPage: React.FC = () => {
                     {/* Content Container */}
                     <div className="p-2 md:p-4">
                         <header className={`mb-8 transition-all duration-500 ${isFocusedMode ? 'opacity-0 h-0 overflow-hidden mb-0' : 'opacity-100'}`}>
-                            <p className="text-xs font-bold text-bible-gold uppercase tracking-tighter mb-1">{plan?.title}</p>
+                            <p className="text-xs font-bold text-purple-700 dark:text-violet-300 uppercase tracking-tighter mb-1">{plan?.title}</p>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-gray-500 text-[10px] font-bold uppercase tracking-widest">
                                 <span className="flex items-center gap-1"><BookOpen size={10} /> {plan?.category}</span>
                                 {readingDay.refData?.formatted && (
-                                    <span className="text-bible-leather dark:text-bible-gold">{readingDay.refData.formatted}</span>
+                                    <span className="text-purple-700 dark:text-violet-300">{readingDay.refData.formatted}</span>
                                 )}
                             </div>
                         </header>
@@ -550,7 +557,7 @@ const PublicPlanPage: React.FC = () => {
 
                         <div className={`flex flex-row justify-between items-center gap-2 mt-12 py-6 border-y border-gray-100 dark:border-gray-800 transition-all duration-500 ${isFocusedMode ? 'opacity-0 h-0 overflow-hidden' : 'opacity-100'}`}>
                             <div className="hidden sm:block">
-                                <span className="text-[10px] font-black text-bible-gold uppercase tracking-[0.2em]">{calculateProgress()}% Concluído</span>
+                                <span className="text-[10px] font-black text-purple-700 dark:text-violet-300 uppercase tracking-[0.2em]">{calculateProgress()}% Concluído</span>
                             </div>
                             <div className="flex flex-1 sm:flex-none justify-between sm:justify-end gap-2 w-full sm:w-auto">
                                 {isOwner && (
@@ -578,7 +585,7 @@ const PublicPlanPage: React.FC = () => {
                                     <button
                                         onClick={handleFollowStudy}
                                         disabled={isFollowed || isFollowing}
-                                        className={`flex-1 sm:flex-none p-2.5 sm:px-5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isFollowed ? 'bg-bible-gold/10 text-bible-gold cursor-default' : 'bg-white dark:bg-bible-darkPaper text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-800'}`}
+                                        className={`flex-1 sm:flex-none p-2.5 sm:px-5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isFollowed ? 'bg-purple-100 text-purple-700 cursor-default dark:bg-purple-950/40 dark:text-violet-200' : 'bg-white dark:bg-bible-darkPaper text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-800'}`}
                                     >
                                         {isFollowing ? <Loader2 className="animate-spin" size={14} /> : (isFollowed ? <CheckCircle2 size={14} /> : <BookmarkPlus size={14} />)}
                                         <span>{isFollowed ? (window.innerWidth < 768 ? 'OK' : 'Salvo') : (window.innerWidth < 768 ? 'Salvar' : 'Acompanhar')}</span>
@@ -588,7 +595,7 @@ const PublicPlanPage: React.FC = () => {
                                     <button
                                         onClick={handleCompleteReading}
                                         disabled={myStats?.completedSteps.includes(readingDay.id)}
-                                        className={`flex-1 sm:flex-none p-2.5 sm:px-5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${myStats?.completedSteps.includes(readingDay.id) ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 cursor-default' : 'bg-bible-gold text-white shadow-md'}`}
+                                        className={`flex-1 sm:flex-none p-2.5 sm:px-5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${myStats?.completedSteps.includes(readingDay.id) ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 cursor-default' : 'bg-purple-700 text-white shadow-md dark:bg-violet-500'}`}
                                     >
                                         {myStats?.completedSteps.includes(readingDay.id) ? <CheckCircle2 size={14} /> : <CheckCircle2 size={14} className="opacity-50" />}
                                         <span>{myStats?.completedSteps.includes(readingDay.id) ? 'Lido' : 'Concluir'}</span>
@@ -602,7 +609,7 @@ const PublicPlanPage: React.FC = () => {
                                 <p className="text-sm text-gray-500 font-bold mb-4">Você está visualizando como espectador</p>
                                 <button
                                     onClick={() => { setReadingDay(null); handleJoinClick(); }}
-                                    className="px-8 py-4 bg-bible-gold text-white rounded-xl font-bold uppercase text-xs tracking-widest shadow-lg hover:scale-105 transition-transform"
+                                    className="px-8 py-4 bg-purple-700 text-white rounded-xl font-bold uppercase text-xs tracking-widest shadow-lg shadow-purple-900/15 hover:scale-105 hover:bg-purple-800 transition-transform dark:bg-violet-500"
                                 >
                                     Entrar para Salvar Progresso
                                 </button>
@@ -614,7 +621,7 @@ const PublicPlanPage: React.FC = () => {
                             <div className={`mt-16 pt-16 border-t border-gray-200 dark:border-gray-800 transition-all duration-500 ${isFocusedMode ? 'opacity-0 h-0 overflow-hidden' : 'opacity-100'}`}>
                                 <div className="flex items-center justify-between mb-8">
                                     <h3 className="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-3">
-                                        <MessageSquare className="text-bible-gold" /> Fórum da Aula
+                                        <MessageSquare className="text-purple-700 dark:text-violet-300" /> Fórum da Aula
                                     </h3>
                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{comments.length} Comentários</span>
                                 </div>
@@ -636,7 +643,7 @@ const PublicPlanPage: React.FC = () => {
                                                 <button
                                                     onClick={handleSubmitComment}
                                                     disabled={!newComment.trim() || isSubmittingComment}
-                                                    className="bg-bible-gold text-white px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 transition-all flex items-center gap-2"
+                                                    className="bg-purple-700 text-white px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-purple-900/15 hover:scale-105 hover:bg-purple-800 active:scale-95 disabled:opacity-50 transition-all flex items-center gap-2 dark:bg-violet-500"
                                                 >
                                                     {isSubmittingComment ? <Loader2 className="animate-spin" size={14} /> : <Send size={14} />}
                                                     Postar
@@ -649,7 +656,7 @@ const PublicPlanPage: React.FC = () => {
                                 {/* Comments List */}
                                 <div className="space-y-6">
                                     {loadingComments ? (
-                                        <div className="flex justify-center py-8"><Loader2 className="animate-spin text-bible-gold" size={24} /></div>
+                                        <div className="flex justify-center py-8"><Loader2 className="animate-spin text-purple-700 dark:text-violet-300" size={24} /></div>
                                     ) : comments.length === 0 ? (
                                         <div className="text-center py-12 text-gray-400">
                                             <Coffee className="mx-auto mb-2 opacity-20" size={32} />
@@ -696,11 +703,108 @@ const PublicPlanPage: React.FC = () => {
         );
     }
 
-    const canViewContent = myStats || plan.privacyType === 'public' || isOwner;
+    const sharePath = getPlanSharePath(plan.id, plan.shareSlug);
+    const shareUrl = typeof window !== 'undefined'
+        ? getPlanShareUrl(plan.id, plan.shareSlug, window.location.origin)
+        : getPlanShareUrl(plan.id, plan.shareSlug);
+    const canViewContent = Boolean(myStats || canUserAccessPlan(plan, userProfile, currentUser?.uid));
+    const canDownloadPdf = canViewContent && (Boolean(plan.allowPdfDownload) || isOwner);
+
+    const handleCopyShareUrl = async (value: string) => {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(value);
+            showNotification("Link copiado!", "success");
+        }
+    };
+
+    const handleSaveShareSettings = async (settings: any) => {
+        if (!isOwner) {
+            showNotification("Apenas o autor pode alterar o compartilhamento.", "error");
+            return;
+        }
+        setIsSavingShareSettings(true);
+        try {
+            const payload = {
+                ...settings,
+                updatedAt: new Date().toISOString(),
+            };
+            await dbService.updateCustomPlan(plan.id, payload);
+            setPlan(prev => prev ? ({ ...prev, ...payload }) : prev);
+            showNotification("Configuracoes de compartilhamento salvas.", "success");
+        } catch (error) {
+            console.error(error);
+            showNotification("Erro ao salvar configuracoes de compartilhamento.", "error");
+        } finally {
+            setIsSavingShareSettings(false);
+        }
+    };
+
+    const handleSharePlanToFeed = async (description: string) => {
+        if (!currentUser || !userProfile || !isOwner) {
+            openLogin();
+            return;
+        }
+        if ((plan.privacyLevel || plan.privacyType) !== 'public') {
+            showNotification("Somente salas publicas podem ser compartilhadas no Feed do Reino.", "warning");
+            return;
+        }
+        setIsSharingToFeed(true);
+        try {
+            await dbService.createPost({
+                userId: currentUser.uid,
+                userDisplayName: userProfile.displayName,
+                userUsername: userProfile.username,
+                userPhotoURL: userProfile.photoURL,
+                type: 'room',
+                image: plan.coverUrl,
+                destination: 'global',
+                content: buildPlanSharePostContent(plan, sharePath, description),
+            });
+            try {
+                await dbService.updateCustomPlan(plan.id, { lastSharedAt: new Date().toISOString() });
+            } catch (shareStampError) {
+                console.warn('Post publicado, mas lastSharedAt nao foi atualizado.', shareStampError);
+            }
+            try {
+                await recordActivity?.('social_post', `Compartilhou a sala ${plan.title || 'sem titulo'} no Reino`);
+            } catch (activityError) {
+                console.warn('Sala compartilhada, mas a atividade nao foi registrada.', activityError);
+            }
+            showNotification("Sala compartilhada no Feed do Reino.", "success");
+            setShowShareModal(false);
+            navigate('/social', { state: { refreshFeed: true } });
+        } catch (error) {
+            console.error(error);
+            showNotification("Erro ao compartilhar sala no Feed.", "error");
+        } finally {
+            setIsSharingToFeed(false);
+        }
+    };
+
+    const handleDownloadPdf = () => {
+        window.print();
+    };
 
     return (
         <div className="h-full bg-gray-50 dark:bg-black/20 overflow-y-auto">
             <SEO title={plan.title} description={plan.description} />
+            <style>{`
+                @media print {
+                    .plan-owner-actions,
+                    .plan-share-modal,
+                    header,
+                    nav,
+                    button,
+                    textarea,
+                    input {
+                        display: none !important;
+                    }
+                    #plan-content {
+                        max-width: 100% !important;
+                        padding: 0 !important;
+                    }
+                }
+            `}</style>
 
             <StandardHeader
                 title={plan.title || 'Jornada Sem Título'}
@@ -733,7 +837,7 @@ const PublicPlanPage: React.FC = () => {
                                     <button
                                         onClick={handleJoinClick}
                                         disabled={isJoining}
-                                        className="bg-bible-gold text-white px-5 py-2 rounded-full font-bold uppercase text-[10px] md:text-xs tracking-widest shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2 active:scale-95"
+                                        className="bg-purple-700 text-white px-5 py-2 rounded-full font-bold uppercase text-[10px] md:text-xs tracking-widest shadow-lg shadow-purple-900/15 hover:scale-105 hover:bg-purple-800 transition-transform flex items-center justify-center gap-2 active:scale-95 dark:bg-violet-500"
                                     >
                                         {isJoining ? <Loader2 className="animate-spin" size={14} /> : <Play size={14} fill="currentColor" />}
                                         {isOwner ? 'Acessar como Autor' : 'Entrar na Sala'}
@@ -749,6 +853,15 @@ const PublicPlanPage: React.FC = () => {
                                     <span className="hidden sm:inline">{activeParticipants.length} Alunos Online</span>
                                     <span className="sm:hidden">{activeParticipants.length} Online</span>
                                 </div>
+                            )}
+                            {canDownloadPdf && (
+                                <button
+                                    onClick={handleDownloadPdf}
+                                    className="bg-white/5 text-white/80 border border-white/20 w-8 h-8 md:w-10 md:h-10 rounded-full hover:bg-white/10 hover:text-white transition-all flex items-center justify-center shrink-0 backdrop-blur-md"
+                                    title="Baixar PDF"
+                                >
+                                    <FileText size={16} />
+                                </button>
                             )}
                             <button
                                 onClick={() => {
@@ -776,14 +889,24 @@ const PublicPlanPage: React.FC = () => {
                 }
             />
 
+            {isOwner && (
+                <PlanOwnerPreviewActions
+                    plan={plan}
+                    canDownloadPdf={canDownloadPdf}
+                    onEdit={() => navigate(`/criar-sala?id=${plan.id}`, { state: { planData: plan } })}
+                    onOpenShare={() => setShowShareModal(true)}
+                    onDownloadPdf={handleDownloadPdf}
+                />
+            )}
+
             <div id="plan-content" className="max-w-7xl mx-auto px-4 pt-4 pb-32 space-y-6">
                 {/* Secondary UI removed or moved to header */}
 
                 {/* Tabs and Content List */}
                 <div className="flex bg-white dark:bg-bible-darkPaper p-1 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                    <button onClick={() => setActiveTab('content')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all rounded-xl flex items-center justify-center gap-2 ${activeTab === 'content' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400'}`}><BookOpen size={14} /> Conteúdo</button>
+                    <button onClick={() => setActiveTab('content')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all rounded-xl flex items-center justify-center gap-2 ${activeTab === 'content' ? 'bg-purple-700 text-white shadow-md dark:bg-violet-500' : 'text-gray-400'}`}><BookOpen size={14} /> Conteúdo</button>
                     {(plan.isRanked || ranking.length > 0) && (
-                        <button onClick={() => setActiveTab('ranking')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all rounded-xl flex items-center justify-center gap-2 ${activeTab === 'ranking' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400'}`}><Trophy size={14} /> Ranking</button>
+                        <button onClick={() => setActiveTab('ranking')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all rounded-xl flex items-center justify-center gap-2 ${activeTab === 'ranking' ? 'bg-purple-700 text-white shadow-md dark:bg-violet-500' : 'text-gray-400'}`}><Trophy size={14} /> Ranking</button>
                     )}
                 </div>
 
@@ -795,7 +918,7 @@ const PublicPlanPage: React.FC = () => {
                                 <h3 className="text-lg font-black text-gray-900 dark:text-white mb-2">Jornada Vazia</h3>
                                 <p className="text-sm text-gray-500 max-w-sm mx-auto">Esta jornada ainda não possui nenhum conteúdo, semana ou aula cadastrada.</p>
                                 {isOwner && (
-                                    <button onClick={() => navigate(`/criar-sala?id=${plan.id}`, { state: { planData: plan } })} className="mt-8 px-6 py-3 bg-bible-gold text-white rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg hover:scale-105 transition-transform">
+                                    <button onClick={() => navigate(`/criar-sala?id=${plan.id}`, { state: { planData: plan } })} className="mt-8 px-6 py-3 bg-purple-700 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-purple-900/15 hover:scale-105 hover:bg-purple-800 transition-transform dark:bg-violet-500">
                                         Adicionar Aulas
                                     </button>
                                 )}
@@ -816,8 +939,8 @@ const PublicPlanPage: React.FC = () => {
                                         {week.days.map((day) => {
                                             const isDone = myStats?.completedSteps.includes(day.id);
                                             return (
-                                                <div key={day.id} onClick={() => canViewContent ? setReadingDay(day) : showNotification("Entre na sala para ler", "info")} className={`relative flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer group ${isDone ? 'bg-white dark:bg-bible-darkPaper border-green-200 dark:border-green-900/30' : 'bg-white dark:bg-bible-darkPaper border-transparent hover:border-bible-gold/30 hover:shadow-sm'}`}>
-                                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isDone ? 'bg-green-500 text-white shadow-green-200 shadow-lg' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 group-hover:bg-bible-gold group-hover:text-white'}`}>
+                                                <div key={day.id} onClick={() => canViewContent ? setReadingDay(day) : showNotification("Entre na sala para ler", "info")} className={`relative flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer group ${isDone ? 'bg-white dark:bg-bible-darkPaper border-green-200 dark:border-green-900/30' : 'bg-white dark:bg-bible-darkPaper border-transparent hover:border-purple-300 hover:shadow-sm'}`}>
+                                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isDone ? 'bg-green-500 text-white shadow-green-200 shadow-lg' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 group-hover:bg-purple-700 group-hover:text-white dark:group-hover:bg-violet-500'}`}>
                                                         {isDone ? <CheckCircle2 size={20} /> : <Play size={20} className="ml-1" />}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
@@ -843,7 +966,7 @@ const PublicPlanPage: React.FC = () => {
                         <button onClick={() => setShowTeamSelect(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors"><X size={20} /></button>
 
                         <div className="text-center mb-8">
-                            <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4 text-yellow-600">
+                            <div className="w-16 h-16 bg-purple-100 dark:bg-purple-950/40 rounded-2xl flex items-center justify-center mx-auto mb-4 text-purple-700 dark:text-violet-300">
                                 <Trophy size={32} />
                             </div>
                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Escolha sua Equipe</h2>
@@ -860,7 +983,7 @@ const PublicPlanPage: React.FC = () => {
                                 <button
                                     key={team.id}
                                     onClick={() => setSelectedTeamId(team.id)}
-                                    className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${selectedTeamId === team.id ? 'border-bible-gold bg-bible-gold/5 shadow-md scale-105' : 'border-gray-100 dark:border-gray-800 hover:border-gray-300'}`}
+                                    className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${selectedTeamId === team.id ? 'border-purple-400 bg-purple-50 shadow-md scale-105 dark:bg-purple-950/30' : 'border-gray-100 dark:border-gray-800 hover:border-gray-300'}`}
                                 >
                                     <div className={`w-8 h-8 rounded-full ${team.color} shadow-sm border-2 border-white dark:border-gray-700`}></div>
                                     <span className="text-xs font-bold text-gray-800 dark:text-gray-200">{team.name}</span>
@@ -871,7 +994,7 @@ const PublicPlanPage: React.FC = () => {
                         <button
                             onClick={() => handleJoinConfirm(selectedTeamId)}
                             disabled={!selectedTeamId || isJoining}
-                            className="w-full py-4 bg-bible-gold text-white rounded-xl font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
+                            className="w-full py-4 bg-purple-700 text-white rounded-xl font-black uppercase tracking-widest shadow-xl shadow-purple-900/15 hover:scale-[1.02] hover:bg-purple-800 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 dark:bg-violet-500"
                         >
                             {isJoining ? <Loader2 className="animate-spin inline mr-2" size={16} /> : <Flag className="inline mr-2" size={16} />}
                             Entrar na Equipe
@@ -903,6 +1026,21 @@ const PublicPlanPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {isOwner && (
+                <PlanShareModal
+                    isOpen={showShareModal}
+                    plan={plan}
+                    shareUrl={shareUrl}
+                    userProfile={userProfile}
+                    isSaving={isSavingShareSettings}
+                    isSharingFeed={isSharingToFeed}
+                    onClose={() => setShowShareModal(false)}
+                    onSave={handleSaveShareSettings}
+                    onShareFeed={handleSharePlanToFeed}
+                    onCopy={handleCopyShareUrl}
+                />
             )}
         </div>
     );

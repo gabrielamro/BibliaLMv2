@@ -19,7 +19,7 @@ export interface SacredArtGalleryItem {
 }
 
 export interface SacredArtCanvasProps {
-  canvasContainerRef: React.RefObject<HTMLDivElement>;
+  canvasContainerRef: React.RefObject<HTMLDivElement | null>;
   rawGeneratedBase64: string | null;
   foundVerse: VersePreview | null;
   editOptions: CompositionOptions;

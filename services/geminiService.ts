@@ -19,7 +19,7 @@ export const checkAiHealth = async (): Promise<boolean> => {
     }
 };
 
-const TEXT_MODEL = "models/gemini-2.5-flash"; 
+const TEXT_MODEL = "models/gemini-2.5-flash";
 const TTS_MODEL = "models/gemini-2.5-flash";
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
@@ -87,7 +87,7 @@ export const callAi = async (prompt: string, systemInstruction?: string, respons
         const response = await getAiInstance().models.generateContent({
             model: TEXT_MODEL,
             contents: [{ parts: [{ text: prompt }] }],
-            config: { 
+            config: {
                 systemInstruction: systemInstruction || undefined,
                 responseMimeType: responseFormat === 'json' ? "application/json" : undefined
             }
@@ -202,7 +202,7 @@ export const generateSermonOutline = async (contextText: string, theme: string, 
         
         Estrutura OBRIGATÓRIA: 1. Introdução, 2. Contextualização (Contexto histórico, Pontos, Tópicos, Temas), 3. Aplicação Prática, 4. Oração Final. 
         Use formato HTML (h1, h2, p, strong, ul, li).`;
-        
+
         return await callAi(prompt, undefined, "text");
     } catch (e) { return ""; }
 };
@@ -223,7 +223,7 @@ export const generateSmallGroupQuestions = async (sermonContent: string): Promis
 
 export const generateStructuredStudy = async (theme: string, reference: string, audience: string, mode: 'quick' | 'deep') => {
     let imageUrl = '';
-    
+
     try {
         const imageResult = await generateVerseImage(theme, reference, "sacred art oil painting, cinematic lighting");
         if (imageResult) {
@@ -426,12 +426,12 @@ export const generateSpecificPrayer = async (topic: string, feeling: string): Pr
         1. Seja profundo, empático e bíblico.
         2. Retorne APENAS um JSON válido.
         3. Formato JSON: { "title": "...", "content": "..." }`;
-        
+
         const text = await callAi(prompt, undefined, "json");
         return JSON.parse(text || "{}");
-    } catch (e) { 
+    } catch (e) {
         console.error("Erro ao gerar oração específica:", e);
-        return null; 
+        return null;
     }
 };
 
@@ -552,7 +552,7 @@ export const findNearbyChurches = async (lat: number, lng: number): Promise<Near
 };
 
 export const generateAIOnePage = async (userPrompt: string, authorName?: string): Promise<any> => {
-    const systemInstruction = `Atue como Dr. Marcos, teólogo sênior e curador de conteúdo estilo NotebookLM. 
+    const systemInstruction = `Atue como Dr. Marcos, teólogo sênior e curador de conteúdo estilo NoteboQ1   QkLM. 
 Crie conteúdo bíblico de alta densidade intelectual, elegância literária e visualmente rico, seguindo uma estrutura de diagramação de revista digital (Landing Page Premium).
 
 DIRETRIZES DE DIAGRAMAÇÃO (ROADMAP V2):

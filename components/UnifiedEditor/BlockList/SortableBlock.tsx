@@ -12,6 +12,7 @@ interface SortableBlockProps {
   onSettings?: () => void;
   onLayoutWidthChange?: (width: string) => void;
   isEditing?: boolean;
+  canvasWidth?: 'mobile' | 'tablet' | 'desktop' | 'full';
 }
 
 export const SortableBlock: React.FC<SortableBlockProps> = ({ 
@@ -22,7 +23,8 @@ export const SortableBlock: React.FC<SortableBlockProps> = ({
   onDuplicate,
   onSettings,
   onLayoutWidthChange,
-  isEditing = true
+  isEditing = true,
+  canvasWidth = 'desktop'
 }) => {
   const {
     attributes,
@@ -40,23 +42,26 @@ export const SortableBlock: React.FC<SortableBlockProps> = ({
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const widthClass = {
-    '1/1': 'w-full',
-    '1/2': 'w-1/2',
-    '1/3': 'w-1/3',
-    '2/3': 'w-2/3',
-  }[layoutWidth] || 'w-full';
+  const widthClass = canvasWidth === 'mobile'
+    ? 'w-full'
+    : ({
+      '1/1': 'w-full',
+      '1/2': 'w-1/2',
+      '1/3': 'w-1/3',
+      '2/3': 'w-2/3',
+    }[layoutWidth] || 'w-full');
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative group px-1 mb-10 transition-all duration-300 box-border ${widthClass}`}
+      data-testid="sortable-block"
+      className={`relative group px-1 transition-all duration-300 box-border ${canvasWidth === 'mobile' ? 'mb-6' : 'mb-10'} ${widthClass}`}
     >
       <div className={`relative rounded-2xl transition-all duration-300 ${isEditing ? 'hover:ring-2 hover:ring-bible-gold/30' : ''}`}>
         
         {/* Drag Handle & Label */}
-        {isEditing && (
+        {isEditing && canvasWidth !== 'mobile' && (
           <div 
             {...attributes} 
             {...listeners}

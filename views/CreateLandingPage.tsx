@@ -39,6 +39,12 @@ import {
 } from '../components/Builder';
 import { ImageUploadButton } from '../components/Builder/ImageUploadButton';
 import ObreiroIAChatbot from '../components/ObreiroIAChatbot';
+import type { ContentPrivacyLevel } from '../types';
+import {
+  buildContentSharePostContent,
+  getContentShareUrl,
+  normalizeContentShareSettings,
+} from '../utils/contentSharing';
 
 // Tipos locais
 type ContentType = 'article' | 'devotional' | 'series';
@@ -55,7 +61,13 @@ interface ContentData {
     title: string;
     description: string;
     coverImage?: string;
-    visibility?: 'public' | 'invitation';
+    visibility?: ContentPrivacyLevel;
+    allowPdfDownload?: boolean;
+    inviteRequired?: boolean;
+    allowedUserIds?: string[];
+    allowedGroupIds?: string[];
+    churchId?: string;
+    groupId?: string;
     tags: string[];
   };
   stats: {
@@ -113,7 +125,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
   // Hooks de navegação, autenticação e cabeçalho global
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser, earnMana, showNotification } = useAuth();
+  const { currentUser, userProfile, earnMana, showNotification, recordActivity } = useAuth();
   const { setTitle, setBreadcrumbs, resetHeader, setIsHeaderHidden } = useHeader();
 
   // Estados principais de controle do fluxo (Criação, Preview, Publicação)
@@ -141,6 +153,13 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [activeBlockData, setActiveBlockData] = useState<any>(null); // Guardar dados do Tiptap Node
   const [copiedSlug, setCopiedSlug] = useState(false);
+  const [showShareSettings, setShowShareSettings] = useState(false);
+  const [isSharingToFeed, setIsSharingToFeed] = useState(false);
+  const [shareVisibility, setShareVisibility] = useState<ContentPrivacyLevel>('public');
+  const [shareAllowPdf, setShareAllowPdf] = useState(false);
+  const [shareUserIds, setShareUserIds] = useState('');
+  const [shareGroupIds, setShareGroupIds] = useState('');
+  const [shareFeedDescription, setShareFeedDescription] = useState('');
   // Ref do Editor para comandos imperativos (TipTap)
   const editorRef = useRef<any>(null);
   const [canvasWidth, setCanvasWidth] = useState<'mobile' | 'tablet' | 'desktop' | 'full'>('desktop');
@@ -804,11 +823,121 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
 
   // Copia o link público de compartilhamento para a área de transferência
   const copyShareLink = () => {
-    const url = `${window.location.origin}/p/${content.slug}`;
+    const url = getPreviewShareUrl();
     navigator.clipboard.writeText(url);
     setCopiedSlug(true);
     setTimeout(() => setCopiedSlug(false), 2000);
     showNotification('Link copiado!', 'success');
+  };
+
+  const getPreviewShareUrl = () => getContentShareUrl(
+    { id: content.id, slug: content.slug },
+    typeof window !== 'undefined' ? window.location.origin : undefined,
+  );
+
+  const openShareSettings = () => {
+    setShareVisibility(content.meta.visibility || 'public');
+    setShareAllowPdf(Boolean(content.meta.allowPdfDownload));
+    setShareUserIds((content.meta.allowedUserIds || []).join(', '));
+    setShareGroupIds((content.meta.allowedGroupIds || (content.meta.groupId ? [content.meta.groupId] : [])).join(', '));
+    setShareFeedDescription('');
+    setShowShareSettings(true);
+  };
+
+  const copyPreviewShareLink = async () => {
+    await navigator.clipboard.writeText(getPreviewShareUrl());
+    setCopiedSlug(true);
+    setTimeout(() => setCopiedSlug(false), 2000);
+    showNotification('Link copiado!', 'success');
+  };
+
+  const savePreviewShareSettings = async () => {
+    if (!content.id) {
+      showNotification('Gere o preview antes de salvar as configuracoes de compartilhamento.', 'warning');
+      return;
+    }
+
+    const selectedUserIds = shareUserIds.split(',').map(id => id.trim()).filter(Boolean);
+    const selectedGroupIds = shareGroupIds.split(',').map(id => id.trim()).filter(Boolean);
+    const needsUsers = shareVisibility === 'invite_only' || shareVisibility === 'private';
+    const needsGroups = shareVisibility === 'group' || shareVisibility === 'church_groups';
+
+    if ((needsUsers && selectedUserIds.length === 0) || (needsGroups && selectedGroupIds.length === 0)) {
+      showNotification('Defina quem podera acessar antes de salvar o acesso privado.', 'warning');
+      return;
+    }
+
+    const settings = normalizeContentShareSettings({
+      visibility: shareVisibility,
+      allowPdfDownload: shareAllowPdf,
+      selectedUserIds,
+      selectedGroupIds,
+    });
+    const nextContent = {
+      ...content,
+      meta: {
+        ...content.meta,
+        ...settings,
+        churchId: shareVisibility === 'church' ? userProfile?.churchData?.churchId : content.meta.churchId,
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    setIsSaving(true);
+    try {
+      await dbService.updatePublicStudy(content.id, nextContent);
+      setContent(nextContent);
+      showNotification('Configuracoes de compartilhamento salvas.', 'success');
+    } catch (error) {
+      console.error('Erro ao salvar compartilhamento:', error);
+      showNotification('Erro ao salvar configuracoes de compartilhamento.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const sharePreviewToFeed = async () => {
+    if (!currentUser || !content.id) return;
+    if ((content.meta.visibility || 'public') !== 'public') {
+      showNotification('Somente conteudos publicos podem ser compartilhados no Feed do Reino.', 'warning');
+      return;
+    }
+
+    setIsSharingToFeed(true);
+    try {
+      await dbService.createPost({
+        userId: currentUser.uid,
+        userDisplayName: userProfile?.displayName || currentUser.displayName || 'Autor',
+        userUsername: userProfile?.username || currentUser.email || 'autor',
+        userPhotoURL: userProfile?.photoURL || currentUser.photoURL,
+        type: 'study',
+        image: content.meta.coverImage,
+        destination: 'global',
+        content: buildContentSharePostContent(
+          {
+            id: content.id,
+            slug: content.slug,
+            title: content.meta.title,
+            coverImage: content.meta.coverImage,
+          },
+          getPreviewShareUrl(),
+          shareFeedDescription,
+        ),
+      });
+      try {
+        await recordActivity?.('social_post', `Compartilhou o estudo ${content.meta.title || 'sem titulo'} no Reino`);
+      } catch (activityError) {
+        console.warn('Conteudo compartilhado, mas a atividade nao foi registrada.', activityError);
+      }
+      showNotification('Conteudo compartilhado no Feed do Reino.', 'success');
+      setShowShareSettings(false);
+      navigate('/social', { state: { refreshFeed: true } });
+    } catch (error) {
+      console.error('Erro ao compartilhar no feed:', error);
+      showNotification('Erro ao compartilhar no Feed do Reino.', 'error');
+    } finally {
+      setIsSharingToFeed(false);
+    }
   };
 
 
@@ -1094,11 +1223,11 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
 
                 {/* Área Central de Edição (Canvas) - Onde o documento é visualizado e editado via TipTap */}
                 {/* Área Central de Edição (Canvas) - Onde o documento é visualizado e editado via TipTap */}
-                <main className="flex-1 overflow-x-clip overflow-y-auto w-full max-w-[100vw] text-break-words p-4 lg:p-10 lg:px-14" onScroll={handleMainScroll}>
+                <main className="flex-1 overflow-x-clip overflow-y-auto w-full max-w-[100vw] text-break-words p-3 pb-28 sm:p-4 lg:p-10 lg:px-14" onScroll={handleMainScroll}>
 
                   {showCreationHelper && (
-                    <div className="max-w-3xl mx-auto mb-4 animate-in fade-in slide-in-from-top-4 duration-500">
-                      <div className="relative rounded-3xl border border-bible-gold/20 bg-white/60 dark:bg-black/40 backdrop-blur-md px-6 py-4 text-sm text-gray-700 dark:text-gray-300 shadow-xl shadow-bible-gold/5 flex items-center justify-between">
+                    <div className="max-w-3xl mx-auto mb-3 sm:mb-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                      <div className="relative rounded-2xl sm:rounded-3xl border border-bible-gold/20 bg-white/60 dark:bg-black/40 backdrop-blur-md px-5 py-4 sm:px-6 text-sm text-gray-700 dark:text-gray-300 shadow-xl shadow-bible-gold/5 flex items-center justify-between">
                         <div className="flex-1 pr-8">
                           <strong className="text-bible-gold font-black uppercase tracking-widest text-[10px] block mb-1">
                             {creationMode === 'ai' ? 'Fluxo com IA' : 'Fluxo manual'}
@@ -1118,12 +1247,12 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                       </div>
                     </div>
                   )}
-                  <div className={`mx-auto bg-bible-paper dark:bg-bible-darkPaper rounded-3xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1),_inset_0_0_20px_rgba(197,160,89,0.05)] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-transparent via-bible-gold/5 to-transparent border border-bible-gold/10 transition-all duration-300 canvas-${canvasWidth} ${canvasWidth === 'mobile' ? 'w-full max-w-[375px] border-4 border-bible-gold ring-8 ring-bible-gold/20'
+                  <div className={`mx-auto bg-bible-paper dark:bg-bible-darkPaper rounded-3xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1),_inset_0_0_20px_rgba(197,160,89,0.05)] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-transparent via-bible-gold/5 to-transparent border border-bible-gold/10 transition-all duration-300 canvas-${canvasWidth} ${canvasWidth === 'mobile' ? 'w-full max-w-[390px] rounded-[1.75rem] border border-bible-gold/20 shadow-[0_14px_34px_-18px_rgba(0,0,0,0.35)]'
                     : canvasWidth === 'tablet' ? 'w-full max-w-[768px]'
                       : canvasWidth === 'full' ? 'w-full max-w-full'
                         : 'w-full max-w-7xl'
                     }`}>
-                    <div className="w-full h-full p-4 md:p-6 lg:p-8">
+                    <div className={`w-full h-full ${canvasWidth === 'mobile' ? 'p-2' : 'p-4 md:p-6 lg:p-8'}`}>
                     <UnifiedEditor
                       ref={editorRef}
                       content={content.blocks || ''}
@@ -1352,7 +1481,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5 px-1">Link Personalizado (Slug)</label>
                               <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-transparent focus-within:border-bible-gold/30 transition-all">
                                 <Globe size={14} className="text-gray-400" />
-                                <span className="text-xs text-gray-400">/p/</span>
+                                <span className="text-xs text-gray-400">/l/</span>
                                 <input
                                   type="text"
                                   value={content.slug}
@@ -1377,8 +1506,8 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                                   <span className="text-[11px] font-bold">Público</span>
                                 </button>
                                 <button
-                                  onClick={() => updateMeta('visibility', 'invitation')}
-                                  className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${content.meta.visibility === 'invitation' ? 'border-bible-gold bg-bible-gold/5 text-bible-gold' : 'border-gray-100 dark:border-gray-800 text-gray-500 bg-white dark:bg-gray-800/50 hover:bg-gray-50'}`}
+                                  onClick={() => updateMeta('visibility', 'invite_only')}
+                                  className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${content.meta.visibility === 'invite_only' ? 'border-bible-gold bg-bible-gold/5 text-bible-gold' : 'border-gray-100 dark:border-gray-800 text-gray-500 bg-white dark:bg-gray-800/50 hover:bg-gray-50'}`}
                                 >
                                   <Lock size={18} />
                                   <span className="text-[11px] font-bold">Por Convite</span>
@@ -1653,16 +1782,62 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                     <button onClick={() => setCanvasWidth('desktop')} className={`p-2 rounded-lg transition-all ${canvasWidth === 'desktop' ? 'bg-white dark:bg-gray-700 text-bible-gold shadow-sm' : 'text-gray-400'}`} title="Desktop"><Monitor size={16} /></button>
                     <button onClick={() => setCanvasWidth('full')} className={`p-2 rounded-lg transition-all ${canvasWidth === 'full' ? 'bg-white dark:bg-gray-700 text-bible-gold shadow-sm' : 'text-gray-400'}`} title="Full Width"><Maximize2 size={16} /></button>
                   </div>
-                  <button
-                    onClick={handlePublish}
-                    disabled={isSaving}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-bible-gold text-white rounded-xl font-bold hover:bg-bible-gold/90 transition-colors disabled:opacity-50"
-                  >
-                    {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                    Publicar
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {content.meta.allowPdfDownload && (
+                      <button
+                        onClick={() => window.print()}
+                        className="hidden md:flex items-center gap-2 px-3 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold text-xs uppercase tracking-widest hover:border-bible-gold hover:text-bible-gold transition-colors"
+                      >
+                        <FileDown size={16} />
+                        PDF
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setCurrentStep('create')}
+                      className="hidden md:flex items-center gap-2 px-3 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold text-xs uppercase tracking-widest hover:border-bible-gold hover:text-bible-gold transition-colors"
+                    >
+                      <Settings size={16} />
+                      Editar
+                    </button>
+                    <button
+                      onClick={openShareSettings}
+                      data-testid="content-preview-share-button"
+                      className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-900 border border-bible-gold/40 text-bible-gold rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-bible-gold/10 transition-colors"
+                    >
+                      <Share2 size={16} />
+                      Compartilhar
+                    </button>
+                    <button
+                      onClick={handlePublish}
+                      disabled={isSaving}
+                      className="flex items-center gap-2 px-4 md:px-6 py-2.5 bg-bible-gold text-white rounded-xl font-bold hover:bg-bible-gold/90 transition-colors disabled:opacity-50"
+                    >
+                      {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                      Publicar
+                    </button>
+                  </div>
                 </div>
               </header>
+
+              <div className="bg-white dark:bg-bible-darkPaper border-b border-gray-200 dark:border-gray-800 px-4 py-3 print:hidden">
+                <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                    {(content.meta.visibility || 'public') === 'public' ? <Globe size={15} className="text-bible-gold" /> : <Lock size={15} className="text-bible-gold" />}
+                    <span>{(content.meta.visibility || 'public') === 'public' ? 'Publico' : 'Privado'}</span>
+                    {content.meta.allowPdfDownload && <span className="rounded-full bg-green-50 px-2 py-1 text-[10px] font-black uppercase text-green-600">PDF liberado</span>}
+                  </div>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <input
+                      value={getPreviewShareUrl()}
+                      readOnly
+                      className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                    />
+                    <button onClick={copyPreviewShareLink} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-bible-gold text-white" title="Copiar link">
+                      {copiedSlug ? <Check size={16} /> : <Copy size={16} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
 
               {/* Preview Content */}
               <main className="py-8 min-h-screen bg-gray-100 dark:bg-black/90 flex justify-center">
@@ -1688,6 +1863,99 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                   </div>
                 </div>
               </main>
+
+              {showShareSettings && (
+                <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 px-3 py-4 backdrop-blur-sm md:items-center print:hidden" role="dialog" aria-modal="true">
+                  <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-bible-darkPaper">
+                    <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-bible-darkPaper">
+                      <div>
+                        <h2 className="font-black text-gray-900 dark:text-white">Compartilhar preview</h2>
+                        <p className="mt-1 text-xs text-gray-500">Controle o link, o acesso, PDF e Feed do Reino.</p>
+                      </div>
+                      <button onClick={() => setShowShareSettings(false)} className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Fechar">
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-5 p-4 md:p-6">
+                      <section className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Link para compartilhar</label>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <input value={getPreviewShareUrl()} readOnly className="min-h-11 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold dark:border-gray-700 dark:bg-gray-900" />
+                          <button onClick={copyPreviewShareLink} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 text-xs font-black uppercase tracking-widest text-gray-600 hover:border-bible-gold hover:text-bible-gold dark:border-gray-700">
+                            {copiedSlug ? <Check size={15} /> : <Copy size={15} />} {copiedSlug ? 'Copiado' : 'Copiar'}
+                          </button>
+                        </div>
+                      </section>
+
+                      <section className="grid gap-3 md:grid-cols-2">
+                        {[
+                          { id: 'public', label: 'Publico', text: 'Qualquer pessoa com o link pode acessar.', icon: Globe },
+                          { id: 'invite_only', label: 'Privado', text: 'Somente usuarios definidos acessam.', icon: Lock },
+                          { id: 'church', label: 'Igreja', text: 'Membros da igreja do autor.', icon: User },
+                          { id: 'group', label: 'Grupo', text: 'Um grupo especifico da igreja.', icon: User },
+                        ].map(option => {
+                          const Icon = option.icon;
+                          const active = shareVisibility === option.id;
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => setShareVisibility(option.id as ContentPrivacyLevel)}
+                              className={`min-h-[76px] rounded-xl border p-3 text-left transition-colors ${active ? 'border-bible-gold bg-bible-gold/10 text-bible-gold' : 'border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:text-gray-300'}`}
+                            >
+                              <span className="flex items-center gap-2 text-xs font-black uppercase tracking-widest"><Icon size={15} /> {option.label}</span>
+                              <span className="mt-2 block text-xs font-medium text-gray-500">{option.text}</span>
+                            </button>
+                          );
+                        })}
+                      </section>
+
+                      {(shareVisibility === 'invite_only' || shareVisibility === 'private') && (
+                        <section className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Quem ira acessar</label>
+                          <input value={shareUserIds} onChange={event => setShareUserIds(event.target.value)} placeholder="IDs de usuarios separados por virgula" className="min-h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-bible-gold/30 dark:border-gray-700 dark:bg-gray-900" />
+                        </section>
+                      )}
+
+                      {(shareVisibility === 'group' || shareVisibility === 'church_groups') && (
+                        <section className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Grupos permitidos</label>
+                          <input value={shareGroupIds} onChange={event => setShareGroupIds(event.target.value)} placeholder={userProfile?.churchData?.groupId || 'IDs de grupos separados por virgula'} className="min-h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-bible-gold/30 dark:border-gray-700 dark:bg-gray-900" />
+                        </section>
+                      )}
+
+                      <section className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+                        <div>
+                          <p className="text-sm font-black text-gray-800 dark:text-white">Permitir download em PDF</p>
+                          <p className="text-xs text-gray-500">Visitantes autorizados verao o botao de PDF.</p>
+                        </div>
+                        <button type="button" onClick={() => setShareAllowPdf(value => !value)} className={`relative h-7 w-12 rounded-full transition-colors ${shareAllowPdf ? 'bg-bible-gold' : 'bg-gray-300 dark:bg-gray-700'}`} aria-pressed={shareAllowPdf}>
+                          <span className={`absolute left-0 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${shareAllowPdf ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </section>
+
+                      <section className="space-y-3 rounded-xl border border-bible-gold/20 bg-bible-gold/5 p-3">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-bible-gold">Feed do Reino</label>
+                        <textarea value={shareFeedDescription} onChange={event => setShareFeedDescription(event.target.value)} placeholder="Escreva uma descricao breve para edificar quem vera no Feed do Reino..." className="min-h-20 w-full resize-none rounded-xl border border-bible-gold/20 bg-white px-3 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-bible-gold/30 dark:bg-gray-900" />
+                        <button onClick={sharePreviewToFeed} disabled={isSharingToFeed || (content.meta.visibility || 'public') !== 'public'} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-bible-leather px-4 text-xs font-black uppercase tracking-widest text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-bible-gold dark:text-black">
+                          {isSharingToFeed ? <Loader2 className="animate-spin" size={15} /> : <Send size={15} />}
+                          Compartilhar no Feed do Reino
+                        </button>
+                        {(content.meta.visibility || 'public') !== 'public' && <p className="text-xs font-medium text-gray-500">Para evitar link inacessivel, publique no feed apenas conteudos publicos.</p>}
+                      </section>
+                    </div>
+
+                    <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-bible-darkPaper sm:flex-row sm:justify-end">
+                      <button onClick={() => setShowShareSettings(false)} className="min-h-11 rounded-xl px-4 text-xs font-black uppercase tracking-widest text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">Cancelar</button>
+                      <button onClick={savePreviewShareSettings} disabled={isSaving} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-bible-gold px-5 text-xs font-black uppercase tracking-widest text-white shadow-md disabled:opacity-50">
+                        {isSaving ? <Loader2 className="animate-spin" size={15} /> : <Check size={15} />}
+                        Salvar configuracoes
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         );
@@ -1715,7 +1983,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
-                      value={`${typeof window !== 'undefined' ? window.location.origin : ''}/p/${content.slug}`}
+                      value={getPreviewShareUrl()}
                       readOnly
                       className="flex-1 px-3 py-2 bg-white dark:bg-black/30 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
                     />

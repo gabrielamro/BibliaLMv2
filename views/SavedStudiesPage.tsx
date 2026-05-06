@@ -14,10 +14,12 @@ import {
 import SEO from '../components/SEO';
 import StandardCard from '../components/ui/StandardCard';
 import ConfirmationModal from '../components/ConfirmationModal';
+import PromptModal from '../components/PromptModal';
 import { getEditDestinationForContent, isStandaloneStudyContent } from '../utils/contentEditing';
+import { buildStudyShareContent } from '../utils/studySharePost';
 
 const SavedStudiesPage: React.FC = () => {
-  const { currentUser, showNotification } = useAuth();
+  const { currentUser, userProfile, showNotification, recordActivity } = useAuth();
   const { setTitle, setIcon, resetHeader } = useHeader();
   const navigate = useNavigate();
 
@@ -29,6 +31,7 @@ const SavedStudiesPage: React.FC = () => {
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteType, setDeleteType] = useState<'study' | 'note' | null>(null);
+  const [studyToShare, setStudyToShare] = useState<any | null>(null);
 
   useEffect(() => {
     setTitle('Workspace Pessoal');
@@ -149,6 +152,48 @@ const SavedStudiesPage: React.FC = () => {
     }
   };
 
+  const handleShareStudy = async (description: string) => {
+    if (!currentUser || !userProfile || !studyToShare) return;
+
+    const coverUrl = studyToShare.cover_image || studyToShare.meta?.coverImage || studyToShare.coverUrl;
+    const studyUrl = `/v/${studyToShare.id}`;
+    const sourceLabel = getSourceLabel(studyToShare.source);
+
+    try {
+      await dbService.createPost({
+        userId: currentUser.uid,
+        userDisplayName: userProfile.displayName,
+        userUsername: userProfile.username,
+        userPhotoURL: userProfile.photoURL,
+        type: 'study',
+        image: coverUrl,
+        destination: 'global',
+        content: buildStudyShareContent({
+          kind: 'study_share',
+          studyId: studyToShare.id,
+          studyTitle: studyToShare.title || 'Estudo sem titulo',
+          studyCoverUrl: coverUrl,
+          studyUrl,
+          description,
+          sourceLabel,
+        }),
+      });
+
+      try {
+        await recordActivity('social_post', `Compartilhou o estudo ${studyToShare.title || 'sem titulo'} no Reino`);
+      } catch (activityError) {
+        console.warn('Estudo compartilhado, mas a atividade nao foi registrada.', activityError);
+      }
+
+      showNotification('Estudo compartilhado no Feed do Reino.', 'success');
+      setStudyToShare(null);
+      navigate('/social', { state: { refreshFeed: true } });
+    } catch (error) {
+      console.error(error);
+      showNotification('Erro ao compartilhar estudo no Feed.', 'error');
+    }
+  };
+
   return (
     <div className="h-full overflow-y-auto bg-gray-50 dark:bg-black/20 p-4 md:p-8">
       <SEO title="Workspace Pessoal" />
@@ -233,6 +278,10 @@ const SavedStudiesPage: React.FC = () => {
                   setDeleteType(activeTab === 'notes' ? 'note' : 'study');
                 }}
                 secondaryIcon={<Trash2 size={14} />}
+                onShare={activeTab === 'published' ? (e) => {
+                  e.stopPropagation();
+                  setStudyToShare(item);
+                } : undefined}
               />
             ))}
           </div>
@@ -247,6 +296,15 @@ const SavedStudiesPage: React.FC = () => {
         message="Tem certeza? Esta acao nao pode ser desfeita."
         variant="danger"
         confirmText="Excluir"
+      />
+
+      <PromptModal
+        isOpen={!!studyToShare}
+        onClose={() => setStudyToShare(null)}
+        onConfirm={handleShareStudy}
+        title="Compartilhar Estudo"
+        label={studyToShare?.title || 'Estudo'}
+        placeholder="Escreva uma descrição breve para edificar quem verá no Feed do Reino..."
       />
     </div>
   );

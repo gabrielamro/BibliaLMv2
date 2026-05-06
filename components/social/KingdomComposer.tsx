@@ -217,7 +217,11 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
         }
 
         await dbService.createPost(postData);
-        await recordActivity('social_post', 'Fez uma publicação no Reino');
+        try {
+            await recordActivity('social_post', 'Fez uma publicação no Reino');
+        } catch (activityError) {
+            console.warn("Post publicado, mas a atividade não foi registrada.", activityError);
+        }
         showNotification("Publicado com sucesso!", "success");
         resetForm();
         onPostSuccess();

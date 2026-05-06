@@ -152,13 +152,13 @@ const WorkspaceOnePage: React.FC = () => {
       </section>
 
       {/* Planos & Salas */}
-      <section className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-800">
+      <section className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2rem] shadow-sm border border-purple-100 dark:border-purple-900/40">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <BookOpen className="text-bible-gold" /> Planos & Salas
+            <BookOpen className="text-purple-700 dark:text-violet-300" /> Planos & Salas
           </h2>
           {plans.length > 3 && (
-            <button onClick={() => setShowAllPlans(!showAllPlans)} className="text-sm font-bold text-bible-gold hover:underline flex items-center gap-1">
+            <button onClick={() => setShowAllPlans(!showAllPlans)} className="text-sm font-bold text-purple-700 dark:text-violet-300 hover:underline flex items-center gap-1">
               {showAllPlans ? 'Ver Menos' : 'Ver Todos'} <ArrowRight size={16} />
             </button>
           )}
@@ -167,9 +167,9 @@ const WorkspaceOnePage: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div
             onClick={() => navigate('/criar-sala?type=sala')}
-            className="bg-gradient-to-br from-bible-gold/5 to-transparent p-6 rounded-[1.5rem] border-2 border-dashed border-bible-gold/30 flex flex-col items-start justify-center cursor-pointer hover:border-bible-gold hover:bg-bible-gold/10 transition-all min-h-[200px] group"
+            className="bg-gradient-to-br from-purple-50 to-transparent p-6 rounded-[1.5rem] border-2 border-dashed border-purple-200 flex flex-col items-start justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-100/70 transition-all min-h-[200px] group dark:from-purple-950/20 dark:border-purple-900/50"
           >
-            <div className="w-12 h-12 bg-bible-gold/20 rounded-xl flex items-center justify-center mb-4 text-bible-gold group-hover:scale-110 transition-transform">
+            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4 text-purple-700 group-hover:scale-110 transition-transform dark:bg-purple-950/40 dark:text-violet-300">
               <Plus size={24} />
             </div>
             <h3 className="font-bold text-gray-900 dark:text-white text-base">Nova Sala</h3>
@@ -186,14 +186,14 @@ const WorkspaceOnePage: React.FC = () => {
                 if ((e.target as HTMLElement).closest('button')) return;
                 navigate(`/jornada/${plan.id}`);
               }}
-              className="bg-white dark:bg-bible-darkPaper rounded-[1.5rem] border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col overflow-hidden hover:shadow-md transition-shadow cursor-pointer hover:border-bible-gold group h-full"
+              className="bg-white dark:bg-bible-darkPaper rounded-[1.5rem] border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col overflow-hidden hover:shadow-md transition-shadow cursor-pointer hover:border-purple-400 group h-full"
             >
               <div className="h-28 bg-gray-100 dark:bg-gray-800 relative overflow-hidden shrink-0">
                 {plan.coverUrl ? (
                   <img src={plan.coverUrl} className="w-full h-full object-cover transition-transform group-hover:scale-105" alt={plan.title} />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-bible-gold/5">
-                    <BookOpen className="text-bible-gold/20" size={32} />
+                  <div className="w-full h-full flex items-center justify-center bg-purple-50 dark:bg-purple-950/20">
+                    <BookOpen className="text-purple-700/25 dark:text-violet-300/30" size={32} />
                   </div>
                 )}
                 
@@ -211,7 +211,7 @@ const WorkspaceOnePage: React.FC = () => {
 
               <div className="p-4 flex flex-col justify-between flex-1">
                 <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-2 leading-tight mb-2 group-hover:text-bible-gold transition-colors">
+                  <h3 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-2 leading-tight mb-2 group-hover:text-purple-700 dark:group-hover:text-violet-300 transition-colors">
                     {plan.title}
                   </h3>
 
@@ -229,7 +229,7 @@ const WorkspaceOnePage: React.FC = () => {
 
                 <div className="mt-4 pt-3 border-t border-gray-50 dark:border-gray-800/50 flex justify-between items-center">
                   <button
-                    className="bg-gray-50 dark:bg-gray-800 group-hover:bg-bible-gold group-hover:text-white text-gray-700 dark:text-gray-300 font-bold px-3 py-1.5 text-xs rounded-lg flex items-center transition-colors w-full justify-center"
+                    className="bg-gray-50 dark:bg-gray-800 group-hover:bg-purple-700 dark:group-hover:bg-violet-500 group-hover:text-white text-gray-700 dark:text-gray-300 font-bold px-3 py-1.5 text-xs rounded-lg flex items-center transition-colors w-full justify-center"
                   >
                     Gerenciar Sala <ArrowRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
                   </button>

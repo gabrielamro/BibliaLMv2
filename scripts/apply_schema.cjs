@@ -138,9 +138,42 @@ create table if not exists public.churches (
   location_city text,
   location_state text,
   location_address text,
+  lat double precision,
+  lng double precision,
+  external_provider text,
+  external_place_id text,
+  source_attribution text,
+  verification_status text default 'unclaimed',
+  admins uuid[] default '{}',
+  teams jsonb default '[]',
+  team_scores jsonb default '{}',
   logo_url text,
   pastor_name text,
+  created_by uuid references public.profiles(id),
   created_at timestamptz default now()
+);
+
+alter table public.churches add column if not exists lat double precision;
+alter table public.churches add column if not exists lng double precision;
+alter table public.churches add column if not exists external_provider text;
+alter table public.churches add column if not exists external_place_id text;
+alter table public.churches add column if not exists source_attribution text;
+alter table public.churches add column if not exists verification_status text default 'unclaimed';
+alter table public.churches add column if not exists admins uuid[] default '{}';
+alter table public.churches add column if not exists teams jsonb default '[]';
+alter table public.churches add column if not exists team_scores jsonb default '{}';
+alter table public.churches add column if not exists created_by uuid references public.profiles(id);
+
+create table if not exists public.church_role_requests (
+  id uuid default gen_random_uuid() primary key,
+  church_id uuid references public.churches(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  requested_role text not null default 'pastor',
+  status text not null default 'pending',
+  requested_at timestamptz default now(),
+  reviewed_by uuid references public.profiles(id),
+  reviewed_at timestamptz,
+  unique (church_id, user_id, requested_role)
 );
 
 create table if not exists public.cells (
@@ -226,6 +259,14 @@ create table if not exists public.custom_plans (
   weeks jsonb default '[]',
   is_public boolean default false,
   privacy_type text default 'public',
+  privacy_level text default 'public',
+  allowed_group_ids jsonb default '[]',
+  allowed_user_ids jsonb default '[]',
+  invite_required boolean default false,
+  allow_pdf_download boolean default false,
+  share_slug text,
+  last_shared_at timestamptz,
+  created_from_context text default 'user',
   is_ranked boolean default false,
   status text default 'draft',
   church_id uuid references public.churches(id),
@@ -343,6 +384,19 @@ create table if not exists public.daily_devotionals (
   prayer text,
   created_at timestamptz default now()
 );
+
+create table if not exists public.user_devotionals (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) not null,
+  content_id text not null,
+  is_amen boolean default false,
+  reflection text,
+  created_at timestamptz default now(),
+  unique (user_id, content_id)
+);
+
+create index if not exists user_devotionals_user_created_at_idx
+  on public.user_devotionals (user_id, created_at desc);
 
 create table if not exists public.user_teams (
   id uuid default gen_random_uuid() primary key,

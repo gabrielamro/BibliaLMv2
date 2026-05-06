@@ -58,7 +58,7 @@ const ChurchOnboardingPage: React.FC = () => {
   const searchTimeoutRef = useRef<any>(null);
 
   // Verificação de Licença: Fiel (silver) ou Visionário (gold)
-  const canRegisterChurch = userProfile?.subscriptionTier === 'silver' || userProfile?.subscriptionTier === 'gold';
+  const canRegisterChurch = true; // Liberado para todos no momento
 
   useEffect(() => {
     if (state) {
@@ -102,7 +102,7 @@ const ChurchOnboardingPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-        const results = await dbService.searchChurches(searchTerm, city, state);
+        const results = await dbService.searchChurches(searchTerm, city, state, { includeExternal: true });
         setSearchResults(results);
         setStep(2);
     } catch (e: any) {
@@ -145,13 +145,18 @@ const ChurchOnboardingPage: React.FC = () => {
   };
 
   const selectExistingChurch = async (church: ChurchType) => {
-      setSelectedChurch(church);
+      if (!currentUser) { navigate('/login'); return; }
       setLoading(true);
       try {
-          const churchGroups = await dbService.getChurchRootGroups(church.id);
+          const resolvedChurch = await dbService.resolveChurchForMembership(currentUser.uid, church as any);
+          setSelectedChurch(resolvedChurch);
+          const churchGroups = await dbService.getChurchRootGroups(resolvedChurch.id);
           setGroups(churchGroups);
           setStep(3);
-      } catch(e) { console.error(e); }
+      } catch(e) {
+          console.error(e);
+          showNotification("Erro ao selecionar igreja.", "error");
+      }
       setLoading(false);
   };
 
@@ -190,20 +195,9 @@ const ChurchOnboardingPage: React.FC = () => {
       if (!currentUser || !selectedChurch) return;
       setLoading(true);
       try {
-          await dbService.updateUserProfile(currentUser.uid, {
-              churchData: {
-                  churchId: selectedChurch.id,
-                  churchName: selectedChurch.name,
-                  churchSlug: selectedChurch.slug,
-                  groupId: selectedGroup?.id,
-                  groupName: selectedGroup?.name,
-                  groupSlug: selectedGroup?.slug,
-                  teamColor: selectedTeam || null,
-                  isAnonymous: false
-              }
-          });
+          const resolvedChurch = await dbService.joinChurch(currentUser.uid, selectedChurch as any, selectedGroup, selectedTeam || null);
           await earnMana('daily_goal');
-          navigate(`/social/igreja/${selectedChurch.slug}`);
+          navigate(`/social/igreja/${resolvedChurch.slug}`);
       } catch (e) {
           showNotification("Erro ao concluir vínculo.", "error");
       } finally {
@@ -275,7 +269,12 @@ const ChurchOnboardingPage: React.FC = () => {
                                       <span className="text-[10px] font-black uppercase text-gray-400">{church.denomination || 'Cristã'}</span>
                                   </div>
                               </div>
-                              <ChevronRight size={20} className="text-gray-300 group-hover:text-bible-gold transition-colors" />
+                              <div className="flex flex-col items-end gap-1">
+                                  {church.isExternal && (
+                                      <span className="rounded-full bg-blue-50 px-2 py-1 text-[8px] font-black uppercase text-blue-600">Web</span>
+                                  )}
+                                  <span className="text-[10px] font-black uppercase text-bible-gold">Sou membro</span>
+                              </div>
                           </div>
                       )) : (
                           <div className="text-center py-10 bg-white dark:bg-bible-darkPaper rounded-[2rem] border-2 border-dashed border-gray-200 dark:border-gray-800">
@@ -283,25 +282,15 @@ const ChurchOnboardingPage: React.FC = () => {
                           </div>
                       )}
 
+                      {searchResults.some(church => church.sourceAttribution) && (
+                          <p className="px-2 text-center text-[10px] font-medium text-gray-400">
+                              Resultados externos: Data (c) OpenStreetMap contributors.
+                          </p>
+                      )}
+
                       {/* SEÇÃO DE CADASTRO COM TRAVA DE LICENÇA */}
                       <div className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-xl border border-gray-100 dark:border-gray-800 space-y-6 mt-10 relative overflow-hidden">
-                          {!canRegisterChurch && (
-                              <div className="absolute inset-0 bg-white/80 dark:bg-bible-darkPaper/80 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
-                                  <div className="w-16 h-16 bg-bible-gold/10 text-bible-gold rounded-full flex items-center justify-center mb-4 border border-bible-gold/20">
-                                      <Crown size={32} />
-                                  </div>
-                                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Fundação de Comunidade</h3>
-                                  <p className="text-sm text-gray-500 mb-6 max-w-xs">
-                                      Para fundar e gerenciar uma nova igreja no BíbliaLM, você precisa do <strong>Plano Fiel</strong> ou superior.
-                                  </p>
-                                  <button 
-                                    onClick={() => navigate('/planos')}
-                                    className="px-8 py-3 bg-bible-leather dark:bg-bible-gold text-white dark:text-black font-black uppercase tracking-widest rounded-xl shadow-lg flex items-center gap-2 hover:scale-105 transition-transform"
-                                  >
-                                      <Zap size={16} fill="currentColor" /> Ver Planos Premium
-                                  </button>
-                              </div>
-                          )}
+                          {/* Bloqueio removido temporariamente */}
 
                           <h3 className="font-bold text-xl text-gray-900 dark:text-white flex items-center gap-3">
                             <Plus size={20} className="text-green-500" /> Cadastrar Minha Igreja

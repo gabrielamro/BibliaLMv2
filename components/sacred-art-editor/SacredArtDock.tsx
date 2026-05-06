@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Download, ImageIcon, Palette, Sparkles, Type } from 'lucide-react';
+import { Download, ImageIcon, Palette, Send, Sparkles, Type } from 'lucide-react';
 
 import {
   DESKTOP_DOCK_POSITION_CLASS,
@@ -14,6 +14,8 @@ interface SacredArtDockProps {
   activeControlTab: EditorControlTab;
   setActiveControlTab: React.Dispatch<React.SetStateAction<EditorControlTab>>;
   onDownload: () => void;
+  onPostToFeed?: () => void;
+  canPostToFeed?: boolean;
   isStatic?: boolean;
 }
 
@@ -28,6 +30,8 @@ export default function SacredArtDock({
   activeControlTab,
   setActiveControlTab,
   onDownload,
+  onPostToFeed,
+  canPostToFeed = false,
   isStatic = false,
 }: SacredArtDockProps) {
   return (
@@ -50,9 +54,21 @@ export default function SacredArtDock({
         <button
           onClick={onDownload}
           className="bg-white dark:bg-white/10 p-3 rounded-full text-bible-gold hover:scale-110 transition-transform shadow-sm"
+          title="Baixar arte"
         >
           <Download size={18} />
         </button>
+        {onPostToFeed && (
+          <button
+            onClick={onPostToFeed}
+            disabled={!canPostToFeed}
+            className="bg-bible-gold px-4 py-3 rounded-full text-black hover:scale-[1.03] active:scale-95 transition-transform shadow-sm disabled:opacity-40 disabled:hover:scale-100 flex items-center justify-center gap-2 min-w-[150px] md:min-w-[128px]"
+            title="Postar no Reino"
+          >
+            <Send size={18} />
+            <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Postar no Reino</span>
+          </button>
+        )}
       </div>
     </div>
   );

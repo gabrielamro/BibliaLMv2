@@ -5,7 +5,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 
 import Link from "next/link";
 import { dbService, uploadBlob } from '../../services/supabase';
-import { Church, UserProfile, ChurchGroup, PrayerRequest } from '../../types';
+import { Church, UserProfile, ChurchGroup, PrayerRequest, GroupPrivacy } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   Loader2, MapPin, Users, Shield, ArrowLeft, Trophy, LogIn, 
@@ -18,6 +18,15 @@ import { useHeader } from '../../contexts/HeaderContext';
 import SEO from '../../components/SEO';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import PromptModal from '../../components/PromptModal';
+import { addGroupInviteParticipant, removeGroupInviteParticipant } from '../../utils/groupInviteSelection';
+import { normalizeUserSearchQuery, shouldSearchUsers } from '../../utils/userSearchQuery';
+import { buildCreateContentShortcutUrl } from '../../utils/contentPrivacy';
+import { generateSlug } from '../../utils/textUtils';
+
+const formatRuntimeError = (error: unknown) => {
+    if (error instanceof Error) return error.message;
+    try { return JSON.stringify(error); } catch { return String(error); }
+};
 
 // Novo componente para exibir reações como respostas
 const ResponseList = ({ prayer }: { prayer: PrayerRequest }) => {
@@ -99,30 +108,43 @@ const ChurchProfilePage: React.FC = () => {
   const [loadingPeople, setLoadingPeople] = useState(false);
 
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [isSavingGroup, setIsSavingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupLeader, setNewGroupLeader] = useState('');
   const [newGroupParentId, setNewGroupParentId] = useState('');
+  const [newGroupPrivacy, setNewGroupPrivacy] = useState<GroupPrivacy>('public');
+  const [privateGroupParticipantQuery, setPrivateGroupParticipantQuery] = useState('');
+  const [privateGroupParticipantResults, setPrivateGroupParticipantResults] = useState<UserProfile[]>([]);
+  const [selectedPrivateGroupParticipants, setSelectedPrivateGroupParticipants] = useState<UserProfile[]>([]);
+  const [isSearchingPrivateGroupParticipant, setIsSearchingPrivateGroupParticipant] = useState(false);
   const [leaderResults, setLeaderResults] = useState<UserProfile[]>([]);
   const [isSearchingLeader, setIsSearchingLeader] = useState(false);
   const [selectedLeader, setSelectedLeader] = useState<UserProfile | null>(null);
   const searchTimeoutRef = useRef<any>(null);
+  const participantSearchTimeoutRef = useRef<any>(null);
+  const isSavingGroupRef = useRef(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUpdatingLogo, setIsUpdatingLogo] = useState(false);
+  const [isRequestingResponsibility, setIsRequestingResponsibility] = useState(false);
 
   // Modal States
   const [prayerToEdit, setPrayerToEdit] = useState<PrayerRequest | null>(null);
   const [prayerToDelete, setPrayerToDelete] = useState<string | null>(null);
+  const [groupToDelete, setGroupToDelete] = useState<ChurchGroup | null>(null);
+  const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [isEditingPastor, setIsEditingPastor] = useState(false);
 
   const isSocialMode = location.pathname.startsWith('/social');
   const basePath = isSocialMode ? '/social' : '';
+  const currentUserId = currentUser?.uid || currentUser?.id;
 
   const loadChurchData = useCallback(async () => {
       if (!churchSlug) return;
+      const decodedSlug = decodeURIComponent(churchSlug);
       setLoading(true);
       try {
-          const data = await dbService.getChurchBySlug(churchSlug);
+          const data = await dbService.getChurchBySlug(decodedSlug);
           if (data) {
               setChurch(data);
               
@@ -130,24 +152,36 @@ const ChurchProfilePage: React.FC = () => {
                   dbService.checkIsFollowing(currentUser.uid, data.id).then(setIsFollowing).catch(() => {});
               }
 
+              try {
+                  const counts = await dbService.getChurchCommunityCounts(data.id);
+                  setChurch(current => current ? {
+                      ...current,
+                      stats: {
+                          ...current.stats,
+                          memberCount: counts.memberCount,
+                          followersCount: counts.followersCount,
+                      }
+                  } : current);
+              } catch (err) { console.error("Erro ao carregar contadores da igreja:", formatRuntimeError(err)); }
+
               // Carregamento resiliente (try/catch individuais para não quebrar a página toda se um índice faltar)
               try {
                   const loadedGroups = await dbService.getChurchRootGroups(data.id);
                   setGroups(loadedGroups);
-              } catch (err) { console.error("Erro ao carregar grupos:", err); }
+              } catch (err) { console.error("Erro ao carregar grupos:", formatRuntimeError(err)); }
 
               try {
                   const loadedPrayers = await dbService.getUnifiedChurchMural(data.id);
                   setPrayers(loadedPrayers);
               } catch (err: any) { 
-                  console.error("Erro ao carregar mural (possível falta de índice):", err);
+                  console.error("Erro ao carregar mural (possivel falta de indice):", formatRuntimeError(err));
                   if (err.code === 'failed-precondition' || err.message.includes('index')) {
                       // Silently fail or log for admin - functionality unavailable until index built
                   }
               }
           }
       } catch (e) { 
-          console.error("Erro crítico ao carregar igreja:", e); 
+          console.error("Erro critico ao carregar igreja:", formatRuntimeError(e)); 
       } finally { 
           setLoading(false); 
       }
@@ -167,7 +201,7 @@ const ChurchProfilePage: React.FC = () => {
           ]);
           setMembers(mList);
           setFollowers(fList);
-      } catch (e) { console.error(e); }
+      } catch (e) { console.error(formatRuntimeError(e)); }
       finally { setLoadingPeople(false); }
   };
 
@@ -177,15 +211,15 @@ const ChurchProfilePage: React.FC = () => {
 
   useEffect(() => {
     const searchVal = newGroupLeader.trim();
-    if (searchVal.startsWith('@') && searchVal.length > 2) {
+    if (shouldSearchUsers(searchVal)) {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
       searchTimeoutRef.current = setTimeout(async () => {
         setIsSearchingLeader(true);
         try {
-          const results = await dbService.searchUsersByUsername(searchVal.substring(1));
+          const results = await dbService.searchUsersByUsername(normalizeUserSearchQuery(searchVal));
           setLeaderResults(results);
         } catch (e) {
-          console.error("Error searching for leader:", e);
+          console.error("Error searching for leader:", formatRuntimeError(e));
         } finally {
           setIsSearchingLeader(false);
         }
@@ -198,16 +232,59 @@ const ChurchProfilePage: React.FC = () => {
     };
   }, [newGroupLeader]);
 
+  useEffect(() => {
+    if (newGroupPrivacy !== 'private') {
+      setPrivateGroupParticipantQuery('');
+      setPrivateGroupParticipantResults([]);
+      return;
+    }
+
+    const searchVal = privateGroupParticipantQuery.trim();
+    if (shouldSearchUsers(searchVal)) {
+      if (participantSearchTimeoutRef.current) clearTimeout(participantSearchTimeoutRef.current);
+      participantSearchTimeoutRef.current = setTimeout(async () => {
+        setIsSearchingPrivateGroupParticipant(true);
+        try {
+          const results = await dbService.searchUsersByUsername(normalizeUserSearchQuery(searchVal));
+          setPrivateGroupParticipantResults(results.filter(user => user.uid !== currentUserId));
+        } catch (e) {
+          console.error("Error searching private group participant:", formatRuntimeError(e));
+        } finally {
+          setIsSearchingPrivateGroupParticipant(false);
+        }
+      }, 500);
+    } else {
+      setPrivateGroupParticipantResults([]);
+    }
+
+    return () => {
+      if (participantSearchTimeoutRef.current) clearTimeout(participantSearchTimeoutRef.current);
+    };
+  }, [currentUserId, newGroupPrivacy, privateGroupParticipantQuery]);
+
   const handleSelectLeader = (user: UserProfile) => {
     setSelectedLeader(user);
     setNewGroupLeader(user.displayName);
     setLeaderResults([]);
   };
 
+  const handleSelectPrivateGroupParticipant = (user: UserProfile) => {
+    setSelectedPrivateGroupParticipants(prev => addGroupInviteParticipant(prev, user));
+    setPrivateGroupParticipantQuery('');
+    setPrivateGroupParticipantResults([]);
+  };
+
   const handleFollowToggle = async () => {
       if (!currentUser || !church) { openLogin(); return; }
       const previous = isFollowing;
       setIsFollowing(!previous);
+      setChurch(current => current ? {
+          ...current,
+          stats: {
+              ...current.stats,
+              followersCount: Math.max(0, (current.stats.followersCount || 0) + (previous ? -1 : 1))
+          }
+      } : current);
       try {
           if (previous) {
               await dbService.unfollowChurch(currentUser.uid, church.id);
@@ -221,13 +298,37 @@ const ChurchProfilePage: React.FC = () => {
               await earnMana('social_follow');
               showNotification(`Você está seguindo ${church.name}`, "success");
           }
-      } catch (e) { setIsFollowing(previous); }
+      } catch (e) {
+          setIsFollowing(previous);
+          setChurch(current => current ? {
+              ...current,
+              stats: {
+                  ...current.stats,
+                  followersCount: Math.max(0, (current.stats.followersCount || 0) + (previous ? 1 : -1))
+              }
+          } : current);
+      }
   };
 
   const isMember = userProfile?.churchData?.churchId === church?.id;
-  const isOwner = currentUser && church?.admins?.includes(currentUser.uid);
+  const isOwner = currentUserId && church?.admins?.includes(currentUserId);
   const isVisionary = userProfile?.subscriptionTier === 'gold';
+  const canRequestResponsibility = isMember && !isOwner && (userProfile?.subscriptionTier === 'pastor' || userProfile?.subscriptionTier === 'admin' || userProfile?.subscriptionTier === 'gold');
   const canChangeLogo = isOwner || isVisionary;
+
+  const handleRequestResponsibility = async () => {
+      if (!currentUser || !church) { openLogin(); return; }
+      setIsRequestingResponsibility(true);
+      try {
+          await dbService.requestChurchResponsibility(currentUser.uid, church.id, userProfile?.subscriptionTier === 'admin' ? 'admin' : 'pastor');
+          showNotification("Solicitacao enviada. A equipe vai revisar o vinculo com a igreja.", "success");
+      } catch (error) {
+          console.error(formatRuntimeError(error));
+          showNotification("Nao foi possivel enviar a solicitacao.", "error");
+      } finally {
+          setIsRequestingResponsibility(false);
+      }
+  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!church || !e.target.files?.[0]) return;
@@ -278,6 +379,9 @@ const ChurchProfilePage: React.FC = () => {
         setNewPrayer('');
         showNotification("Publicado!", "success");
         await recordActivity('prayer_wall', 'Postou no mural da igreja');
+    } catch (error) {
+        console.error("Erro ao publicar no mural:", formatRuntimeError(error));
+        showNotification("Nao foi possivel publicar no mural.", "error");
     } finally {
         setIsPostingPrayer(false);
     }
@@ -303,7 +407,7 @@ const ChurchProfilePage: React.FC = () => {
         if (!isInterceding) {
             showNotification("Intercedendo!", "success");
         }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(formatRuntimeError(e)); }
   };
 
   const handleEditPrayer = (prayer: PrayerRequest) => {
@@ -327,7 +431,7 @@ const ChurchProfilePage: React.FC = () => {
   const confirmDeletePrayer = async () => {
     if (!prayerToDelete) return;
     try {
-        await dbService.deletePrayerRequest(prayerToDelete);
+        await dbService.deletePrayerRequest(prayerToDelete, { churchId: church?.id });
         setPrayers(prev => prev.filter(p => p.id !== prayerToDelete));
         showNotification("Mensagem removida.", "info");
     } catch (e) { showNotification("Erro ao excluir.", "error"); }
@@ -335,10 +439,12 @@ const ChurchProfilePage: React.FC = () => {
   };
 
   const handleCreateGroup = async () => {
-      if (!newGroupName.trim() || !church || !currentUser) return;
-      setLoading(true);
+      const currentUserId = currentUser?.uid || currentUser?.id;
+      if (!newGroupName.trim() || !church || !currentUserId || isSavingGroupRef.current) return;
+      isSavingGroupRef.current = true;
+      setIsSavingGroup(true);
       try {
-          const slug = church.slug + '-' + newGroupName.toLowerCase().replace(/\s+/g, '-');
+          const slug = church.slug + '-' + generateSlug(newGroupName);
           let finalLeaderName = newGroupLeader.trim() || "Liderança não definida";
           let leaderUid = selectedLeader?.uid || undefined;
           if (selectedLeader) finalLeaderName = selectedLeader.displayName;
@@ -348,29 +454,67 @@ const ChurchProfilePage: React.FC = () => {
               parentGroupId: newGroupParentId || undefined,
               name: newGroupName.trim(),
               slug,
+              privacy: newGroupPrivacy,
               stats: { memberCount: 1, totalMana: 0 },
               leaderName: finalLeaderName,
               leaderUid,
-              createdBy: currentUser.uid,
+              createdBy: currentUserId,
               createdAt: new Date().toISOString()
           };
 
           const id = await dbService.createCell(groupData);
+          const createdGroup = { id, ...groupData } as ChurchGroup;
           
           if (!newGroupParentId) {
-              setGroups(prev => [...prev, { id, ...groupData } as ChurchGroup]);
+              setGroups(prev => [...prev, createdGroup]);
+          }
+
+          if (newGroupPrivacy === 'private' && userProfile && selectedPrivateGroupParticipants.length > 0) {
+              try {
+                  await Promise.all(
+                      selectedPrivateGroupParticipants.map(participant =>
+                          dbService.createGroupAccessInvite(createdGroup, participant, userProfile, 'invite')
+                      )
+                  );
+              } catch (inviteError) {
+                  console.error("Erro ao enviar convites do grupo privado:", formatRuntimeError(inviteError));
+                  showNotification("Grupo criado, mas nao foi possivel enviar todos os convites.", "warning");
+              }
           }
           
           setIsCreatingGroup(false);
           setNewGroupName('');
           setNewGroupLeader('');
           setNewGroupParentId('');
+          setNewGroupPrivacy('public');
+          setPrivateGroupParticipantQuery('');
+          setPrivateGroupParticipantResults([]);
+          setSelectedPrivateGroupParticipants([]);
           setSelectedLeader(null);
           showNotification("Grupo criado com sucesso!", "success");
       } catch (e) {
-          showNotification("Erro ao criar grupo.", "error");
+          console.error("Erro ao criar grupo:", formatRuntimeError(e));
+          const message = formatRuntimeError(e);
+          showNotification(message.includes('Ja existe') ? message : "Erro ao criar grupo.", "error");
       } finally {
-          setLoading(false);
+          isSavingGroupRef.current = false;
+          setIsSavingGroup(false);
+      }
+  };
+
+  const handleDeleteGroup = async () => {
+      if (!groupToDelete || isDeletingGroup) return;
+      setIsDeletingGroup(true);
+      try {
+          await dbService.deleteCell(groupToDelete.id);
+          setGroups(prev => prev.filter(group => group.id !== groupToDelete.id));
+          showNotification("Grupo excluido.", "info");
+      } catch (e) {
+          console.error("Erro ao excluir grupo:", formatRuntimeError(e));
+          showNotification("Erro ao excluir grupo.", "error");
+      } finally {
+          setIsDeletingGroup(false);
+          setGroupToDelete(null);
       }
   };
 
@@ -475,7 +619,7 @@ const ChurchProfilePage: React.FC = () => {
 
                                 {!isMember && (
                                     <button 
-                                        onClick={() => navigate(`${basePath}/social/church`)}
+                                        onClick={() => navigate('/social/igrejas')}
                                         className="flex items-center gap-2 bg-bible-leather dark:bg-bible-gold text-white dark:text-black px-6 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:opacity-90 transition-all active:scale-95"
                                     >
                                         <LogIn size={16} />
@@ -488,6 +632,36 @@ const ChurchProfilePage: React.FC = () => {
                                         <UserCheck size={16} />
                                         Membro Ativo
                                     </div>
+                                )}
+
+                                {isMember && (
+                                    <>
+                                        <button
+                                            onClick={() => navigate(buildCreateContentShortcutUrl('/criar-sala', { scope: 'church', churchId: church.id, churchName: church.name }))}
+                                            className="flex items-center gap-2 bg-purple-50 text-purple-600 px-4 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest border border-purple-100 hover:bg-purple-100 transition-colors"
+                                        >
+                                            <Brain size={16} />
+                                            Criar sala
+                                        </button>
+                                        <button
+                                            onClick={() => navigate(buildCreateContentShortcutUrl('/criar-estudo', { scope: 'church', churchId: church.id, churchName: church.name }))}
+                                            className="flex items-center gap-2 bg-bible-gold/10 text-bible-gold px-4 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest border border-bible-gold/20 hover:bg-bible-gold/20 transition-colors"
+                                        >
+                                            <BookOpen size={16} />
+                                            Criar estudo
+                                        </button>
+                                    </>
+                                )}
+
+                                {canRequestResponsibility && (
+                                    <button
+                                        onClick={handleRequestResponsibility}
+                                        disabled={isRequestingResponsibility}
+                                        className="flex items-center gap-2 bg-bible-gold/10 text-bible-gold px-4 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest border border-bible-gold/20 disabled:opacity-60"
+                                    >
+                                        {isRequestingResponsibility ? <Loader2 size={16} className="animate-spin" /> : <UserCog size={16} />}
+                                        Sou responsavel
+                                    </button>
                                 )}
 
                                 <button 
@@ -566,7 +740,7 @@ const ChurchProfilePage: React.FC = () => {
                                             </div>
                                             <div><h4 className="font-bold text-sm text-gray-900 dark:text-white leading-tight">{prayer.userName}</h4><span className="text-[9px] text-gray-400 uppercase font-medium">{new Date(prayer.createdAt).toLocaleDateString()}</span></div>
                                         </div>
-                                        {currentUser?.uid === prayer.userId && (
+                                        {(currentUserId === prayer.userId || isOwner) && (
                                             <PostMenu prayer={prayer} onEdit={handleEditPrayer} onDelete={handleDeletePrayer} />
                                         )}
                                     </div>
@@ -611,6 +785,85 @@ const ChurchProfilePage: React.FC = () => {
                                         <input type="text" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="Ex: Betel ou Casa da Paz" className="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl outline-none focus:ring-2 ring-bible-gold font-bold" />
                                     </div>
 
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase ml-1 mb-1 block">Privacidade</label>
+                                        <select
+                                            value={newGroupPrivacy}
+                                            onChange={(e) => {
+                                                const privacy = e.target.value as GroupPrivacy;
+                                                setNewGroupPrivacy(privacy);
+                                                if (privacy === 'public') {
+                                                    setPrivateGroupParticipantQuery('');
+                                                    setPrivateGroupParticipantResults([]);
+                                                    setSelectedPrivateGroupParticipants([]);
+                                                }
+                                            }}
+                                            className="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl outline-none focus:ring-2 ring-bible-gold font-bold text-sm text-gray-700 dark:text-gray-200"
+                                        >
+                                            <option value="public">Público</option>
+                                            <option value="private">Privado</option>
+                                        </select>
+                                    </div>
+
+                                    {newGroupPrivacy === 'private' && (
+                                        <div className="relative">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase ml-1 mb-1 block">Participantes do Grupo Privado</label>
+                                            <div className="relative">
+                                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                                <input
+                                                    type="text"
+                                                    value={privateGroupParticipantQuery}
+                                                    onChange={(e) => setPrivateGroupParticipantQuery(e.target.value)}
+                                                    placeholder="Nome ou usuario que recebera convite"
+                                                    className="w-full pl-12 pr-10 p-4 bg-gray-50 dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-bible-gold font-bold"
+                                                />
+                                                {isSearchingPrivateGroupParticipant && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-bible-gold" size={18} />}
+                                            </div>
+
+                                            {selectedPrivateGroupParticipants.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 mt-3">
+                                                    {selectedPrivateGroupParticipants.map(user => (
+                                                        <span key={user.uid} className="inline-flex items-center gap-2 rounded-full bg-bible-gold/10 px-3 py-1.5 text-[10px] font-black uppercase text-bible-gold">
+                                                            @{user.username}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSelectedPrivateGroupParticipants(prev => removeGroupInviteParticipant(prev, user.uid))}
+                                                                aria-label={`Remover ${user.displayName}`}
+                                                                className="rounded-full p-0.5 hover:bg-bible-gold/20"
+                                                            >
+                                                                <X size={12} />
+                                                            </button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {privateGroupParticipantResults.length > 0 && (
+                                                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2">
+                                                    <div className="p-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700">
+                                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-2">Selecionar participante</span>
+                                                    </div>
+                                                    {privateGroupParticipantResults.map(user => (
+                                                        <button
+                                                            key={user.uid}
+                                                            type="button"
+                                                            onClick={() => handleSelectPrivateGroupParticipant(user)}
+                                                            className="w-full flex items-center gap-3 p-3 hover:bg-bible-gold/5 text-left transition-colors border-b border-gray-50 dark:border-gray-700 last:border-0"
+                                                        >
+                                                            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
+                                                                {user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <UserIcon size={16} className="m-auto mt-2 text-gray-400" />}
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">{user.displayName}</p>
+                                                                <p className="text-[10px] font-bold text-gray-400">@{user.username}</p>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     <div className="relative">
                                         <label className="text-[10px] font-black text-gray-400 uppercase ml-1 mb-1 block">Vincular a Grupo (Opcional)</label>
                                         <div className="relative">
@@ -639,7 +892,7 @@ const ChurchProfilePage: React.FC = () => {
                                                     setNewGroupLeader(e.target.value);
                                                     if (selectedLeader) setSelectedLeader(null);
                                                 }} 
-                                                placeholder="Nome ou @username" 
+                                                placeholder="Nome ou usuario" 
                                                 className={`w-full pl-12 pr-10 p-4 bg-gray-50 dark:bg-gray-900 rounded-2xl border outline-none focus:ring-2 ring-bible-gold font-bold ${selectedLeader ? 'border-bible-gold' : 'border-gray-200 dark:border-gray-700'}`} 
                                             />
                                             {isSearchingLeader && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-bible-gold" size={18} />}
@@ -660,7 +913,10 @@ const ChurchProfilePage: React.FC = () => {
                                                         <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
                                                             {user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <UserIcon size={16} className="m-auto mt-2 text-gray-400" />}
                                                         </div>
-                                                        <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">{user.displayName}</p>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">{user.displayName}</p>
+                                                            <p className="text-[10px] font-bold text-gray-400">@{user.username}</p>
+                                                        </div>
                                                     </button>
                                                 ))}
                                             </div>
@@ -668,15 +924,19 @@ const ChurchProfilePage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="flex gap-2 mt-6">
-                                    <button onClick={() => { setIsCreatingGroup(false); setSelectedLeader(null); setNewGroupLeader(''); setNewGroupParentId(''); }} className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-xl text-xs font-bold transition-colors">Cancelar</button>
-                                    <button onClick={handleCreateGroup} disabled={!newGroupName} className="flex-1 py-3 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-xl text-xs font-bold shadow-lg disabled:opacity-50 transition-all">Criar</button>
+                                    <button onClick={() => { setIsCreatingGroup(false); setSelectedLeader(null); setNewGroupLeader(''); setNewGroupParentId(''); setNewGroupPrivacy('public'); setPrivateGroupParticipantQuery(''); setPrivateGroupParticipantResults([]); setSelectedPrivateGroupParticipants([]); }} disabled={isSavingGroup} className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-xl text-xs font-bold transition-colors disabled:opacity-50">Cancelar</button>
+                                    <button onClick={handleCreateGroup} disabled={!newGroupName.trim() || isSavingGroup} className="flex-1 py-3 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-xl text-xs font-bold shadow-lg disabled:opacity-50 transition-all">
+                                        {isSavingGroup ? <Loader2 size={16} className="mx-auto animate-spin" /> : 'Criar'}
+                                    </button>
                                 </div>
                             </div>
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {groups.map(group => {
+                                const currentUserId = currentUser?.uid || currentUser?.id;
                                 const isMyGroup = userProfile?.churchData?.groupId === group.id;
+                                const canDeleteGroup = Boolean(currentUserId && (group.createdBy === currentUserId || group.leaderUid === currentUserId || isOwner));
                                 return (
                                     <div key={group.id} className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm group">
                                         <div className="flex justify-between items-start mb-4">
@@ -693,11 +953,14 @@ const ChurchProfilePage: React.FC = () => {
                                                     )}
                                                 </div>
                                             </div>
-                                            <span className="bg-purple-50 dark:bg-purple-900/20 text-purple-600 px-2 py-1 rounded text-[9px] font-black uppercase">{group.stats.memberCount} Membros</span>
+                                            <div className="flex flex-col items-end gap-1">
+                                                <span className="bg-purple-50 dark:bg-purple-900/20 text-purple-600 px-2 py-1 rounded text-[9px] font-black uppercase">{group.stats.memberCount} Membros</span>
+                                                {group.privacy === 'private' && <span className="bg-gray-100 dark:bg-gray-800 text-gray-500 px-2 py-1 rounded text-[8px] font-black uppercase">Privado</span>}
+                                            </div>
                                         </div>
                                         <div className="flex gap-2">
                                             <button 
-                                                onClick={() => navigate(`${basePath}/grupo/${group.slug}`)}
+                                                onClick={() => navigate(`${basePath}/grupo/${group.id}`)}
                                                 className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-bold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
                                             >
                                                 <MessageSquare size={14} /> Fórum
@@ -707,6 +970,16 @@ const ChurchProfilePage: React.FC = () => {
                                             )}
                                             {isMyGroup && (
                                                 <div className="flex-1 flex items-center justify-center gap-2 text-green-600 text-xs font-bold"><CheckCircle2 size={16}/> Meu Grupo</div>
+                                            )}
+                                            {canDeleteGroup && (
+                                                <button
+                                                    onClick={() => setGroupToDelete(group)}
+                                                    aria-label={`Excluir grupo ${group.name}`}
+                                                    className="px-3 py-2.5 bg-red-50 text-red-500 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors"
+                                                    title="Excluir grupo"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
                                             )}
                                         </div>
                                     </div>
@@ -827,6 +1100,18 @@ const ChurchProfilePage: React.FC = () => {
             title="Excluir Postagem"
             message="Deseja remover esta mensagem do mural do grupo?"
             confirmText="Sim, Excluir"
+            variant="danger"
+        />
+
+        <ConfirmationModal
+            isOpen={!!groupToDelete}
+            onClose={() => {
+                if (!isDeletingGroup) setGroupToDelete(null);
+            }}
+            onConfirm={handleDeleteGroup}
+            title="Excluir Grupo"
+            message={`Deseja remover o grupo "${groupToDelete?.name || ''}" desta igreja?`}
+            confirmText={isDeletingGroup ? "Excluindo..." : "Sim, Excluir"}
             variant="danger"
         />
     </div>

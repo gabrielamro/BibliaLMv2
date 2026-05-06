@@ -1,5 +1,6 @@
 import React from 'react';
 import { Eye, Share2, Image as ImageIcon, CheckCircle2, Lock, Calendar } from 'lucide-react';
+import { getContentIdentity } from '../../utils/contentIdentity';
 
 export interface CardBadge {
     label: string;
@@ -31,6 +32,7 @@ export interface StandardCardProps {
     date?: string;
     onPreview?: (e: React.MouseEvent) => void;
     onClick?: () => void;
+    contentKind?: 'study' | 'room' | 'plan';
 }
 
 const StandardCard: React.FC<StandardCardProps> = ({
@@ -52,24 +54,30 @@ const StandardCard: React.FC<StandardCardProps> = ({
     visibility,
     date,
     onPreview,
-    onClick
+    onClick,
+    contentKind
 }) => {
     const displayImage = coverUrl || imageUrl;
+    const identity = getContentIdentity(contentKind);
+    const roomMode = identity.kind === 'room';
+    const hoverTitle = roomMode ? 'group-hover:text-purple-700 dark:group-hover:text-violet-300' : 'group-hover:text-bible-gold';
+    const placeholderIcon = roomMode ? 'text-purple-700/30 dark:text-violet-300/30' : 'text-bible-gold/20';
+    const actionButton = progress !== undefined && progress >= 100 ? 'bg-green-600 text-white' : identity.primaryButton;
     return (
         <div 
             onClick={(e) => {
                 if (onPreview) onPreview(e);
                 else if (onClick) onClick();
             }}
-            className="bg-white dark:bg-bible-darkPaper rounded-[3rem] shadow-sm border border-gray-100 dark:border-gray-800 hover:border-bible-gold transition-all group cursor-pointer relative overflow-hidden flex flex-col h-full animate-in fade-in"
+            className={`bg-white dark:bg-bible-darkPaper rounded-[3rem] shadow-sm border border-gray-100 dark:border-gray-800 ${identity.hoverBorder} transition-all group cursor-pointer relative overflow-hidden flex flex-col h-full animate-in fade-in`}
         >
             {/* Thumbnail Area */}
             <div className="h-40 bg-gray-100 dark:bg-gray-900 relative overflow-hidden">
                 {displayImage ? (
                     <img src={displayImage} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt={title} />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-bible-gold/5">
-                        <ImageIcon className="text-bible-gold/20" size={48} />
+                    <div className={`w-full h-full flex items-center justify-center ${identity.surface}`}>
+                        <ImageIcon className={placeholderIcon} size={48} />
                     </div>
                 )}
                 
@@ -91,7 +99,7 @@ const StandardCard: React.FC<StandardCardProps> = ({
                 {progress !== undefined && (
                     <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/20 backdrop-blur-sm">
                         <div 
-                            className={`h-full transition-all duration-1000 ${progress >= 100 ? 'bg-green-500' : 'bg-bible-gold'}`} 
+                            className={`h-full transition-all duration-1000 ${progress >= 100 ? 'bg-green-500' : roomMode ? 'bg-purple-700 dark:bg-violet-500' : 'bg-bible-gold'}`} 
                             style={{ width: `${progress}%` }}
                         />
                     </div>
@@ -110,7 +118,7 @@ const StandardCard: React.FC<StandardCardProps> = ({
                         ))}
                     </div>
 
-                    <h3 className="text-lg font-serif font-bold text-gray-900 dark:text-white line-clamp-2 leading-tight mb-2 group-hover:text-bible-gold transition-colors">
+                    <h3 className={`text-lg font-serif font-bold text-gray-900 dark:text-white line-clamp-2 leading-tight mb-2 ${hoverTitle} transition-colors`}>
                         {title}
                     </h3>
                     <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
@@ -121,7 +129,7 @@ const StandardCard: React.FC<StandardCardProps> = ({
                 {/* Author & Info */}
                 {author && (
                      <p className="text-[10px] text-gray-400 font-bold uppercase mb-4">
-                         Por: <span className="text-bible-gold">{author}</span>
+                         Por: <span className={identity.accent}>{author}</span>
                      </p>
                 )}
                  
@@ -136,7 +144,7 @@ const StandardCard: React.FC<StandardCardProps> = ({
                 <div className="mt-auto pt-4 border-t border-gray-50 dark:border-gray-800 flex items-center justify-between text-xs text-gray-400">
                     <div className="flex items-center gap-3">
                         {progress !== undefined ? (
-                            <span className={`font-bold ${progress >= 100 ? 'text-green-600' : 'text-bible-gold'}`}>
+                            <span className={`font-bold ${progress >= 100 ? 'text-green-600' : identity.accent}`}>
                                 {progress >= 100 ? 'Concluído' : `${Math.round(progress)}%`}
                             </span>
                         ) : (
@@ -157,21 +165,21 @@ const StandardCard: React.FC<StandardCardProps> = ({
 
                     <div className="flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                         {onPreview && (
-                            <button onClick={(e) => { e.stopPropagation(); onPreview(e); }} className="p-1.5 bg-bible-gold/10 text-bible-gold rounded hover:bg-bible-gold hover:text-white transition-colors" title="Visualizar">
+                            <button onClick={(e) => { e.stopPropagation(); onPreview(e); }} className={`p-1.5 rounded transition-colors ${identity.softButton}`} title="Visualizar">
                                 <Eye size={14} />
                             </button>
                         )}
                         {onShare && (
-                            <button onClick={(e) => { e.stopPropagation(); onShare(e); }} className="p-1.5 bg-bible-gold/10 text-bible-gold rounded hover:bg-bible-gold hover:text-white transition-colors" title="Compartilhar link">
+                            <button onClick={(e) => { e.stopPropagation(); onShare(e); }} className={`p-1.5 rounded transition-colors ${identity.softButton}`} title="Compartilhar link">
                                 <Share2 size={14} />
                             </button>
                         )}
                         {onSecondaryAction && (
-                            <button onClick={(e) => { e.stopPropagation(); onSecondaryAction(e); }} className="p-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded hover:bg-bible-gold hover:text-white transition-colors">
+                            <button onClick={(e) => { e.stopPropagation(); onSecondaryAction(e); }} className={`p-1.5 rounded transition-colors ${identity.secondaryButton}`}>
                                 {secondaryIcon || <Share2 size={14} />}
                             </button>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); onAction(e); }} className={`px-3 py-1.5 text-white dark:text-black rounded-lg font-bold text-[10px] uppercase tracking-widest hover:opacity-90 transition-opacity ${progress !== undefined && progress >= 100 ? 'bg-green-600' : 'bg-bible-leather dark:bg-bible-gold'}`}>
+                        <button onClick={(e) => { e.stopPropagation(); onAction(e); }} className={`px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-opacity ${actionButton}`}>
                             {progress !== undefined && progress >= 100 ? 'Revisar' : actionLabel}
                         </button>
                     </div>

@@ -79,22 +79,20 @@ export default function SacredArtCanvas({
       fontSizeScale: editOptions.fontSizeScale,
     });
   }, [editOptions.aspectRatio, canvasSize, editOptions.fontSizeScale]);
+  const textBlockWidth = canvasSize.width * (textLayout.contentWidthPercent / 100);
 
   // Internal layout adjustment for the text group (centering and reference positioning)
   useLayoutEffect(() => {
     if (foundVerse && verseTextRef.current && refTextRef.current && textGroupRef.current) {
       const verseHeight = verseTextRef.current.height();
-      refTextRef.current.y(verseHeight + 20);
-      
-      const width = canvasSize.width * (textLayout.contentWidthPercent / 100);
-      verseTextRef.current.width(width);
-      refTextRef.current.width(width);
+      refTextRef.current.y(verseHeight + textLayout.referenceGapPx);
 
       const box = textGroupRef.current.getClientRect({ skipTransform: true });
       textGroupRef.current.offsetX(box.width / 2 + box.x);
       textGroupRef.current.offsetY(box.height / 2 + box.y);
+      textGroupRef.current.getLayer()?.batchDraw();
     }
-  }, [foundVerse, canvasSize, textLayout, editOptions.fontFamily, editOptions.alignment, Konva]);
+  }, [foundVerse, canvasSize, textLayout, textBlockWidth, editOptions.fontFamily, editOptions.alignment, Konva]);
 
   // Transformer node management
   useEffect(() => {
@@ -226,8 +224,8 @@ export default function SacredArtCanvas({
           </div>
           <div className="space-y-3">
             <h3 className="text-2xl font-serif font-black text-white tracking-tight uppercase">Crie sua Obra-Prima</h3>
-            <p className="text-sm text-gray-400 max-w-xs leading-relaxed">
-              Busque um versículo acima e use a força do <span className="text-bible-gold font-bold">Nano Banana IA</span> para dar vida às Escrituras.
+            <p className="text-base text-gray-300 max-w-sm leading-relaxed">
+              Busque um versículo acima e use a força do <span className="text-bible-gold font-bold underline decoration-bible-gold/30 underline-offset-4">Nano Banana IA</span> para dar vida às Escrituras.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -356,13 +354,15 @@ export default function SacredArtCanvas({
             >
               <KonvaText
                 ref={verseTextRef}
+                x={-textBlockWidth / 2}
+                width={textBlockWidth}
                 text={`“${foundVerse.text}”`}
                 align={editOptions.alignment}
                 fontFamily={editOptions.fontFamily}
                 fontSize={textLayout.verseFontSizePx}
                 fill={editOptions.textColor}
                 fontStyle="bold"
-                lineHeight={1.4}
+                lineHeight={textLayout.verseLineHeight}
                 shadowColor="rgba(0,0,0,0.8)"
                 shadowBlur={15}
                 shadowOffset={{ x: 0, y: 4 }}
@@ -370,6 +370,8 @@ export default function SacredArtCanvas({
               />
               <KonvaText
                 ref={refTextRef}
+                x={-textBlockWidth / 2}
+                width={textBlockWidth}
                 text={foundVerse.ref.toUpperCase()}
                 align={editOptions.alignment}
                 fontFamily="Inter, sans-serif"
@@ -434,7 +436,7 @@ export default function SacredArtCanvas({
         {/* Layer 5: Watermark / Branding */}
         <Layer listening={false}>
           <KonvaText
-            text="BíbliaLM App"
+            text="BibliaLM App"
             x={0}
             y={canvasSize.height - (editOptions.aspectRatio === 'story' ? 40 : 30)}
             width={canvasSize.width}

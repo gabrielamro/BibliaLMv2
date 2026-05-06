@@ -48,7 +48,7 @@ const PlanStudioShell: React.FC<PlanStudioShellProps> = (props) => {
   const showEvaluation = props.activeTab === 'evaluation';
 
   return (
-    <div className="min-h-[100dvh] bg-[#f3efe7] text-gray-950 dark:bg-black dark:text-white">
+    <div className="min-h-[100dvh] bg-purple-50/70 text-gray-950 dark:bg-black dark:text-white">
       <PlanStudioHeader
         plan={props.plan}
         savedPlanId={props.savedPlanId}

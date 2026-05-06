@@ -14,13 +14,13 @@ export const DESKTOP_DOCK_POSITION_CLASS = 'md:left-auto md:right-10 md:top-1/2 
 export const MOBILE_DOCK_POSITION_CLASS = 'left-1/2 -translate-x-1/2';
 export const FONT_SCALE_LIMITS = {
   min: 0.1,
-  max: 20,
+  max: 4,
   step: 0.1,
 } as const;
 export const VERSE_FONT_PX_LIMITS = {
-  min: 2,
-  default: 24,
-  max: 1000,
+  min: 12,
+  default: 20,
+  max: 96,
 } as const;
 export const TOP_SEARCH_BAR_WIDTH_CLASS = 'w-full max-w-[520px]';
 
@@ -51,8 +51,8 @@ function getBaseVerseSize({
   const height = Math.max(containerHeight, 1);
 
   return Math.min(
-    width * (aspectRatio === 'story' ? 0.075 : 0.074),
-    height * (aspectRatio === 'story' ? 0.043 : 0.076)
+    width * (aspectRatio === 'story' ? 0.062 : 0.074),
+    height * (aspectRatio === 'story' ? 0.038 : 0.076)
   );
 }
 
@@ -67,14 +67,22 @@ export function getResponsiveTextLayout({
     containerWidth,
     containerHeight,
   });
-  const verseFontSizePx = Math.round(baseVerseSize * fontSizeScale);
-  const referenceFontSizePx = Math.round(verseFontSizePx * 0.5);
+  const verseFontSizePx = Math.round(clamp(
+    baseVerseSize * fontSizeScale,
+    VERSE_FONT_PX_LIMITS.min,
+    VERSE_FONT_PX_LIMITS.max
+  ));
+  const referenceFontSizePx = Math.max(10, Math.round(verseFontSizePx * 0.42));
+  const referenceGapPx = Math.max(18, Math.round(verseFontSizePx * 0.55));
 
   return {
     verseFontSizePx,
     referenceFontSizePx,
+    referenceGapPx,
+    verseLineHeight: 1.22,
     contentWidthPercent: aspectRatio === 'story' ? 88 : 84,
     contentPaddingPx: aspectRatio === 'story' ? 24 : 20,
+    maxTextBlockHeightPercent: aspectRatio === 'story' ? 52 : 58,
   };
 }
 
@@ -94,5 +102,5 @@ export function getFontScaleFromVersePx({
     return 1;
   }
 
-  return targetVerseFontPx / baseVerseSize;
+  return clamp(targetVerseFontPx, VERSE_FONT_PX_LIMITS.min, VERSE_FONT_PX_LIMITS.max) / baseVerseSize;
 }

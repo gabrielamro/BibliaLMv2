@@ -104,20 +104,21 @@ const PublicUserProfilePage: React.FC = () => {
         }
 
         if (!paramUsername) return;
-        if (paramUsername.includes('.') || paramUsername === 'assets' || paramUsername === 'static') {
+        const decodedUsername = decodeURIComponent(paramUsername);
+        if (decodedUsername.includes('.') || decodedUsername === 'assets' || decodedUsername === 'static') {
             setLoading(false);
             setNotFound(true);
             return;
         }
 
-        if (myProfile && myProfile.username === paramUsername) {
+        if (myProfile && myProfile.username === decodedUsername) {
              setProfile(myProfile);
              setLoading(false);
              fetchUserData(myProfile.uid);
              return;
         }
 
-        const user = await dbService.getUserByUsername(paramUsername);
+        const user = await dbService.getUserByUsername(decodedUsername);
         if (!user || user.isProfilePublic === false) {
             setNotFound(true);
         } else {
@@ -250,7 +251,21 @@ const PublicUserProfilePage: React.FC = () => {
                                       </div>
                                   )}
                                </div>
-                               <p className="text-xs font-bold text-gray-400">@{profile.username}</p>
+                               <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-xs font-bold text-gray-400">
+                                  <span>@{profile.username}</span>
+                                  {profile.churchData?.churchName && (
+                                      <button
+                                        type="button"
+                                        onClick={() => profile.churchData?.churchSlug && navigate(`/social/igreja/${profile.churchData.churchSlug}`)}
+                                        className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-bible-gold/10 px-3 text-[10px] font-black uppercase tracking-widest text-bible-gold transition-all hover:bg-bible-gold hover:text-white disabled:cursor-default disabled:opacity-70"
+                                        disabled={!profile.churchData?.churchSlug}
+                                        title="Ir para a pagina da igreja"
+                                      >
+                                          <Church size={12} />
+                                          <span className="max-w-[180px] truncate">{profile.churchData.churchName}</span>
+                                      </button>
+                                  )}
+                               </div>
                           </div>
                           <button 
                               onClick={isOwner ? () => navigate('/complete-profile') : handleFollowToggle}
@@ -320,7 +335,6 @@ const PublicUserProfilePage: React.FC = () => {
                                   { id: 'notifications', label: 'Avisos', icon: <Bell size={14} /> },
                                   { id: 'appearance', label: 'Visual', icon: <Palette size={14} /> },
                                   { id: 'privacy', label: 'Segurança', icon: <Shield size={14} /> },
-                                  { id: 'subscription', label: 'Plano', icon: <Crown size={14} /> }
                               ].map(sTab => (
                                   <button
                                       key={sTab.id}

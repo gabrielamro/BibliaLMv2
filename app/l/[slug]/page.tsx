@@ -177,8 +177,9 @@ const PublicBlock: React.FC<{ block: Block }> = ({ block }) => {
   }
 };
 
-export default function PublicContentPage({ params }: { params: { slug: string } }) {
-  const { slug } = params;
+export default function PublicContentPage() {
+  const routeParams = useParams<{ slug: string }>();
+  const slug = routeParams?.slug;
   const [content, setContent] = useState<PublicContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);

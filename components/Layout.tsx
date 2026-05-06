@@ -341,7 +341,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* Mobile Header - Hidden in Focus Mode / Home */}
             <header
-                className={`md:hidden flex items-center justify-between px-4 py-3 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 absolute top-0 left-0 right-0 z-[60] h-[var(--mobile-header-height)] pt-safe transition-transform duration-300 ease-in-out ${showHeader ? 'translate-y-0' : '-translate-y-full'
+                className={`md:hidden flex items-center justify-between px-4 py-3 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 absolute top-0 left-0 right-0 z-[120] h-[var(--mobile-header-height)] pt-safe transition-transform duration-300 ease-in-out ${showHeader ? 'translate-y-0' : '-translate-y-full'
                     } ${showMobileShell ? '' : '!hidden'}`}
             >
                 <div className="flex items-center gap-3 z-10 flex-1 overflow-hidden">
@@ -398,7 +398,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                                 )}
                             </button>
                             {isNotifDropdownOpen && (
-                                <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50 animate-in fade-in zoom-in-95 origin-top-right">
+                            <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[130] animate-in fade-in zoom-in-95 origin-top-right">
                                     <div className="p-3 border-b border-gray-50 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-black/20">
                                         <span className="font-bold text-xs">Notificações</span>
                                         <button onClick={markNotificationsAsRead} className="text-[10px] text-bible-gold hover:underline font-bold uppercase">Limpar</button>
@@ -429,7 +429,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                             <Settings size={20} />
                         </button>
                         {isSettingsMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[100] animate-in fade-in zoom-in-95 origin-top-right">
+                            <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[130] animate-in fade-in zoom-in-95 origin-top-right">
                                 {renderSettingsDropdown()}
                             </div>
                         )}
@@ -468,7 +468,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     )}
 
                     {/* Desktop Header - Hidden in Focus Mode / Home */}
-                    <header className={`hidden md:flex items-center justify-between px-8 py-4 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 z-40 shrink-0 h-20 ${isFocusMode || isCustomHomeShell || isHeaderHidden ? '!hidden' : ''}`}>
+                    <header className={`hidden md:flex sticky top-0 items-center justify-between px-8 py-4 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 z-[120] shrink-0 h-20 ${isFocusMode || isCustomHomeShell || isHeaderHidden ? '!hidden' : ''}`}>
                         <div className="flex items-center gap-4">
                             {showBackButton && (
                                 <button onClick={() => navigate(-1)} className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
@@ -525,7 +525,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                                         )}
                                     </button>
                                     {isNotifDropdownOpen && (
-                                        <div className="absolute right-0 mt-4 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50 animate-in fade-in zoom-in-95 origin-top-right">
+                                        <div className="absolute right-0 mt-4 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[130] animate-in fade-in zoom-in-95 origin-top-right">
                                             <div className="p-4 border-b border-gray-50 dark:border-gray-800 flex justify-between items-center">
                                                 <span className="font-bold text-sm">Notificações</span>
                                                 <button onClick={markNotificationsAsRead} className="text-[10px] text-bible-gold hover:underline font-bold uppercase">Marcar lidas</button>
@@ -556,7 +556,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                                     <Settings size={20} />
                                 </button>
                                 {isSettingsMenuOpen && (
-                                    <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[100] animate-in fade-in zoom-in-95 origin-top-right">
+                                    <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[130] animate-in fade-in zoom-in-95 origin-top-right">
                                         {renderSettingsDropdown()}
                                     </div>
                                 )}

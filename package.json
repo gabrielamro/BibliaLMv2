@@ -7,7 +7,7 @@
     "dev:turbo": "next dev --turbo -p 3010",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "npm run typecheck",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

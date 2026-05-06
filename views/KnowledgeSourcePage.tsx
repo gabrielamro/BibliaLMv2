@@ -75,7 +75,7 @@ const KnowledgeSourcePage: React.FC = () => {
                     </div>
 
                     {/* Card 3: Rebanho */}
-                    <div onClick={() => navigate('/social/church')} className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-xl border border-gray-100 dark:border-gray-800 group cursor-pointer hover:border-blue-500 transition-all">
+                    <div onClick={() => navigate('/social/igrejas')} className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-xl border border-gray-100 dark:border-gray-800 group cursor-pointer hover:border-blue-500 transition-all">
                         <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center text-blue-600 mb-6 group-hover:scale-110 transition-transform">
                             <Users size={28} />
                         </div>

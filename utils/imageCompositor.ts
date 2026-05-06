@@ -1,6 +1,5 @@
-
 /**
- * Opções de customização para a composição da imagem
+ * Opcoes de customizacao para a composicao da imagem.
  */
 export interface CompositionOptions {
   textColor: string;
@@ -16,12 +15,100 @@ export interface CompositionOptions {
   bgX?: number; // 0 a 100 (Offset do fundo)
   bgY?: number; // 0 a 100 (Offset do fundo)
   bgScale?: number; // 1 a 3 (Zoom do fundo)
-  shadowColor?: string; // Cor da sombra customizável
+  shadowColor?: string; // Cor da sombra customizavel
 }
 
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+export const wrapCanvasText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number) => {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = '';
+
+  words.forEach((word) => {
+    if (ctx.measureText(word).width > maxWidth) {
+      if (line) {
+        lines.push(line);
+        line = '';
+      }
+      let chunk = '';
+      for (const char of word) {
+        const nextChunk = `${chunk}${char}`;
+        if (ctx.measureText(nextChunk).width > maxWidth && chunk) {
+          lines.push(chunk);
+          chunk = char;
+        } else {
+          chunk = nextChunk;
+        }
+      }
+      line = chunk;
+      return;
+    }
+
+    const testLine = line ? `${line} ${word}` : word;
+    if (ctx.measureText(testLine).width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = testLine;
+    }
+  });
+
+  if (line) lines.push(line);
+  return lines;
+};
+
+interface FitTextLinesInput {
+  text: string;
+  maxWidth: number;
+  maxHeight: number;
+  initialFontSize: number;
+  minFontSize: number;
+  lineHeightMultiplier: number;
+  applyFontSize: (fontSize: number) => void;
+}
+
+export const fitTextLinesToBox = (
+  ctx: CanvasRenderingContext2D,
+  {
+    text,
+    maxWidth,
+    maxHeight,
+    initialFontSize,
+    minFontSize,
+    lineHeightMultiplier,
+    applyFontSize,
+  }: FitTextLinesInput
+) => {
+  let fontSize = initialFontSize;
+  let lines: string[] = [];
+  let lineHeight = fontSize * lineHeightMultiplier;
+  let blockHeight = 0;
+
+  while (fontSize >= minFontSize) {
+    applyFontSize(fontSize);
+    lines = wrapCanvasText(ctx, text, maxWidth);
+    lineHeight = fontSize * lineHeightMultiplier;
+    blockHeight = lines.length * lineHeight;
+
+    if (blockHeight <= maxHeight && lines.every((line) => ctx.measureText(line).width <= maxWidth)) {
+      break;
+    }
+
+    fontSize -= 2;
+  }
+
+  fontSize = Math.max(fontSize, minFontSize);
+  applyFontSize(fontSize);
+  lines = wrapCanvasText(ctx, text, maxWidth);
+  lineHeight = fontSize * lineHeightMultiplier;
+  blockHeight = lines.length * lineHeight;
+  return { lines, fontSize, lineHeight, blockHeight };
+};
+
 /**
- * Compõe uma imagem final com texto bíblico, referência e marca d'água.
- * Combina a arte de fundo (IA) com tipografia legível e customizável.
+ * Compoe uma imagem final com texto biblico, referencia e marca d'agua.
+ * Combina a arte de fundo (IA) com tipografia legivel e customizavel.
  */
 export const composeImageWithText = (
     base64Image: string,
@@ -49,7 +136,7 @@ export const composeImageWithText = (
       
       let finalSrc = base64Image;
       
-      // Só aplica crossOrigin para URLs externas para evitar problemas com Data URLs
+      // So aplica crossOrigin para URLs externas para evitar problemas com Data URLs
       if (base64Image.startsWith('http')) {
           img.crossOrigin = "anonymous";
           // Bypass cache to prevent CORS errors when the image was already loaded in a normal <img> tag
@@ -67,11 +154,11 @@ export const composeImageWithText = (
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             if (!ctx) {
-              reject(new Error('Não foi possível criar contexto 2d'));
+              reject(new Error('Nao foi possivel criar contexto 2d'));
               return;
             }
       
-            // Resolução Dinâmica baseada no Aspect Ratio
+            // Resolucao dinamica baseada no Aspect Ratio
             // Feed: 1080x1080 | Story: 1080x1920
             const width = 1080;
             const height = options.aspectRatio === 'story' ? 1920 : 1080;
@@ -79,7 +166,7 @@ export const composeImageWithText = (
             canvas.height = height;
       
             // 1. Aplicar Filtros na Imagem de Fundo
-            ctx.save(); // Salva o estado antes do filtro para não afetar o texto
+            ctx.save(); // Salva o estado antes do filtro para nao afetar o texto
             
             let filterString = 'none';
             switch (options.filter) {
@@ -92,11 +179,11 @@ export const composeImageWithText = (
             }
             ctx.filter = filterString;
 
-            // Desenhar Imagem com Transformações (Canva-style)
+            // Desenhar imagem com transformacoes (Canva-style)
             const baseScale = Math.max(width / img.width, height / img.height);
             const finalScale = baseScale * (options.bgScale ?? 1);
             
-            // Centraliza o ponto de zoom e aplica o offset do usuário
+            // Centraliza o ponto de zoom e aplica o offset do usuario
             const drawW = img.width * finalScale;
             const drawH = img.height * finalScale;
             
@@ -105,9 +192,9 @@ export const composeImageWithText = (
             
             ctx.drawImage(img, dx, dy, drawW, drawH);
             
-            ctx.restore(); // Restaura para remover o filtro do contexto (texto não deve ter blur/grayscale)
+            ctx.restore(); // Restaura para remover o filtro do contexto (texto nao deve ter blur/grayscale)
       
-            // 2. Adicionar Overlay Escuro (Gradiente Controlável)
+            // 2. Adicionar overlay escuro (gradiente controlavel)
             const opacity = options.overlayOpacity ?? 0.4;
             const isDarkText = options.textColor === '#000000';
             const gradient = ctx.createLinearGradient(0, 0, 0, height);
@@ -131,19 +218,18 @@ export const composeImageWithText = (
             ctx.textAlign = options.alignment || 'center';
             ctx.textBaseline = 'middle';
             
-            // --- Texto do Versículo ---
-            const baseFontSize = 56;
-            const finalFontSize = baseFontSize * options.fontSizeScale;
+            // --- Texto do versiculo ---
+            const baseFontSize = options.aspectRatio === 'story' ? 46 : 48;
+            const finalFontSize = clamp(baseFontSize * options.fontSizeScale, 24, 88);
             
-            // Define o peso da fonte baseado na família escolhida
+            // Define o peso da fonte baseado na familia escolhida
             let fontWeight = 'bold';
             if (options.fontFamily === 'Great Vibes') fontWeight = '400';
             if (options.fontFamily === 'Oswald') fontWeight = '700';
             if (options.fontFamily === 'Cinzel') fontWeight = '700';
 
-            // Fallback para fontes padrão se o Google Fonts falhar
+            // Fallback para fontes padrao se o Google Fonts falhar
             const fontStack = `"${options.fontFamily}", "Lora", serif`;
-            ctx.font = `${fontWeight} ${finalFontSize}px ${fontStack}`; 
             ctx.fillStyle = options.textColor;
             
             // Sombra suave para contraste (apenas se texto for claro)
@@ -155,35 +241,28 @@ export const composeImageWithText = (
             }
       
             // Quebra de linha do texto (Wrap Text)
-            const maxWidth = width * 0.80; 
-            const words = text.split(' ');
-            let line = '';
-            const lines = [];
-            // Ajusta entrelinha dependendo da fonte (cursivas precisam de mais espaço)
-            const lineHeightMultiplier = options.fontFamily === 'Great Vibes' ? 1.8 : 1.5;
-            const lineHeight = finalFontSize * lineHeightMultiplier;
+            const maxWidth = width * (options.aspectRatio === 'story' ? 0.84 : 0.80);
+            // Ajusta entrelinha dependendo da fonte.
+            const lineHeightMultiplier = options.fontFamily === 'Great Vibes' ? 1.42 : 1.24;
+            const maxTextBlockHeight = height * (options.aspectRatio === 'story' ? 0.52 : 0.56);
+            const fittedText = fitTextLinesToBox(ctx, {
+              text: `"${text}"`,
+              maxWidth,
+              maxHeight: maxTextBlockHeight,
+              initialFontSize: finalFontSize,
+              minFontSize: 24,
+              lineHeightMultiplier,
+              applyFontSize: (fontSize) => {
+                ctx.font = `${fontWeight} ${fontSize}px ${fontStack}`;
+              },
+            });
+            const { lines, lineHeight } = fittedText;
       
-            // Aspas de Abertura
-            lines.push('“');
-      
-            for (let n = 0; n < words.length; n++) {
-              const testLine = line + words[n] + ' ';
-              const metrics = ctx.measureText(testLine);
-              const testWidth = metrics.width;
-              if (testWidth > maxWidth && n > 0) {
-                lines.push(line);
-                line = words[n] + ' ';
-              } else {
-                line = testLine;
-              }
-            }
-            lines.push(line.trim());
-            lines[lines.length-1] += '”';
       
             // Calcular Altura Total do Bloco de Texto
-            const textBlockHeight = lines.length * lineHeight;
+            const textBlockHeight = fittedText.blockHeight;
 
-            // Calcular Posição Dinâmica (0 a 100%)
+            // Calcular posicao dinamica (0 a 100%)
             const finalX = (options.textX ?? 50) / 100 * width;
             const finalY = (options.textY ?? options.verticalPosition ?? 50) / 100 * height;
             
@@ -191,16 +270,16 @@ export const composeImageWithText = (
             const textX = finalX;
       
             lines.forEach((l, i) => {
-              ctx.fillText(l, textX, startY + (i * lineHeight));
+              ctx.fillText(l, textX, startY + (i * lineHeight) + (lineHeight / 2));
             });
       
-            // --- Referência Bíblica ---
-            const refFontSize = 32 * options.fontSizeScale;
-            // Referência sempre usa uma fonte legível (Inter/Oswald) para contraste com a artística
+            // --- Referencia biblica ---
+            const refFontSize = clamp(fittedText.fontSize * 0.42, 18, 42);
+            // Referencia usa fonte legivel para contrastar com a fonte artistica.
             const refFontStack = options.fontFamily === 'Cinzel' ? '"Cinzel", serif' : '"Inter", sans-serif';
             ctx.font = `900 ${refFontSize}px ${refFontStack}`; 
             ctx.fillStyle = '#c5a059'; // Bible Gold
-            const refY = startY + textBlockHeight + 40;
+            const refY = startY + textBlockHeight + Math.max(34, finalFontSize * 0.58);
             
             const refWidth = ctx.measureText(reference.toUpperCase()).width;
             
@@ -225,13 +304,13 @@ export const composeImageWithText = (
                 ctx.stroke();
             }
       
-            // --- Rodapé (Branding) ---
+            // --- Rodape (branding) ---
             ctx.shadowBlur = 0; 
             ctx.shadowOffsetY = 0;
             ctx.font = '500 24px "Inter", sans-serif';
             ctx.fillStyle = isDarkText ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.7)';
             ctx.textAlign = 'center'; 
-            ctx.fillText("BíbliaLM App", width / 2, height - 60);
+            ctx.fillText("BibliaLM App", width / 2, height - 60);
       
             resolve(canvas.toDataURL('image/webp', 0.85));
         } catch (e) {
@@ -242,7 +321,7 @@ export const composeImageWithText = (
       img.onerror = (err) => {
           console.error("Erro ao carregar imagem no compositor:", base64Image.substring(0, 100) + "...", err);
           clearTimeout(timer);
-          reject(new Error("Falha ao carregar a imagem base para composição."));
+          reject(new Error("Falha ao carregar a imagem base para composicao."));
       };
 
       img.src = finalSrc;

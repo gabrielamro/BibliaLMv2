@@ -37,6 +37,7 @@ const quickAccessIcons: Record<InicioQuickAccessItem['iconKey'], React.ReactNode
 
 const LockOverlay: React.FC<{ message?: string; className?: string }> = ({ message = 'Login necessário', className = '' }) => {
   const { openLogin } = useAuth();
+
   return (
     <div
       onClick={(e) => { e.stopPropagation(); openLogin(); }}
@@ -51,6 +52,35 @@ const LockOverlay: React.FC<{ message?: string; className?: string }> = ({ messa
     </div>
   );
 };
+
+const HomePanel: React.FC<{ className?: string; children: React.ReactNode }> = ({ className = '', children }) => (
+  <div className={`rounded-[2rem] border border-gray-200 dark:border-[#2A2A2A] bg-white dark:bg-[#161616] p-6 md:p-7 ${className}`}>
+    {children}
+  </div>
+);
+
+const HomeSectionHeader: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  isLightTheme: boolean;
+}> = ({ icon, title, actionLabel, onAction, isLightTheme }) => (
+  <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center gap-2 text-gray-900 dark:text-white">
+      {icon}
+      <h2 className="font-bold text-lg md:text-xl lg:text-2xl">{title}</h2>
+    </div>
+    {actionLabel && onAction && (
+      <button
+        onClick={onAction}
+        className={`text-[#c5a059] font-black text-[10px] tracking-widest uppercase transition-colors ${isLightTheme ? 'hover:text-[#111111]' : 'hover:text-white'}`}
+      >
+        {actionLabel}
+      </button>
+    )}
+  </div>
+);
 
 const SanctuaryPage: React.FC = () => {
   const navigate = useNavigate();
@@ -102,6 +132,7 @@ const SanctuaryPage: React.FC = () => {
   const chaptersRead = userProfile?.stats?.totalChaptersRead || 0;
   const isAdmin = userProfile?.username === 'gabrielamaro' || currentUser?.email === 'gabrielamaro@live.com';
   const isLightTheme = settings.theme === 'light';
+  const salaAccentClass = 'bg-violet-500/15 text-violet-300';
   // Referência do Hero sempre é a randômica instantânea
   const heroReference = verseOfTheDay.ref;
 
@@ -604,20 +635,16 @@ const SanctuaryPage: React.FC = () => {
                 {/* 3. PLANOS & SALAS (ADMIN ONLY) */}
                 {isAdmin && (
                   <div className="pt-2 border-t border-transparent">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2 text-gray-900 dark:text-white">
-                        <BookOpen size={18} className="text-[#c5a059]" />
-                        <h2 className="font-bold text-lg md:text-xl lg:text-2xl">Planos & Salas</h2>
-                      </div>
-                      <button
-                        onClick={() => navigate('/workspace-pastoral')}
-                        className={`text-[#c5a059] font-black text-[10px] tracking-widest uppercase transition-colors ${isLightTheme ? 'hover:text-[#111111]' : 'hover:text-white'}`}
-                      >
-                        PAINEL DE CONTROLE
-                      </button>
-                    </div>
+                    <HomeSectionHeader
+                      icon={<BookOpen size={18} className="text-[#c5a059]" />}
+                      title="Planos & Salas"
+                      actionLabel="PAINEL DE CONTROLE"
+                      onAction={() => navigate('/workspace-pastoral')}
+                      isLightTheme={isLightTheme}
+                    />
 
-                    <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+                    <HomePanel className="overflow-hidden">
+                      <div className="flex gap-4 overflow-x-auto pb-1 custom-scrollbar">
                       {/* Nova Sala */}
                       <button
                         onClick={() => navigate('/criar-sala')}
@@ -644,7 +671,7 @@ const SanctuaryPage: React.FC = () => {
                               </div>
                             )}
                             <div className="absolute top-2 left-2">
-                              <span className="bg-emerald-500 text-white font-bold text-[7px] px-1.5 py-0.5 rounded tracking-widest uppercase">ATIVA</span>
+                              <span className={`${salaAccentClass} font-bold text-[7px] px-1.5 py-0.5 rounded tracking-widest uppercase`}>ATIVA</span>
                             </div>
                           </div>
 
@@ -665,26 +692,22 @@ const SanctuaryPage: React.FC = () => {
                           <span className="text-gray-500 dark:text-gray-500 text-xs mb-2">Você ainda não tem salas ativas</span>
                         </div>
                       )}
-                    </div>
+                      </div>
+                    </HomePanel>
                   </div>
                 )}
 
                 {/* 4. MEUS ESTUDOS E CARDS */}
                 <div className={`pt-2 border-t ${isAdmin ? 'border-gray-200 dark:border-[#2A2A2A] mt-6' : 'border-transparent'}`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2 text-gray-900 dark:text-white">
-                      <FileText size={18} className="text-[#c5a059]" />
-                      <h2 className="font-bold text-lg md:text-xl lg:text-2xl">Meus Estudos</h2>
-                    </div>
-                    <button
-                      onClick={() => navigate('/estudos')}
-                      className={`text-[#c5a059] font-black text-[10px] tracking-widest uppercase transition-colors ${isLightTheme ? 'hover:text-[#111111]' : 'hover:text-white'}`}
-                    >
-                      VER TODOS
-                    </button>
-                  </div>
+                  <HomeSectionHeader
+                    icon={<FileText size={18} className="text-[#c5a059]" />}
+                    title="Meus Estudos"
+                    actionLabel="VER TODOS"
+                    onAction={() => navigate('/estudos')}
+                    isLightTheme={isLightTheme}
+                  />
 
-                  <div className="flex flex-col md:flex-row gap-4 h-[240px]">
+                  <HomePanel className="flex flex-col md:flex-row gap-4 h-[240px]">
                     {/* Box Criar Estudo */}
                     <div
                       className="w-full md:w-[25%] bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col items-center justify-center relative overflow-hidden cursor-pointer hover:border-blue-500/30 transition-colors"
@@ -722,11 +745,11 @@ const SanctuaryPage: React.FC = () => {
                         </>
                       )}
                     </div>
-                  </div>
+                  </HomePanel>
                 </div>
 
                 {/* 5. ESTÚDIO CRIATIVO */}
-                <div className="bg-white dark:bg-[#1A1624] rounded-[2rem] p-6 md:p-8 border border-gray-200 dark:border-[#2A2A2A] relative overflow-hidden">
+                <HomePanel className="relative overflow-hidden">
 
                   <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/5 blur-3xl rounded-full" />
 
@@ -743,7 +766,7 @@ const SanctuaryPage: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
                     <button
                       onClick={() => navigate('/criar-arte-sacra')}
-                      className="bg-white dark:bg-[#16131D] p-5 rounded-2xl border border-gray-200 dark:border-[#252525] text-left hover:border-green-500/30 transition-colors"
+                      className="bg-white dark:bg-[#1A1A1A] p-5 rounded-2xl border border-gray-200 dark:border-[#2A2A2A] text-left hover:border-green-500/30 transition-colors min-h-[190px] flex flex-col justify-between"
                     >
                       <div className="flex items-center gap-2 mb-3">
                         <div className="p-1 rounded bg-green-500/10">
@@ -762,7 +785,7 @@ const SanctuaryPage: React.FC = () => {
 
                     <button
                       onClick={() => navigate('/criar-podcast')}
-                      className="bg-white dark:bg-[#16131D] p-5 rounded-2xl border border-gray-200 dark:border-[#252525] text-left hover:border-pink-500/30 transition-colors relative"
+                      className="bg-white dark:bg-[#1A1A1A] p-5 rounded-2xl border border-gray-200 dark:border-[#2A2A2A] text-left hover:border-pink-500/30 transition-colors relative min-h-[190px] flex flex-col justify-between"
                     >
                       {!currentUser && <LockOverlay message="Criar Podcast" />}
                       <div className="flex items-center gap-2 mb-3">
@@ -779,7 +802,7 @@ const SanctuaryPage: React.FC = () => {
                       </div>
                     </button>
                   </div>
-                </div>
+                </HomePanel>
               </>
             )}
 
@@ -1080,7 +1103,7 @@ const SanctuaryPage: React.FC = () => {
             </button>
 
             {/* Acesso Rápido */}
-            <div className="bg-white dark:bg-[#101010] border border-gray-200 dark:border-[#202020] rounded-[2rem] p-6">
+            <HomePanel className="min-h-[360px]">
               <h4 className="text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase tracking-wider mb-6 pl-2">ACESSO RÁPIDO</h4>
 
               <div className="space-y-5">
@@ -1111,10 +1134,10 @@ const SanctuaryPage: React.FC = () => {
                   </div>
                 ))}
               </div>
-            </div>
+            </HomePanel>
 
             {/* Descobertas / Flash Quiz Box */}
-            <div className="bg-white dark:bg-[#0A0A0A] border border-gray-200 dark:border-[#202020] rounded-[2rem] p-6 relative overflow-hidden">
+            <HomePanel className="relative overflow-hidden min-h-[360px]">
               {!currentUser && <LockOverlay message="Participar do Quiz" />}
               <div className="flex items-center gap-2 mb-6 relative z-10">
                 <Zap size={14} className="text-[#c5a059]" />
@@ -1143,7 +1166,7 @@ const SanctuaryPage: React.FC = () => {
                   ))}
                 </div>
               </div>
-            </div>
+            </HomePanel>
 
           </div>
         </div>

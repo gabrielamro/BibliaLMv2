@@ -13,8 +13,14 @@ import {
     StudyModule, Banner, SystemSettings, AppNotification, SupportTicket,
     ReportTicket, SystemLog, AIUsageStats, HomeConfig, LandingPageConfig, Track,
     SacredArtImage,
-    PlanParticipant, PlanComment
+    PlanParticipant, PlanComment, GroupAccessInvite, GroupAccessInviteSource
 } from '../types';
+import { generateSlug } from '../utils/textUtils';
+import { mergeChurchSearchResults, type ChurchSearchResult } from '../utils/churchSearch';
+import { formatSupabaseError, getMissingColumnNameFromError, isMissingColumnError } from '../utils/supabaseErrors';
+import { buildPostInsertPayloads, dropPostInsertColumn } from '../utils/kingdomPostPayload';
+import { shouldRetryFeedWithoutDestination } from '../utils/kingdomFeedFallback';
+import { parseStudyShareContent } from '../utils/studySharePost';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder_anon_key';
@@ -48,6 +54,13 @@ const normalizeStandaloneStudyType = (type: any) => {
 const isMissingBibleVersionColumnError = (error: any) =>
     error?.code === 'PGRST204' ||
     String(error?.message || error?.details || '').toLowerCase().includes('bible_version');
+
+const isBrowser = () => typeof window !== 'undefined';
+
+const toError = (message: string, error: any) =>
+    error instanceof Error ? error : new Error(`${message}. ${formatSupabaseError(error)}`);
+
+const getMissingColumnName = getMissingColumnNameFromError;
 
 // ─── AUTH functions (mesmos nomes do firebase.ts) ───────────────────────────
 
@@ -293,10 +306,10 @@ export const dbService = {
             if (isMissingBibleVersionColumnError(error)) {
                 const { bible_version: _bibleVersion, ...fallbackMapped } = mapped;
                 const { error: fallbackError } = await supabase.from('profiles').upsert(fallbackMapped);
-                if (fallbackError) throw fallbackError;
+                if (fallbackError) throw new Error(`Erro ao salvar perfil. ${formatSupabaseError(fallbackError)}`);
                 return;
             }
-            throw error;
+            throw new Error(`Erro ao salvar perfil. ${formatSupabaseError(error)}`);
         }
     },
 
@@ -350,10 +363,10 @@ export const dbService = {
                     const { bible_version: _bibleVersion, ...fallbackMapped } = mapped;
                     if (Object.keys(fallbackMapped).length === 0) return;
                     const { error: fallbackError } = await supabase.from('profiles').update(fallbackMapped).eq('id', uid);
-                    if (fallbackError) throw fallbackError;
+                    if (fallbackError) throw new Error(`Erro ao atualizar perfil. ${formatSupabaseError(fallbackError)}`);
                     return;
                 }
-                throw error;
+                throw new Error(`Erro ao atualizar perfil. ${formatSupabaseError(error)}`);
             }
         }
     },
@@ -401,11 +414,14 @@ export const dbService = {
         return (data ?? []).map(mapProfileToUserProfile);
     },
     searchUsersByUsername: async (username: string): Promise<UserProfile[]> => {
-        const { data } = await supabase
+        const term = username.replace('@', '').trim();
+        if (!term) return [];
+        const { data, error } = await supabase
             .from('profiles')
             .select('*')
-            .ilike('username', `%${username.replace('@', '')}%`)
+            .or(`username.ilike.%${term}%,display_name.ilike.%${term}%`)
             .limit(10);
+        if (error) throw toError('Erro ao buscar usuarios', error);
         return (data ?? []).map(mapProfileToUserProfile);
     },
     searchUsersGlobal: async (term: string): Promise<UserProfile[]> => {
@@ -499,73 +515,385 @@ export const dbService = {
 
     // ── IGREJAS & SOCIAL ────────────────────────────────────────────────────
     searchGlobalChurches: async (term: string): Promise<Church[]> => {
-        const { data } = await supabase.from('churches').select('*').ilike('name', `%${term}%`);
+        const query = supabase.from('churches').select('*').order('created_at', { ascending: false });
+        const { data } = term ? await query.ilike('name', `%${term}%`) : await query.limit(50);
         return (data ?? []).map(mapChurch);
     },
-    searchChurches: async (term: string, city: string, state: string): Promise<Church[]> => {
-        const { data } = await supabase.from('churches').select('*')
-            .eq('location_state', state).eq('location_city', city).ilike('name', `%${term}%`);
-        return (data ?? []).map(mapChurch);
+    searchChurches: async (
+        term: string,
+        city: string,
+        state: string,
+        options: { includeExternal?: boolean } = {}
+    ): Promise<Church[]> => {
+        const page = await dbService.searchChurchesPage(term, city, state, { includeExternal: options.includeExternal });
+        return page.results;
+    },
+    searchChurchesPage: async (
+        term: string,
+        city: string,
+        state: string,
+        options: { includeExternal?: boolean; pageToken?: string | null; offset?: number; limit?: number } = {}
+    ): Promise<{ results: Church[]; nextPageToken: string | null; nextOffset: number | null; provider?: string }> => {
+        const limit = options.limit ?? 10;
+        const offset = options.offset ?? 0;
+        let query = supabase.from('churches').select('*');
+        if (state) query = query.eq('location_state', state);
+        if (city) query = query.ilike('location_city', `%${city}%`);
+        if (term) query = query.ilike('name', `%${term}%`);
+        query = query.range(offset, offset + limit - 1);
+
+        const { data } = await query;
+        const localResults = (data ?? []).map(mapChurch) as ChurchSearchResult[];
+
+        if (!options.includeExternal || !isBrowser()) {
+            return {
+                results: localResults,
+                nextPageToken: null,
+                nextOffset: localResults.length === limit ? offset + limit : null
+            };
+        }
+
+        try {
+            const params = new URLSearchParams({ term: term || '', city: city || '', state: state || '' });
+            if (options.pageToken) params.set('pageToken', options.pageToken);
+            const response = await fetch(`/api/churches/search?${params.toString()}`);
+            if (!response.ok) {
+                return {
+                    results: localResults,
+                    nextPageToken: null,
+                    nextOffset: localResults.length === limit ? offset + limit : null
+                };
+            }
+            const payload = await response.json();
+            const externalResults = Array.isArray(payload.results) ? payload.results : [];
+            const merged = mergeChurchSearchResults(options.pageToken ? [] : localResults, externalResults);
+            return {
+                results: merged,
+                nextPageToken: payload.nextPageToken || null,
+                nextOffset: !options.pageToken && localResults.length === limit ? offset + limit : null,
+                provider: payload.provider
+            };
+        } catch (error) {
+            console.warn('Busca externa de igrejas indisponivel:', error);
+            return {
+                results: localResults,
+                nextPageToken: null,
+                nextOffset: localResults.length === limit ? offset + limit : null
+            };
+        }
     },
     createChurch: async (data: any): Promise<string> => {
-        const { data: res, error } = await supabase.from('churches')
-            .insert({ name: data.name, slug: data.slug, acronym: data.acronym ?? '', denomination: data.denomination ?? '', location_city: data.location?.city, location_state: data.location?.state, location_address: data.location?.address, logo_url: data.logoUrl ?? null, pastor_name: data.pastorName ?? null, created_at: now() })
-            .select().single();
-        if (error) throw error;
+        const minimalPayload = {
+            name: data.name,
+            slug: data.slug,
+            created_at: now()
+        };
+        const legacyPayload = {
+            ...minimalPayload,
+            acronym: data.acronym ?? '',
+            denomination: data.denomination ?? '',
+            location_city: data.location?.city,
+            location_state: data.location?.state,
+            location_address: data.location?.address,
+            logo_url: data.logoUrl ?? null,
+            pastor_name: data.pastorName ?? null,
+        };
+        const fullPayload = {
+            ...legacyPayload,
+            lat: data.lat ?? null,
+            lng: data.lng ?? null,
+            external_provider: data.externalProvider ?? null,
+            external_place_id: data.externalPlaceId ?? null,
+            source_attribution: data.sourceAttribution ?? null,
+            verification_status: data.verificationStatus ?? 'unclaimed',
+            admins: data.admins ?? [],
+            teams: data.teams ?? [],
+            team_scores: data.teamScores ?? {},
+            created_by: data.createdBy ?? null,
+        };
+
+        let { data: res, error } = await supabase.from('churches').insert(fullPayload).select().single();
+        const missingSchema = error?.code === 'PGRST204' || /column|schema cache|external_provider|verification_status|created_by/i.test(formatSupabaseError(error));
+        if (error && missingSchema) {
+            const retry = await supabase.from('churches').insert(legacyPayload).select().single();
+            res = retry.data;
+            error = retry.error;
+        }
+        if (error && (error?.code === 'PGRST204' || /column|schema cache/i.test(formatSupabaseError(error)))) {
+            const retry = await supabase.from('churches').insert(minimalPayload).select().single();
+            res = retry.data;
+            error = retry.error;
+        }
+        if (error) throw new Error(`Erro ao criar igreja. ${formatSupabaseError(error)}`);
         return res.id;
     },
+    resolveChurchForMembership: async (uid: string, church: ChurchSearchResult): Promise<Church> => {
+        if (!uid) throw new Error('Usuario autenticado sem id valido para vincular igreja.');
+        if (!church.isExternal) return church;
+
+        if (church.externalProvider && church.externalPlaceId) {
+            const { data: existing, error } = await supabase
+                .from('churches')
+                .select('*')
+                .eq('external_provider', church.externalProvider)
+                .eq('external_place_id', church.externalPlaceId)
+                .maybeSingle();
+            if (error && !(error?.code === 'PGRST204' || /column|schema cache/i.test(formatSupabaseError(error)))) {
+                throw toError('Erro ao verificar igreja existente', error);
+            }
+            if (existing) return mapChurch(existing);
+        }
+
+        const baseSlug = church.slug || generateSlug(`${church.name} ${church.location?.city || ''}`);
+        let slug = baseSlug;
+        let suffix = 2;
+        while (true) {
+            const { data: sameSlug, error } = await supabase.from('churches').select('id').eq('slug', slug).maybeSingle();
+            if (error) throw toError('Erro ao verificar slug da igreja', error);
+            if (!sameSlug) break;
+            slug = `${baseSlug}-${suffix++}`;
+        }
+
+        const id = await dbService.createChurch({
+            ...church,
+            slug,
+            verificationStatus: 'unclaimed',
+            admins: [],
+            createdBy: uid,
+        });
+        return { ...church, id, slug, isExternal: false, verificationStatus: 'unclaimed' };
+    },
+    joinChurch: async (
+        uid: string,
+        church: ChurchSearchResult,
+        group?: ChurchGroup | null,
+        teamColor?: string | null
+    ): Promise<Church> => {
+        if (!uid) throw new Error('Usuario autenticado sem id valido para vincular igreja.');
+        const resolvedChurch = await dbService.resolveChurchForMembership(uid, church);
+        let { error } = await supabase.from('memberships').upsert({
+            user_id: uid,
+            church_id: resolvedChurch.id,
+            cell_id: group?.id ?? null,
+            role: 'member',
+            joined_at: now()
+        });
+        if (error && (error?.code === 'PGRST204' || /column|schema cache/i.test(formatSupabaseError(error)))) {
+            const retry = await supabase.from('memberships').upsert({
+                user_id: uid,
+                church_id: resolvedChurch.id,
+            });
+            error = retry.error;
+        }
+        if (error) throw new Error(`Erro ao vincular igreja. ${formatSupabaseError(error)}`);
+        await dbService.updateUserProfile(uid, {
+            churchData: {
+                churchId: resolvedChurch.id,
+                churchName: resolvedChurch.name,
+                churchSlug: resolvedChurch.slug,
+                groupId: group?.id,
+                groupName: group?.name,
+                groupSlug: group?.slug,
+                teamColor: teamColor ?? null,
+                isAnonymous: false
+            }
+        });
+        return resolvedChurch;
+    },
+    requestChurchResponsibility: async (uid: string, churchId: string, role: 'pastor' | 'admin' = 'pastor') => {
+        const { error } = await supabase.from('church_role_requests').upsert({
+            church_id: churchId,
+            user_id: uid,
+            requested_role: role,
+            status: 'pending',
+            requested_at: now()
+        });
+        if (error) throw error;
+    },
     getChurchBySlug: async (slug: string): Promise<Church | null> => {
-        const { data } = await supabase.from('churches').select('*').eq('slug', slug).single();
+        const { data, error } = await supabase.from('churches').select('*').eq('slug', slug).single();
+        if (error) {
+            if (error?.code === 'PGRST116') return null;
+            throw toError('Erro ao carregar igreja', error);
+        }
         return data ? mapChurch(data) : null;
     },
     getChurchById: async (id: string): Promise<Church | null> => {
-        const { data } = await supabase.from('churches').select('*').eq('id', id).single();
+        const { data, error } = await supabase.from('churches').select('*').eq('id', id).single();
+        if (error) {
+            if (error?.code === 'PGRST116') return null;
+            throw toError('Erro ao carregar igreja', error);
+        }
         return data ? mapChurch(data) : null;
     },
     getChurchRootGroups: async (churchId: string): Promise<ChurchGroup[]> => {
-        const { data } = await supabase.from('cells').select('*').eq('church_id', churchId);
+        const { data, error } = await supabase.from('cells').select('*').eq('church_id', churchId);
+        if (error) throw toError('Erro ao carregar grupos da igreja', error);
         return (data ?? []).map(mapCell);
     },
+    getUserGroups: async (uid: string, churchId?: string): Promise<ChurchGroup[]> => {
+        let query = supabase
+            .from('memberships')
+            .select('cells(*)')
+            .eq('user_id', uid)
+            .not('cell_id', 'is', null);
+        if (churchId) query = query.eq('church_id', churchId);
+
+        const { data, error } = await query;
+        if (error) throw toError('Erro ao carregar grupos do usuario', error);
+        return (data ?? [])
+            .map((row: any) => row.cells ? mapCell(row.cells) : null)
+            .filter(Boolean) as ChurchGroup[];
+    },
     createCell: async (data: any): Promise<string> => {
-        const { data: res, error } = await supabase.from('cells')
-            .insert({ church_id: data.churchId, name: data.name, slug: data.slug ?? data.name.toLowerCase().replace(/\s+/g, '-'), leader_id: data.leaderUid ?? null, created_by: data.createdBy, created_at: now() })
-            .select().single();
-        if (error) throw error;
+        const basePayload: Record<string, any> = {
+            church_id: data.churchId,
+            name: data.name,
+            slug: data.slug ?? generateSlug(data.name),
+            created_at: now()
+        };
+        const { data: existingGroup, error: existingError } = await supabase
+            .from('cells')
+            .select('id')
+            .eq('slug', basePayload.slug)
+            .maybeSingle();
+        if (existingError && !isMissingColumnError(existingError, 'slug')) throw toError('Erro ao verificar grupo existente', existingError);
+        if (existingGroup?.id) throw new Error('Ja existe um grupo com este nome nesta igreja.');
+
+        const fullPayload: Record<string, any> = {
+            ...basePayload,
+            parent_group_id: data.parentGroupId ?? null,
+            leader_id: data.leaderUid ?? null,
+            leader_name: data.leaderName ?? null,
+            created_by: data.createdBy ?? null,
+            privacy: data.privacy ?? 'public',
+        };
+        let payload = { ...fullPayload };
+        let res: any = null;
+        let error: any = null;
+        for (let attempt = 0; attempt < 8; attempt++) {
+            const result = await supabase.from('cells').insert(payload).select().single();
+            res = result.data;
+            error = result.error;
+            if (!error) break;
+            const missingColumn = getMissingColumnName(error);
+            if (error?.code !== 'PGRST204' || !missingColumn || !(missingColumn in payload)) break;
+            delete payload[missingColumn];
+        }
+        if (error) throw toError('Erro ao criar grupo da igreja', error);
         return res.id;
     },
     joinCell: async (uid: string, cellId: string, data: any) => {
-        await supabase.from('memberships').upsert({ user_id: uid, cell_id: cellId, church_id: data.churchId });
-        await dbService.updateUserProfile(uid, { 'churchData.groupId': cellId, 'churchData.groupName': data.name });
+        const { error } = await supabase.from('memberships').upsert({
+            user_id: uid,
+            cell_id: cellId,
+            church_id: data.churchId,
+            role: 'member',
+            joined_at: now()
+        });
+        if (error) throw toError('Erro ao participar do grupo', error);
+
+        const profile = await dbService.getUserProfile(uid);
+        await dbService.updateUserProfile(uid, {
+            churchData: {
+                ...(profile?.churchData ?? {}),
+                churchId: data.churchId ?? profile?.churchData?.churchId,
+                groupId: cellId,
+                groupName: data.name,
+                groupSlug: data.slug,
+            }
+        });
     },
     getChurchMembers: async (churchId: string): Promise<UserProfile[]> => {
-        const { data } = await supabase.from('memberships').select('profiles(*)').eq('church_id', churchId);
+        const { data, error } = await supabase.from('memberships').select('profiles(*)').eq('church_id', churchId);
+        if (error) throw toError('Erro ao carregar fieis da igreja', error);
         return (data ?? []).map((d: any) => mapProfileToUserProfile(d.profiles)).filter(Boolean);
     },
     getChurchFollowers: async (churchId: string) => {
-        const { data } = await supabase.from('church_followers').select('*').eq('church_id', churchId);
+        const { data, error } = await supabase.from('church_followers').select('*').eq('church_id', churchId);
+        if (error) throw toError('Erro ao carregar seguidores da igreja', error);
         return data ?? [];
     },
+    getChurchCommunityCounts: async (churchId: string): Promise<{ memberCount: number; followersCount: number }> => {
+        const [members, followers] = await Promise.all([
+            supabase.from('memberships').select('user_id', { count: 'exact', head: true }).eq('church_id', churchId),
+            supabase.from('church_followers').select('id', { count: 'exact', head: true }).eq('church_id', churchId)
+        ]);
+        if (members.error) throw toError('Erro ao contar fieis da igreja', members.error);
+        if (followers.error) throw toError('Erro ao contar seguidores da igreja', followers.error);
+        return { memberCount: members.count ?? 0, followersCount: followers.count ?? 0 };
+    },
     followChurch: async (uid: string, churchId: string, _userData: any, _churchData: any) => {
-        await supabase.from('church_followers').upsert({ user_id: uid, church_id: churchId, followed_at: now() });
+        const { error } = await supabase.from('church_followers').upsert({ user_id: uid, church_id: churchId, followed_at: now() });
+        if (error) throw toError('Erro ao seguir igreja', error);
     },
     unfollowChurch: async (uid: string, churchId: string) => {
-        await supabase.from('church_followers').delete().eq('user_id', uid).eq('church_id', churchId);
+        const { error } = await supabase.from('church_followers').delete().eq('user_id', uid).eq('church_id', churchId);
+        if (error) throw toError('Erro ao deixar de seguir igreja', error);
     },
     updateChurch: async (id: string, data: any) => {
-        await supabase.from('churches').update(clean(data)).eq('id', id);
+        const fieldMap: Record<string, string> = {
+            logoUrl: 'logo_url',
+            pastorName: 'pastor_name',
+            externalProvider: 'external_provider',
+            externalPlaceId: 'external_place_id',
+            sourceAttribution: 'source_attribution',
+            verificationStatus: 'verification_status',
+            teamScores: 'team_scores',
+        };
+        const mapped: any = {};
+        for (const [key, value] of Object.entries(data)) {
+            if (key === 'location' && value && typeof value === 'object') {
+                mapped.location_city = (value as any).city;
+                mapped.location_state = (value as any).state;
+                mapped.location_address = (value as any).address;
+            } else {
+                mapped[fieldMap[key] ?? key] = value;
+            }
+        }
+        mapped.updated_at = now();
+        await supabase.from('churches').update(clean(mapped)).eq('id', id);
     },
 
     // ── PEDIDOS DE ORAÇÃO ────────────────────────────────────────────────────
     addPrayerRequest: async (targetType: string, targetId: string, data: any): Promise<string> => {
-        const { data: res, error } = await supabase.from('prayer_requests')
-            .insert({ user_id: data.userId, user_name: data.userName, user_photo_url: data.userPhotoURL ?? null, content: data.content, target_type: targetType, target_id: targetId, church_id: data.churchId ?? null, cell_name: data.cellName ?? null, intercessors_count: 0, intercessors: '[]', created_at: now() })
-            .select().single();
-        if (error) throw error;
+        const basePayload: Record<string, any> = {
+            user_id: data.userId,
+            user_name: data.userName,
+            user_photo_url: data.userPhotoURL ?? null,
+            content: data.content,
+            target_type: targetType,
+            target_id: targetId,
+            church_id: data.churchId ?? null,
+            created_at: now()
+        };
+        const fullPayload: Record<string, any> = {
+            ...basePayload,
+            cell_name: data.cellName ?? null,
+            intercessors_count: 0,
+            intercessors: []
+        };
+        let payload = { ...fullPayload };
+        let res: any = null;
+        let error: any = null;
+
+        for (let attempt = 0; attempt < 10; attempt++) {
+            const result = await supabase.from('prayer_requests').insert(payload).select().single();
+            res = result.data;
+            error = result.error;
+            if (!error) break;
+
+            const missingColumn = getMissingColumnName(error);
+            if (error?.code !== 'PGRST204' || !missingColumn || !(missingColumn in payload)) break;
+            delete payload[missingColumn];
+        }
+        if (error) throw toError('Erro ao criar pedido de oracao', error);
         return res.id;
     },
     getPrayerRequests: async (targetType: string, targetId: string): Promise<PrayerRequest[]> => {
-        const { data } = await supabase.from('prayer_requests').select('*')
+        const { data, error } = await supabase.from('prayer_requests').select('*')
             .eq('target_id', targetId).order('created_at', { ascending: false });
+        if (error) throw toError('Erro ao carregar pedidos de oracao', error);
         return (data ?? []).map(mapPrayerRequest);
     },
     getUnifiedChurchMural: async (churchId: string): Promise<PrayerRequest[]> => {
@@ -577,13 +905,18 @@ export const dbService = {
         let intercessors: string[] = JSON.parse(data.intercessors ?? '[]');
         if (isActive) { if (!intercessors.includes(uid)) intercessors.push(uid); }
         else { intercessors = intercessors.filter(i => i !== uid); }
-        await supabase.from('prayer_requests').update({ intercessors: JSON.stringify(intercessors), intercessors_count: intercessors.length }).eq('id', prayerId);
+        const { error } = await supabase.from('prayer_requests').update({ intercessors, intercessors_count: intercessors.length }).eq('id', prayerId);
+        if (error) throw toError('Erro ao atualizar intercessao', error);
     },
     updatePrayerRequest: async (id: string, content: string) => {
         await supabase.from('prayer_requests').update({ content }).eq('id', id);
     },
-    deletePrayerRequest: async (id: string) => {
-        await supabase.from('prayer_requests').delete().eq('id', id);
+    deletePrayerRequest: async (id: string, moderation?: { churchId?: string; cellId?: string }) => {
+        let query = supabase.from('prayer_requests').delete().eq('id', id);
+        if (moderation?.churchId) query = query.eq('church_id', moderation.churchId);
+        if (moderation?.cellId) query = query.eq('target_id', moderation.cellId);
+        const { error } = await query;
+        if (error) throw toError('Erro ao excluir postagem', error);
     },
     getLatestCommunityPrayer: async (churchId: string): Promise<PrayerRequest | null> => {
         const { data } = await supabase.from('prayer_requests').select('*')
@@ -593,17 +926,40 @@ export const dbService = {
 
     // ── CÉLULAS ──────────────────────────────────────────────────────────────
     updateCell: async (id: string, data: any) => {
-        await supabase.from('cells').update(clean(data)).eq('id', id);
+        const fieldMap: Record<string, string> = {
+            parentGroupId: 'parent_group_id',
+            leaderUid: 'leader_id',
+            leaderName: 'leader_name',
+            createdBy: 'created_by',
+        };
+        const mapped: any = {};
+        for (const [key, value] of Object.entries(data)) {
+            mapped[fieldMap[key] ?? key] = value;
+        }
+        const { error } = await supabase.from('cells').update(clean(mapped)).eq('id', id);
+        if (error) throw toError('Erro ao atualizar grupo', error);
     },
     deleteCell: async (id: string) => {
-        await supabase.from('cells').delete().eq('id', id);
+        const { error } = await supabase.from('cells').delete().eq('id', id);
+        if (error) throw toError('Erro ao excluir grupo', error);
     },
     getSubgroups: async (parentId: string): Promise<ChurchGroup[]> => {
         const { data } = await supabase.from('cells').select('*').eq('parent_group_id', parentId);
         return (data ?? []).map(mapCell);
     },
     getCellBySlug: async (slug: string): Promise<ChurchGroup | null> => {
-        const { data } = await supabase.from('cells').select('*').eq('slug', slug).single();
+        const idLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(slug);
+        if (idLike) {
+            return dbService.getCellById(slug);
+        }
+
+        const { data, error } = await supabase.from('cells').select('*').eq('slug', slug).maybeSingle();
+        if (error && !isMissingColumnError(error, 'slug')) throw toError('Erro ao carregar grupo', error);
+        return data ? mapCell(data) : null;
+    },
+    getCellById: async (id: string): Promise<ChurchGroup | null> => {
+        const { data, error } = await supabase.from('cells').select('*').eq('id', id).maybeSingle();
+        if (error) throw toError('Erro ao carregar grupo', error);
         return data ? mapCell(data) : null;
     },
     getCellMembers: async (cellId: string): Promise<UserProfile[]> => {
@@ -612,29 +968,107 @@ export const dbService = {
     },
 
     // ── POSTS ────────────────────────────────────────────────────────────────
-    getGlobalFeed: async (limitCount = 50): Promise<Post[]> => {
-        const { data } = await supabase.from('posts').select('*')
+    getPendingGroupAccessInvite: async (inviteId: string, uid: string): Promise<GroupAccessInvite | null> => {
+        const { data, error } = await supabase
+            .from('group_access_invites')
+            .select('*')
+            .eq('id', inviteId)
+            .eq('invited_user_id', uid)
+            .eq('status', 'pending')
+            .maybeSingle();
+        if (error) throw toError('Erro ao carregar convite do grupo', error);
+        return data ? mapGroupAccessInvite(data) : null;
+    },
+    createGroupAccessInvite: async (
+        group: ChurchGroup,
+        invitedUser: UserProfile,
+        invitedBy: UserProfile,
+        source: GroupAccessInviteSource = 'invite'
+    ): Promise<GroupAccessInvite> => {
+        const { data, error } = await supabase.rpc('create_private_group_invite', {
+            p_group_id: group.id,
+            p_group_slug: group.id,
+            p_invited_user_id: invitedUser.uid,
+            p_source: source,
+            p_actor_name: invitedBy.displayName || 'Um membro'
+        });
+        if (error) throw toError('Erro ao criar convite do grupo', error);
+        return mapGroupAccessInvite(data);
+    },
+    acceptGroupAccessInvite: async (inviteId: string, uid: string): Promise<ChurchGroup> => {
+        const { data, error } = await supabase.rpc('accept_private_group_invite', {
+            p_invite_id: inviteId
+        });
+        if (error) throw toError('Erro ao aceitar convite do grupo', error);
+        const group = mapCell(data);
+        await dbService.joinCell(uid, group.id, {
+            churchId: group.churchId,
+            name: group.name,
+            slug: group.slug
+        });
+        return group;
+    },
+    createContentAccessInvite: async (params: {
+        contentType: 'study' | 'room';
+        contentId: string;
+        invitedUserId: string;
+        title: string;
+        actorName?: string;
+        churchId?: string;
+        groupId?: string;
+        source?: 'invite' | 'mention' | 'link';
+    }): Promise<any> => {
+        const { data, error } = await supabase.rpc('create_content_access_invite', {
+            p_content_type: params.contentType,
+            p_content_id: params.contentId,
+            p_invited_user_id: params.invitedUserId,
+            p_title: params.title,
+            p_actor_name: params.actorName ?? 'Um membro',
+            p_church_id: params.churchId ?? null,
+            p_group_id: params.groupId ?? null,
+            p_source: params.source ?? 'invite',
+        });
+        if (error) throw toError('Erro ao criar convite do conteúdo', error);
+        return data;
+    },
+    acceptContentAccessInvite: async (inviteId: string): Promise<any> => {
+        const { data, error } = await supabase.rpc('accept_content_access_invite', {
+            p_invite_id: inviteId
+        });
+        if (error) throw toError('Erro ao aceitar convite do conteúdo', error);
+        return data;
+    },
+
+    getGlobalFeed: async (limitCount = 50, _viewerProfile?: UserProfile | null): Promise<Post[]> => {
+        let { data, error } = await supabase.from('posts').select('*')
             .eq('destination', 'global').order('created_at', { ascending: false }).limit(limitCount);
+        if (error && shouldRetryFeedWithoutDestination(error)) {
+            const retry = await supabase.from('posts').select('*')
+                .order('created_at', { ascending: false }).limit(limitCount);
+            data = retry.data;
+            error = retry.error;
+        }
+        if (error) throw toError('Erro ao carregar feed do Reino', error);
         return (data ?? []).map(mapPost);
     },
     createPost: async (data: any) => {
-        const { error } = await supabase.from('posts').insert({
-            user_id: data.userId, 
-            user_display_name: data.userDisplayName, 
-            user_username: data.userUsername, 
-            user_photo_url: data.userPhotoURL ?? null,
-            content: data.content, 
-            type: data.type ?? 'reflection', 
-            destination: data.destination ?? 'global',
-            church_id: data.churchId ?? null, 
-            cell_id: data.cellId ?? null, 
-            image_url: data.imageUrl || data.image || null,
-            likes_count: 0, 
-            comments_count: 0, 
-            liked_by: '[]', 
-            created_at: now()
-        });
-        if (error) throw error;
+        const [fullPayload, legacyPayload] = buildPostInsertPayloads(data, now());
+        let payload = fullPayload;
+        let { error } = await supabase.from('posts').insert(payload);
+
+        for (let attempt = 0; error && attempt < 8; attempt++) {
+            const missingColumn = getMissingColumnName(error);
+            if (!isMissingColumnError(error) || !missingColumn || !(missingColumn in payload)) break;
+            payload = dropPostInsertColumn(payload, missingColumn);
+            const retry = await supabase.from('posts').insert(payload);
+            error = retry.error;
+        }
+
+        if (error && (error?.code === 'PGRST204' || /column|schema cache|destination|cell_id|liked_by|user_username|user_photo_url|shares_count/i.test(formatSupabaseError(error)))) {
+            const retry = await supabase.from('posts').insert(legacyPayload);
+            error = retry.error;
+        }
+        if (error) throw toError('Erro ao criar publicacao no Reino', error);
     },
     updatePost: async (id: string, data: any) => {
         await supabase.from('posts').update(clean(data)).eq('id', id);
@@ -964,7 +1398,14 @@ export const dbService = {
     },
     saveAdminDevotional: async (data: any) => {
         const dateId = data.date.replace(/\//g, '-');
-        await supabase.from('daily_devotionals').upsert({ date: dateId, ...clean(data) });
+        await supabase.from('daily_devotionals').upsert(clean({
+            date: dateId,
+            title: data.title,
+            verse_reference: data.verseReference ?? data.verse_reference ?? data.reference,
+            verse_text: data.verseText ?? data.verse_text ?? data.verse,
+            content: data.content ?? data.text,
+            prayer: data.prayer,
+        }));
     },
     getLandingPageConfig: async (): Promise<LandingPageConfig | null> => {
         const { data } = await supabase.from('settings').select('value').eq('key', 'landing').single();
@@ -1368,6 +1809,14 @@ function mapPlan(d: any): CustomPlan {
         weeks: safeJson(d.weeks, []),
         isPublic: d.is_public ?? false,
         privacyType: d.privacy_type ?? 'public',
+        privacyLevel: d.privacy_level ?? d.privacy_type ?? 'public',
+        allowedGroupIds: safeJson(d.allowed_group_ids, []),
+        allowedUserIds: safeJson(d.allowed_user_ids, []),
+        inviteRequired: d.invite_required ?? false,
+        allowPdfDownload: d.allow_pdf_download ?? false,
+        shareSlug: d.share_slug ?? undefined,
+        lastSharedAt: d.last_shared_at ?? undefined,
+        createdFromContext: d.created_from_context ?? undefined,
         isRanked: d.is_ranked ?? false,
         status: d.status ?? 'draft',
         churchId: d.church_id ?? undefined,
@@ -1392,7 +1841,11 @@ function mapPlanToDb(data: any): any {
     const mapped: any = {};
     const fieldMap: Record<string, string> = {
         authorId: 'author_id', authorName: 'author_name', coverUrl: 'cover_url',
-        isPublic: 'is_public', privacyType: 'privacy_type', isRanked: 'is_ranked',
+        isPublic: 'is_public', privacyType: 'privacy_type', privacyLevel: 'privacy_level',
+        allowedGroupIds: 'allowed_group_ids', allowedUserIds: 'allowed_user_ids',
+        inviteRequired: 'invite_required', allowPdfDownload: 'allow_pdf_download',
+        shareSlug: 'share_slug', lastSharedAt: 'last_shared_at',
+        createdFromContext: 'created_from_context', isRanked: 'is_ranked',
         churchId: 'church_id', groupId: 'group_id', createdAt: 'created_at', updatedAt: 'updated_at',
         subscribersCount: 'subscribers_count', planningFrequency: 'planning_frequency',
         hasEvaluation: 'has_evaluation', evaluationId: 'evaluation_id',
@@ -1426,6 +1879,7 @@ function mapParticipant(d: any): PlanParticipant {
 }
 
 function mapPost(d: any): Post {
+    const studyShare = d.type === 'study' || d.type === 'room' ? parseStudyShareContent(d.content) : null;
     return {
         id: d.id,
         userId: d.user_id,
@@ -1433,7 +1887,7 @@ function mapPost(d: any): Post {
         userUsername: d.user_username ?? '',
         userPhotoURL: d.user_photo_url ?? undefined,
         type: d.type ?? 'reflection',
-        content: d.content ?? '',
+        content: studyShare?.description ?? d.content ?? '',
         likesCount: d.likes_count ?? 0,
         commentsCount: d.comments_count ?? 0,
         shares: d.shares ?? 0,
@@ -1444,10 +1898,16 @@ function mapPost(d: any): Post {
         createdAt: d.created_at,
         time: d.created_at,
         location: '',
-        imageUrl: d.image_url ?? undefined,
+        imageUrl: d.image_url ?? studyShare?.studyCoverUrl ?? undefined,
+        image: d.image_url ?? studyShare?.studyCoverUrl ?? undefined,
         destination: d.destination ?? 'global',
         churchId: d.church_id ?? undefined,
         cellId: d.cell_id ?? undefined,
+        studyId: studyShare?.studyId,
+        studyTitle: studyShare?.studyTitle,
+        studyCoverUrl: studyShare?.studyCoverUrl ?? d.image_url ?? undefined,
+        studyUrl: studyShare?.studyUrl,
+        studySourceLabel: studyShare?.sourceLabel,
     };
 }
 
@@ -1469,6 +1929,7 @@ function mapPrayerRequest(d: any): PrayerRequest {
 }
 
 function mapChurch(d: any): Church {
+    const memberCount = d.member_count ?? d.stats?.memberCount ?? 0;
     return {
         id: d.id,
         name: d.name,
@@ -1476,12 +1937,24 @@ function mapChurch(d: any): Church {
         slug: d.slug,
         denomination: d.denomination ?? '',
         location: { city: d.location_city ?? '', state: d.location_state ?? '', address: d.location_address ?? '' },
-        stats: { memberCount: 0, totalMana: 0, totalChaptersRead: 0, totalStudiesCreated: 0 },
-        teams: [],
-        teamScores: {},
-        admins: [],
+        stats: {
+            memberCount,
+            totalMana: d.total_mana ?? 0,
+            totalChaptersRead: d.total_chapters_read ?? 0,
+            totalStudiesCreated: d.total_studies_created ?? 0,
+            followersCount: d.followers_count ?? 0
+        },
+        teams: safeJson(d.teams, []),
+        teamScores: safeJson(d.team_scores, {}),
+        admins: safeJson(d.admins, []),
         logoUrl: d.logo_url ?? undefined,
         pastorName: d.pastor_name ?? undefined,
+        externalProvider: d.external_provider ?? undefined,
+        externalPlaceId: d.external_place_id ?? undefined,
+        sourceAttribution: d.source_attribution ?? undefined,
+        verificationStatus: d.verification_status ?? 'unclaimed',
+        lat: d.lat ?? null,
+        lng: d.lng ?? null,
     };
 }
 
@@ -1492,10 +1965,27 @@ function mapCell(d: any): ChurchGroup {
         parentGroupId: d.parent_group_id ?? undefined,
         name: d.name,
         slug: d.slug ?? d.name,
+        privacy: d.privacy === 'private' ? 'private' : 'public',
         stats: { memberCount: 0, totalMana: 0 },
         leaderName: d.leader_name ?? undefined,
         leaderUid: d.leader_id ?? undefined,
         createdBy: d.created_by ?? '',
+        createdAt: d.created_at,
+    };
+}
+
+function mapGroupAccessInvite(d: any): GroupAccessInvite {
+    return {
+        id: d.id,
+        groupId: d.group_id,
+        churchId: d.church_id,
+        invitedUserId: d.invited_user_id,
+        invitedByUserId: d.invited_by_user_id,
+        status: d.status ?? 'pending',
+        source: d.source ?? 'invite',
+        token: d.token ?? undefined,
+        expiresAt: d.expires_at ?? undefined,
+        acceptedAt: d.accepted_at ?? undefined,
         createdAt: d.created_at,
     };
 }

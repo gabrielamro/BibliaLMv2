@@ -8,8 +8,8 @@ interface HeroSplitBlockProps {
 
 export const HeroSplitBlock: React.FC<HeroSplitBlockProps> = ({ data, isEditing }) => {
   return (
-    <section className="grid overflow-hidden rounded-[2rem] border border-[#eadfcf] bg-[linear-gradient(135deg,_#f6efe3_0%,_#f4ede2_50%,_#efe4d5_100%)] lg:grid-cols-[1.05fr_0.95fr]">
-      <div className="relative min-h-[240px] overflow-hidden bg-[radial-gradient(circle_at_25%_20%,_rgba(252,226,176,0.35),_transparent_35%),linear-gradient(135deg,_rgba(78,59,35,0.88)_0%,_rgba(35,28,21,0.86)_44%,_rgba(18,14,10,0.94)_100%)]">
+    <section className="grid overflow-hidden rounded-[1.75rem] border border-[#eadfcf] bg-[linear-gradient(135deg,_#f6efe3_0%,_#f4ede2_50%,_#efe4d5_100%)] sm:rounded-[2rem] lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="relative min-h-[200px] overflow-hidden bg-[radial-gradient(circle_at_25%_20%,_rgba(252,226,176,0.35),_transparent_35%),linear-gradient(135deg,_rgba(78,59,35,0.88)_0%,_rgba(35,28,21,0.86)_44%,_rgba(18,14,10,0.94)_100%)] sm:min-h-[240px]">
         {data.imageUrl ? (
           <img src={data.imageUrl} alt={data.imageAlt || 'Hero split'} className="absolute inset-0 h-full w-full object-cover" />
         ) : (
@@ -21,12 +21,12 @@ export const HeroSplitBlock: React.FC<HeroSplitBlockProps> = ({ data, isEditing 
           </div>
         )}
       </div>
-      <div className="flex min-h-[240px] items-center px-8 py-10 sm:px-12">
+      <div className="flex min-h-[190px] items-center px-6 py-8 sm:min-h-[240px] sm:px-12 sm:py-10">
         <div className="max-w-lg">
-          <p className="inline-flex rounded-full border border-[#d7c7aa] bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8c6b3e]">
+          <p className="inline-flex rounded-full border border-[#d7c7aa] bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8c6b3e] sm:text-[11px] sm:tracking-[0.24em]">
             {data.eyebrow || 'Hero split'}
           </p>
-          <p className="mt-6 font-serif text-3xl leading-[1.35] text-[#7a5942] sm:text-[2.65rem]">
+          <p className="mt-5 [overflow-wrap:anywhere] font-serif text-[1.45rem] leading-[1.32] text-[#7a5942] sm:mt-6 sm:text-[2.65rem] sm:leading-[1.35]">
             {data.title}
           </p>
           <div className="mt-6 h-px w-40 bg-[#d7c7aa]" />

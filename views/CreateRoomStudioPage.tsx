@@ -13,6 +13,7 @@ import PlanStudioShell from '../components/PlanStudio/PlanStudioShell';
 import type { StudioTab } from '../components/PlanStudio/types';
 import CreateContentV3Page from './CreateContentV3Page';
 import { buildBaseBlocks } from '../components/Builder/utils';
+import { getContentDefaultsFromSearchParams, toLegacyPlanPrivacyType } from '../utils/contentPrivacy';
 
 const getUnitLabel = (frequency: PlanningFrequency, index: number) => {
   if (frequency === 'daily') return `Dia ${index}`;
@@ -76,6 +77,7 @@ const CreateRoomStudioPage: React.FC = () => {
   const [editingLessonId, setEditingLessonId] = useState<string | null>(searchParams.get('lesson'));
 
   const planIdFromUrl = searchParams.get('id');
+  const contentDefaults = useMemo(() => getContentDefaultsFromSearchParams(searchParams), [searchParams]);
 
   useEffect(() => {
     setIsFocusMode(true);
@@ -109,6 +111,19 @@ const CreateRoomStudioPage: React.FC = () => {
       cancelled = true;
     };
   }, [planIdFromUrl, showNotification]);
+
+  useEffect(() => {
+    if (planIdFromUrl) return;
+    setPlan((current) => ({
+      ...current,
+      privacyType: toLegacyPlanPrivacyType(contentDefaults.visibility),
+      privacyLevel: contentDefaults.visibility,
+      churchId: contentDefaults.churchId,
+      groupId: contentDefaults.groupId,
+      createdFromContext: contentDefaults.scope,
+      inviteRequired: contentDefaults.visibility === 'invite_only',
+    }));
+  }, [contentDefaults, planIdFromUrl]);
 
   useEffect(() => {
     const lessonId = searchParams.get('lesson');
@@ -279,6 +294,11 @@ const CreateRoomStudioPage: React.FC = () => {
       subscribersCount: plan.subscribersCount ?? 0,
       planningFrequency: plan.planningFrequency ?? 'weekly',
       privacyType: plan.privacyType ?? 'followers',
+      privacyLevel: plan.privacyLevel ?? contentDefaults.visibility,
+      churchId: plan.churchId ?? contentDefaults.churchId,
+      groupId: plan.groupId ?? contentDefaults.groupId,
+      createdFromContext: plan.createdFromContext ?? contentDefaults.scope,
+      inviteRequired: plan.inviteRequired ?? (plan.privacyLevel === 'invite_only'),
       isRanked: plan.isRanked ?? false,
       teams: plan.teams ?? [],
       weeks: plan.weeks ?? [],

@@ -602,6 +602,7 @@ const PlanBuilderPage: React.FC = () => {
                 churchId: userProfile?.churchData?.churchId,
                 updatedAt: new Date().toISOString(),
                 status: targetStatus,
+                isPublic: targetStatus === 'published' && (plan.privacyLevel ?? plan.privacyType) === 'public',
                 teams: plan.isRanked ? pastorTeams : []
             };
 
@@ -1105,7 +1106,7 @@ const PlanBuilderPage: React.FC = () => {
                     </div>
                 )}
 
-            <ConfirmationModal isOpen={showSaveSuccessModal} onClose={() => setShowSaveSuccessModal(false)} onConfirm={() => savedPlanId && navigate(`/jornada/${savedPlanId}`)} title="Sucesso!" message="Seu plano foi publicado." confirmText="Ver Plano" variant="success" />
+            <ConfirmationModal isOpen={showSaveSuccessModal} onClose={() => setShowSaveSuccessModal(false)} onConfirm={() => savedPlanId && navigate(`/jornada/${savedPlanId}`)} title="Sucesso!" message="Sua sala foi publicada. Abra a preview para copiar o link, editar o acesso ou compartilhar no Reino." confirmText="Ver Preview" variant="success" />
             <ConfirmationModal
                 isOpen={showFreqConfirm}
                 onClose={() => { setShowFreqConfirm(false); setPendingFrequency(null); }}

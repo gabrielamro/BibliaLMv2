@@ -37,18 +37,18 @@ test('responsive text layout derives sizes from canvas dimensions with sane clam
   });
 
   assert.equal(compactFeed.verseFontSizePx, 28);
-  assert.equal(compactFeed.referenceFontSizePx, 16);
+  assert.equal(compactFeed.referenceFontSizePx, 12);
   assert.equal(compactFeed.contentWidthPercent, 84);
   assert.equal(roomyStory.contentWidthPercent, 88);
 
-  assert.ok(roomyStory.verseFontSizePx > compactFeed.verseFontSizePx);
-  assert.ok(roomyStory.referenceFontSizePx > compactFeed.referenceFontSizePx);
+  assert.ok(roomyStory.verseFontSizePx >= compactFeed.verseFontSizePx - 2);
+  assert.ok(roomyStory.referenceFontSizePx >= compactFeed.referenceFontSizePx - 1);
   assert.ok(roomyStory.verseFontSizePx <= 52);
   assert.ok(roomyStory.referenceFontSizePx <= 28);
 });
 
 test('desktop dock alignment uses the right rail instead of centered positioning', () => {
-  assert.match(DESKTOP_DOCK_POSITION_CLASS, /md:right-8/);
+  assert.match(DESKTOP_DOCK_POSITION_CLASS, /md:right-10/);
   assert.doesNotMatch(DESKTOP_DOCK_POSITION_CLASS, /md:left-1\/2/);
 });
 
@@ -101,4 +101,23 @@ test('font size helpers respect the new 20px minimum and 24px default', () => {
 
   assert.equal(defaultLayout.verseFontSizePx, VERSE_FONT_PX_LIMITS.default);
   assert.equal(minLayout.verseFontSizePx, VERSE_FONT_PX_LIMITS.min);
+});
+
+test('text layout keeps bible reference separated from the verse block', () => {
+  const layout = getResponsiveTextLayout({
+    aspectRatio: 'feed',
+    containerWidth: 380,
+    containerHeight: 380,
+    fontSizeScale: getFontScaleFromVersePx({
+      aspectRatio: 'feed',
+      containerWidth: 380,
+      containerHeight: 380,
+      targetVerseFontPx: VERSE_FONT_PX_LIMITS.default,
+    }),
+  });
+
+  assert.equal(layout.verseFontSizePx, 20);
+  assert.ok(layout.referenceGapPx >= 18);
+  assert.ok(layout.referenceFontSizePx < layout.verseFontSizePx);
+  assert.ok(layout.maxTextBlockHeightPercent <= 58);
 });

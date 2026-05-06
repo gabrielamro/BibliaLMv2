@@ -246,7 +246,7 @@ const DesktopNavigationPage: React.FC = () => {
           path: "/?tab=criar", 
           color: "text-pink-600",
           bgGradient: "bg-pink-100 dark:bg-pink-900/50",
-          badge: "Premium"
+          badge: "Livre"
         },
       ]
     },
@@ -378,22 +378,7 @@ const DesktopNavigationPage: React.FC = () => {
           ))}
         </div>
 
-        {/* FOOTER CTA */}
-        <div className="mx-3 md:mx-8 bg-gradient-to-br from-gray-900 to-black rounded-[2.5rem] p-8 md:p-10 text-center text-white relative overflow-hidden">
-          <div className="relative z-10">
-            <Crown size={40} className="text-bible-gold mx-auto mb-4" />
-            <h2 className="text-xl md:text-2xl font-serif font-bold mb-4">Apoie o Projeto</h2>
-            <p className="text-gray-400 max-w-lg mx-auto mb-6 text-sm">
-              Torne-se um assinante Visionário e desbloqueie o potencial ilimitado de todas as ferramentas de IA.
-            </p>
-            <button 
-              onClick={() => navigate('/planos')}
-              className="bg-bible-gold text-bible-leather px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs hover:scale-105 transition-transform shadow-lg"
-            >
-              Ver Planos Premium
-            </button>
-          </div>
-        </div>
+        {/* CTA REMOVIDO TEMPORARIAMENTE */}
 
       </div>
     </div>

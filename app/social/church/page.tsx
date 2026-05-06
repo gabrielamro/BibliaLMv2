@@ -1,10 +1,5 @@
-"use client";
-
-import ProtectedRoute from '../../../components/ProtectedRoute';
-import ChurchOnboardingPage from '../../../views/ChurchOnboardingPage';
+import { redirect } from 'next/navigation';
 
 export default function Page() {
-  return (
-    <ProtectedRoute><ChurchOnboardingPage /></ProtectedRoute>
-  );
+  redirect('/social/igrejas');
 }

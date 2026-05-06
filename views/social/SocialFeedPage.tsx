@@ -82,7 +82,8 @@ const SocialFeedPage: React.FC = () => {
         if (state?.openCreate) {
             setComposerProps({
                 image: state.prefilledImage,
-                caption: state.prefilledCaption
+                caption: state.prefilledCaption,
+                initialTab: state.initialTab || 'reflection'
             });
             setIsKingdomComposerOpen(true);
             // Clear state to avoid reopening on refresh
@@ -94,7 +95,7 @@ const SocialFeedPage: React.FC = () => {
         if (!isPull) setIsLoading(true);
         setError(null);
         try {
-            const fetchedPosts = await dbService.getGlobalFeed(50);
+            const fetchedPosts = await dbService.getGlobalFeed(50, userProfile);
             if (fetchedPosts && fetchedPosts.length > 0) {
                 setPosts(fetchedPosts);
             } else {
@@ -123,7 +124,7 @@ const SocialFeedPage: React.FC = () => {
             setIsHeaderHidden(false);
             window.removeEventListener('biblialm-scroll-top', handleScrollToTop);
         };
-    }, []);
+    }, [userProfile?.churchData?.churchId, userProfile?.churchData?.groupId]);
 
     const lastScrollYList = useRef(0);
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {

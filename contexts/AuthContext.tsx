@@ -9,6 +9,7 @@ import {
 } from '../services/supabase';
 import { UserProfile, Badge, ActionType, ReadingPosition, UserActivity, UserStats, SystemSettings, SubscriptionTier, UserUsage, PlanFeatures, AppNotification } from '../types';
 import { BADGES, SUBSCRIPTION_PLANS } from '../constants';
+import { applyActivityRules } from '../utils/activityRules';
 
 const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   general: { maintenanceMode: false, welcomeMessage: "Bem-vindo" },
@@ -336,11 +337,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const checkFeatureAccess = (feature: keyof PlanFeatures): boolean => {
+    return true;
     const tier = userProfile?.subscriptionTier || 'free';
+    const featuresMatrix = systemSettings?.featuresMatrix;
+    const tierFeatures = featuresMatrix?.[tier];
 
-    if (systemSettings?.featuresMatrix?.[tier]) {
-      return !!systemSettings.featuresMatrix[tier][feature];
-    }
+    if (tierFeatures) return Boolean(tierFeatures?.[feature]);
 
     if (tier === 'gold' || tier === 'pastor' || tier === 'admin') return true;
 
@@ -364,10 +366,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const recordActivity = async (action: ActionType, details: string, meta: any = {}) => {
     if (!currentUser || !userProfile) return;
-    const xpGained = meta.xpGained || 1;
-    const currentXp = userProfile.lifetimeXp || 0;
-    const newXp = currentXp + xpGained;
-    const newActivity: UserActivity = { id: Date.now().toString(), type: action, description: details, timestamp: new Date().toISOString(), meta: { xpGained } };
+    const { activityLog, lifetimeXp: newXp } = applyActivityRules({
+      profile: userProfile,
+      action,
+      details,
+      meta,
+      systemSettings,
+    });
     const newBadges: string[] = [...(userProfile.badges || [])];
 
     BADGES.forEach(badge => {
@@ -378,8 +383,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    await dbService.updateUserProfile(currentUser.id, { lifetimeXp: newXp, badges: newBadges });
-    setUserProfile(prev => prev ? { ...prev, lifetimeXp: newXp, badges: newBadges } : null);
+    await dbService.updateUserProfile(currentUser.id, { lifetimeXp: newXp, badges: newBadges, activityLog });
+    setUserProfile(prev => prev ? { ...prev, lifetimeXp: newXp, badges: newBadges, activityLog } : null);
   };
 
   const markChapterCompleted = async (bookId: string, chapter: number) => {
@@ -439,7 +444,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       notification, showNotification: (m, t = 'info') => setNotification({ message: m, type: t }), clearNotification: () => setNotification(null),
       newUnlockedBadge, clearBadgeNotification: () => setNewUnlockedBadge(null),
       checkFeatureAccess, incrementUsage, upgradeSubscription, markNotificationsAsRead, addSystemNotification,
-      openSubscription: () => navigate('/planos'),
+      openSubscription: () => setNotification({ message: "Assinaturas desativadas temporariamente. Aproveite todos os recursos!", type: 'info' }),
       isBuyCreditsModalOpen, openBuyCredits, closeBuyCredits, deductPoints, buyCredits,
       updateProfile: async (updates: Partial<UserProfile>) => {
         if (!currentUser) return;

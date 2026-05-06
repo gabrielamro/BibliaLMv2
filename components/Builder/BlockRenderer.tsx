@@ -1,6 +1,5 @@
 "use client";
 import React from 'react';
-import { Monitor, Smartphone, EyeOff } from 'lucide-react';
 import { HeroBlock } from './blocks/HeroBlock';
 import { AuthorityBlock } from './blocks/AuthorityBlock';
 import { BiblicalBlock } from './blocks/BiblicalBlock';
@@ -60,8 +59,8 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
 
   const isHiddenOnCurrentViewport = (isMobileView && !showOnMobile) || (isDesktopView && !showOnDesktop);
 
-  // No modo produção (não editando), se estiver escondido, não renderiza nada
-  if (!isEditing && isHiddenOnCurrentViewport) {
+  // Se estiver escondido na visualizacao atual, nao renderiza nada.
+  if (isHiddenOnCurrentViewport) {
     return null;
   }
 
@@ -72,7 +71,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
       case 'authority':
         return <AuthorityBlock data={data} isEditing={isEditing} onUpdate={(newData) => onUpdate?.(block.id, newData)} />;
       case 'biblical':
-        return <BiblicalBlock data={data} isEditing={isEditing} onUpdate={(newData) => onUpdate?.(block.id, newData)} />;
+        return <BiblicalBlock data={data} isEditing={isEditing} onUpdate={(newData) => onUpdate?.(block.id, newData)} canvasWidth={canvasWidth} />;
       case 'video':
         return <VideoBlock data={data} isEditing={isEditing} onUpdate={(newData) => onUpdate?.(block.id, newData)} />;
       case 'footer':
@@ -80,13 +79,13 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
       case 'study-content':
         return <StudyContentBlock data={data} onUpdate={(newData) => onUpdate?.(block.id, newData)} isEditing={isEditing} authorName={authorName} />;
       case 'slide':
-        return <SlideBlock data={data} onUpdate={(newData) => onUpdate?.(block.id, newData)} isEditing={isEditing} authorName={authorName} />;
+        return <SlideBlock data={data} onUpdate={(newData) => onUpdate?.(block.id, newData)} isEditing={isEditing} authorName={authorName} canvasWidth={canvasWidth} />;
       case 'hero-split':
         return <HeroSplitBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} />;
       case 'study-outline':
         return <StudyOutlineBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} editor={editor} />;
       case 'related-verses':
-        return <RelatedVersesBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} layoutWidth={layoutWidth || data.layoutWidth || '1/1'} />;
+        return <RelatedVersesBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} layoutWidth={layoutWidth || data.layoutWidth || '1/1'} canvasWidth={canvasWidth} />;
       case 'references-chain':
         return <ReferencesChainBlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} />;
       case 'reflection-question':
@@ -95,7 +94,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
         return <SpacerBlock data={data} isEditing={isEditing} onUpdate={(newData) => onUpdate?.(block.id, newData)} />;
       case 'free-text':
       case 'rich-text':
-        return <RichTextBlock data={data} onUpdate={(newData) => onUpdate?.(block.id, newData)} isEditing={isEditing} editor={editor} layoutWidth={layoutWidth || data.layoutWidth || '1/1'} blockType={type} />;
+        return <RichTextBlock data={data} onUpdate={(newData) => onUpdate?.(block.id, newData)} isEditing={isEditing} editor={editor} layoutWidth={layoutWidth || data.layoutWidth || '1/1'} blockType={type} canvasWidth={canvasWidth} />;
       case 'cta':
         return <CTABlock data={data} isEditing={isEditing} onUpdate={onUpdate ? (newData) => onUpdate(block.id, newData) : undefined} />;
       default:
@@ -197,21 +196,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
         />
       )}
 
-      {/* Indicador de Bloco Escondido (Apenas no Editor) */}
-      {isEditing && isHiddenOnCurrentViewport && (
-        <div className="absolute inset-0 z-[20] bg-white/60 dark:bg-gray-900/60 backdrop-blur-[2px] flex items-center justify-center pointer-events-none border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-inherit">
-          <div className="flex flex-col items-center gap-2 text-gray-500 animate-pulse">
-            <EyeOff size={24} />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Oculto nesta visualização</span>
-            <div className="flex gap-2">
-               {!showOnDesktop && <Monitor size={12} className="opacity-50" />}
-               {!showOnMobile && <Smartphone size={12} className="opacity-50" />}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <div className={`${containerClass} relative z-10 h-full ${isEditing && isHiddenOnCurrentViewport ? 'opacity-30' : ''}`}>
+      <div className={`${containerClass} relative z-10 h-full`}>
         {renderBlock()}
       </div>
     </div>

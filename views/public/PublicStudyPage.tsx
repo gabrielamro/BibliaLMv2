@@ -37,11 +37,12 @@ const PublicStudyPage: React.FC = () => {
     useEffect(() => {
         const load = async () => {
             if (!studyId) return;
+            const decodedId = decodeURIComponent(studyId);
             try {
-                const data = await dbService.getPublicStudy(studyId);
+                const data = await dbService.getPublicStudy(decodedId);
                 setStudy(data);
                 // Telemetria
-                dbService.incrementMetric('public_studies', studyId, 'views').catch(console.error);
+                dbService.incrementMetric('public_studies', decodedId, 'views').catch(console.error);
             } catch (e) { console.error(e); } 
             finally { setLoading(false); }
         };

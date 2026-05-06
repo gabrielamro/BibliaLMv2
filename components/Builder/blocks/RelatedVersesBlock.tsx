@@ -5,16 +5,20 @@ import { ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 interface RelatedVersesBlockProps {
   data: any;
   layoutWidth?: string;
+  canvasWidth?: 'mobile' | 'tablet' | 'desktop' | 'full';
   isEditing?: boolean;
   onUpdate?: (data: any) => void;
 }
 
-export const RelatedVersesBlock: React.FC<RelatedVersesBlockProps> = ({ data, layoutWidth = '1/1' }) => {
+export const RelatedVersesBlock: React.FC<RelatedVersesBlockProps> = ({ data, layoutWidth = '1/1', canvasWidth }) => {
   const verses = Array.isArray(data.verses) ? data.verses : [];
   const [activeSlide, setActiveSlide] = useState(0);
   const slideRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
+  const isMobileCanvas = canvasWidth === 'mobile';
+  const desktopGridClass = canvasWidth ? (isMobileCanvas ? 'hidden' : 'grid') : 'hidden md:grid';
+  const mobileSliderClass = canvasWidth ? (isMobileCanvas ? 'block' : 'hidden') : 'md:hidden';
 
   const getGridClass = () => {
     switch (layoutWidth) {
@@ -71,7 +75,7 @@ export const RelatedVersesBlock: React.FC<RelatedVersesBlockProps> = ({ data, la
       </div>
 
       {/* === DESKTOP: Grid de 3 colunas === */}
-      <div className={`hidden md:grid gap-6 w-full ${getGridClass()}`}>
+      <div data-testid="related-verses-desktop-grid" className={`${desktopGridClass} gap-6 w-full ${getGridClass()}`}>
         {verses.map((verse: any, index: number) => (
           <article 
             key={`desktop-${verse.reference}-${index}`} 
@@ -99,7 +103,7 @@ export const RelatedVersesBlock: React.FC<RelatedVersesBlockProps> = ({ data, la
       </div>
 
       {/* === MOBILE: Slider com 1 versículo por vez === */}
-      <div className="md:hidden">
+      <div data-testid="related-verses-mobile-slider" className={mobileSliderClass}>
         <div 
           ref={slideRef}
           className="relative overflow-hidden rounded-3xl"

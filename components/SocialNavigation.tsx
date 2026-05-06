@@ -17,7 +17,7 @@ const SocialNavigation: React.FC<SocialNavigationProps> = ({ activeTab }) => {
     { id: 'feed', icon: <Rss size={24} />, path: '/social' },
     { id: 'explore', icon: <Compass size={24} />, path: '/social/explore' },
     { id: 'tools', icon: <Wand2 size={24} />, path: '/social/ferramentas' },
-    { id: 'church', icon: <Church size={24} />, path: '/social/church' },
+    { id: 'church', icon: <Church size={24} />, path: '/social/igrejas' },
     { id: 'profile', icon: <User size={24} />, path: '/social/profile' },
   ];
 
