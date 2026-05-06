@@ -90,7 +90,6 @@ const HomeSectionHeader: React.FC<{
 // ─── REINO TAB COMPONENT ────────────────────────────────────────────────────
 
 interface ReinoTabProps {
-  isLightTheme: boolean;
   currentUser: any;
   userProfile: any;
   notifications: any[];
@@ -133,7 +132,7 @@ const PrayerSkeleton = () => (
 );
 
 const ReinoTab: React.FC<ReinoTabProps> = ({
-  isLightTheme, currentUser, userProfile, notifications, navigate, openLogin, showNotification
+  currentUser, userProfile, notifications, navigate, openLogin, showNotification
 }) => {
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const churchId = userProfile?.churchData?.churchId;
@@ -1227,7 +1226,6 @@ const SanctuaryPage: React.FC = () => {
             {/* ==================== ABA REINO ==================== */}
             {activeTab === 'reino' && (
               <ReinoTab
-                isLightTheme={isLightTheme}
                 currentUser={currentUser}
                 userProfile={userProfile}
                 notifications={notifications}
