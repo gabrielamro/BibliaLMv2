@@ -22,6 +22,7 @@ import { addGroupInviteParticipant, removeGroupInviteParticipant } from '../../u
 import { normalizeUserSearchQuery, shouldSearchUsers } from '../../utils/userSearchQuery';
 import { buildCreateContentShortcutUrl } from '../../utils/contentPrivacy';
 import { generateSlug } from '../../utils/textUtils';
+import { FeedPostCard } from '../../components/social/FeedPostCard';
 
 const formatRuntimeError = (error: unknown) => {
     if (error instanceof Error) return error.message;
@@ -726,37 +727,55 @@ const ChurchProfilePage: React.FC = () => {
                             </div>
                         )}
                         <div className="space-y-4">
-                            {prayers.map(prayer => (
-                                <div key={prayer.id} className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm animate-in fade-in group transition-all hover:shadow-md relative">
-                                    {prayer.cellName && (
-                                        <div className="absolute top-4 right-14 flex items-center gap-1 bg-purple-50 dark:bg-purple-900/20 text-purple-600 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border border-purple-100">
-                                            <Boxes size={10}/> Grupo: {prayer.cellName}
-                                        </div>
-                                    )}
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden flex items-center justify-center border border-gray-200">
-                                                {prayer.userPhotoURL ? <img src={prayer.userPhotoURL} className="w-full h-full object-cover"/> : <span className="font-bold text-xs text-gray-400">{prayer.userName.substring(0,1)}</span>}
+                            {prayers.map(item => {
+                                if (item.muralType === 'post') {
+                                    return (
+                                        <FeedPostCard 
+                                            key={item.id} 
+                                            post={item} 
+                                            currentUser={currentUser}
+                                            showNotification={showNotification}
+                                            onInteraction={async (postId, type) => {
+                                                if (type === 'like') await dbService.togglePostLike(postId, currentUser?.uid || '', !item.likedBy?.includes(currentUser?.uid || ''));
+                                                // Refresh local state if needed, or rely on re-fetch
+                                            }}
+                                            onDelete={isOwner ? handleDeletePrayer : undefined}
+                                        />
+                                    );
+                                }
+                                const prayer = item as PrayerRequest;
+                                return (
+                                    <div key={prayer.id} className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm animate-in fade-in group transition-all hover:shadow-md relative">
+                                        {prayer.cellName && (
+                                            <div className="absolute top-4 right-14 flex items-center gap-1 bg-purple-50 dark:bg-purple-900/20 text-purple-600 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border border-purple-100">
+                                                <Boxes size={10}/> Grupo: {prayer.cellName}
                                             </div>
-                                            <div><h4 className="font-bold text-sm text-gray-900 dark:text-white leading-tight">{prayer.userName}</h4><span className="text-[9px] text-gray-400 uppercase font-medium">{new Date(prayer.createdAt).toLocaleDateString()}</span></div>
-                                        </div>
-                                        {(currentUserId === prayer.userId || isOwner) && (
-                                            <PostMenu prayer={prayer} onEdit={handleEditPrayer} onDelete={handleDeletePrayer} />
                                         )}
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden flex items-center justify-center border border-gray-200">
+                                                    {prayer.userPhotoURL ? <img src={prayer.userPhotoURL} className="w-full h-full object-cover"/> : <span className="font-bold text-xs text-gray-400">{prayer.userName.substring(0,1)}</span>}
+                                                </div>
+                                                <div><h4 className="font-bold text-sm text-gray-900 dark:text-white leading-tight">{prayer.userName}</h4><span className="text-[9px] text-gray-400 uppercase font-medium">{new Date(prayer.createdAt).toLocaleDateString()}</span></div>
+                                            </div>
+                                            {(currentUserId === prayer.userId || isOwner) && (
+                                                <PostMenu prayer={prayer} onEdit={handleEditPrayer} onDelete={handleDeletePrayer} />
+                                            )}
+                                        </div>
+                                        <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed mb-4">"{prayer.content}"</p>
+                                        <div className="flex items-center justify-between border-t border-gray-50 dark:border-gray-800 pt-3">
+                                            <button 
+                                                onClick={() => handleIntercede(prayer)} 
+                                                className={`flex items-center gap-2 text-xs font-bold transition-all ${prayer.intercessors?.includes(currentUser?.uid || '') ? 'text-red-500 scale-105' : 'text-gray-400 hover:text-red-500'}`}
+                                            >
+                                                <Heart size={16} fill={prayer.intercessors?.includes(currentUser?.uid || '') ? "currentColor" : "none"} />
+                                                {prayer.intercessorsCount} Intercessões
+                                            </button>
+                                            <span className="text-[9px] text-gray-300 font-bold uppercase">{new Date(prayer.createdAt).toLocaleDateString()}</span>
+                                        </div>
                                     </div>
-                                    <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed mb-4">"{prayer.content}"</p>
-                                    <div className="flex items-center justify-between border-t border-gray-50 dark:border-gray-800 pt-3">
-                                        <button 
-                                            onClick={() => handleIntercede(prayer)} 
-                                            className={`flex items-center gap-2 text-xs font-bold transition-all ${prayer.intercessors?.includes(currentUser?.uid || '') ? 'text-red-500 scale-105' : 'text-gray-400 hover:text-red-500'}`}
-                                        >
-                                            <Heart size={16} fill={prayer.intercessors?.includes(currentUser?.uid || '') ? "currentColor" : "none"} />
-                                            {prayer.intercessorsCount} Intercessões
-                                        </button>
-                                        <span className="text-[9px] text-gray-300 font-bold uppercase">{new Date(prayer.createdAt).toLocaleDateString()}</span>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                             {prayers.length === 0 && (
                                 <div className="text-center py-12 text-gray-400 text-sm">
                                     Nenhuma oração ou mensagem no mural.

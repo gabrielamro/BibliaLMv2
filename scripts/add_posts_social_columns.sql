@@ -7,6 +7,7 @@ alter table public.posts
   add column if not exists user_username text,
   add column if not exists user_photo_url text,
   add column if not exists destination text default 'global',
+  add column if not exists mood text,
   add column if not exists shares_count int default 0,
   add column if not exists liked_by jsonb default '[]',
   add column if not exists church_id uuid references public.churches(id),

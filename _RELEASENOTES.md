@@ -4,6 +4,17 @@
 > **VERSION SYNC:** Lembre-se de atualizar `constants.ts`, `_ARCHITECTURE.md` e `_PROJECT_CONTEXT.md` ao mudar a versão aqui.
 > **GIT SYNC:** Após atualizar este arquivo, o Arquiteto deve executar `git commit` com a mensagem do release.
 
+## [v2.1.0] - 2026-05-11 (Ecossistema Social & Gestão de Perfil)
+### Tipo: Feature / UI / UX / Database
+- **Resumo:** Expansão das funcionalidades sociais e melhoria profunda na gestão de perfis e interatividade.
+- **Novidades:**
+  - **Interatividade Social**: Implementação de sistema de comentários em posts (`PostCommentsSheet`), contagem de visualizações e curtidas em tempo real.
+  - **Gestão de Perfil**: Refatoração completa da edição de perfil (`CompleteProfilePage`), incluindo campos para biografia, redes sociais e personalização de avatar/capa.
+  - **Feed do Reino Otimizado**: Melhorias no hook `useKingdomFeed` para suportar filtragem avançada por igreja e integração de posts oficiais no mural geral.
+  - **Infraestrutura de Banco**: Scripts de migração SQL para novas colunas sociais, visualizações e metadados de comentários no Supabase.
+  - **Experiência do Usuário**: Novo cabeçalho padrão (`StandardHeader`) e navegação social aprimorada.
+  - **Suíte de Testes**: Adição de testes para mood de posts, interações sociais, e fluxos de edição de perfil.
+
 ## [v2.0.0] - 2026-05-06 (Ecossistema Social & Expansão Eclesiástica)
 ### Tipo: Feature / Architecture / UX
 - **Resumo:** Lançamento da v2.0 com foco total em comunidade e remoção de barreiras financeiras.

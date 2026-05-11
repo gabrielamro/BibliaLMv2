@@ -42,7 +42,11 @@ const PublicStudyPage: React.FC = () => {
                 const data = await dbService.getPublicStudy(decodedId);
                 setStudy(data);
                 // Telemetria
-                dbService.incrementMetric('public_studies', decodedId, 'views').catch(console.error);
+                dbService.incrementMetric('public_studies', decodedId, 'views')
+                    .then((viewsCount) => {
+                        if (viewsCount !== null) setStudy((current) => current ? { ...current, viewsCount } : current);
+                    })
+                    .catch(console.error);
             } catch (e) { console.error(e); } 
             finally { setLoading(false); }
         };
@@ -65,6 +69,7 @@ const PublicStudyPage: React.FC = () => {
                 authorPhoto={study.userPhoto}
                 coverUrl={study.coverUrl}
                 badges={[{ label: 'Estudo Público', icon: <Sparkles size={14} /> }]}
+                metrics={{ views: study.viewsCount ?? 0 }}
                 hideTitle={true}
                 hideNav={true}
                 hideBackButton={true}

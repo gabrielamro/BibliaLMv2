@@ -3,13 +3,16 @@ import { useNavigate, useLocation, useSearchParams } from '../utils/router';
 
 import React from 'react';
 
-import { Home, BookOpen, Crown, Map, Search } from 'lucide-react';
+import { Home, BookOpen, Crown, Church, Search } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const MobileBottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { unreadNotificationsCount, currentUser, openLogin } = useAuth();
+  const { unreadNotificationsCount, currentUser, userProfile, openLogin } = useAuth();
+  const churchPath = userProfile?.churchData?.churchSlug
+    ? `/social/igreja/${userProfile.churchData.churchSlug}`
+    : '/social/igrejas';
 
   const navItems = [
     {
@@ -21,7 +24,7 @@ const MobileBottomNav: React.FC = () => {
     },
     {
       id: 'bible',
-      label: 'Palavra',
+      label: 'Bíblia',
       icon: BookOpen,
       path: '/bibliasagrada',
       protected: false
@@ -35,17 +38,17 @@ const MobileBottomNav: React.FC = () => {
       protected: false // Feed é público, interação é protegida internamente
     },
     {
+      id: 'church',
+      label: 'Igreja',
+      icon: Church,
+      path: churchPath,
+      protected: false
+    },
+    {
       id: 'explore',
       label: 'Explorar',
       icon: Search,
       path: '/social/explore',
-      protected: false
-    },
-    {
-      id: 'navegar',
-      label: 'Navegar',
-      icon: Map,
-      path: '/navegar',
       protected: false
     }
   ];
@@ -78,7 +81,17 @@ const MobileBottomNav: React.FC = () => {
             let isActive = false;
             if (item.id === 'social') {
               // Only active if starts with /social but NOT /social/explore
-              isActive = location.pathname === '/social' || (location.pathname.startsWith('/social') && !location.pathname.startsWith('/social/explore'));
+              isActive = location.pathname === '/social' || (
+                location.pathname.startsWith('/social') &&
+                !location.pathname.startsWith('/social/explore') &&
+                !location.pathname.startsWith('/social/igreja') &&
+                !location.pathname.startsWith('/social/igrejas') &&
+                !location.pathname.startsWith('/social/church')
+              );
+            } else if (item.id === 'church') {
+              isActive = location.pathname.startsWith('/social/igreja') ||
+                location.pathname.startsWith('/social/igrejas') ||
+                location.pathname.startsWith('/social/church');
             } else {
               isActive = location.pathname === item.path ||
                 (item.path !== '/' && location.pathname.startsWith(item.path));

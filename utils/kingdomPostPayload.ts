@@ -10,6 +10,8 @@ type KingdomPostInput = {
   cellId?: string | null;
   image?: string | null;
   imageUrl?: string | null;
+  mood?: string | null;
+  alsoShowOnChurch?: boolean | null;
 };
 
 const stripUndefined = <T extends Record<string, unknown>>(payload: T): T =>
@@ -23,7 +25,9 @@ export const buildPostInsertPayloads = (data: KingdomPostInput, createdAt = new 
     image_url: data.imageUrl || data.image || null,
     likes_count: 0,
     comments_count: 0,
+    views_count: 0,
     church_id: data.churchId ?? null,
+    mood: data.mood ?? null,
     created_at: createdAt,
   };
 
@@ -36,6 +40,7 @@ export const buildPostInsertPayloads = (data: KingdomPostInput, createdAt = new 
     cell_id: data.cellId ?? null,
     shares_count: 0,
     liked_by: [],
+    also_show_on_church: data.alsoShowOnChurch ?? false,
   });
 
   const legacyPayload = stripUndefined(basePayload);

@@ -57,7 +57,13 @@ const SavedStudiesPage: React.FC = () => {
             ...s, 
             blocks, 
             meta,
-            coverUrl: s.cover_image || meta?.coverImage || s.coverUrl 
+            coverUrl: s.cover_image || meta?.coverImage || s.coverUrl,
+            viewsCount: s.views_count ?? s.viewsCount ?? 0,
+            metrics: {
+              ...(s.metrics || {}),
+              views: s.views_count ?? s.viewsCount ?? s.metrics?.views ?? 0,
+              shares: s.shares_count ?? s.sharesCount ?? s.metrics?.shares ?? 0,
+            },
           };
         });
 

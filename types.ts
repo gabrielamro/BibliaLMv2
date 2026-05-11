@@ -185,6 +185,7 @@ export interface UserContent {
   tags?: string[];
   isPublic: boolean;
   coverUrl?: string;
+  viewsCount?: number;
 }
 
 export interface SacredArtImage {
@@ -280,6 +281,7 @@ export interface CustomPlan extends UserContent {
   churchId?: string;
   groupId?: string;
   subscribersCount: number;
+  viewsCount?: number;
   planningFrequency: PlanningFrequency;
   hasEvaluation?: boolean;
   evaluationId?: string;
@@ -330,6 +332,7 @@ export interface Post {
   likesCount: number;
   commentsCount: number;
   shares: number;
+  viewsCount?: number;
   likes: number;
   comments: number;
   saved: boolean;
@@ -353,6 +356,7 @@ export interface Post {
   studyCoverUrl?: string;
   studyUrl?: string;
   studySourceLabel?: string;
+  alsoShowOnChurch?: boolean;
 }
 
 export interface PostComment { id: string; postId: string; userId: string; userDisplayName: string; userPhotoURL?: string | null; content: string; createdAt: string; }

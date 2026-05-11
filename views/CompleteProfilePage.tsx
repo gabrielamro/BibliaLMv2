@@ -6,9 +6,10 @@ import React, { useState, useEffect, useRef } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 import { dbService, uploadProfileImage } from '../services/supabase';
-import { Loader2, Camera, Check, AlertCircle, Church, X, ShieldCheck, CreditCard, Phone, Facebook, Instagram, PenLine, Crown, Users, Search, Plus, MapPin } from 'lucide-react';
-import { SubscriptionTier, Church as ChurchType } from '../types';
+import { Loader2, Camera, Check, AlertCircle, Church, X, Instagram, PenLine, Crown, Users, Search, Plus, MapPin, Shield, Palette, CreditCard, LogOut, Bell, Sun, Moon } from 'lucide-react';
+import { SubscriptionTier, Church as ChurchType, UserProfile } from '../types';
 import { generateSlug } from '../utils/textUtils';
+import { buildEditableProfileDraft } from '../utils/profileSettings';
 
 const BRAZIL_STATES = [
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -17,7 +18,7 @@ const BRAZIL_STATES = [
 ];
 
 const CompleteProfilePage: React.FC = () => {
-    const { userProfile, currentUser, showNotification, earnMana, updateProfile } = useAuth();
+    const { userProfile, currentUser, showNotification, updateProfile, openSubscription, signOut } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -26,6 +27,9 @@ const CompleteProfilePage: React.FC = () => {
     const [instagram, setInstagram] = useState(userProfile?.instagram || '');
     const [facebook, setFacebook] = useState(userProfile?.facebook || '');
     const [bio, setBio] = useState(userProfile?.bio || '');
+    const [slogan, setSlogan] = useState(userProfile?.slogan || '');
+    const [isProfilePublic, setIsProfilePublic] = useState(userProfile?.isProfilePublic ?? true);
+    const [theme, setTheme] = useState<'light' | 'dark'>(userProfile?.theme || 'dark');
     const [selectedTier, setSelectedTier] = useState<SubscriptionTier>(userProfile?.subscriptionTier || 'free');
 
     const [city, setCity] = useState(userProfile?.city || '');
@@ -53,13 +57,17 @@ const CompleteProfilePage: React.FC = () => {
 
     useEffect(() => {
         if (userProfile) {
-            setDisplayName(userProfile.displayName || '');
+            const draft = buildEditableProfileDraft(userProfile as Partial<UserProfile>);
+            setDisplayName(draft.displayName);
             setUsername(userProfile.username || '');
-            setInstagram(userProfile.instagram || '');
+            setInstagram(draft.instagram);
             setFacebook(userProfile.facebook || '');
-            setBio(userProfile.bio || '');
-            setCity(userProfile.city || '');
-            setState(userProfile.state || '');
+            setBio(draft.bio);
+            setSlogan(draft.slogan);
+            setCity(draft.city);
+            setState(draft.state);
+            setIsProfilePublic(draft.isProfilePublic);
+            setTheme(draft.theme);
             setPhoneNumber(userProfile.phoneNumber || '');
             setCpf(userProfile.cpf || '');
             setPhotoPreview(userProfile.photoURL || null);
@@ -203,13 +211,15 @@ const CompleteProfilePage: React.FC = () => {
                 instagram: instagram.replace('@', ''),
                 facebook,
                 bio,
+                slogan,
                 city,
                 state,
                 phoneNumber: phoneNumber.replace(/\D/g, ''),
                 cpf: cpf.replace(/\D/g, ''),
                 photoURL: finalPhotoURL,
                 subscriptionTier: selectedTier,
-                isProfilePublic: true
+                isProfilePublic,
+                theme,
             };
 
             // Atualizar Igreja se selecionada
@@ -236,6 +246,28 @@ const CompleteProfilePage: React.FC = () => {
             setLoading(false);
         }
     };
+
+    const handleLogout = async () => {
+        if (!confirm('Tem certeza que deseja sair?')) return;
+        await signOut();
+        navigate('/');
+    };
+
+    const tiers: Record<string, { name: string; color: string }> = {
+        free: { name: 'Gratuito', color: 'text-gray-500' },
+        bronze: { name: 'Bronze', color: 'text-amber-700' },
+        silver: { name: 'Prata', color: 'text-gray-400' },
+        gold: { name: 'Visionario', color: 'text-yellow-500' },
+        pastor: { name: 'Pastor', color: 'text-purple-500' },
+        admin: { name: 'Admin', color: 'text-red-500' },
+    };
+
+    const notificationItems = [
+        'Novas solicitacoes de oracao',
+        'Lembrete de devocional diario',
+        'Atualizacoes de estudos',
+        'Novos seguidores e interacoes',
+    ];
 
     return (
         <div className="h-full bg-gray-50 dark:bg-black/20 overflow-y-auto">
@@ -295,6 +327,7 @@ const CompleteProfilePage: React.FC = () => {
                                     <div className="flex-1"><label className="text-xs font-bold text-gray-500 uppercase ml-1 block mb-1">Cidade</label><select value={city} onChange={e => setCity(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-bible-gold text-sm font-medium" required>{citiesList.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                                 </div>
                                 <div><label className="text-xs font-bold text-gray-500 uppercase ml-1 mb-1 flex items-center gap-1"><PenLine size={12} /> Biografia</label><textarea value={bio} onChange={e => setBio(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-bible-gold text-sm resize-none h-24" maxLength={150} /></div>
+                                <div><label className="text-xs font-bold text-gray-500 uppercase ml-1 block mb-1">Slogan / Frase</label><input type="text" value={slogan} onChange={e => setSlogan(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-bible-gold text-sm font-medium" /></div>
                             </div>
 
                             <div className="space-y-5">
@@ -352,6 +385,101 @@ const CompleteProfilePage: React.FC = () => {
 
                                 <div className="relative"><Instagram className="absolute left-3 top-1/2 -translate-y-1/2 text-pink-500" size={18} /><input type="text" value={instagram} onChange={e => setInstagram(e.target.value)} className="w-full pl-10 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-bible-gold text-sm" placeholder="Instagram (sem @)" /></div>
                                 <div><label className="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">WhatsApp</label><input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(formatPhone(e.target.value))} className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-bible-gold text-sm font-mono" placeholder="(00) 00000-0000" /></div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-5 border-t border-gray-100 pt-6 dark:border-gray-800">
+                            <h3 className="text-xs font-black uppercase text-gray-400 tracking-widest">Preferencias da Conta</h3>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-2xl">
+                                    <div className="flex items-start gap-3">
+                                        <Shield size={18} className="mt-0.5 text-bible-gold" />
+                                        <div>
+                                            <p className="text-xs font-bold text-gray-700 dark:text-gray-300">Perfil Publico</p>
+                                            <p className="text-[10px] text-gray-500">Outros usuarios podem te encontrar.</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        aria-pressed={isProfilePublic}
+                                        onClick={() => setIsProfilePublic(current => !current)}
+                                        className={`relative h-6 w-11 rounded-full transition-all ${isProfilePublic ? 'bg-bible-gold' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                    >
+                                        <span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${isProfilePublic ? 'right-1' : 'left-1'}`} />
+                                    </button>
+                                </div>
+
+                                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-2xl">
+                                    <div className="mb-3 flex items-center gap-2">
+                                        <Palette size={18} className="text-bible-gold" />
+                                        <p className="text-xs font-bold text-gray-700 dark:text-gray-300">Visual</p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {(['light', 'dark'] as const).map(option => (
+                                            <button
+                                                key={option}
+                                                type="button"
+                                                onClick={() => setTheme(option)}
+                                                className={`min-h-11 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${theme === option ? 'border-bible-gold bg-bible-gold/10 text-bible-gold' : 'border-gray-200 text-gray-400 dark:border-gray-700'}`}
+                                            >
+                                                {option === 'dark' ? <Moon size={14} /> : <Sun size={14} />}
+                                                {option === 'dark' ? 'Escuro' : 'Claro'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="p-5 bg-gradient-to-br from-bible-gold/15 to-bible-gold/5 border border-bible-gold/30 rounded-2xl relative overflow-hidden">
+                                    <Crown size={90} className="absolute -right-4 -top-4 opacity-10" />
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <CreditCard size={18} className="text-bible-gold" />
+                                            <p className="text-xs font-black uppercase tracking-widest text-gray-700 dark:text-gray-200">Plano</p>
+                                        </div>
+                                        <p className={`text-lg font-black ${tiers[userProfile?.subscriptionTier || 'free']?.color || 'text-bible-gold'}`}>
+                                            {tiers[userProfile?.subscriptionTier || 'free']?.name || 'Gratuito'}
+                                        </p>
+                                        <div className="mt-4 grid gap-2">
+                                            <button type="button" onClick={openSubscription} className="w-full py-3 bg-bible-gold text-black font-black uppercase tracking-widest text-[10px] rounded-xl shadow-md">
+                                                {userProfile?.subscriptionTier === 'free' ? 'Fazer Upgrade' : 'Mudar de Plano'}
+                                            </button>
+                                            <button type="button" onClick={openSubscription} className="w-full py-3 bg-white/60 dark:bg-white/10 text-gray-500 font-black uppercase tracking-widest text-[10px] rounded-xl">
+                                                Gerenciar Fatura
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <div className="p-4 bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-2xl">
+                                        <div className="mb-3 flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2">
+                                                <Bell size={18} className="text-bible-gold" />
+                                                <p className="text-xs font-bold text-gray-700 dark:text-gray-300">Avisos</p>
+                                            </div>
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Local</span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {notificationItems.map(item => (
+                                                <div key={item} className="flex items-center justify-between gap-3 text-[11px] font-bold text-gray-500">
+                                                    <span>{item}</span>
+                                                    <span className="h-5 w-9 rounded-full bg-bible-gold/80 relative"><span className="absolute right-0.5 top-0.5 h-4 w-4 rounded-full bg-white" /></span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={handleLogout}
+                                        className="w-full min-h-12 flex items-center justify-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/5 text-[10px] font-black uppercase tracking-widest text-red-500 transition-all hover:bg-red-500/10"
+                                    >
+                                        <LogOut size={16} /> Sair da Conta
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

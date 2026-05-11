@@ -19,6 +19,7 @@ import PromptModal from '../../components/PromptModal';
 import { FeedPostCard } from '../../components/social/FeedPostCard';
 import KingdomComposer from '../../components/social/KingdomComposer';
 import FeatureCard, { FeatureCardType } from '../../components/social/FeatureCard';
+import PostCommentsSheet from '../../components/social/PostCommentsSheet';
 import { INSPIRATIONAL_VERSES } from '../../constants';
 
 interface FeatureItem {
@@ -72,6 +73,7 @@ const SocialFeedPage: React.FC = () => {
     const [postToDelete, setPostToDelete] = useState<string | null>(null);
     const [isKingdomComposerOpen, setIsKingdomComposerOpen] = useState(false);
     const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
+    const [commentsPost, setCommentsPost] = useState<Post | null>(null);
 
     // State for prefilled content from other pages (e.g. Creative Studio)
     const [composerProps, setComposerProps] = useState<{ image?: string | null, caption?: string, initialTab?: 'reflection' | 'checkin' }>({});
@@ -167,8 +169,12 @@ const SocialFeedPage: React.FC = () => {
                 showNotification("Link copiado!", "success");
             }
         } else if (type === 'comment') {
-            navigate(`/p/${postId}`);
+            setCommentsPost(targetPost);
         }
+    };
+
+    const handleCommentAdded = (postId: string) => {
+        setPosts(prev => prev.map(p => p.id === postId ? { ...p, commentsCount: (p.commentsCount || 0) + 1 } : p));
     };
 
     const handleActionClick = (action: 'write' | 'image' | 'podcast' | 'checkin') => {
@@ -399,6 +405,16 @@ const SocialFeedPage: React.FC = () => {
                 message="Deseja apagar esta postagem permanentemente?"
                 confirmText="Remover"
                 variant="danger"
+            />
+
+            <PostCommentsSheet
+                isOpen={!!commentsPost}
+                post={commentsPost}
+                currentUser={currentUser}
+                userProfile={userProfile || null}
+                onClose={() => setCommentsPost(null)}
+                onCommentAdded={handleCommentAdded}
+                showNotification={showNotification}
             />
         </div>
     );

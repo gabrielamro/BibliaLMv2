@@ -223,6 +223,7 @@ const PublicUserPlansPage: React.FC = () => {
                               <div className="flex items-center justify-between pt-4 border-t border-gray-50 dark:border-gray-800 mt-auto">
                                   <div className="flex gap-4 text-xs font-bold text-gray-400">
                                       <span className="flex items-center gap-1"><Calendar size={14}/> {plan.weeks?.length || 0} Semanas</span>
+                                      <span className="flex items-center gap-1"><Eye size={14}/> {(plan.viewsCount ?? 0).toLocaleString('pt-BR')}</span>
                                   </div>
                                   <div className="flex items-center gap-1 text-bible-gold text-xs font-bold group-hover:underline">
                                       Ver Jornada <Eye size={14} />

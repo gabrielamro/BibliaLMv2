@@ -26,6 +26,8 @@ import { useKingdomFeed } from '../hooks/useKingdomFeed';
 import { usePrayerWall } from '../hooks/usePrayerWall';
 import { FeedPostCard } from '../components/social/FeedPostCard';
 import KingdomComposer from '../components/social/KingdomComposer';
+import { getMentionNotifications } from '../utils/kingdomHomeFeed';
+import type { Post } from '../types';
 
 const quickAccessIcons: Record<InicioQuickAccessItem['iconKey'], React.ReactNode> = {
   book: <BookOpen size={16} />,
@@ -131,6 +133,48 @@ const PrayerSkeleton = () => (
   </div>
 );
 
+const KingdomPostGridSection: React.FC<{
+  title: string;
+  subtitle?: string;
+  icon: React.ReactNode;
+  posts: Post[];
+  currentUser: any;
+  onInteraction: (postId: string, type: 'like' | 'comment' | 'share' | 'save') => void;
+  showNotification: (msg: string, type: any) => void;
+  emptyLabel: string;
+}> = ({ title, subtitle, icon, posts, currentUser, onInteraction, showNotification, emptyLabel }) => (
+  <section className="space-y-3">
+    <div className="flex items-center justify-between px-1">
+      <div>
+        <h3 className="text-gray-900 dark:text-white font-bold flex items-center gap-2">
+          {icon}
+          {title}
+        </h3>
+        {subtitle && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{subtitle}</p>}
+      </div>
+    </div>
+
+    {posts.length === 0 ? (
+      <div className="rounded-2xl border border-dashed border-gray-200 dark:border-[#2A2A2A] bg-white dark:bg-[#141414] py-8 px-4 text-center text-xs text-gray-400">
+        {emptyLabel}
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {posts.map(post => (
+          <div key={post.id} className="rounded-2xl overflow-hidden border border-gray-200 dark:border-[#2A2A2A] bg-white dark:bg-[#141414]">
+            <FeedPostCard
+              post={post}
+              currentUser={currentUser}
+              onInteraction={onInteraction}
+              showNotification={showNotification}
+            />
+          </div>
+        ))}
+      </div>
+    )}
+  </section>
+);
+
 const ReinoTab: React.FC<ReinoTabProps> = ({
   currentUser, userProfile, notifications, navigate, openLogin, showNotification
 }) => {
@@ -138,13 +182,22 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
   const churchId = userProfile?.churchData?.churchId;
   const churchName = userProfile?.churchData?.churchName;
 
-  const { posts, isLoading: feedLoading, reload: reloadFeed } = useKingdomFeed(userProfile);
+  const {
+    posts,
+    groups,
+    highlightedPosts,
+    churchPosts,
+    groupSections,
+    isLoading: feedLoading,
+    reload: reloadFeed,
+  } = useKingdomFeed(userProfile);
   const { prayers, isLoading: prayersLoading, intercede } = usePrayerWall(churchId);
 
   // Menções: filtra notificações do tipo social/info dos últimas 5 entradas
-  const mentions = (notifications || [])
-    .filter((n: any) => n.type === 'social' || n.link?.includes('/p/'))
-    .slice(0, 2);
+  const mentions = useMemo(
+    () => getMentionNotifications(notifications || [], userProfile),
+    [notifications, userProfile]
+  );
 
   const handleInteraction = useCallback(async (postId: string, type: 'like' | 'comment' | 'share' | 'save') => {
     if (!currentUser) { openLogin(); return; }
@@ -209,11 +262,11 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
 
         {/* FEED PRINCIPAL */}
-        <div className="md:col-span-8 space-y-4">
+        <div className="md:col-span-8 space-y-8">
           <div className="flex items-center justify-between px-1">
             <h3 className="text-gray-900 dark:text-white font-bold flex items-center gap-2">
               <Layout size={16} className="text-[#c5a059]" />
-              {churchId ? 'Feed da Sua Igreja' : 'Feed Global do Reino'}
+              Feed do Reino
             </h3>
             {!churchId && (
               <button
@@ -229,15 +282,39 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
             <FeedSkeleton />
           ) : (
             <>
-              {posts.map(post => (
-                <div key={post.id} className="rounded-2xl overflow-hidden border border-gray-200 dark:border-[#2A2A2A] bg-white dark:bg-[#141414]">
-                  <FeedPostCard
-                    post={post}
-                    currentUser={currentUser}
-                    onInteraction={handleInteraction}
-                    showNotification={showNotification}
-                  />
-                </div>
+              <KingdomPostGridSection
+                title="Seu Feed"
+                subtitle="Postagens em evidencia no Reino."
+                icon={<Flame size={16} className="text-orange-500" />}
+                posts={highlightedPosts}
+                currentUser={currentUser}
+                onInteraction={handleInteraction}
+                showNotification={showNotification}
+                emptyLabel="Ainda nao ha postagens em evidencia."
+              />
+              <KingdomPostGridSection
+                title="Sua Igreja"
+                subtitle={churchId ? churchName : 'Vincule sua igreja para ver apenas as postagens dela.'}
+                icon={<Church size={16} className="text-[#c5a059]" />}
+                posts={churchPosts}
+                currentUser={currentUser}
+                onInteraction={handleInteraction}
+                showNotification={showNotification}
+                emptyLabel={churchId ? 'Ainda nao ha postagens da sua igreja.' : 'Vincule sua igreja para ativar este feed.'}
+              />
+
+              {groupSections.map(({ group, posts: groupPosts }) => (
+                <KingdomPostGridSection
+                  key={group.id}
+                  title={`Grupo: ${group.name}`}
+                  subtitle="Postagens deste grupo."
+                  icon={<Users size={16} className="text-blue-500" />}
+                  posts={groupPosts}
+                  currentUser={currentUser}
+                  onInteraction={handleInteraction}
+                  showNotification={showNotification}
+                  emptyLabel="Ainda nao ha postagens neste grupo."
+                />
               ))}
               {posts.length === 0 && (
                 <div className="text-center py-12 text-gray-400">
@@ -306,11 +383,43 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
             )}
           </div>
 
+
+          {/* Grupos */}
+          <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-gray-900 dark:text-white font-bold text-[13px] flex items-center gap-2">
+                <Users size={14} className="text-blue-500" /> Grupos
+              </h3>
+              <button
+                onClick={() => navigate(churchId ? `/social/igreja/${userProfile?.churchData?.churchSlug}` : '/social/igrejas')}
+                className="text-[10px] text-blue-500 font-bold uppercase tracking-widest hover:text-blue-400"
+              >
+                Ver
+              </button>
+            </div>
+            <div className="space-y-2">
+              {groups.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-4">Entre em um grupo para ver esta area.</p>
+              ) : (
+                groups.map((group) => (
+                  <button
+                    key={group.id}
+                    onClick={() => navigate(`/social/grupo/${group.slug || group.id}`)}
+                    className="w-full flex items-center justify-between gap-3 rounded-xl p-3 bg-gray-50 dark:bg-[#1A1A1A] hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors text-left"
+                  >
+                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300 line-clamp-1">{group.name}</span>
+                    <ChevronRight size={14} className="text-blue-500 shrink-0" />
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
           {/* Menções */}
           <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-gray-900 dark:text-white font-bold text-[13px] flex items-center gap-2">
-                <MessageSquare size={14} className="text-[#c5a059]" /> Notificações Sociais
+                <MessageSquare size={14} className="text-[#c5a059]" /> Menções
               </h3>
             </div>
             <div className="space-y-3">
@@ -417,6 +526,15 @@ const SanctuaryPage: React.FC = () => {
   const chaptersRead = userProfile?.stats?.totalChaptersRead || 0;
   const isAdmin = userProfile?.username === 'gabrielamaro' || currentUser?.email === 'gabrielamaro@live.com';
   const isLightTheme = settings.theme === 'light';
+  const handleProfileNavigation = () => {
+    setIsSettingsOpen(false);
+    setIsNotifDropdownOpen(false);
+    if (currentUser) {
+      navigate('/perfil');
+      return;
+    }
+    openLogin();
+  };
   const salaAccentClass = 'bg-violet-500/15 text-violet-300';
   // Referência do Hero sempre é a randômica instantânea
   const heroReference = verseOfTheDay.ref;
@@ -565,7 +683,14 @@ const SanctuaryPage: React.FC = () => {
         <div className="space-y-5">
           {/* Usuário e Status */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleProfileNavigation}
+              aria-label={currentUser ? 'Abrir meu perfil' : 'Entrar para abrir perfil'}
+              className={`flex items-center gap-3 rounded-2xl -m-2 p-2 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-[#c5a059]/60 ${
+                isLightTheme ? 'hover:bg-white/70' : 'hover:bg-white/5'
+              }`}
+            >
               {userAvatar ? (
                 <img
                   src={userAvatar}
@@ -581,7 +706,7 @@ const SanctuaryPage: React.FC = () => {
                 <span className="text-gray-600 dark:text-gray-400 text-[11px] font-medium leading-tight">Bem-vindo de volta</span>
                 <span className={`font-bold text-[15px] leading-tight ${isLightTheme ? 'text-[#111111]' : 'text-white'}`}>{userName}</span>
               </div>
-            </div>
+            </button>
 
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">

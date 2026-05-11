@@ -57,8 +57,16 @@ const CommunityArticlesPage: React.FC = () => {
                         subtitle: a.sourceText || 'Estudo Bíblico',
                         author: (a as any).userName || 'Comunidade', // userName is joined in getCommunityArticles
                         createdAt: a.createdAt,
-                        engagement: (a.metrics?.views || (a as any).views_count) || 0,
-                        original: a
+                        engagement: a.viewsCount || a.metrics?.views || 0,
+                        original: {
+                            ...a,
+                            metrics: {
+                                views: a.viewsCount || a.metrics?.views || 0,
+                                shares: a.metrics?.shares || 0,
+                                completions: a.metrics?.completions,
+                                likes: a.metrics?.likes,
+                            },
+                        }
                     })),
                     ...plans.map((p: CustomPlan): LibraryItem => ({
                         id: p.id,
@@ -67,8 +75,16 @@ const CommunityArticlesPage: React.FC = () => {
                         subtitle: p.description || 'Sala de Estudo',
                         author: p.authorName ?? 'Comunidade',
                         createdAt: p.createdAt,
-                        engagement: p.subscribersCount || 0,
-                        original: p
+                        engagement: p.viewsCount || p.subscribersCount || 0,
+                        original: {
+                            ...p,
+                            metrics: {
+                                views: p.viewsCount || p.metrics?.views || 0,
+                                shares: p.metrics?.shares || 0,
+                                completions: p.metrics?.completions,
+                                likes: p.metrics?.likes,
+                            },
+                        }
                     })),
                     ...tracks.map((t: Track): LibraryItem => ({
                         id: t.id,

@@ -2,41 +2,48 @@
 import { useState, useEffect, useCallback } from 'react';
 import { dbService } from '../services/supabase';
 import { getMockPosts } from '../data/mockFeedData';
-import { Post, UserProfile } from '../types';
+import { ChurchGroup, Post, UserProfile } from '../types';
+import { buildKingdomHomeFeedSections, type KingdomHomeFeedSections } from '../utils/kingdomHomeFeed';
 
 export function useKingdomFeed(userProfile: UserProfile | null) {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [groups, setGroups] = useState<ChurchGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const churchId = userProfile?.churchData?.churchId;
+  const userId = userProfile?.uid;
 
   const loadFeed = useCallback(async () => {
     setIsLoading(true);
     try {
-      const fetched = await dbService.getGlobalFeed(10, userProfile);
-      if (fetched && fetched.length > 0) {
-        // Prioriza posts da mesma igreja quando disponíveis
-        const sorted = churchId
-          ? [...fetched].sort((a, b) => {
-              const aMatch = a.churchId === churchId ? -1 : 0;
-              const bMatch = b.churchId === churchId ? -1 : 0;
-              return aMatch - bMatch;
-            })
-          : fetched;
-        setPosts(sorted.slice(0, 3));
-      } else {
-        setPosts(getMockPosts().slice(0, 3));
-      }
+      const [fetched, fetchedGroups] = await Promise.all([
+        dbService.getKingdomHomePosts(60, userProfile),
+        userId ? dbService.getUserGroups(userId, churchId) : Promise.resolve([]),
+      ]);
+
+      setPosts(fetched && fetched.length > 0 ? fetched : getMockPosts());
+      setGroups(fetchedGroups);
     } catch {
-      setPosts(getMockPosts().slice(0, 3));
+      setPosts(getMockPosts());
+      setGroups([]);
     } finally {
       setIsLoading(false);
     }
-  }, [userProfile, churchId]);
+  }, [userProfile, userId, churchId]);
 
   useEffect(() => {
     loadFeed();
   }, [loadFeed]);
 
-  return { posts, isLoading, reload: loadFeed };
+  const sections: KingdomHomeFeedSections = buildKingdomHomeFeedSections(posts, userProfile, groups);
+
+  return {
+    posts,
+    groups,
+    highlightedPosts: sections.highlightedPosts,
+    churchPosts: sections.churchPosts,
+    groupSections: sections.groupSections,
+    isLoading,
+    reload: loadFeed,
+  };
 }

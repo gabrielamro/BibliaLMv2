@@ -13,7 +13,7 @@ import {
     StudyModule, Banner, SystemSettings, AppNotification, SupportTicket,
     ReportTicket, SystemLog, AIUsageStats, HomeConfig, LandingPageConfig, Track,
     SacredArtImage,
-    PlanParticipant, PlanComment, GroupAccessInvite, GroupAccessInviteSource
+    PlanParticipant, PlanComment, PostComment, GroupAccessInvite, GroupAccessInviteSource
 } from '../types';
 import { generateSlug } from '../utils/textUtils';
 import { mergeChurchSearchResults, type ChurchSearchResult } from '../utils/churchSearch';
@@ -21,6 +21,7 @@ import { formatSupabaseError, getMissingColumnNameFromError, isMissingColumnErro
 import { buildPostInsertPayloads, dropPostInsertColumn } from '../utils/kingdomPostPayload';
 import { shouldRetryFeedWithoutDestination } from '../utils/kingdomFeedFallback';
 import { parseStudyShareContent } from '../utils/studySharePost';
+import { decodeMoodContent } from '../utils/socialPostMood';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder_anon_key';
@@ -61,6 +62,17 @@ const toError = (message: string, error: any) =>
     error instanceof Error ? error : new Error(`${message}. ${formatSupabaseError(error)}`);
 
 const getMissingColumnName = getMissingColumnNameFromError;
+const isMissingTableError = (error: any, tableName: string) => {
+    const code = String(error?.code || '');
+    const message = String(error?.message || '').toLowerCase();
+    return (
+        code === 'PGRST116' ||
+        code === 'PGRST205' ||
+        message.includes('not found') ||
+        message.includes(`table '${tableName.toLowerCase()}'`) ||
+        message.includes(tableName.toLowerCase())
+    );
+};
 
 // ─── AUTH functions (mesmos nomes do firebase.ts) ───────────────────────────
 
@@ -896,8 +908,28 @@ export const dbService = {
         if (error) throw toError('Erro ao carregar pedidos de oracao', error);
         return (data ?? []).map(mapPrayerRequest);
     },
-    getUnifiedChurchMural: async (churchId: string): Promise<PrayerRequest[]> => {
-        return dbService.getPrayerRequests('church', churchId);
+    getUnifiedChurchMural: async (churchId: string): Promise<any[]> => {
+        const [prayers, posts] = await Promise.all([
+            dbService.getPrayerRequests('church', churchId),
+            supabase.from('posts').select('*')
+                .eq('church_id', churchId)
+                .or('destination.eq.church,also_show_on_church.eq.true')
+                .order('created_at', { ascending: false })
+                .limit(40)
+        ]);
+        
+        let enrichedPosts: any[] = [];
+        if (posts.data) {
+            const tempEnriched = await enrichPostRowsWithProfiles(posts.data);
+            enrichedPosts = tempEnriched.map(mapPost);
+        }
+
+        const unified = [
+            ...prayers.map(p => ({ ...p, muralType: 'prayer' })),
+            ...enrichedPosts.map(p => ({ ...p, muralType: 'post' }))
+        ];
+
+        return unified.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     },
     togglePrayerIntercession: async (prayerId: string, uid: string, isActive: boolean) => {
         const { data } = await supabase.from('prayer_requests').select('intercessors').eq('id', prayerId).single();
@@ -1049,7 +1081,24 @@ export const dbService = {
             error = retry.error;
         }
         if (error) throw toError('Erro ao carregar feed do Reino', error);
-        return (data ?? []).map(mapPost);
+        const enrichedPosts = await enrichPostRowsWithProfiles(data ?? []);
+        return enrichedPosts.map(mapPost);
+    },
+    getKingdomHomePosts: async (limitCount = 60, _viewerProfile?: UserProfile | null): Promise<Post[]> => {
+        const { data, error } = await supabase.from('posts').select('*')
+            .order('created_at', { ascending: false }).limit(limitCount);
+        if (error) throw toError('Erro ao carregar posts da Home Reino', error);
+        const enrichedPosts = await enrichPostRowsWithProfiles(data ?? []);
+        return enrichedPosts.map(mapPost);
+    },
+    getUserFeedPosts: async (uid: string, limitCount = 50): Promise<Post[]> => {
+        const { data, error } = await supabase.from('posts').select('*')
+            .eq('user_id', uid)
+            .order('created_at', { ascending: false })
+            .limit(limitCount);
+        if (error) throw toError('Erro ao carregar postagens do perfil', error);
+        const enrichedPosts = await enrichPostRowsWithProfiles(data ?? []);
+        return enrichedPosts.map(mapPost);
     },
     createPost: async (data: any) => {
         const [fullPayload, legacyPayload] = buildPostInsertPayloads(data, now());
@@ -1064,7 +1113,7 @@ export const dbService = {
             error = retry.error;
         }
 
-        if (error && (error?.code === 'PGRST204' || /column|schema cache|destination|cell_id|liked_by|user_username|user_photo_url|shares_count/i.test(formatSupabaseError(error)))) {
+        if (error && (error?.code === 'PGRST204' || /column|schema cache|destination|cell_id|liked_by|user_username|user_photo_url|shares_count|mood/i.test(formatSupabaseError(error)))) {
             const retry = await supabase.from('posts').insert(legacyPayload);
             error = retry.error;
         }
@@ -1076,17 +1125,76 @@ export const dbService = {
     deletePost: async (id: string) => {
         await supabase.from('posts').delete().eq('id', id);
     },
+    getPost: async (id: string): Promise<Post | null> => {
+        const { data, error } = await supabase.from('posts').select('*').eq('id', id).single();
+        if (error) throw toError('Erro ao carregar publicacao do Reino', error);
+        const [enrichedPost] = await enrichPostRowsWithProfiles(data ? [data] : []);
+        return enrichedPost ? mapPost(enrichedPost) : null;
+    },
     togglePostLike: async (postId: string, uid: string, isLiked: boolean) => {
+        // #region agent log
+        await fetch('http://127.0.0.1:7257/ingest/855e5ae7-5028-483b-b858-50f697cefc39',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'72a1fe'},body:JSON.stringify({sessionId:'72a1fe',runId:'pre-fix',hypothesisId:'H1',location:'services/supabase.ts:1095',message:'togglePostLike entry',data:{postId,uid,isLiked},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         const { data } = await supabase.from('posts').select('liked_by, likes_count').eq('id', postId).single();
         if (!data) return;
-        let likedBy: string[] = JSON.parse(data.liked_by ?? '[]');
+        // #region agent log
+        await fetch('http://127.0.0.1:7257/ingest/855e5ae7-5028-483b-b858-50f697cefc39',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'72a1fe'},body:JSON.stringify({sessionId:'72a1fe',runId:'pre-fix',hypothesisId:'H2',location:'services/supabase.ts:1097',message:'liked_by raw value before parse',data:{liked_by:data.liked_by,liked_by_type:typeof data.liked_by,likes_count:data.likes_count},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        let likedBy: string[];
+        try {
+            const parsedLikedBy = safeJson(data.liked_by, []);
+            likedBy = Array.isArray(parsedLikedBy) ? parsedLikedBy.filter((item): item is string => typeof item === 'string') : [];
+        } catch (error) {
+            // #region agent log
+            await fetch('http://127.0.0.1:7257/ingest/855e5ae7-5028-483b-b858-50f697cefc39',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'72a1fe'},body:JSON.stringify({sessionId:'72a1fe',runId:'pre-fix',hypothesisId:'H3',location:'services/supabase.ts:1101',message:'JSON.parse failed for liked_by',data:{liked_by:data.liked_by,liked_by_type:typeof data.liked_by,error_message:error instanceof Error ? error.message : String(error)},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
+            likedBy = [];
+        }
         if (isLiked) { if (!likedBy.includes(uid)) likedBy.push(uid); }
         else { likedBy = likedBy.filter(i => i !== uid); }
+        // #region agent log
+        await fetch('http://127.0.0.1:7257/ingest/855e5ae7-5028-483b-b858-50f697cefc39',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'72a1fe'},body:JSON.stringify({sessionId:'72a1fe',runId:'post-fix',hypothesisId:'H4',location:'services/supabase.ts:1107',message:'liked_by after mutation',data:{isLiked,nextLikedBy:likedBy,nextCount:likedBy.length},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         await supabase.from('posts').update({ liked_by: JSON.stringify(likedBy), likes_count: likedBy.length }).eq('id', postId);
     },
     getTrendingPost: async (): Promise<Post | null> => {
         const { data } = await supabase.from('posts').select('*').order('created_at', { ascending: false }).limit(1).single();
-        return data ? mapPost(data) : null;
+        const [enrichedPost] = await enrichPostRowsWithProfiles(data ? [data] : []);
+        return enrichedPost ? mapPost(enrichedPost) : null;
+    },
+    getPostComments: async (postId: string): Promise<PostComment[]> => {
+        const { data, error } = await supabase
+            .from('post_comments')
+            .select('*')
+            .eq('post_id', postId)
+            .order('created_at', { ascending: true });
+        if (error) {
+            if (isMissingTableError(error, 'public.post_comments') || isMissingTableError(error, 'post_comments')) {
+                console.warn("Tabela 'post_comments' ainda não foi criada no Supabase.");
+                return [];
+            }
+            throw toError('Erro ao carregar comentarios do post', error);
+        }
+        return (data ?? []).map(mapPostComment);
+    },
+    addPostComment: async (comment: Partial<PostComment>) => {
+        const { data, error } = await supabase
+            .from('post_comments')
+            .insert({
+                post_id: comment.postId,
+                user_id: comment.userId,
+                user_display_name: comment.userDisplayName,
+                user_photo_url: comment.userPhotoURL ?? null,
+                content: comment.content,
+                created_at: now()
+            })
+            .select()
+            .single();
+        if (error) {
+            throw toError('Erro ao enviar comentario', error);
+        }
+        await supabase.rpc('increment_post_comments_count', { post_id_input: comment.postId });
+        return mapPostComment(data);
     },
 
     // ── COMENTÁRIOS DE PLANOS (FÓRUM) ────────────────────────────────────────
@@ -1162,7 +1270,7 @@ export const dbService = {
         return (data ?? []).map(mapTrack);
     },
     createCustomPlan: async (data: any) => {
-        const { data: res, error } = await supabase.from('custom_plans').insert(mapPlanToDb(data)).select().single();
+        const { data: res, error } = await supabase.from('custom_plans').insert(mapPlanToDb({ viewsCount: 0, ...data })).select().single();
         if (error) throw error;
         return { id: res.id };
     },
@@ -1553,13 +1661,24 @@ export const dbService = {
             .eq('id', id);
         if (error) throw error;
     },
-    incrementMetric: async (tableName: string, id: string, field: string) => {
+    incrementMetric: async (tableName: string, id: string, field: string): Promise<number | null> => {
         const colMap: Record<string, string> = { views: 'views_count', shares: 'shares_count', completions: 'completions_count', likes: 'likes_count' };
         const col = colMap[field] ?? `${field}_count`;
-        const { data } = await supabase.from(tableName).select(col).eq('id', id).single();
-        if (data) {
-            await supabase.from(tableName).update({ [col]: ((data as any)[col] || 0) + 1 }).eq('id', id);
+        const { data, error } = await supabase.from(tableName).select(col).eq('id', id).single();
+        if (error) {
+            console.warn(`[dbService] Metrica indisponivel em ${tableName}.${col}:`, formatSupabaseError(error));
+            return null;
         }
+        if (data) {
+            const nextValue = ((data as any)[col] || 0) + 1;
+            const { error: updateError } = await supabase.from(tableName).update({ [col]: nextValue }).eq('id', id);
+            if (updateError) {
+                console.warn(`[dbService] Nao foi possivel atualizar ${tableName}.${col}:`, formatSupabaseError(updateError));
+                return null;
+            }
+            return nextValue;
+        }
+        return null;
     },
     resolveReport: async (id: string, action: 'banned' | 'dismissed') => {
         // Busca o report para obter o reportedUserId
@@ -1783,6 +1902,10 @@ function mapProfileToUserProfile(d: any): UserProfile {
         usageToday: safeJson(d.usage_today, { date: '', imagesCount: 0, podcastsCount: 0, analysisCount: 0, chatCount: 0 }),
         city: d.city ?? undefined,
         state: d.state ?? undefined,
+        phoneNumber: d.phone_number ?? undefined,
+        cpf: d.cpf ?? undefined,
+        instagram: d.instagram ?? undefined,
+        facebook: d.facebook ?? undefined,
         bio: d.bio ?? undefined,
         slogan: d.slogan ?? undefined,
         isProfilePublic: d.is_profile_public ?? true,
@@ -1824,6 +1947,7 @@ function mapPlan(d: any): CustomPlan {
         createdAt: d.created_at,
         updatedAt: d.updated_at,
         subscribersCount: d.subscribers_count ?? 0,
+        viewsCount: d.views_count ?? 0,
         planningFrequency: d.planning_frequency ?? 'weekly',
         hasEvaluation: d.has_evaluation ?? false,
         evaluationId: d.evaluation_id ?? undefined,
@@ -1850,6 +1974,7 @@ function mapPlanToDb(data: any): any {
         subscribersCount: 'subscribers_count', planningFrequency: 'planning_frequency',
         hasEvaluation: 'has_evaluation', evaluationId: 'evaluation_id',
         teamScores: 'team_scores', startDate: 'start_date', endDate: 'end_date',
+        viewsCount: 'views_count',
     };
     for (const [ts, sql] of Object.entries(fieldMap)) {
         if (data[ts] !== undefined) mapped[sql] = data[ts];
@@ -1878,19 +2003,44 @@ function mapParticipant(d: any): PlanParticipant {
     };
 }
 
+async function enrichPostRowsWithProfiles(rows: any[]): Promise<any[]> {
+    const missingProfileRows = rows.filter((row) => row.user_id && !row.user_photo_url);
+    const userIds = Array.from(new Set(missingProfileRows.map((row) => row.user_id)));
+    if (userIds.length === 0) return rows;
+
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('id, display_name, username, photo_url')
+        .in('id', userIds);
+
+    if (error) {
+        console.warn('[dbService] Nao foi possivel enriquecer fotos do feed:', formatSupabaseError(error));
+        return rows;
+    }
+
+    const profilesById = new Map((data ?? []).map((profile: any) => [profile.id, profile]));
+    return rows.map((row) => ({
+        ...row,
+        __profile: profilesById.get(row.user_id),
+    }));
+}
+
 function mapPost(d: any): Post {
     const studyShare = d.type === 'study' || d.type === 'room' ? parseStudyShareContent(d.content) : null;
+    const profile = d.__profile;
+    const moodContent = d.type === 'feeling' ? decodeMoodContent(d.content ?? '', d.mood ?? null) : null;
     return {
         id: d.id,
         userId: d.user_id,
-        userDisplayName: d.user_display_name ?? '',
-        userUsername: d.user_username ?? '',
-        userPhotoURL: d.user_photo_url ?? undefined,
+        userDisplayName: d.user_display_name ?? profile?.display_name ?? '',
+        userUsername: d.user_username ?? profile?.username ?? '',
+        userPhotoURL: d.user_photo_url ?? profile?.photo_url ?? undefined,
         type: d.type ?? 'reflection',
-        content: studyShare?.description ?? d.content ?? '',
+        content: studyShare?.description ?? moodContent?.content ?? d.content ?? '',
         likesCount: d.likes_count ?? 0,
         commentsCount: d.comments_count ?? 0,
-        shares: d.shares ?? 0,
+        shares: d.shares_count ?? d.shares ?? 0,
+        viewsCount: d.views_count ?? 0,
         likes: d.likes_count ?? 0,
         comments: d.comments_count ?? 0,
         saved: false,
@@ -1903,11 +2053,13 @@ function mapPost(d: any): Post {
         destination: d.destination ?? 'global',
         churchId: d.church_id ?? undefined,
         cellId: d.cell_id ?? undefined,
+        mood: moodContent?.mood ?? d.mood ?? undefined,
         studyId: studyShare?.studyId,
         studyTitle: studyShare?.studyTitle,
         studyCoverUrl: studyShare?.studyCoverUrl ?? d.image_url ?? undefined,
         studyUrl: studyShare?.studyUrl,
         studySourceLabel: studyShare?.sourceLabel,
+        alsoShowOnChurch: d.also_show_on_church ?? false,
     };
 }
 
@@ -2016,6 +2168,7 @@ function mapStudy(d: any): SavedStudy {
         createdAt: d.created_at,
         updatedAt: d.updated_at ?? d.created_at,
         isPublic: d.is_public ?? false,
+        viewsCount: d.views_count ?? 0,
         sourceText: d.source_text ?? '',
         analysis: d.analysis ?? '',
         source: d.source ?? 'geral',
@@ -2038,5 +2191,17 @@ function mapPlanComment(d: any): PlanComment {
         userPhoto: d.user_photo ?? undefined,
         content: d.content,
         createdAt: d.created_at,
+    };
+}
+
+function mapPostComment(d: any): PostComment {
+    return {
+        id: d.id,
+        postId: d.post_id,
+        userId: d.user_id,
+        userDisplayName: d.user_display_name ?? d.user_name ?? 'Usuário',
+        userPhotoURL: d.user_photo_url ?? d.user_photo ?? null,
+        content: d.content ?? '',
+        createdAt: d.created_at ?? now(),
     };
 }

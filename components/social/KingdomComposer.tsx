@@ -14,6 +14,8 @@ import { dbService, uploadBlob } from '../../services/supabase';
 import { findNearbyChurches, NearbyPlace } from '../../services/pastorAgent';
 import { MoodType } from '../../types';
 import { base64ToBlob } from '../../utils/imageOptimizer';
+import { extractMentionUsernames } from '../../utils/kingdomHomeFeed';
+import { encodeMoodContent } from '../../utils/socialPostMood';
 
 interface KingdomComposerProps {
   isOpen: boolean;
@@ -28,12 +30,16 @@ type PostTabType = 'reflection' | 'prayer' | 'feeling' | 'checkin';
 type Destination = 'global' | 'cell' | 'church';
 
 const MOODS: { id: MoodType; label: string; emoji: string }[] = [
+    { id: 'feliz', label: 'Feliz', emoji: '😄' },
     { id: 'blessed', label: 'Abençoado', emoji: '😇' },
     { id: 'grato', label: 'Grato', emoji: '🙏' },
+    { id: 'paz', label: 'Em Paz', emoji: '🕊️' },
     { id: 'thoughtful', label: 'Reflexivo', emoji: '🤔' },
     { id: 'help', label: 'Preciso de Oração', emoji: '🆘' },
     { id: 'fire', label: 'Fervoroso', emoji: '🔥' },
-    { id: 'paz', label: 'Em Paz', emoji: '🕊️' },
+    { id: 'cansado', label: 'Cansado', emoji: '😫' },
+    { id: 'ansioso', label: 'Ansioso', emoji: '😰' },
+    { id: 'triste', label: 'Triste', emoji: '😢' },
 ];
 
 const YOUNG_SUGGESTIONS: Record<string, string[]> = {
@@ -74,6 +80,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
   const [content, setContent] = useState('');
   const [destination, setDestination] = useState<Destination>('global');
   const [selectedMood, setSelectedMood] = useState<MoodType | null>(null);
+  const [alsoShowOnChurch, setAlsoShowOnChurch] = useState(false);
   
   // Image and Bible Search
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
@@ -159,6 +166,10 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
   const handleSubmit = async () => {
     if (!content.trim() && !attachedImage && !selectedPlace) return;
     if (!currentUser || !userProfile) return;
+    if (activeTab === 'feeling' && !selectedMood) {
+        showNotification("Escolha como você está se sentindo.", "warning");
+        return;
+    }
     
     setIsPosting(true);
     try {
@@ -189,8 +200,8 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
             userDisplayName: userProfile.displayName,
             userUsername: userProfile.username,
             userPhotoURL: userProfile.photoURL,
-            type: attachedImage ? 'image' : (activeTab === 'reflection' ? 'reflection' : activeTab === 'prayer' ? 'prayer' : activeTab === 'checkin' ? 'reflection' : 'feeling'),
-            content: finalContent,
+            type: activeTab === 'feeling' ? 'feeling' : attachedImage ? 'image' : (activeTab === 'reflection' ? 'reflection' : activeTab === 'prayer' ? 'prayer' : activeTab === 'checkin' ? 'reflection' : 'feeling'),
+            content: activeTab === 'feeling' ? encodeMoodContent(finalContent, selectedMood) : finalContent,
             image: finalImageUrl,
             createdAt: new Date().toISOString(),
             likesCount: 0,
@@ -202,6 +213,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
             likedBy: [],
             location: selectedPlace ? selectedPlace.name : (userProfile.city || 'Reino'),
             destination: destination,
+            alsoShowOnChurch: alsoShowOnChurch,
             time: 'Agora'
         };
 
@@ -217,6 +229,23 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
         }
 
         await dbService.createPost(postData);
+        try {
+            const mentionedUsernames = extractMentionUsernames(finalContent);
+            if (mentionedUsernames.length > 0) {
+                const mentionedUsers = (await dbService.getAllUsers())
+                    .filter(user => mentionedUsernames.includes(user.username?.toLowerCase()) && user.uid !== currentUser.uid);
+
+                await Promise.all(mentionedUsers.map(user => dbService.sendUserNotification(
+                    user.uid,
+                    'Menção no Reino',
+                    `${userProfile.displayName} mencionou @${user.username} em uma publicação.`,
+                    'social',
+                    '/social'
+                )));
+            }
+        } catch (mentionError) {
+            console.warn("Post publicado, mas as menções não foram notificadas.", mentionError);
+        }
         try {
             await recordActivity('social_post', 'Fez uma publicação no Reino');
         } catch (activityError) {
@@ -243,6 +272,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
       setSelectedPlace(null);
       setNearbyPlaces([]);
       setDestination('global');
+      setAlsoShowOnChurch(false);
   };
 
   if (!isOpen) return null;
@@ -442,7 +472,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                     </div>
                     <div className="flex gap-2">
                         <button 
-                            onClick={() => setDestination('global')}
+                            onClick={() => { setDestination('global'); setAlsoShowOnChurch(false); }}
                             className={`p-3 rounded-xl border-2 transition-all ${destination === 'global' ? 'border-bible-gold bg-bible-gold/10 text-bible-gold shadow-md' : 'border-transparent text-gray-400 hover:bg-gray-100'}`}
                             title="Global"
                         >
@@ -451,7 +481,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                         
                         {userProfile?.churchData?.groupId && (
                             <button 
-                                onClick={() => setDestination('cell')}
+                                onClick={() => { setDestination('cell'); setAlsoShowOnChurch(false); }}
                                 className={`p-3 rounded-xl border-2 transition-all ${destination === 'cell' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 shadow-md' : 'border-transparent text-gray-400 hover:bg-gray-100'}`}
                                 title="Célula"
                             >
@@ -461,7 +491,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
 
                         {userProfile?.churchData?.churchId && (
                             <button 
-                                onClick={() => setDestination('church')}
+                                onClick={() => { setDestination('church'); setAlsoShowOnChurch(false); }}
                                 className={`p-3 rounded-xl border-2 transition-all ${destination === 'church' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 shadow-md' : 'border-transparent text-gray-400 hover:bg-gray-100'}`}
                                 title="Igreja"
                             >
@@ -470,6 +500,27 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                         )}
                     </div>
                 </div>
+                
+                {/* Opção de Cross-posting para Igreja */}
+                {destination === 'cell' && userProfile?.churchData?.churchId && (
+                    <div className="flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/50 dark:border-blue-800/30 animate-in fade-in slide-in-from-top-1">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white dark:bg-gray-800 rounded-xl text-blue-600 shadow-sm">
+                                <Church size={16} />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-widest">Mural da Igreja</span>
+                                <span className="text-[9px] text-gray-500 font-bold italic">Também mostrar na página da igreja</span>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setAlsoShowOnChurch(!alsoShowOnChurch)}
+                            className={`w-10 h-6 rounded-full relative transition-colors ${alsoShowOnChurch ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'}`}
+                        >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${alsoShowOnChurch ? 'left-5' : 'left-1'}`} />
+                        </button>
+                    </div>
+                )}
 
                 <button 
                     onClick={handleSubmit}

@@ -173,6 +173,26 @@ const StandardHeader: React.FC<StandardHeaderProps> = ({
                         </div>
                     )}
 
+                    {metrics && (
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/70">
+                            {metrics.views !== undefined && (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-2">
+                                    <Eye size={13} /> {metrics.views.toLocaleString('pt-BR')} views
+                                </span>
+                            )}
+                            {metrics.shares !== undefined && (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-2">
+                                    <Share2 size={13} /> {metrics.shares.toLocaleString('pt-BR')}
+                                </span>
+                            )}
+                            {metrics.date && (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-2">
+                                    <Calendar size={13} /> {metrics.date}
+                                </span>
+                            )}
+                        </div>
+                    )}
+
                     {actions && (
                         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-2 md:pt-0">
                             {actions}

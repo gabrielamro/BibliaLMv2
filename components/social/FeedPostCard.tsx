@@ -6,7 +6,7 @@ import Link from "next/link";
 import { 
   Heart, MessageCircle, Share2, MoreHorizontal, Bookmark, 
   Edit2, Trash2, Quote, MapPin, HandHeart, Sparkles, 
-  Smile, Users, Trophy, Headphones, Image as ImageIcon, BookOpen, Church, DoorOpen
+  Smile, Users, Trophy, Headphones, Image as ImageIcon, BookOpen, Church, DoorOpen, Eye
 } from 'lucide-react';
 import { Post, MoodType } from '../../types';
 import SmartText from '../reader/SmartText';
@@ -312,14 +312,27 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
     };
 
     return (
-        <div data-testid="feed-post" className="bg-white dark:bg-bible-darkPaper md:rounded-3xl border-b md:border border-gray-100 dark:border-gray-800/50 mb-4 md:mb-8 overflow-hidden transition-all duration-500 hover:shadow-lg relative">
+        <div data-testid="feed-post" className={`bg-white dark:bg-bible-darkPaper md:rounded-3xl border-b md:border ${post.destination === 'church' ? 'border-blue-300 dark:border-blue-800 shadow-xl shadow-blue-500/10 ring-2 ring-blue-500/15 bg-gradient-to-br from-blue-50/50 via-white to-white dark:from-blue-900/20 dark:via-bible-darkPaper dark:to-bible-darkPaper' : 'border-gray-100 dark:border-gray-800/50'} mb-4 md:mb-8 overflow-hidden transition-all duration-500 hover:shadow-2xl relative group/card`}>
             
-            <div className={`h-1 w-full opacity-50 ${identity.bg}`}></div>
+            {post.destination === 'church' && (
+                <>
+                    <div className="absolute top-0 right-0 p-2 z-10">
+                        <div className="bg-blue-600 text-white text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-bl-2xl rounded-tr-xl flex items-center gap-1.5 shadow-xl border border-white/30 animate-pulse">
+                            <Church size={10} fill="currentColor" /> Oficial
+                        </div>
+                    </div>
+                    <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden opacity-10">
+                        <Church size={300} className="absolute -right-20 -top-20 text-blue-500 rotate-12" />
+                    </div>
+                </>
+            )}
+
+            <div className={`h-1.5 w-full opacity-80 ${post.destination === 'church' ? 'bg-gradient-to-r from-blue-400 via-blue-600 to-blue-400 shadow-[0_0_15px_rgba(37,99,235,0.5)]' : identity.bg}`}></div>
 
             <div className="px-5 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Link href={`/social/u/${post.userUsername}`} className="shrink-0 relative">
-                        <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden border border-gray-100 dark:border-gray-800">
+                        <div className={`w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden border-2 ${post.destination === 'church' ? 'border-blue-500/40' : 'border-gray-100 dark:border-gray-800'}`}>
                             {post.userPhotoURL ? (
                                 <img src={post.userPhotoURL} className="w-full h-full object-cover" alt={post.userDisplayName} />
                             ) : (
@@ -328,8 +341,8 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
                                 </div>
                             )}
                         </div>
-                        <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center border-2 border-white dark:border-bible-darkPaper ${identity.bg} ${identity.color}`}>
-                            <IdentityIcon size={10} strokeWidth={3} />
+                        <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center border-2 border-white dark:border-bible-darkPaper ${post.destination === 'church' ? 'bg-blue-600 text-white shadow-sm' : `${identity.bg} ${identity.color}`}`}>
+                            {post.destination === 'church' ? <Church size={10} strokeWidth={3} /> : <IdentityIcon size={10} strokeWidth={3} />}
                         </div>
                     </Link>
                     <div className="flex flex-col">
@@ -338,7 +351,8 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
                                 {post.userDisplayName}
                             </Link>
                             {post.destination === 'cell' && <span className="bg-indigo-100 text-indigo-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase flex items-center gap-1"><Users size={8} /> Célula</span>}
-                            {post.destination === 'church' && <span className="bg-blue-100 text-blue-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase flex items-center gap-1"><Church size={8} /> Igreja</span>}
+                            {post.destination === 'church' && <span className="bg-blue-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase flex items-center gap-1 shadow-md"><Church size={8} /> Mural da Igreja</span>}
+                            {post.alsoShowOnChurch && post.destination === 'cell' && <span className="bg-blue-100 text-blue-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase flex items-center gap-1 border border-blue-200/50"><Church size={8} /> + Mural</span>}
                             {post.type === 'cell_meeting' && <span className="bg-green-100 text-green-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase">Encontro</span>}
                         </div>
                         <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-0.5">
@@ -383,10 +397,16 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
 
                     <button 
                         onClick={() => onInteraction(post.id, 'share')} 
-                        className="text-gray-400 hover:text-bible-gold transition-all active:scale-110"
+                        className="flex items-center gap-1.5 text-gray-400 hover:text-bible-gold transition-all active:scale-110"
                     >
                         <Share2 size={18} />
+                        <span className="text-xs font-black">{post.shares || 0}</span>
                     </button>
+
+                    <span className="flex items-center gap-1.5 text-gray-400">
+                        <Eye size={18} />
+                        <span className="text-xs font-black">{post.viewsCount || 0}</span>
+                    </span>
                 </div>
 
                 <button 

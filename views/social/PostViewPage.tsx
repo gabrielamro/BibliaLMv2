@@ -7,7 +7,7 @@ import React, { useEffect, useState } from 'react';
 import Link from "next/link";
 import { dbService } from '../../services/supabase';
 import { Post } from '../../types';
-import { Loader2, Heart, MessageCircle, Share2, Church, Repeat, MapPin } from 'lucide-react';
+import { Loader2, Heart, MessageCircle, Share2, Church, Repeat, MapPin, Eye } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import SEO from '../../components/SEO';
 import SocialNavigation from '../../components/SocialNavigation';
@@ -23,10 +23,14 @@ const PostViewPage: React.FC = () => {
     const fetchPost = async () => {
         if (!postId) return;
         try {
-            const postRef = await dbService.getGlobalFeed(100); 
-            const found = postRef.find(p => p.id === postId);
+            const found = await dbService.getPost(postId);
             if (found) {
                 setPost(found);
+                dbService.incrementMetric('posts', postId, 'views')
+                    .then((viewsCount) => {
+                        if (viewsCount !== null) setPost((current) => current ? { ...current, viewsCount } : current);
+                    })
+                    .catch(console.error);
             }
         } catch (e) {
             console.error(e);
@@ -85,6 +89,7 @@ const PostViewPage: React.FC = () => {
                             <span className="flex items-center gap-1 text-xs font-bold"><Heart size={18} /> {post.likesCount}</span>
                             <span className="flex items-center gap-1 text-xs font-bold"><MessageCircle size={18} /> {post.commentsCount}</span>
                             <span className="flex items-center gap-1 text-xs font-bold"><Share2 size={18} /> {post.shares || 0}</span>
+                            <span className="flex items-center gap-1 text-xs font-bold"><Eye size={18} /> {post.viewsCount || 0}</span>
                         </div>
                         
                         <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap font-serif">

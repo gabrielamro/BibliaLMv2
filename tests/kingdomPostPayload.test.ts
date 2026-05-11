@@ -15,12 +15,15 @@ test('builds full and legacy post insert payloads for compatible publishing', ()
     churchId: '00000000-0000-0000-0000-000000000002',
     cellId: '00000000-0000-0000-0000-000000000003',
     image: 'https://example.com/post.webp',
+    mood: 'grato',
   });
 
   assert.equal(payloads.length, 2);
   assert.equal(payloads[0].destination, 'cell');
   assert.equal(payloads[0].cell_id, '00000000-0000-0000-0000-000000000003');
   assert.deepEqual(payloads[0].liked_by, []);
+  assert.equal(payloads[0].views_count, 0);
+  assert.equal(payloads[0].mood, 'grato');
 
   assert.deepEqual(Object.keys(payloads[1]).sort(), [
     'church_id',
@@ -29,8 +32,10 @@ test('builds full and legacy post insert payloads for compatible publishing', ()
     'created_at',
     'image_url',
     'likes_count',
+    'mood',
     'type',
     'user_id',
+    'views_count',
   ]);
 });
 

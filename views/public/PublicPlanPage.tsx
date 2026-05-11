@@ -96,7 +96,11 @@ const PublicPlanPage: React.FC = () => {
             const data = await dbService.getCustomPlan(decodedId);
             setPlan(data);
             // Telemetria
-            dbService.incrementMetric('custom_plans', decodedId, 'views').catch(console.error);
+            dbService.incrementMetric('custom_plans', decodedId, 'views')
+                .then((viewsCount) => {
+                    if (viewsCount !== null) setPlan((current) => current ? { ...current, viewsCount } : current);
+                })
+                .catch(console.error);
 
             if (data?.weeks.length) setExpandedWeeks({ [data.weeks[0].id]: true });
 
@@ -817,6 +821,7 @@ const PublicPlanPage: React.FC = () => {
                     { label: 'Geral', icon: <BookOpen size={14} /> },
                     { label: `${plan.weeks?.length || 0} Semanas`, icon: <Calendar size={14} /> }
                 ]}
+                metrics={{ views: plan.viewsCount ?? 0 }}
                 extraFooter={null}
                 hideBackButton={false}
                 hideTitle={false}
