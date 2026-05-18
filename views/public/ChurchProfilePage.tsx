@@ -5,7 +5,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 
 import Link from "next/link";
 import { dbService, uploadBlob } from '../../services/supabase';
-import { Church, UserProfile, ChurchGroup, PrayerRequest, GroupPrivacy } from '../../types';
+import { Church, UserProfile, ChurchGroup, PrayerRequest, GroupPrivacy, Post } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   Loader2, MapPin, Users, Shield, ArrowLeft, Trophy, LogIn, 
@@ -23,6 +23,13 @@ import { normalizeUserSearchQuery, shouldSearchUsers } from '../../utils/userSea
 import { buildCreateContentShortcutUrl } from '../../utils/contentPrivacy';
 import { generateSlug } from '../../utils/textUtils';
 import { FeedPostCard } from '../../components/social/FeedPostCard';
+
+type ChurchMuralItem =
+    | (PrayerRequest & { muralType?: 'prayer' })
+    | (Post & { muralType: 'post' });
+
+const isFeedPostMuralItem = (item: ChurchMuralItem): item is Post & { muralType: 'post' } =>
+    item.muralType === 'post';
 
 const formatRuntimeError = (error: unknown) => {
     if (error instanceof Error) return error.message;
@@ -88,7 +95,7 @@ const ChurchProfilePage: React.FC = () => {
   const [groups, setGroups] = useState<ChurchGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'mural' | 'groups' | 'info'>('mural');
-  const [prayers, setPrayers] = useState<PrayerRequest[]>([]);
+  const [prayers, setPrayers] = useState<ChurchMuralItem[]>([]);
   const [newPrayer, setNewPrayer] = useState('');
   const [isPostingPrayer, setIsPostingPrayer] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -172,7 +179,7 @@ const ChurchProfilePage: React.FC = () => {
               } catch (err) { console.error("Erro ao carregar grupos:", formatRuntimeError(err)); }
 
               try {
-                  const loadedPrayers = await dbService.getUnifiedChurchMural(data.id);
+                  const loadedPrayers = await dbService.getUnifiedChurchMural(data.id) as ChurchMuralItem[];
                   setPrayers(loadedPrayers);
               } catch (err: any) { 
                   console.error("Erro ao carregar mural (possivel falta de indice):", formatRuntimeError(err));
@@ -376,7 +383,7 @@ const ChurchProfilePage: React.FC = () => {
             churchId: church.id
         };
         const id = await dbService.addPrayerRequest('church', church.id, prayerData);
-        setPrayers(prev => [{ ...prayerData, id } as PrayerRequest, ...prev]);
+        setPrayers(prev => [{ ...prayerData, id, muralType: 'prayer' }, ...prev]);
         setNewPrayer('');
         showNotification("Publicado!", "success");
         await recordActivity('prayer_wall', 'Postou no mural da igreja');
@@ -393,6 +400,7 @@ const ChurchProfilePage: React.FC = () => {
     const isInterceding = prayer.intercessors?.includes(currentUser.uid);
     
     setPrayers(prev => prev.map(p => {
+        if (isFeedPostMuralItem(p)) return p;
         if (p.id === prayer.id) {
             const count = isInterceding ? (p.intercessorsCount - 1) : (p.intercessorsCount + 1);
             const list = isInterceding 
@@ -728,7 +736,7 @@ const ChurchProfilePage: React.FC = () => {
                         )}
                         <div className="space-y-4">
                             {prayers.map(item => {
-                                if (item.muralType === 'post') {
+                                if (isFeedPostMuralItem(item)) {
                                     return (
                                         <FeedPostCard 
                                             key={item.id} 

@@ -30,6 +30,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Lock,
+  LockOpen,
   Crown,
   Sun,
   Moon,
@@ -87,10 +88,11 @@ const NavItem: React.FC<{
   item: NavItem;
   isActive: boolean;
   collapsed: boolean;
+  isAuthenticated: boolean;
   onProtectedClick: (e: React.MouseEvent) => void;
-}> = ({ item, isActive, collapsed, onProtectedClick }) => {
+}> = ({ item, isActive, collapsed, isAuthenticated, onProtectedClick }) => {
   const baseClass = `
-    flex items-center gap-3 rounded-xl transition-all duration-200 group
+    relative flex items-center gap-3 rounded-xl transition-all duration-200 group
     ${isActive
       ? 'bg-[#c5a059]/15 text-[#5d4037] dark:text-[#c5a059] font-semibold'
       : item.featured
@@ -105,6 +107,11 @@ const NavItem: React.FC<{
       ? 'text-[#c5a059]'
       : 'text-gray-400 group-hover:text-[#c5a059] dark:group-hover:text-[#c5a059]'
   }`;
+  const ProtectedIcon = isAuthenticated ? LockOpen : Lock;
+  const protectedLabel = isAuthenticated ? 'Desbloqueado com login' : 'Login necessario';
+  const protectedIconClass = isAuthenticated
+    ? 'text-emerald-500 dark:text-emerald-400'
+    : 'text-gray-300 dark:text-gray-600';
 
   const inner = (
     <Link
@@ -119,7 +126,20 @@ const NavItem: React.FC<{
         </span>
       )}
       {!collapsed && item.protected && (
-        <Lock size={11} className="ml-auto text-gray-300 shrink-0" />
+        <ProtectedIcon
+          size={11}
+          className={`ml-auto shrink-0 ${protectedIconClass}`}
+          aria-label={protectedLabel}
+        />
+      )}
+      {collapsed && item.protected && (
+        <span
+          className="absolute right-1.5 top-1.5 rounded-full bg-bible-paper dark:bg-[#0a0a0a]"
+          title={protectedLabel}
+          aria-label={protectedLabel}
+        >
+          <ProtectedIcon size={10} className={protectedIconClass} />
+        </span>
       )}
     </Link>
   );
@@ -342,6 +362,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
             item={item}
             isActive={isActive(item.path)}
             collapsed={collapsed}
+            isAuthenticated={!!currentUser}
             onProtectedClick={handleProtectedClick}
           />
         ))}
