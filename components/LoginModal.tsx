@@ -126,6 +126,17 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                 if (msg.includes("Invalid login credentials")) return "Credenciais de login inválidas.";
                 if (msg.includes("email rate limit exceeded") || msg.includes("rate limit exceeded")) return "Limite de tentativas excedido. Tente novamente mais tarde.";
                 if (msg.includes("Too many requests")) return "Muitas solicitações. Aguarde um momento.";
+                if (
+                    error?.name === 'AuthRetryableFetchError' ||
+                    error?.name === 'AbortError' ||
+                    msg.includes('Failed to fetch') ||
+                    msg.includes('NetworkError') ||
+                    msg.includes('fetch resource') ||
+                    msg.includes('522') ||
+                    msg.includes('timed out')
+                ) {
+                    return 'Nao foi possivel conectar ao Supabase agora. Verifique se o projeto esta ativo e se a chave NEXT_PUBLIC_SUPABASE_ANON_KEY do .env esta correta.';
+                }
                 return msg || 'Ocorreu um erro. Tente novamente.';
         }
     };

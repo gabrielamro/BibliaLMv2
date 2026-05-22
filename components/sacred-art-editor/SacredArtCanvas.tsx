@@ -8,6 +8,10 @@ import { EDITOR_LAYER_Z_INDEX, getResponsiveTextLayout } from '../../app/criar-a
 import type { SacredArtCanvasProps } from './types';
 
 const SNAP_THRESHOLD = 8;
+const canvasFrameClass = (aspectRatio: 'feed' | 'story' = 'feed') =>
+  aspectRatio === 'story'
+    ? 'aspect-[9/16] h-[calc(100vh-132px)] max-h-[70vh] max-w-full'
+    : 'aspect-square h-[calc(100vh-132px)] max-h-[70vh] max-w-full';
 
 export default function SacredArtCanvas({
   canvasContainerRef,
@@ -211,7 +215,7 @@ export default function SacredArtCanvas({
     return (
       <div
         ref={canvasContainerRef}
-        className={`relative isolate overflow-hidden rounded-[28px] bg-gray-900 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-500 select-none flex items-center justify-center ${editOptions.aspectRatio === 'story' ? 'aspect-[9/16] h-[55vh] md:h-[75vh]' : 'aspect-square h-[45vh] md:h-[70vh]'}`}
+        className={`relative isolate overflow-hidden rounded-[28px] bg-gray-900 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-500 select-none flex items-center justify-center ${canvasFrameClass(editOptions.aspectRatio)}`}
       >
         <div className="flex flex-col items-center justify-center text-center p-8 space-y-8 z-10">
           <div className="relative">
@@ -264,7 +268,7 @@ export default function SacredArtCanvas({
     return (
       <div 
         ref={canvasContainerRef}
-        className={`relative isolate overflow-hidden rounded-[28px] bg-gray-900 border border-white/10 shadow-2xl animate-pulse flex items-center justify-center ${editOptions.aspectRatio === 'story' ? 'aspect-[9/16] h-[55vh] md:h-[75vh]' : 'aspect-square h-[45vh] md:h-[70vh]'}`}
+        className={`relative isolate overflow-hidden rounded-[28px] bg-gray-900 border border-white/10 shadow-2xl animate-pulse flex items-center justify-center ${canvasFrameClass(editOptions.aspectRatio)}`}
       >
         <span className="text-white/20 text-[10px] font-black uppercase tracking-[0.3em]">Carregando Estúdio...</span>
       </div>
@@ -276,7 +280,7 @@ export default function SacredArtCanvas({
   return (
     <div
       ref={canvasContainerRef}
-      className={`relative isolate overflow-hidden rounded-[28px] bg-gray-900 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-500 select-none ${editOptions.aspectRatio === 'story' ? 'aspect-[9/16] h-[55vh] md:h-[75vh]' : 'aspect-square h-[45vh] md:h-[70vh]'}`}
+      className={`relative isolate overflow-hidden rounded-[28px] bg-gray-900 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-500 select-none ${canvasFrameClass(editOptions.aspectRatio)}`}
     >
       <Stage
         width={canvasSize.width}

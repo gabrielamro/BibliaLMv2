@@ -201,12 +201,15 @@ const ExplorePage: React.FC = () => {
                                 </button>
                             </div>
 
-                            {/* PLANOS & SALAS SECTION */}
+                            {/* ESPAÇO + SECTION */}
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between px-1">
                                     <div className="flex items-center gap-2">
                                         <BookOpen size={18} className="text-bible-gold" />
-                                        <h3 className="text-lg font-serif font-black text-gray-900 dark:text-white">Planos & Salas</h3>
+                                        <div>
+                                            <h3 className="text-lg font-serif font-black text-gray-900 dark:text-white">Espaço +</h3>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">Espaço do pastor e Igreja</p>
+                                        </div>
                                     </div>
                                     <button
                                         onClick={() => navigate('/acervo')}

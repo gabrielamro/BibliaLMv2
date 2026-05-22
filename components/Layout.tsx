@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
     Heart, User as UserIcon, ChevronDown, LogOut,
     BookOpen, LayoutDashboard, Brain, CheckCircle2,
-    CalendarRange, Mic2, Coffee, MessageCircle,
+    CalendarRange, Mic2, Coffee, MessageCircle, Radio,
     Sun, Moon, Sparkles, HelpCircle,
     Settings, Crown, Search, AlertTriangle,
     Terminal, Users, ShieldCheck, Lock, ChevronRight,
@@ -89,6 +89,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     ];
 
     const showBackButton = !rootPaths.includes(location.pathname);
+    const isCultoPlusOnePage = location.pathname.startsWith('/culto/');
     const { showMobileShell, showMobileNav, showSidebar, sidebarStartsCollapsed } = getLayoutShellState({
         pathname: location.pathname,
         isFocusMode,
@@ -155,6 +156,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 items: [
                     { label: 'Início', path: '/', icon: <Home size={18} />, type: 'personal' as NavType, description: 'Seu painel principal' },
                     { label: 'Meus Estudos', path: '/estudos', icon: <BookMarked size={18} />, protected: true, type: 'personal' as NavType, description: 'Seus sermões e notas' },
+                    { label: 'Meus Cultos', path: '/meus-cultos', icon: <Radio size={18} />, protected: true, type: 'personal' as NavType, description: 'Cultos que voce participou' },
                     { label: 'Estúdio Criativo', path: '/?tab=criar', icon: <Wand2 size={18} />, protected: true, type: 'personal' as NavType, description: 'Crie imagens e podcasts' },
                     { label: 'Conselheiro IA', path: '/chat', icon: <MessageCircle size={18} />, type: 'personal' as NavType, description: 'Tire dúvidas com a IA' },
                     { label: 'Atividades', path: '/historico', icon: <History size={18} />, protected: true, type: 'personal' as NavType, description: 'Seu histórico' },
@@ -579,7 +581,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <SupportModal isOpen={isSupportModalOpen} onClose={() => setIsSupportModalOpen(false)} />
                     <BuyCreditsModal isOpen={isBuyCreditsModalOpen} onClose={closeBuyCredits} />
                     <SystemTutorialModal isOpen={isTutorialOpen} onClose={() => setIsTutorialOpen(false)} />
-                    <ObreiroIAChatbot />
+                    {!isCultoPlusOnePage && <ObreiroIAChatbot />}
                 </main>
 
                 {showMobileNav && <MobileBottomNav />}

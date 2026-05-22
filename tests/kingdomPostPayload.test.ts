@@ -16,6 +16,8 @@ test('builds full and legacy post insert payloads for compatible publishing', ()
     cellId: '00000000-0000-0000-0000-000000000003',
     image: 'https://example.com/post.webp',
     mood: 'grato',
+    serviceId: 'service-1',
+    serviceTitle: 'Culto de Celebracao',
   });
 
   assert.equal(payloads.length, 2);
@@ -24,6 +26,8 @@ test('builds full and legacy post insert payloads for compatible publishing', ()
   assert.deepEqual(payloads[0].liked_by, []);
   assert.equal(payloads[0].views_count, 0);
   assert.equal(payloads[0].mood, 'grato');
+  assert.equal(payloads[0].service_id, 'service-1');
+  assert.equal(payloads[0].service_title, 'Culto de Celebracao');
 
   assert.deepEqual(Object.keys(payloads[1]).sort(), [
     'church_id',
@@ -37,6 +41,7 @@ test('builds full and legacy post insert payloads for compatible publishing', ()
     'user_id',
     'views_count',
   ]);
+  assert.equal('service_id' in payloads[1], false);
 });
 
 test('drops only the missing post column while preserving image_url', () => {

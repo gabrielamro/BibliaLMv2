@@ -70,6 +70,7 @@ interface SacredArtDrawerProps {
   colors: ColorOption[];
   filters: FilterOption[];
   fallbackImages: SacredArtGalleryItem[];
+  desktopInline?: boolean;
 }
 
 export default function SacredArtDrawer({
@@ -96,6 +97,7 @@ export default function SacredArtDrawer({
   colors,
   filters,
   fallbackImages,
+  desktopInline = false,
 }: SacredArtDrawerProps) {
   if (!activeControlTab) return null;
 
@@ -104,7 +106,7 @@ export default function SacredArtDrawer({
       initial={{ x: '100%', opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: '100%', opacity: 0 }}
-      className="fixed bottom-24 left-4 right-4 md:top-24 md:bottom-24 md:left-auto md:right-32 md:w-[420px] bg-white/80 dark:bg-[#0A0A0A]/90 backdrop-blur-3xl rounded-[40px] border border-gray-200/50 dark:border-white/5 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col"
+      className={`${desktopInline ? 'md:static md:h-full md:w-full md:max-h-full' : 'md:top-24 md:bottom-24 md:left-auto md:right-32 md:w-[420px]'} fixed bottom-[150px] left-4 right-4 max-h-[58vh] md:max-h-none bg-white/80 dark:bg-[#0A0A0A]/90 backdrop-blur-3xl rounded-[32px] border border-gray-200/50 dark:border-white/5 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col`}
       style={{ zIndex: EDITOR_LAYER_Z_INDEX.drawer }}
     >
       {/* Header Visual handle */}
@@ -114,7 +116,7 @@ export default function SacredArtDrawer({
 
       <div className="flex flex-col h-full">
         {/* Navigation / Title */}
-        <div className="px-8 pt-10 pb-6 flex justify-between items-end border-b border-gray-100 dark:border-white/5 bg-white/40 dark:bg-black/20">
+        <div className="px-6 md:px-7 pt-8 md:pt-7 pb-5 flex justify-between items-end border-b border-gray-100 dark:border-white/5 bg-white/40 dark:bg-black/20">
           <div>
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-bible-gold mb-1">
               Editor Pro
@@ -127,16 +129,16 @@ export default function SacredArtDrawer({
             </h3>
           </div>
           <button
-            onClick={() => setActiveControlTab(null)}
-            className="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-400 hover:text-bible-gold transition-colors hover:scale-110 active:scale-95"
+            onClick={() => setActiveControlTab('templates')}
+            className={`${activeControlTab === 'templates' ? 'invisible pointer-events-none' : ''} w-10 h-10 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-400 hover:text-bible-gold transition-colors hover:scale-110 active:scale-95`}
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-8">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6 md:p-7 custom-scrollbar space-y-7">
           {activeControlTab === 'templates' && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               {/* Categorias modernizadas */}
               <div className="space-y-3">
                 <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">Explorar Temas</label>
@@ -187,7 +189,7 @@ export default function SacredArtDrawer({
                       setRawGeneratedBase64(img.url || img.image_url || null);
                       setEditOptions((current) => ({ ...current, bgX: 50, bgY: 50, bgScale: 1 }));
                     }}
-                    className="aspect-square rounded-2xl overflow-hidden border-2 border-transparent hover:border-bible-gold transition-all shadow-md group relative bg-gray-200 dark:bg-white/5"
+                    className="aspect-square rounded-xl overflow-hidden border-2 border-transparent hover:border-bible-gold transition-all shadow-md group relative bg-gray-200 dark:bg-white/5"
                   >
                     <img
                       src={img.url || img.image_url}
@@ -203,7 +205,7 @@ export default function SacredArtDrawer({
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-6 border-2 border-dashed border-gray-200 dark:border-white/10 rounded-[32px] flex flex-col items-center gap-3 text-gray-400 hover:text-bible-gold hover:border-bible-gold/50 hover:bg-bible-gold/5 transition-all group"
+                className="w-full py-5 border-2 border-dashed border-gray-200 dark:border-white/10 rounded-[24px] flex flex-col items-center gap-3 text-gray-400 hover:text-bible-gold hover:border-bible-gold/50 hover:bg-bible-gold/5 transition-all group"
               >
                 <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Upload size={22} />

@@ -290,6 +290,25 @@ alter table public.church_role_requests enable row level security;
 alter table public.church_followers enable row level security;
 alter table public.prayer_requests enable row level security;
 
+create or replace function public.is_platform_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where profiles.id = auth.uid()
+      and (
+        profiles.subscription_tier = 'admin'
+        or profiles.username = 'gabrielamaro'
+        or profiles.email = 'gabrielamaro@live.com'
+      )
+  );
+$$;
+
 drop policy if exists "Churches are public" on public.churches;
 create policy "Churches are public"
   on public.churches
@@ -321,6 +340,13 @@ create policy "Users manage own membership"
   for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+drop policy if exists "Platform admins can manage memberships for role approval" on public.memberships;
+create policy "Platform admins can manage memberships for role approval"
+  on public.memberships
+  for all
+  using (public.is_platform_admin())
+  with check (public.is_platform_admin());
 
 drop policy if exists "Users can read church groups" on public.cells;
 create policy "Users can read church groups"
@@ -392,6 +418,26 @@ create policy "Users can update own pending responsibility requests"
   for update
   using (auth.uid() = user_id and status = 'pending')
   with check (auth.uid() = user_id and status = 'pending');
+
+drop policy if exists "Platform admins can read church role requests" on public.church_role_requests;
+create policy "Platform admins can read church role requests"
+  on public.church_role_requests
+  for select
+  using (public.is_platform_admin());
+
+drop policy if exists "Platform admins can review church role requests" on public.church_role_requests;
+create policy "Platform admins can review church role requests"
+  on public.church_role_requests
+  for update
+  using (public.is_platform_admin())
+  with check (public.is_platform_admin());
+
+drop policy if exists "Platform admins can update churches for role approval" on public.churches;
+create policy "Platform admins can update churches for role approval"
+  on public.churches
+  for update
+  using (public.is_platform_admin())
+  with check (public.is_platform_admin());
 
 drop policy if exists "Users can read church followers" on public.church_followers;
 create policy "Users can read church followers"

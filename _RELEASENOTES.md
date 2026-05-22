@@ -4,6 +4,16 @@
 > **VERSION SYNC:** Lembre-se de atualizar `constants.ts`, `_ARCHITECTURE.md` e `_PROJECT_CONTEXT.md` ao mudar a versão aqui.
 > **GIT SYNC:** Após atualizar este arquivo, o Arquiteto deve executar `git commit` com a mensagem do release.
 
+## [v2.2.0] - 2026-05-18 (Culto+ MVP)
+### Tipo: Feature / Architecture / Database
+- **Resumo:** Primeira entrega do Culto+, criando a base de acompanhamento digital de cultos no BibliaLM.
+- **Novidades:**
+  - **Workspace Pastoral:** Novo gestor de cultos com cadastro, tema, pregador, horarios, versiculo-chave, banner e timeline liturgica.
+  - **OnePage do Culto:** Nova rota publica `/culto/[serviceSlug]` com check-in, anotacoes privadas, timeline e postagem vinculada ao mural da igreja.
+  - **Pagina da Igreja:** Nova aba `Cultos` mostrando as OnePages publicadas pela comunidade.
+  - **Feed do Reino:** Posts agora podem receber `service_id` e `service_title` para copostagem ligada ao culto.
+  - **Infraestrutura:** Novo servico `cultoPlusService`, tipos globais e script `scripts/create_culto_plus.sql` com tabelas/RLS iniciais.
+
 ## [v2.1.0] - 2026-05-11 (Ecossistema Social & Gestão de Perfil)
 ### Tipo: Feature / UI / UX / Database
 - **Resumo:** Expansão das funcionalidades sociais e melhoria profunda na gestão de perfis e interatividade.

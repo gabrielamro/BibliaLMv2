@@ -6,7 +6,7 @@ import Link from "next/link";
 import { 
   Heart, MessageCircle, Share2, MoreHorizontal, Bookmark, 
   Edit2, Trash2, Quote, MapPin, HandHeart, Sparkles, 
-  Smile, Users, Trophy, Headphones, Image as ImageIcon, BookOpen, Church, DoorOpen, Eye
+  Smile, Users, Trophy, Headphones, Image as ImageIcon, BookOpen, Church, DoorOpen, Eye, CalendarDays
 } from 'lucide-react';
 import { Post, MoodType } from '../../types';
 import SmartText from '../reader/SmartText';
@@ -352,6 +352,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
                             </Link>
                             {post.destination === 'cell' && <span className="bg-indigo-100 text-indigo-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase flex items-center gap-1"><Users size={8} /> Célula</span>}
                             {post.destination === 'church' && <span className="bg-blue-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase flex items-center gap-1 shadow-md"><Church size={8} /> Mural da Igreja</span>}
+                            {post.serviceId && <span className="max-w-[150px] overflow-hidden whitespace-nowrap bg-bible-gold/15 text-bible-leather dark:text-bible-gold text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase inline-flex items-center gap-1 border border-bible-gold/30"><CalendarDays size={8} className="shrink-0" /> <span className="truncate">{post.serviceTitle || 'Culto+'}</span></span>}
                             {post.alsoShowOnChurch && post.destination === 'cell' && <span className="bg-blue-100 text-blue-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase flex items-center gap-1 border border-blue-200/50"><Church size={8} /> + Mural</span>}
                             {post.type === 'cell_meeting' && <span className="bg-green-100 text-green-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase">Encontro</span>}
                         </div>

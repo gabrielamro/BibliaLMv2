@@ -357,10 +357,300 @@ export interface Post {
   studyUrl?: string;
   studySourceLabel?: string;
   alsoShowOnChurch?: boolean;
+  serviceId?: string;
+  serviceTitle?: string;
 }
 
 export interface PostComment { id: string; postId: string; userId: string; userDisplayName: string; userPhotoURL?: string | null; content: string; createdAt: string; }
 export interface PrayerRequest { id: string; userId: string; userName: string; userPhotoURL?: string; content: string; createdAt: string; intercessorsCount: number; intercessors: string[]; targetType: 'church' | 'cell' | 'global'; targetId: string; churchId: string; cellName?: string; }
+
+export type ChurchServiceType =
+  | 'sunday'
+  | 'youth'
+  | 'women'
+  | 'cell'
+  | 'conference'
+  | 'vigil'
+  | 'communion'
+  | 'other';
+
+export type ChurchServiceStatus = 'draft' | 'published' | 'live' | 'finished' | 'archived';
+
+export type ServiceLiturgyKind =
+  | 'entrance'
+  | 'opening'
+  | 'worship'
+  | 'word'
+  | 'offering'
+  | 'prayer'
+  | 'response'
+  | 'closing'
+  | 'other';
+
+export interface ServiceLiturgyItem {
+  id: string;
+  serviceId?: string;
+  kind: ServiceLiturgyKind;
+  title: string;
+  startsAt: string;
+  endsAt?: string;
+  responsible?: string;
+  notes?: string;
+  verseRef?: string;
+  verseText?: string;
+  songList?: string;
+  pixKeyType?: 'cpf' | 'phone' | 'email' | 'random';
+  pixKey?: string;
+  sortOrder: number;
+}
+
+export interface ChurchService {
+  id: string;
+  churchId: string;
+  churchName: string;
+  churchSlug?: string;
+  title: string;
+  theme: string;
+  preacherName: string;
+  serviceType: ChurchServiceType;
+  startsAt: string;
+  endsAt: string;
+  keyVerseRef?: string;
+  keyVerseText?: string;
+  bannerUrl?: string;
+  liveUrl?: string;
+  status: ChurchServiceStatus;
+  slug: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt?: string;
+  liturgyItems: ServiceLiturgyItem[];
+  checkinsCount?: number;
+  postsCount?: number;
+}
+
+export interface ServiceCheckin {
+  id: string;
+  serviceId: string;
+  churchId: string;
+  userId: string;
+  userDisplayName: string;
+  userPhotoURL?: string | null;
+  createdAt: string;
+}
+
+export interface ServiceNote {
+  id: string;
+  serviceId: string;
+  userId: string;
+  content: string;
+  tags: string[];
+  updatedAt: string;
+  createdAt: string;
+}
+
+export type ServiceReactionType = 'amen' | 'glory' | 'hallelujah';
+
+export interface ServiceReactionSummary {
+  amen: number;
+  glory: number;
+  hallelujah: number;
+}
+
+export interface ServicePrayerRequest {
+  id: string;
+  serviceId: string;
+  churchId: string;
+  userId: string;
+  userName: string;
+  userPhotoURL?: string | null;
+  content: string;
+  isPrivate: boolean;
+  intercessorsCount: number;
+  intercessedByMe?: boolean;
+  createdAt: string;
+}
+
+export interface ServicePersonalReflection {
+  id: string;
+  serviceId: string;
+  churchId: string;
+  userId: string;
+  prayers: PersonalServicePrayer[];
+  feelings: PersonalServiceFeeling[];
+  decisions: PersonalServiceDecision[];
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface ServiceMinistry {
+  id: string;
+  churchId: string;
+  name: string;
+  description?: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface ServiceMinistryMember {
+  id: string;
+  ministryId: string;
+  churchId: string;
+  userId: string;
+  userDisplayName: string;
+  userPhotoURL?: string | null;
+  role?: string;
+  createdAt: string;
+}
+
+export type ServiceScheduleStatus = 'pending' | 'confirmed' | 'declined' | 'replaced';
+
+export interface ServiceScheduleAssignment {
+  id: string;
+  serviceId: string;
+  churchId: string;
+  ministryId: string;
+  ministryName: string;
+  userId: string;
+  userDisplayName: string;
+  userPhotoURL?: string | null;
+  role?: string;
+  status: ServiceScheduleStatus;
+  reminderSentAt?: string | null;
+  replacementUserId?: string | null;
+  replacementUserDisplayName?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface ServiceLiveState {
+  serviceId: string;
+  churchId: string;
+  currentItemId?: string | null;
+  currentTitle?: string | null;
+  currentVerseRef?: string | null;
+  currentVerseText?: string | null;
+  currentExplanation?: string | null;
+  operatorId?: string | null;
+  updatedAt: string;
+}
+
+export type ServiceAiContentKind =
+  | 'member_summary'
+  | 'member_devotional'
+  | 'member_prayer'
+  | 'member_weekly_plan'
+  | 'member_reflection_questions'
+  | 'pastor_structure'
+  | 'pastor_liturgy'
+  | 'pastor_verses'
+  | 'pastor_duration'
+  | 'pastor_post_summary';
+
+export interface ServiceAiContent {
+  id: string;
+  serviceId: string;
+  userId: string;
+  kind: ServiceAiContentKind;
+  content: string;
+  createdAt: string;
+}
+
+export interface ServicePremiumMatrix {
+  tier: SubscriptionTier;
+  label: string;
+  monthlyServiceLimit: number | null;
+  dashboard: boolean;
+  ai: boolean;
+  schedules: boolean;
+  advancedQr: boolean;
+  branding: boolean;
+  exports: boolean;
+  advancedAnalytics: boolean;
+}
+
+export interface ServiceAdvancedAnalytics {
+  visitorsCount: number;
+  checkinsCount: number;
+  postsCount: number;
+  notesCount: number;
+  prayersCount: number;
+  verseSavesCount: number;
+  reactionsCount: number;
+  schedulesCount: number;
+  pendingSchedulesCount: number;
+  engagementRate: number;
+}
+
+export interface PersonalServiceSong {
+  id: string;
+  title: string;
+  moment?: 'opening' | 'worship' | 'response' | 'closing' | 'other';
+  reflection?: string;
+  sortOrder: number;
+}
+
+export interface PersonalServiceVerse {
+  id: string;
+  reference: string;
+  text?: string;
+  note?: string;
+  source?: 'pastor' | 'church' | 'remembered' | 'message_base';
+  createdAt: string;
+}
+
+export interface PersonalServicePrayer {
+  id: string;
+  content: string;
+  reason?: string;
+  people?: string;
+  remindMe: boolean;
+  answer?: string;
+  createdAt: string;
+}
+
+export interface PersonalServiceFeeling {
+  id: string;
+  label: string;
+  intensity: number;
+  reason?: string;
+  response?: string;
+  createdAt: string;
+}
+
+export interface PersonalServiceDecision {
+  id: string;
+  content: string;
+  action?: string;
+  personToPrayFor?: string;
+  memoryVerse?: string;
+  createdAt: string;
+}
+
+export interface PersonalServiceJournal {
+  id: string;
+  userId: string;
+  churchId?: string | null;
+  churchName: string;
+  linkedServiceId?: string | null;
+  title: string;
+  theme?: string;
+  preacherName?: string;
+  serviceType?: ChurchServiceType;
+  serviceDate: string;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  songs: PersonalServiceSong[];
+  verses: PersonalServiceVerse[];
+  messageNotes: string;
+  prayers: PersonalServicePrayer[];
+  feelings: PersonalServiceFeeling[];
+  decisions: PersonalServiceDecision[];
+  tags: string[];
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 export interface UserProfile {
   uid: string; email: string; displayName: string; photoURL: string | null; username: string;
   lifetimeXp: number; credits: number; badges: string[]; subscriptionTier: SubscriptionTier;
@@ -562,6 +852,22 @@ export interface SystemSettings {
 export interface FeatureFlag { id: string; key: string; label: string; description: string; isEnabled: boolean; rolloutPercentage: number; }
 export interface PlanFeatures { aiChatAccess: boolean; aiImageGen: boolean; aiPodcastGen: boolean; aiDeepAnalysis: boolean; aiSermonBuilder: boolean; aiNoteImprovement: boolean; aiSocialCaptions: boolean; churchFoundation: boolean; churchAdminPanel: boolean; cellCreation: boolean; muralPosting: boolean; teamCompetition: boolean; socialFeedRead: boolean; socialFeedPost: boolean; globalHighlight: boolean; followingSystem: boolean; profileCustomization: boolean; readingPlans: boolean; audioNarration: boolean; unlimitedNotes: boolean; achievementBadges: boolean; advancedSearch: boolean; focusMode: boolean; customThemes: boolean; noAds: boolean; }
 export interface Church { id: string; name: string; acronym: string; slug: string; denomination: string; location: { city: string; state: string; address: string }; stats: { memberCount: number; totalMana: number; totalChaptersRead: number; totalStudiesCreated: number; followersCount?: number }; teams: string[]; teamScores: Record<string, number>; admins: string[]; logoUrl?: string; pastorName?: string; churchSlug?: string; externalProvider?: string; externalPlaceId?: string; sourceAttribution?: string; verificationStatus?: 'external' | 'unclaimed' | 'claimed' | 'verified'; lat?: number | null; lng?: number | null; isExternal?: boolean; }
+export interface ChurchRoleRequest {
+  id: string;
+  churchId: string;
+  userId: string;
+  requestedRole: 'pastor' | 'admin';
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: string;
+  reviewedAt?: string | null;
+  churchName: string;
+  churchSlug?: string;
+  churchLocation?: string;
+  userDisplayName: string;
+  userUsername?: string;
+  userPhotoURL?: string;
+  userTier?: SubscriptionTier;
+}
 export interface ChurchGroup { id: string; churchId: string; parentGroupId?: string; name: string; slug: string; privacy?: GroupPrivacy; stats: { memberCount: number; totalMana: number }; leaderName?: string; leaderUid?: string; createdBy: string; createdAt: string; }
 export interface DailyReading { day: number; dateDisplay: string; readings: ReadingSection[]; }
 export interface ReadingSection { section: string; bookId: string; name: string; ref: string; startChapter: number; endChapter: number; }

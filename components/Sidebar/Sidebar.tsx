@@ -36,6 +36,8 @@ import {
   Moon,
   FileText,
   Users,
+  Church,
+  Radio,
 } from 'lucide-react';
 import { LogoIcon } from '../LogoIcon';
 import { useAuth } from '../../contexts/AuthContext';
@@ -207,12 +209,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
     { label: 'Bíblia Sagrada', path: '/bibliasagrada', icon: <Book size={20} />, featured: true },
     { label: 'Início', path: '/', icon: <Home size={20} /> },
     { label: 'Meus Estudos', path: '/estudos', icon: <BookMarked size={20} />, protected: true },
+    { label: 'Meus Cultos', path: '/meus-cultos', icon: <Radio size={20} />, protected: true },
     { label: 'Conselheiro IA', path: '/chat', icon: <MessageCircle size={20} /> },
     { label: 'Pão Diário', path: '/devocional', icon: <Coffee size={20} /> },
     { label: 'Orações', path: '/oracoes', icon: <HandHeart size={20} /> },
     { label: 'Meta de Leitura', path: '/plano', icon: <Target size={20} />, protected: true },
     { label: 'Quiz Bíblico', path: '/quiz', icon: <Brain size={20} /> },
     { label: 'Feed', path: '/social', icon: <Rss size={20} /> },
+    { label: 'Igrejas', path: '/social/igrejas', icon: <Church size={20} /> },
     { label: 'Explorar', path: '/social/explore', icon: <Compass size={20} /> },
   ];
 

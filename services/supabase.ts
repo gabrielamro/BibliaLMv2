@@ -8,7 +8,7 @@
  */
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
-    UserProfile, Church, ChurchGroup, Post, PrayerRequest, SavedStudy,
+    UserProfile, Church, ChurchRoleRequest, ChurchGroup, Post, PrayerRequest, SavedStudy,
     CustomPlan, PlanTeam, CustomQuiz, GuidedPrayer, StudyEvaluation,
     StudyModule, Banner, SystemSettings, AppNotification, SupportTicket,
     ReportTicket, SystemLog, AIUsageStats, HomeConfig, LandingPageConfig, Track,
@@ -25,12 +25,52 @@ import { decodeMoodContent } from '../utils/socialPostMood';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder_anon_key';
+const supabaseProjectRef = (() => {
+    try {
+        return new URL(supabaseUrl).hostname.split('.')[0] || 'local';
+    } catch {
+        return 'local';
+    }
+})();
+const supabaseAuthStorageKey = `sb-${supabaseProjectRef}-auth-token`;
+const runWithoutBrowserLock = async <R,>(_name: string, _acquireTimeout: number, fn: () => Promise<R>): Promise<R> => fn();
+const supabaseFetchTimeoutMs = 15000;
+const fetchWithTimeout: typeof fetch = async (input, init) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), supabaseFetchTimeoutMs);
+    const externalSignal = init?.signal;
+
+    if (externalSignal) {
+        if (externalSignal.aborted) controller.abort();
+        else externalSignal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+
+    try {
+        return await fetch(input, { ...init, signal: controller.signal });
+    } finally {
+        clearTimeout(timeout);
+    }
+};
+const clearStaleAuthSessionInDev = () => {
+    if (process.env.NODE_ENV !== 'development' || !isBrowser()) return;
+    try {
+        window.localStorage.removeItem(supabaseAuthStorageKey);
+    } catch { /* ignore storage restrictions */ }
+};
 
 if (supabaseUrl === 'https://placeholder.supabase.co') {
     console.warn('⚠️ Supabase credentials ausentes. O cliente usará URLs temporárias para evitar travamento da build. Verifique o .env.local na etapa de runtime.');
 }
 
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+        storageKey: supabaseAuthStorageKey,
+        lock: runWithoutBrowserLock,
+    },
+    global: {
+        fetch: fetchWithTimeout,
+    },
+});
 
 // ─── aliases de compatibilidade ────────────────────────────────────────────
 /** Alias para quem importava `auth` diretamente */
@@ -141,15 +181,42 @@ export const monitorAuthState = (callback: (user: any | null) => void) => {
     };
 
     // Dispara com a sessão atual imediatamente
-    supabase.auth.getSession().then(({ data }) => {
-        callback(addUidAlias(data.session?.user ?? null));
-    });
+    let initialSessionResolved = false;
+    const resolveInitialSession = (user: any | null) => {
+        if (initialSessionResolved) return;
+        initialSessionResolved = true;
+        callback(user);
+    };
+    const initialSessionTimeout = window.setTimeout(() => {
+        console.warn('[auth] Timeout ao recuperar sessao atual. Continuando como visitante.');
+        clearStaleAuthSessionInDev();
+        resolveInitialSession(null);
+    }, 5000);
+
+    supabase.auth.getSession()
+        .then(({ data }) => {
+            window.clearTimeout(initialSessionTimeout);
+            resolveInitialSession(addUidAlias(data.session?.user ?? null));
+        })
+        .catch((error) => {
+            window.clearTimeout(initialSessionTimeout);
+            console.warn('[auth] Nao foi possivel recuperar a sessao atual. Continuando como visitante.', error);
+            clearStaleAuthSessionInDev();
+            resolveInitialSession(null);
+        });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (!initialSessionResolved) {
+            window.clearTimeout(initialSessionTimeout);
+            initialSessionResolved = true;
+        }
         callback(addUidAlias(session?.user ?? null));
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+        window.clearTimeout(initialSessionTimeout);
+        subscription.unsubscribe();
+    };
 };
 
 // ─── STORAGE ────────────────────────────────────────────────────────────────
@@ -712,15 +779,128 @@ export const dbService = {
         });
         return resolvedChurch;
     },
-    requestChurchResponsibility: async (uid: string, churchId: string, role: 'pastor' | 'admin' = 'pastor') => {
-        const { error } = await supabase.from('church_role_requests').upsert({
-            church_id: churchId,
-            user_id: uid,
-            requested_role: role,
-            status: 'pending',
-            requested_at: now()
-        });
+    getChurchRoleRequest: async (uid: string, churchId: string, role: 'pastor' | 'admin' = 'pastor') => {
+        const { data, error } = await supabase
+            .from('church_role_requests')
+            .select('status, requested_at')
+            .eq('church_id', churchId)
+            .eq('user_id', uid)
+            .eq('requested_role', role)
+            .maybeSingle();
         if (error) throw error;
+        return data;
+    },
+    requestChurchResponsibility: async (uid: string, churchId: string, role: 'pastor' | 'admin' = 'pastor') => {
+        const { error } = await supabase.from('church_role_requests').upsert(
+            {
+                church_id: churchId,
+                user_id: uid,
+                requested_role: role,
+                status: 'pending',
+                requested_at: now(),
+            },
+            { onConflict: 'church_id,user_id,requested_role' }
+        );
+        if (error) throw error;
+    },
+    getChurchRoleRequestsForAdmin: async (filter: 'pending' | 'all' = 'pending'): Promise<ChurchRoleRequest[]> => {
+        let query = supabase
+            .from('church_role_requests')
+            .select('*')
+            .order('requested_at', { ascending: false });
+        if (filter === 'pending') query = query.eq('status', 'pending');
+        const { data: requests, error } = await query;
+        if (error) throw toError('Erro ao carregar solicitacoes de gestao de igreja', error);
+        if (!requests?.length) return [];
+
+        const churchIds = [...new Set(requests.map((row) => row.church_id))];
+        const userIds = [...new Set(requests.map((row) => row.user_id))];
+        const [{ data: churches }, { data: profiles }] = await Promise.all([
+            supabase.from('churches').select('id, name, slug, location_city, location_state').in('id', churchIds),
+            supabase.from('profiles').select('id, display_name, username, photo_url, subscription_tier').in('id', userIds),
+        ]);
+
+        const churchMap = new Map((churches ?? []).map((church) => [church.id, church]));
+        const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+
+        return requests.map((row) => {
+            const church = churchMap.get(row.church_id);
+            const profile = profileMap.get(row.user_id);
+            return {
+                id: row.id,
+                churchId: row.church_id,
+                userId: row.user_id,
+                requestedRole: row.requested_role,
+                status: row.status,
+                requestedAt: row.requested_at,
+                reviewedAt: row.reviewed_at ?? null,
+                churchName: church?.name ?? 'Igreja',
+                churchSlug: church?.slug ?? undefined,
+                churchLocation: [church?.location_city, church?.location_state].filter(Boolean).join(', ') || undefined,
+                userDisplayName: profile?.display_name ?? 'Usuario',
+                userUsername: profile?.username ?? undefined,
+                userPhotoURL: profile?.photo_url ?? undefined,
+                userTier: profile?.subscription_tier ?? undefined,
+            } as ChurchRoleRequest;
+        });
+    },
+    reviewChurchRoleRequest: async (
+        requestId: string,
+        action: 'approved' | 'rejected',
+        reviewerId: string
+    ): Promise<void> => {
+        const { data: request, error } = await supabase
+            .from('church_role_requests')
+            .select('*')
+            .eq('id', requestId)
+            .single();
+        if (error || !request) throw toError('Solicitacao nao encontrada', error);
+
+        const { error: updateError } = await supabase
+            .from('church_role_requests')
+            .update({
+                status: action,
+                reviewed_by: reviewerId,
+                reviewed_at: now(),
+            })
+            .eq('id', requestId);
+        if (updateError) throw toError('Erro ao atualizar solicitacao', updateError);
+
+        if (action !== 'approved') return;
+
+        const { data: church, error: churchError } = await supabase
+            .from('churches')
+            .select('admins, verification_status')
+            .eq('id', request.church_id)
+            .single();
+        if (churchError) throw toError('Erro ao carregar igreja da solicitacao', churchError);
+
+        const currentAdmins = Array.isArray(church?.admins) ? church.admins : [];
+        const nextAdmins = currentAdmins.includes(request.user_id)
+            ? currentAdmins
+            : [...currentAdmins, request.user_id];
+
+        const { error: churchUpdateError } = await supabase
+            .from('churches')
+            .update({
+                admins: nextAdmins,
+                verification_status: church?.verification_status === 'unclaimed' ? 'claimed' : church?.verification_status,
+                updated_at: now(),
+            })
+            .eq('id', request.church_id);
+        if (churchUpdateError) throw toError('Erro ao promover responsavel na igreja', churchUpdateError);
+
+        const { error: membershipError } = await supabase
+            .from('memberships')
+            .upsert({
+                user_id: request.user_id,
+                church_id: request.church_id,
+                role: request.requested_role,
+                joined_at: now(),
+            });
+        if (membershipError && !(membershipError?.code === 'PGRST204' || /column|schema cache/i.test(formatSupabaseError(membershipError)))) {
+            throw toError('Erro ao atualizar vinculo do responsavel', membershipError);
+        }
     },
     getChurchBySlug: async (slug: string): Promise<Church | null> => {
         const { data, error } = await supabase.from('churches').select('*').eq('slug', slug).single();
@@ -1100,6 +1280,15 @@ export const dbService = {
         const enrichedPosts = await enrichPostRowsWithProfiles(data ?? []);
         return enrichedPosts.map(mapPost);
     },
+    getServiceFeedPosts: async (serviceId: string, limitCount = 30): Promise<Post[]> => {
+        const { data, error } = await supabase.from('posts').select('*')
+            .eq('service_id', serviceId)
+            .order('created_at', { ascending: false })
+            .limit(limitCount);
+        if (error) throw toError('Erro ao carregar feed do culto', error);
+        const enrichedPosts = await enrichPostRowsWithProfiles(data ?? []);
+        return enrichedPosts.map(mapPost);
+    },
     createPost: async (data: any) => {
         const [fullPayload, legacyPayload] = buildPostInsertPayloads(data, now());
         let payload = fullPayload;
@@ -1452,12 +1641,18 @@ export const dbService = {
 
     // ── ADMIN / ANALYTICS ────────────────────────────────────────────────────
     getAdminStats: async () => {
-        const [{ count: users }, { count: churches }, { count: paid }] = await Promise.all([
+        const [{ count: users }, { count: churches }, { count: paid }, { count: pendingChurchRequests }] = await Promise.all([
             supabase.from('profiles').select('id', { count: 'exact', head: true }),
             supabase.from('churches').select('id', { count: 'exact', head: true }),
             supabase.from('profiles').select('id', { count: 'exact', head: true }).neq('subscription_tier', 'free'),
+            supabase.from('church_role_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         ]);
-        return { users: users ?? 0, churches: churches ?? 0, paidUsers: paid ?? 0 };
+        return {
+            users: users ?? 0,
+            churches: churches ?? 0,
+            paidUsers: paid ?? 0,
+            pendingChurchRequests: pendingChurchRequests ?? 0,
+        };
     },
     getReportTickets: async () => {
         const { data } = await supabase.from('report_tickets').select('*').order('created_at', { ascending: false });
@@ -2060,6 +2255,8 @@ function mapPost(d: any): Post {
         studyUrl: studyShare?.studyUrl,
         studySourceLabel: studyShare?.sourceLabel,
         alsoShowOnChurch: d.also_show_on_church ?? false,
+        serviceId: d.service_id ?? undefined,
+        serviceTitle: d.service_title ?? undefined,
     };
 }
 

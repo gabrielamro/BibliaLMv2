@@ -1,7 +1,7 @@
 # 📖 BíbliaLM - Product Context & Business Rules
 
 > **AI INSTRUCTION:** This file contains the "Soul" of the application. Refer to this for logic, gamification rules, and terminology.
-> **VERSION:** v2.1.0 (Ecossistema Social & Gestão de Perfil)
+> **VERSION:** v2.2.0 (Culto+ MVP)
 
 ## 1. Product Vision
 A deep Bible study platform powered by AI, designed to look like a "Sanctuary" (Clean, Serene, Gold/Leather aesthetic). The AI is a "Counselor" or "Worker," not a generic bot.
@@ -37,6 +37,11 @@ A deep Bible study platform powered by AI, designed to look like a "Sanctuary" (
 
 ### 3.5. Workspace Pastoral
 *   Exclusive to Pastors. Allows creating "Jornadas" (Study Plans) with structured weeks/days.
+
+### 3.6. Culto+
+*   Church service accompaniment module.
+*   Pastors/managers create a service, liturgical timeline, public OnePage, check-ins, private sermon notes and church-linked feed posts.
+*   The church profile surfaces published services in the `Cultos` tab.
 
 ## 4. Gamification (The Mana System)
 *   **Currency:** "Maná" (XP). Not spendable, prestige only.

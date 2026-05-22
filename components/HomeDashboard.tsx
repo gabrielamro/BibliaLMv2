@@ -5,7 +5,7 @@ import { useNavigate } from '../utils/router';
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 
 import { useWisdomStream } from '../hooks/useWisdomStream';
-import { StudyModule, HomeConfig, CustomPlan } from '../types';
+import { StudyModule, HomeConfig, CustomPlan, ChurchService } from '../types';
 import {
     PlusCircle, Loader2, Flame, BookOpen,
     Trophy, MessageCircle, ArrowRight, Zap,
@@ -16,8 +16,10 @@ import { FeedPostCard } from './social/FeedPostCard';
 import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { dbService } from '../services/supabase';
+import { cultoPlusService } from '../services/cultoPlusService';
 import { INSPIRATIONAL_VERSES, BIBLE_BOOKS_LIST } from '../constants';
 import { normalizeText } from '../utils/textUtils';
+import { getAgendaRange } from '../utils/cultoPlusCalendar';
 // O componente ActiveJourneys foi movido para o backlog (desativados)
 
 
@@ -29,6 +31,8 @@ const HomeDashboard: React.FC = () => {
 
     const [config, setConfig] = useState<HomeConfig | null>(null);
     const [userPlans, setUserPlans] = useState<CustomPlan[]>([]);
+    const [churchServices, setChurchServices] = useState<ChurchService[]>([]);
+    const churchAgendaRange = useMemo(() => getAgendaRange(new Date(), 14), []);
 
     // --- HEADER MANAGEMENT ---
     const containerRef = useRef<HTMLDivElement>(null);
@@ -65,6 +69,43 @@ const HomeDashboard: React.FC = () => {
         loadConfig();
         loadUserPlans();
     }, [currentUser, userProfile]);
+
+    useEffect(() => {
+        const churchId = userProfile?.churchData?.churchId;
+        if (!churchId) {
+            setChurchServices([]);
+            return;
+        }
+
+        let mounted = true;
+        cultoPlusService.getServicesByChurchRange(churchId, {
+            startDate: churchAgendaRange.startDate,
+            endDate: churchAgendaRange.endDate,
+            status: ['published', 'live', 'finished'],
+            limit: 6,
+        })
+            .then((services) => {
+                if (mounted) setChurchServices(services);
+            })
+            .catch(() => {
+                if (mounted) setChurchServices([]);
+            });
+
+        return () => {
+            mounted = false;
+        };
+    }, [userProfile?.churchData?.churchId, churchAgendaRange.startDate, churchAgendaRange.endDate]);
+
+    const formatShortDate = (value?: string) => new Date(value || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const formatServiceTime = (value?: string) => new Date(value || Date.now()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const getServiceBadge = (service: ChurchService) => {
+        const nowTime = Date.now();
+        const start = new Date(service.startsAt).getTime();
+        const end = new Date(service.endsAt).getTime();
+        if (nowTime >= start && nowTime <= end) return 'Ao vivo';
+        if (nowTime < start) return 'Agendado';
+        return service.status === 'finished' ? 'Finalizado' : 'Realizado';
+    };
 
     // Fallback defaults
     const shortcuts = config?.shortcuts || {
@@ -267,29 +308,41 @@ const HomeDashboard: React.FC = () => {
                             )}
                         </div>
 
-                        {/* SANTUÁRIO / PLANOS & SALAS (EXCLUSIVE FOR PASTORS) */}
+                        {/* SANTUÁRIO / ESPAÇO + (EXCLUSIVE FOR PASTORS) */}
                         {isPastor && (
                             <section className="animate-in fade-in slide-in-from-bottom-4 space-y-4">
                                 <div className="flex items-center justify-between px-1">
                                     <div className="flex items-center gap-2">
                                         <BookOpen size={18} className="text-bible-gold" />
-                                        <h2 className="text-xl font-serif font-black text-gray-900 dark:text-white">Planos & Salas</h2>
+                                        <div>
+                                            <h2 className="text-xl font-serif font-black text-gray-900 dark:text-white">Espaço +</h2>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">Espaço do pastor e Igreja</p>
+                                        </div>
                                     </div>
                                     <button onClick={() => navigate('/workspace-pastoral')} className="text-[10px] font-black text-bible-gold uppercase tracking-widest hover:underline">Painel de Controle</button>
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="rounded-[2.5rem] border border-gray-100 bg-white/70 p-4 shadow-sm dark:border-gray-800 dark:bg-bible-darkPaper/70">
+                                    <div className="mb-3 flex items-center justify-between px-1">
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-300">Salas</p>
+                                            <h3 className="text-sm font-black text-gray-900 dark:text-white">Salas de Estudo</h3>
+                                        </div>
+                                        <span className="rounded-full bg-violet-500/10 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-violet-700 dark:text-violet-200">Premium roxo</span>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {/* NEW ROOM CTA - PREMIUM DARK */}
                                     <div
                                         onClick={() => navigate('/criar-sala')}
-                                        className="h-[200px] flex flex-col items-center justify-center border-2 border-dashed border-bible-gold/30 rounded-[2.5rem] bg-gray-900 dark:bg-black hover:bg-gray-800 transition-colors cursor-pointer group shadow-xl relative overflow-hidden"
+                                        className="h-[200px] flex flex-col items-center justify-center border-2 border-dashed border-violet-400/50 rounded-[2.5rem] bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 dark:from-violet-950/30 dark:via-black dark:to-fuchsia-950/20 hover:border-violet-500 transition-all cursor-pointer group shadow-xl shadow-violet-950/5 relative overflow-hidden"
                                     >
                                         <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
                                         <div className="relative z-10 flex flex-col items-center">
-                                            <div className="p-4 bg-bible-gold text-bible-leather rounded-2xl mb-4 group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(197,160,89,0.4)]">
+                                            <div className="p-4 bg-violet-600 text-white rounded-2xl mb-4 group-hover:scale-110 transition-transform shadow-[0_0_18px_rgba(124,58,237,0.35)]">
                                                 <Plus size={24} strokeWidth={3} />
                                             </div>
-                                            <span className="text-[11px] font-black text-white uppercase tracking-widest text-center px-4">Nova Sala</span>
+                                            <span className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-widest text-center px-4">Nova Sala</span>
 
                                         </div>
                                     </div>
@@ -302,20 +355,20 @@ const HomeDashboard: React.FC = () => {
                                                 if ((e.target as HTMLElement).closest('button')) return;
                                                 navigate(`/jornada/${plan.id}`);
                                             }}
-                                            className="bg-white dark:bg-bible-darkPaper p-5 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm relative overflow-hidden group hover:border-bible-gold transition-all flex flex-col cursor-pointer"
+                                            className="bg-white dark:bg-bible-darkPaper p-5 rounded-[2.5rem] border border-violet-200 dark:border-violet-900/50 shadow-sm relative overflow-hidden group hover:border-violet-400 hover:shadow-xl hover:shadow-violet-950/10 transition-all flex flex-col cursor-pointer"
                                         >
                                             <div className="flex justify-between items-start mb-3">
                                                 <span className={`px-2 py-0.5 rounded-md text-[8px] font-black border ${plan.status === 'published' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-gray-100 text-gray-500 border-gray-200'} uppercase`}>
                                                     {plan.status === 'published' ? 'Em Andamento' : 'Rascunho'}
                                                 </span>
                                                 <div className="text-[8px] text-gray-400 font-bold uppercase">
-                                                    {new Date(plan.createdAt || '').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                                    {formatShortDate(plan.createdAt)}
                                                 </div>
                                             </div>
                                             <h4 className="font-bold text-gray-900 dark:text-white text-xs line-clamp-2 mb-3 flex-1">{plan.title}</h4>
 
                                             <div className="space-y-1 mb-4">
-                                                <div className="flex items-center gap-1.5 text-[9px] text-gray-500 font-bold uppercase tracking-tighter">
+                                                <div className="flex items-center gap-1.5 text-[9px] text-violet-600 dark:text-violet-300 font-bold uppercase tracking-tighter">
                                                     <Users size={10} /> {plan.subscribersCount || 0} inscritos
                                                 </div>
                                                 <div className="flex items-center gap-1.5 text-[9px] text-gray-500 font-bold uppercase tracking-tighter">
@@ -324,7 +377,7 @@ const HomeDashboard: React.FC = () => {
                                             </div>
 
                                             <button
-                                                className="w-full py-2 bg-gray-50 dark:bg-gray-800 group-hover:bg-bible-gold group-hover:text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-1 shadow-sm text-gray-700 dark:text-gray-300"
+                                                className="w-full py-2 bg-violet-50 dark:bg-violet-950/30 group-hover:bg-violet-600 group-hover:text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-1 shadow-sm text-violet-700 dark:text-violet-200"
                                             >
                                                 Gerenciar Sala <ArrowRight size={10} />
                                             </button>
@@ -333,10 +386,63 @@ const HomeDashboard: React.FC = () => {
 
                                     {/* EMPTY STATE IF NO PLANS */}
                                     {userPlans.length === 0 && Array.from({ length: 3 }).map((_, i) => (
-                                        <div key={i} className="bg-gray-50 dark:bg-bible-darkPaper/50 p-6 rounded-[2.5rem] border border-dashed border-gray-200 dark:border-gray-800 flex items-center justify-center opacity-40">
+                                        <div key={i} className="bg-violet-50/60 dark:bg-violet-950/10 p-6 rounded-[2.5rem] border border-dashed border-violet-200 dark:border-violet-900/50 flex items-center justify-center opacity-70">
                                             <Layout size={24} className="text-gray-300" />
                                         </div>
                                     ))}
+                                    </div>
+
+                                    <div className="mt-6 border-t border-gray-100 pt-5 dark:border-gray-800">
+                                        <div className="mb-3 flex items-center justify-between px-1">
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Cultos +</p>
+                                                <h3 className="text-sm font-black text-gray-900 dark:text-white">Cultos da igreja {userProfile?.churchData?.churchName || ''} agendados</h3>
+                                            </div>
+                                            <button onClick={() => navigate('/workspace-pastoral/cultos')} className="text-[10px] font-black uppercase tracking-widest text-bible-gold hover:text-emerald-700 transition-colors">Ver cultos</button>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div
+                                                onClick={() => navigate('/workspace-pastoral/cultos/novo')}
+                                                className="h-[180px] flex flex-col items-center justify-center rounded-[2.5rem] border-2 border-dashed border-emerald-500/40 bg-gradient-to-br from-emerald-950 via-emerald-800 to-bible-gold text-white cursor-pointer group shadow-xl shadow-emerald-950/10 relative overflow-hidden"
+                                            >
+                                                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.22),transparent_35%)]" />
+                                                <div className="relative p-4 bg-white/15 rounded-2xl mb-4 ring-1 ring-white/20 group-hover:scale-110 transition-transform">
+                                                    <Sparkles size={24} />
+                                                </div>
+                                                <span className="relative text-[11px] font-black uppercase tracking-widest text-center px-4">Novo Culto +</span>
+                                            </div>
+
+                                            {churchServices.map((service) => (
+                                                <div
+                                                    key={service.id}
+                                                    onClick={() => navigate(`/culto/${service.slug}`)}
+                                                    className="h-[180px] rounded-[2.5rem] border border-emerald-200 bg-emerald-50/70 p-5 shadow-sm transition-all hover:border-bible-gold hover:shadow-xl hover:shadow-emerald-950/10 dark:border-emerald-900/50 dark:bg-emerald-950/10 cursor-pointer group relative overflow-hidden flex flex-col"
+                                                >
+                                                    <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-bible-gold/20 blur-2xl" />
+                                                    <div className="relative mb-3 flex items-center justify-between">
+                                                        <span className="rounded-full bg-emerald-700 px-2.5 py-1 text-[7px] font-black uppercase tracking-widest text-white">{getServiceBadge(service)}</span>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">{formatServiceTime(service.startsAt)}</span>
+                                                    </div>
+                                                    <h4 className="relative font-black text-gray-900 dark:text-white text-sm line-clamp-2 group-hover:text-emerald-700 dark:group-hover:text-emerald-300">{service.title}</h4>
+                                                    <p className="relative mt-2 text-[10px] font-bold text-gray-500 dark:text-gray-400 line-clamp-1">{service.theme || service.serviceType}</p>
+                                                    <div className="relative mt-auto flex items-center justify-between">
+                                                        <span className="text-gray-400 text-[8px] font-bold">{formatShortDate(service.startsAt)}</span>
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-bible-gold">Abrir <ArrowRight size={10} /></span>
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {churchServices.length === 0 && (
+                                                <div className="h-[180px] rounded-[2.5rem] border border-dashed border-emerald-200 bg-emerald-50/60 p-6 flex items-center justify-center text-center dark:border-emerald-900/50 dark:bg-emerald-950/10">
+                                                    <div>
+                                                        <Calendar size={24} className="mx-auto mb-3 text-emerald-600" />
+                                                        <span className="text-xs text-gray-500 dark:text-gray-400">Nenhum Culto+ criado ainda</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             </section>
                         )}

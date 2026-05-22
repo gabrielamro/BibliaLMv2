@@ -207,6 +207,57 @@ export const generateSermonOutline = async (contextText: string, theme: string, 
     } catch (e) { return ""; }
 };
 
+export const generateChurchServicePlanning = async (
+    verseReference: string,
+    verseText: string,
+    userPrompt: string
+) => {
+    try {
+        const prompt = `Crie uma sugestao de planejamento para um culto cristao usando o versiculo base e o pedido pastoral.
+
+        Versiculo base: ${verseReference}
+        Texto do versiculo: ${verseText}
+        Pedido do pastor/gestor: ${userPrompt || 'Monte um culto equilibrado para a igreja local.'}
+
+        REGRAS:
+        - Use tom pastoral, prudente e biblico.
+        - Nao invente doutrinas ou promessas absolutas.
+        - Diferencie o que vem do texto biblico da aplicacao pastoral sem usar linguagem tecnica para membros.
+        - Gere uma timeline objetiva, pronta para revisao humana.
+        - IMPORTANTE: todo campo "notes" deve ser texto final para aparecer diretamente na OnePage aos membros.
+        - Nao escreva instrucoes internas como "o pastor deve", "sugira", "orientar", "conduzir", "falar sobre" ou "momento para".
+        - Escreva como mensagem pronta do culto, em tom acolhedor, curto e publicavel.
+        - Horarios devem estar no formato HH:mm.
+        - Use categorias liturgicas validas: entrance, opening, worship, word, offering, prayer, response, closing, other.
+        - Para worship, preencha "songs" com titulos de musicas sugeridas.
+        - Para word, preencha "verseRef", "verseText" e "notes" com o resumo final da Palavra para os membros.
+        - Para offering, preencha "notes" com a mensagem final de dizimos/ofertas e deixe pixKeyType/pixKey vazios se nao houver chave informada.
+        - Para prayer, use "notes" como uma chamada final para oracao congregacional.
+        - Para closing, use "notes" como mensagem final de encerramento.
+
+        Retorne somente JSON neste formato:
+        {
+          "title": "Nome curto do culto",
+          "theme": "Tema da mensagem",
+          "serviceType": "sunday",
+          "pastoralFocus": "Resumo pastoral em uma frase",
+          "liturgyItems": [
+            { "kind": "entrance", "title": "Liturgia de Entrada", "startsAt": "18:45", "responsible": "", "notes": "..." },
+            { "kind": "opening", "title": "Abertura", "startsAt": "19:00", "responsible": "", "notes": "..." },
+            { "kind": "worship", "title": "Adoracao e Louvor", "startsAt": "19:15", "responsible": "", "songs": ["..."], "notes": "..." },
+            { "kind": "word", "title": "Liturgia da Palavra", "startsAt": "19:50", "responsible": "", "verseRef": "${verseReference}", "verseText": "${verseText}", "notes": "..." },
+            { "kind": "offering", "title": "Dizimos e Ofertas", "startsAt": "20:35", "responsible": "", "notes": "...", "pixKeyType": "", "pixKey": "" },
+            { "kind": "prayer", "title": "Momento de Oracao", "startsAt": "20:45", "responsible": "", "notes": "..." },
+            { "kind": "closing", "title": "Encerramento", "startsAt": "20:55", "responsible": "", "notes": "..." }
+          ]
+        }`;
+        const text = await callAi(prompt, "Atue como um pastor auxiliar que ajuda a planejar cultos com prudencia biblica.", "json");
+        return JSON.parse(text || "{}");
+    } catch (e) {
+        return null;
+    }
+};
+
 export const generateSermonIllustration = async (theme: string, context: string): Promise<string> => {
     try {
         const prompt = `Crie uma ilustração (história, metáfora ou exemplo histórico) curta e impactante para um sermão sobre: "${theme}". Contexto bíblico: "${context}". A ilustração deve ajudar a explicar o ponto teológico de forma emocional e memorável. Formato HTML (p). Assegure contraste total (texto #222 se o fundo for claro).`;

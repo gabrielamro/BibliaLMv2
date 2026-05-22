@@ -1,11 +1,12 @@
-"use client";
+﻿"use client";
 import { useNavigate, useLocation, useParams, useSearchParams } from '../../utils/router';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 
 import Link from "next/link";
 import { dbService, uploadBlob } from '../../services/supabase';
-import { Church, UserProfile, ChurchGroup, PrayerRequest, GroupPrivacy, Post } from '../../types';
+import { cultoPlusService } from '../../services/cultoPlusService';
+import { Church, UserProfile, ChurchGroup, PrayerRequest, GroupPrivacy, Post, ChurchService } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   Loader2, MapPin, Users, Shield, ArrowLeft, Trophy, LogIn, 
@@ -23,10 +24,23 @@ import { normalizeUserSearchQuery, shouldSearchUsers } from '../../utils/userSea
 import { buildCreateContentShortcutUrl } from '../../utils/contentPrivacy';
 import { generateSlug } from '../../utils/textUtils';
 import { FeedPostCard } from '../../components/social/FeedPostCard';
+import ChurchServicesPreview from '../../components/culto-plus/ChurchServicesPreview';
+import CultoPlusPublicAgenda from '../../components/culto-plus/CultoPlusPublicAgenda';
 
 type ChurchMuralItem =
     | (PrayerRequest & { muralType?: 'prayer' })
     | (Post & { muralType: 'post' });
+
+const getChurchServiceStatusLabel = (service: ChurchService, wasAttended: boolean) => {
+    const now = new Date();
+    const startsAt = new Date(service.startsAt);
+    const endsAt = new Date(service.endsAt);
+    const isFinished = service.status === 'finished' || service.status === 'archived' || now > endsAt;
+    if (service.status === 'live' || (now >= startsAt && now <= endsAt)) return 'Ao vivo';
+    if (isFinished && wasAttended) return 'Assistido';
+    if (now < startsAt) return 'Agendado';
+    return 'Participar';
+};
 
 const isFeedPostMuralItem = (item: ChurchMuralItem): item is Post & { muralType: 'post' } =>
     item.muralType === 'post';
@@ -88,14 +102,17 @@ const ChurchProfilePage: React.FC = () => {
   const { churchSlug } = useParams<{ churchSlug: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser, userProfile, recordActivity, openLogin, showNotification, earnMana } = useAuth();
-  const { setTitle, resetHeader, setBreadcrumbs } = useHeader();
+  const { currentUser, userProfile, recordActivity, openLogin, showNotification, earnMana, updateProfile } = useAuth();
+  const { setTitle, resetHeader, setBreadcrumbs, setIsHeaderHidden } = useHeader();
   
   const [church, setChurch] = useState<Church | null>(null);
   const [groups, setGroups] = useState<ChurchGroup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'mural' | 'groups' | 'info'>('mural');
+  const [activeTab, setActiveTab] = useState<'mural' | 'cultos' | 'groups'>('mural');
   const [prayers, setPrayers] = useState<ChurchMuralItem[]>([]);
+  const [services, setServices] = useState<ChurchService[]>([]);
+  const [isServiceCalendarOpen, setIsServiceCalendarOpen] = useState(false);
+  const [attendedServiceIds, setAttendedServiceIds] = useState<Set<string>>(new Set());
   const [newPrayer, setNewPrayer] = useState('');
   const [isPostingPrayer, setIsPostingPrayer] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -107,13 +124,15 @@ const ChurchProfilePage: React.FC = () => {
         { label: 'O Reino', path: '/social' },
         { label: 'Igrejas' }
       ]);
+      setIsHeaderHidden(true);
     }
     return () => resetHeader();
-  }, [church, setTitle, resetHeader, setBreadcrumbs]);
+  }, [church, setTitle, resetHeader, setBreadcrumbs, setIsHeaderHidden]);
   
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [followers, setFollowers] = useState<any[]>([]);
   const [loadingPeople, setLoadingPeople] = useState(false);
+  const [peoplePanel, setPeoplePanel] = useState<'members' | 'followers' | null>(null);
 
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [isSavingGroup, setIsSavingGroup] = useState(false);
@@ -135,6 +154,8 @@ const ChurchProfilePage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUpdatingLogo, setIsUpdatingLogo] = useState(false);
   const [isRequestingResponsibility, setIsRequestingResponsibility] = useState(false);
+  const [responsibilityRequestStatus, setResponsibilityRequestStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
+  const [isJoiningChurch, setIsJoiningChurch] = useState(false);
 
   // Modal States
   const [prayerToEdit, setPrayerToEdit] = useState<PrayerRequest | null>(null);
@@ -146,6 +167,19 @@ const ChurchProfilePage: React.FC = () => {
   const isSocialMode = location.pathname.startsWith('/social');
   const basePath = isSocialMode ? '/social' : '';
   const currentUserId = currentUser?.uid || currentUser?.id;
+  const latestServicePosts = useMemo(
+    () => prayers
+      .filter((item): item is Post & { muralType: 'post' } => isFeedPostMuralItem(item) && Boolean(item.serviceId))
+      .slice(0, 3),
+    [prayers]
+  );
+  const visibleServices = useMemo(() => {
+      const now = new Date();
+      return services.filter((service) => {
+          const isFinished = service.status === 'finished' || service.status === 'archived' || now > new Date(service.endsAt);
+          return !isFinished || attendedServiceIds.has(service.id);
+      });
+  }, [services, attendedServiceIds]);
 
   const loadChurchData = useCallback(async () => {
       if (!churchSlug) return;
@@ -187,13 +221,31 @@ const ChurchProfilePage: React.FC = () => {
                       // Silently fail or log for admin - functionality unavailable until index built
                   }
               }
+
+              try {
+                  const loadedServices = await cultoPlusService.getServicesByChurch(data.id, { limit: 6 });
+                  setServices(loadedServices);
+                  if (currentUserId) {
+                      const attendance = await Promise.all(
+                          loadedServices.map(async (service) => [
+                              service.id,
+                              await cultoPlusService.hasCheckedIn(service.id, currentUserId),
+                          ] as const)
+                      );
+                      setAttendedServiceIds(new Set(attendance.filter(([, attended]) => attended).map(([serviceId]) => serviceId)));
+                  } else {
+                      setAttendedServiceIds(new Set());
+                  }
+              } catch (err) {
+                  console.error("Erro ao carregar cultos:", formatRuntimeError(err));
+              }
           }
       } catch (e) { 
           console.error("Erro critico ao carregar igreja:", formatRuntimeError(e)); 
       } finally { 
           setLoading(false); 
       }
-  }, [churchSlug, currentUser]);
+  }, [churchSlug, currentUser, currentUserId]);
 
   useEffect(() => {
     loadChurchData();
@@ -214,8 +266,8 @@ const ChurchProfilePage: React.FC = () => {
   };
 
   useEffect(() => {
-      if (activeTab === 'info' && church) loadCommunityLists();
-  }, [activeTab, church]);
+      if (peoplePanel && church) loadCommunityLists();
+  }, [peoplePanel, church]);
 
   useEffect(() => {
     const searchVal = newGroupLeader.trim();
@@ -320,18 +372,79 @@ const ChurchProfilePage: React.FC = () => {
 
   const isMember = userProfile?.churchData?.churchId === church?.id;
   const isOwner = currentUserId && church?.admins?.includes(currentUserId);
+  const churchFullAddress = [
+      church?.location?.address,
+      church?.location?.city,
+      church?.location?.state,
+  ].filter(Boolean).join(', ');
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(churchFullAddress || church?.name || '')}`;
+
+  const handleJoinChurch = async () => {
+      if (!church) return;
+      if (!currentUserId) {
+          openLogin(location.pathname);
+          showNotification('Entre para marcar que voce e membro desta igreja.', 'info');
+          return;
+      }
+      setIsJoiningChurch(true);
+      try {
+          const resolvedChurch = await dbService.joinChurch(currentUserId, church as any);
+          await updateProfile({
+              churchData: {
+                  churchId: resolvedChurch.id,
+                  churchName: resolvedChurch.name,
+                  churchSlug: resolvedChurch.slug,
+                  isAnonymous: false,
+              },
+          });
+          if (resolvedChurch.slug && resolvedChurch.slug !== church.slug) {
+              navigate(`${basePath}/igreja/${resolvedChurch.slug}`);
+          } else if (resolvedChurch.id !== church.id) {
+              setChurch(resolvedChurch);
+          }
+          showNotification(`Voce agora esta vinculado a ${resolvedChurch.name}.`, 'success');
+      } catch (error) {
+          console.error(formatRuntimeError(error));
+          showNotification('Nao foi possivel concluir o vinculo.', 'error');
+      } finally {
+          setIsJoiningChurch(false);
+      }
+  };
   const isVisionary = userProfile?.subscriptionTier === 'gold';
+  const requestedChurchRole = userProfile?.subscriptionTier === 'admin' ? 'admin' : 'pastor';
   const canRequestResponsibility = isMember && !isOwner && (userProfile?.subscriptionTier === 'pastor' || userProfile?.subscriptionTier === 'admin' || userProfile?.subscriptionTier === 'gold');
   const canChangeLogo = isOwner || isVisionary;
+  const hasPendingResponsibilityRequest = responsibilityRequestStatus === 'pending';
+
+  useEffect(() => {
+      if (!church?.id || !currentUserId || !canRequestResponsibility) {
+          setResponsibilityRequestStatus(null);
+          return;
+      }
+      dbService.getChurchRoleRequest(currentUserId, church.id, requestedChurchRole)
+          .then((request) => setResponsibilityRequestStatus((request?.status as typeof responsibilityRequestStatus) ?? null))
+          .catch(() => setResponsibilityRequestStatus(null));
+  }, [church?.id, currentUserId, canRequestResponsibility, requestedChurchRole]);
 
   const handleRequestResponsibility = async () => {
       if (!currentUser || !church) { openLogin(); return; }
+      if (hasPendingResponsibilityRequest) {
+          showNotification("Voce ja tem uma solicitacao pendente para esta igreja.", "info");
+          return;
+      }
       setIsRequestingResponsibility(true);
       try {
-          await dbService.requestChurchResponsibility(currentUser.uid, church.id, userProfile?.subscriptionTier === 'admin' ? 'admin' : 'pastor');
+          await dbService.requestChurchResponsibility(currentUser.uid, church.id, requestedChurchRole);
+          setResponsibilityRequestStatus('pending');
           showNotification("Solicitacao enviada. A equipe vai revisar o vinculo com a igreja.", "success");
       } catch (error) {
-          console.error(formatRuntimeError(error));
+          const message = formatRuntimeError(error);
+          if (message.includes('23505') || message.includes('church_role_requests_church_id_user_id_requested_role_key')) {
+              setResponsibilityRequestStatus('pending');
+              showNotification("Voce ja tem uma solicitacao pendente para esta igreja.", "info");
+              return;
+          }
+          console.error(message);
           showNotification("Nao foi possivel enviar a solicitacao.", "error");
       } finally {
           setIsRequestingResponsibility(false);
@@ -552,170 +665,241 @@ const ChurchProfilePage: React.FC = () => {
     <div className="h-full bg-gray-50 dark:bg-black/20 overflow-y-auto">
         <SEO title={church.name} description={`Comunidade ${church.name} no BíbliaLM.`} />
         
-        <div className="h-44 md:h-52 bg-[#3d2b25] relative overflow-hidden">
-            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)', backgroundSize: '15px 15px' }}></div>
+        <div className="relative h-48 overflow-hidden bg-[#3d2b25] md:h-64">
+            {church.logoUrl ? (
+                <img src={church.logoUrl} alt={church.name} className="absolute inset-0 h-full w-full object-cover opacity-75 blur-[1px] scale-105" />
+            ) : (
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)', backgroundSize: '15px 15px' }} />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black/45" />
+            <div className="absolute inset-x-0 top-4 z-10 mx-auto flex max-w-5xl items-center justify-between px-4">
+                <button onClick={() => navigate(-1)} className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-900 shadow-lg transition hover:bg-white" aria-label="Voltar">
+                    <ArrowLeft size={18} />
+                </button>
+                <div className="flex items-center gap-2">
+                    <button onClick={handleFollowToggle} className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-lg transition hover:text-bible-gold" aria-label={isFollowing ? 'Seguindo' : 'Seguir'}>
+                        <Bell size={17} fill={isFollowing ? 'currentColor' : 'none'} />
+                    </button>
+                    <button
+                        onClick={async () => {
+                            if (navigator.share) await navigator.share({ title: church.name, url: window.location.href });
+                            else { await navigator.clipboard.writeText(window.location.href); showNotification('Link copiado!', 'success'); }
+                        }}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-lg transition hover:text-bible-gold"
+                        aria-label="Compartilhar igreja"
+                    >
+                        <MoreHorizontal size={18} />
+                    </button>
+                </div>
+            </div>
         </div>
         
-        <div className="max-w-5xl mx-auto px-4 pb-32 relative z-10">
-            <div className="relative -mt-20 mb-8">
-                <div className="bg-white dark:bg-bible-darkPaper rounded-[2.5rem] shadow-2xl p-6 md:p-10 border border-gray-100 dark:border-gray-800 transition-all">
-                    
-                    <div className="flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8 mb-10">
-                        <div className="relative group">
-                            <div className="w-32 h-32 md:w-36 md:h-36 bg-white dark:bg-gray-800 rounded-[2.2rem] border-2 border-gray-100 dark:border-gray-700 shadow-xl flex-shrink-0 flex items-center justify-center overflow-hidden">
+        <div className="mx-auto max-w-5xl px-4 pb-32 relative z-10">
+            <div className="relative -mt-16 mb-8">
+                <div className="overflow-visible rounded-[2rem] border border-gray-100 bg-white shadow-2xl dark:border-gray-800 dark:bg-bible-darkPaper">
+                    <div className="grid grid-cols-[auto_1fr_auto] gap-4 p-5 md:gap-6 md:p-7">
+                        <div className="relative -mt-12 md:-mt-16">
+                            <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white p-2 shadow-2xl dark:border-bible-darkPaper dark:bg-gray-900 md:h-36 md:w-36">
                                 {isUpdatingLogo ? (
                                     <Loader2 className="animate-spin text-bible-gold" size={32} />
                                 ) : church.logoUrl ? (
-                                    <img src={church.logoUrl} className="w-full h-full object-cover" alt={church.name} />
+                                    <img src={church.logoUrl} className="h-full w-full object-contain" alt={church.name} />
                                 ) : (
-                                    <Shield size={64} className="text-gray-100 dark:text-gray-700" />
+                                    <Shield size={62} className="text-bible-gold" />
                                 )}
                             </div>
-                            
                             {canChangeLogo && (
                                 <>
-                                    <button 
+                                    <button
                                         onClick={() => fileInputRef.current?.click()}
-                                        className="absolute -bottom-2 -right-2 bg-bible-gold text-white p-2.5 rounded-full shadow-lg border-2 border-white dark:border-bible-darkPaper hover:scale-110 transition-transform"
+                                        className="absolute bottom-1 right-1 rounded-full border-2 border-white bg-bible-gold p-2 text-white shadow-lg transition hover:scale-110 dark:border-bible-darkPaper"
                                         title="Trocar foto da igreja"
                                     >
-                                        <Camera size={16} />
+                                        <Camera size={14} />
                                     </button>
                                     <input type="file" ref={fileInputRef} onChange={handleLogoUpload} className="hidden" accept="image/*" />
                                 </>
                             )}
                         </div>
 
-                        <div className="flex-1 text-center md:text-left pt-2">
-                            <p className="text-xs font-black text-bible-gold uppercase tracking-[0.2em] mb-1">Comunidade de Fé</p>
-
-                            <div className="flex flex-col gap-1 mb-4">
-                                <div className="flex items-center justify-center md:justify-start gap-2">
-                                    <Crown size={18} className="text-bible-gold fill-bible-gold/10" />
-                                    {church.pastorName ? (
-                                        <p className="text-base font-bold text-bible-gold">
-                                            Pastor(a): {church.pastorName}
-                                        </p>
-                                    ) : (
-                                        <span className="text-sm font-medium text-gray-400 italic">Liderança não informada</span>
-                                    )}
-                                    
-                                    {isMember && (
-                                        <button 
-                                            onClick={() => setIsEditingPastor(true)}
-                                            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-bible-gold transition-colors flex items-center gap-1 group/edit"
-                                            title={church.pastorName ? "Editar Liderança" : "Cadastrar Liderança"}
-                                        >
-                                            {church.pastorName ? <Edit2 size={14} /> : <Plus size={14} className="group-hover/edit:scale-125 transition-transform"/>}
-                                            {!church.pastorName && <span className="text-[10px] font-black uppercase tracking-tighter">Cadastrar</span>}
-                                        </button>
-                                    )}
-                                </div>
-
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center justify-center md:justify-start gap-2">
-                                    <MapPin size={12} className="text-bible-gold" /> {church.location.city}, {church.location.state}
-                                </p>
-                            </div>
-
-                            <div className="flex items-center justify-center md:justify-start gap-2">
-                                <button 
-                                    onClick={handleFollowToggle}
-                                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-all active:scale-95 ${isFollowing ? 'bg-gray-100 text-gray-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
-                                >
-                                    <Bell size={16} fill={isFollowing ? "currentColor" : "none"} />
-                                    {isFollowing ? 'SEGUINDO' : 'SEGUIR'}
-                                </button>
-
-                                {!isMember && (
-                                    <button 
-                                        onClick={() => navigate('/social/igrejas')}
-                                        className="flex items-center gap-2 bg-bible-leather dark:bg-bible-gold text-white dark:text-black px-6 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:opacity-90 transition-all active:scale-95"
-                                    >
-                                        <LogIn size={16} />
-                                        SOU MEMBRO
-                                    </button>
-                                )}
-
+                        <div className="min-w-0 pt-2 text-left md:pt-4">
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
+                                <h1 className="text-xl font-black leading-tight text-gray-900 dark:text-white md:text-4xl">{church.name}</h1>
                                 {isMember && (
-                                    <div className="flex items-center gap-2 bg-green-50 text-green-600 px-4 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest border border-green-100">
-                                        <UserCheck size={16} />
-                                        Membro Ativo
-                                    </div>
+                                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-green-50 text-green-600 ring-1 ring-green-100" title="Membro ativo">
+                                        <UserCheck size={17} />
+                                    </span>
                                 )}
-
-                                {isMember && (
-                                    <>
-                                        <button
-                                            onClick={() => navigate(buildCreateContentShortcutUrl('/criar-sala', { scope: 'church', churchId: church.id, churchName: church.name }))}
-                                            className="flex items-center gap-2 bg-purple-50 text-purple-600 px-4 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest border border-purple-100 hover:bg-purple-100 transition-colors"
-                                        >
-                                            <Brain size={16} />
-                                            Criar sala
-                                        </button>
-                                        <button
-                                            onClick={() => navigate(buildCreateContentShortcutUrl('/criar-estudo', { scope: 'church', churchId: church.id, churchName: church.name }))}
-                                            className="flex items-center gap-2 bg-bible-gold/10 text-bible-gold px-4 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest border border-bible-gold/20 hover:bg-bible-gold/20 transition-colors"
-                                        >
-                                            <BookOpen size={16} />
-                                            Criar estudo
-                                        </button>
-                                    </>
-                                )}
-
-                                {canRequestResponsibility && (
-                                    <button
-                                        onClick={handleRequestResponsibility}
-                                        disabled={isRequestingResponsibility}
-                                        className="flex items-center gap-2 bg-bible-gold/10 text-bible-gold px-4 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest border border-bible-gold/20 disabled:opacity-60"
-                                    >
-                                        {isRequestingResponsibility ? <Loader2 size={16} className="animate-spin" /> : <UserCog size={16} />}
-                                        Sou responsavel
-                                    </button>
-                                )}
-
-                                <button 
+                                <button
                                     onClick={async () => {
                                         if (navigator.share) await navigator.share({ title: church.name, url: window.location.href });
-                                        else { await navigator.clipboard.writeText(window.location.href); showNotification("Link copiado!", "success"); }
+                                        else { await navigator.clipboard.writeText(window.location.href); showNotification('Link copiado!', 'success'); }
                                     }}
-                                    className="p-3 bg-gray-50 dark:bg-gray-800 text-gray-400 hover:text-bible-gold rounded-2xl transition-all shadow-sm border border-gray-100 dark:border-gray-700"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 text-gray-500 ring-1 ring-gray-100 transition hover:text-bible-gold dark:bg-gray-900 dark:ring-gray-800"
+                                    aria-label="Compartilhar igreja"
                                 >
-                                    <Share2 size={18} />
+                                    <Share2 size={15} />
                                 </button>
                             </div>
+                            <div className="mb-2 flex items-center gap-2 text-sm font-bold text-bible-gold">
+                                <Crown size={15} className="fill-bible-gold/10" />
+                                {church.pastorName ? <span>Pastor(a): {church.pastorName}</span> : <span className="text-gray-400">Liderança não informada</span>}
+                                {isMember && (
+                                    <button
+                                        onClick={() => setIsEditingPastor(true)}
+                                        className="rounded-lg p-1 text-bible-gold transition hover:bg-gray-100 dark:hover:bg-gray-800"
+                                        title={church.pastorName ? 'Editar liderança' : 'Cadastrar liderança'}
+                                    >
+                                        {church.pastorName ? <Edit2 size={13} /> : <Plus size={13} />}
+                                    </button>
+                                )}
+                            </div>
+                            <a href={mapsUrl} target="_blank" rel="noreferrer" className="flex items-start gap-2 text-[10px] font-black uppercase tracking-widest text-gray-500 transition hover:text-bible-gold" title="Abrir endereço no mapa">
+                                <MapPin size={12} className="mt-0.5 shrink-0 text-bible-gold" />
+                                <span className="line-clamp-2">{churchFullAddress || `${church.location.city}, ${church.location.state}`}</span>
+                            </a>
+                        </div>
+
+                        <div className="flex w-32 flex-col items-stretch gap-2 pt-2 md:w-40 md:pt-4">
+                            <button
+                                onClick={handleFollowToggle}
+                                className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-[10px] font-black uppercase tracking-widest transition active:scale-95 ${isFollowing ? 'bg-gray-100 text-gray-500' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                            >
+                                <Bell size={14} fill={isFollowing ? 'currentColor' : 'none'} />
+                                {isFollowing ? 'Seguindo' : 'Seguir'}
+                            </button>
+                            {!isMember && (
+                                <button onClick={handleJoinChurch} disabled={isJoiningChurch} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-green-50 px-3 text-[10px] font-black uppercase tracking-widest text-green-700 ring-1 ring-green-100 transition hover:bg-green-100 disabled:opacity-60">
+                                    {isJoiningChurch ? <Loader2 size={14} className="animate-spin" /> : <LogIn size={14} />}
+                                    Membro
+                                </button>
+                            )}
+                            <button onClick={() => navigate('/workspace-pastoral')} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-gray-50 px-3 text-[10px] font-black uppercase tracking-widest text-gray-700 ring-1 ring-gray-100 transition hover:bg-gray-100 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-800">
+                                <Crown size={14} />
+                                Espaço
+                            </button>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 border-t border-gray-50 dark:border-gray-800 pt-8 gap-4">
-                        <div className="text-center md:text-left">
-                            <span className="block text-2xl font-black text-gray-900 dark:text-white mb-0.5 leading-none">
-                                {church.stats.memberCount || 0}
-                            </span>
-                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Fiéis</span>
-                        </div>
-                        
-                        <div className="text-center md:text-left border-l border-gray-100 dark:border-gray-800 pl-4">
-                            <span className="block text-2xl font-black text-gray-900 dark:text-white mb-0.5 leading-none">
-                                {church.stats.followersCount || 0}
-                            </span>
-                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Seguidores</span>
-                        </div>
-
-                        <div className="text-center md:text-left border-l border-gray-100 dark:border-gray-800 pl-4">
-                            <span className="block text-2xl font-black text-purple-600 mb-0.5 leading-none">
-                                {church.stats.totalMana || 0}
-                            </span>
-                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Vitalidade</span>
-                        </div>
+                    <div className="grid grid-cols-2 border-t border-gray-50 px-5 py-4 dark:border-gray-800 md:px-7">
+                        <button type="button" onClick={() => setPeoplePanel('members')} className="rounded-2xl p-3 text-left transition hover:bg-gray-50 dark:hover:bg-gray-900">
+                            <span className="block text-2xl font-black leading-none text-gray-900 dark:text-white">{church.stats.memberCount || 0}</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Fiéis</span>
+                        </button>
+                        <button type="button" onClick={() => setPeoplePanel('followers')} className="rounded-2xl border-l border-gray-100 p-3 pl-5 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900">
+                            <span className="block text-2xl font-black leading-none text-gray-900 dark:text-white">{church.stats.followersCount || 0}</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Seguidores</span>
+                        </button>
                     </div>
                 </div>
             </div>
+            {visibleServices.length > 0 && (
+                <div className="mb-8 overflow-hidden rounded-[2rem] border border-emerald-100 bg-white shadow-sm dark:border-emerald-900/40 dark:bg-bible-darkPaper">
+                    <div className="h-1.5 bg-gradient-to-r from-[#073b35] via-[#0f5d51] to-[#d8b15f]" />
+                    <div className="p-5">
+                        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-700 dark:text-emerald-300">Culto+</p>
+                                <h2 className="text-xl font-black text-gray-900 dark:text-white">Agenda de Cultos e Eventos</h2>
+                            </div>
+                            <button onClick={() => setIsServiceCalendarOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#073b35] via-[#0f5d51] to-[#d8b15f] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-950/10 transition hover:-translate-y-0.5 hover:shadow-xl">
+                                <Calendar size={14} />
+                                Ver Culto
+                            </button>
+                        </div>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        {visibleServices.slice(0, 2).map((service) => {
+                            const serviceStatusLabel = getChurchServiceStatusLabel(service, attendedServiceIds.has(service.id));
+                            return (
+                            <Link key={service.id} href={`/culto/${service.slug}`} className="group rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-white hover:shadow-md hover:shadow-emerald-950/5 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                        <h3 className="text-sm font-black text-gray-900 group-hover:text-emerald-700 dark:text-white dark:group-hover:text-emerald-300">{service.title}</h3>
+                                        <p className="mt-1 line-clamp-2 text-xs font-medium text-gray-500">{service.theme}</p>
+                                    </div>
+                                    <span className={`shrink-0 rounded-full px-2 py-1 text-[8px] font-black uppercase tracking-widest ${serviceStatusLabel === 'Ao vivo' ? 'bg-red-500 text-white' : serviceStatusLabel === 'Assistido' ? 'bg-emerald-600 text-white' : 'bg-[#f3d28a] text-[#073b35]'}`}>
+                                        {serviceStatusLabel}
+                                    </span>
+                                </div>
+                                <div className="mt-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">
+                                    <Calendar size={12} />
+                                    {new Date(service.startsAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                            </Link>
+                            );
+                        })}
+                    </div>
+                    {latestServicePosts.length > 0 && (
+                        <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                            <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Ultimos posts dos cultos</p>
+                            <div className="space-y-3">
+                                {latestServicePosts.map((post) => {
+                                    const linkedService = services.find((service) => service.id === post.serviceId);
+                                    const postPreview = (
+                                        <>
+                                            <div className="flex items-center justify-between gap-3">
+                                                <span className="line-clamp-1 text-xs font-black text-gray-900 dark:text-white">{post.userDisplayName || 'Membro'}</span>
+                                                <span className="shrink-0 rounded-full bg-[#f3d28a] px-2 py-1 text-[8px] font-black uppercase tracking-widest text-[#073b35]">Culto+</span>
+                                            </div>
+                                            <p className="mt-1 line-clamp-2 text-xs font-medium text-gray-500 dark:text-gray-400">{post.content}</p>
+                                        </>
+                                    );
+                                    return linkedService ? (
+                                        <Link key={post.id} href={`/culto/${linkedService.slug}`} className="block rounded-xl bg-white p-3 transition hover:bg-emerald-50 dark:bg-bible-darkPaper dark:hover:bg-emerald-950/30">
+                                            {postPreview}
+                                        </Link>
+                                    ) : (
+                                        <div key={post.id} className="rounded-xl bg-white p-3 dark:bg-bible-darkPaper">
+                                            {postPreview}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    </div>
+                </div>
+            )}
 
             <div className="flex bg-white dark:bg-bible-darkPaper p-1.5 rounded-[1.5rem] border border-gray-100 dark:border-gray-800 mb-8 shadow-sm overflow-x-auto no-scrollbar">
                 <button onClick={() => setActiveTab('mural')} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'mural' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><MessageSquareHeart size={16} /> Mural</button>
+                <button onClick={() => setIsServiceCalendarOpen(true)} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'cultos' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><Calendar size={16} /> Cultos</button>
                 <button onClick={() => setActiveTab('groups')} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'groups' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><Boxes size={16} /> Grupos</button>
-                <button onClick={() => setActiveTab('info')} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'info' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><Info size={16} /> Info</button>
             </div>
+
+            {isServiceCalendarOpen && (
+                <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-3 backdrop-blur-sm md:items-center" role="dialog" aria-modal="true" aria-labelledby="church-services-calendar-title" onClick={() => setIsServiceCalendarOpen(false)}>
+                    <div className="max-h-[86vh] w-full max-w-2xl overflow-hidden rounded-[2rem] bg-white shadow-2xl dark:bg-bible-darkPaper" onClick={(event) => event.stopPropagation()}>
+                        <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-5 dark:border-gray-800">
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-700 dark:text-emerald-300">Calendario da igreja</p>
+                                <h2 id="church-services-calendar-title" className="mt-1 text-xl font-black text-gray-900 dark:text-white">Cultos e agendas</h2>
+                            </div>
+                            <button type="button" onClick={() => setIsServiceCalendarOpen(false)} aria-label="Fechar calendario de cultos" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:bg-gray-900 dark:hover:bg-gray-800 dark:hover:text-white">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="max-h-[60vh] overflow-y-auto p-5">
+                            <CultoPlusPublicAgenda
+                                services={visibleServices}
+                                onOpen={(service) => {
+                                    setIsServiceCalendarOpen(false);
+                                    navigate(`/culto/${service.slug}`);
+                                }}
+                            />
+                        </div>
+                        <div className="flex flex-col-reverse gap-2 border-t border-gray-100 p-5 dark:border-gray-800 sm:flex-row sm:justify-end">
+                            <button type="button" onClick={() => setIsServiceCalendarOpen(false)} className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-gray-50 px-4 text-[10px] font-black uppercase tracking-widest text-gray-500 transition hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-800">
+                                Fechar
+                            </button>
+                            <button type="button" onClick={() => { setActiveTab('cultos'); setIsServiceCalendarOpen(false); }} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#073b35] via-[#0f5d51] to-[#d8b15f] px-4 text-[10px] font-black uppercase tracking-widest text-white">
+                                <Calendar size={14} />
+                                Ver lista completa
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="min-h-[300px]">
                 {activeTab === 'mural' && (
@@ -793,6 +977,12 @@ const ChurchProfilePage: React.FC = () => {
                     </div>
                 )}
 
+                {activeTab === 'cultos' && (
+                    <div className="animate-in fade-in">
+                        <ChurchServicesPreview services={visibleServices} attendedServiceIds={attendedServiceIds} canManage={Boolean(isOwner || isMember)} />
+                    </div>
+                )}
+
                 {activeTab === 'groups' && (
                     <div className="space-y-6 animate-in fade-in">
                         <div className="flex justify-between items-center mb-4">
@@ -802,7 +992,7 @@ const ChurchProfilePage: React.FC = () => {
                             )}
                         </div>
 
-                        {/* Modal/Area de Criação de Grupo (Mantido do anterior) */}
+                        {/* Modal/Área de Criação de Grupo (mantido do anterior) */}
                         {isCreatingGroup && (
                             <div className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] border-2 border-dashed border-bible-gold/30 mb-6 animate-in zoom-in-95 relative z-50">
                                 <h4 className="font-bold text-sm mb-4">Novo Grupo</h4>
@@ -1018,88 +1208,48 @@ const ChurchProfilePage: React.FC = () => {
                         )}
                     </div>
                 )}
-
-                {activeTab === 'info' && (
-                    <div className="space-y-8 animate-in fade-in">
-                        <div className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800">
-                            <h3 className="font-bold text-lg mb-6 flex items-center gap-2 text-bible-gold"><MapPinned size={20} /> Endereço e Localização</h3>
-                            <div className="flex items-start gap-4">
-                                <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-2xl"><MapPin size={24} className="text-gray-400" /></div>
-                                <div>
-                                    <p className="text-gray-900 dark:text-white font-bold text-lg">{church.location.address || 'Endereço não cadastrado'}</p>
-                                    <p className="text-gray-500 font-medium">{church.location.city}, {church.location.state}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="font-bold flex items-center gap-2 text-bible-gold"><UserCheck size={20} /> Membros da Igreja</h3>
-                                    <span className="bg-bible-gold/10 text-bible-gold px-3 py-1 rounded-full text-[10px] font-black">{members.length}</span>
-                                </div>
-                                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
-                                    {members.map(member => (
-                                        <Link key={member.uid} href={`${basePath}/u/${member.username}`} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                                            <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
-                                                {member.photoURL ? <img src={member.photoURL} className="w-full h-full object-cover" /> : <UserIcon className="m-auto mt-2 text-gray-400" size={20}/>}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold text-gray-900 dark:text-white">{member.displayName}</p>
-                                                <p className="text-[10px] text-gray-400">@{member.username}</p>
-                                            </div>
-                                        </Link>
-                                    ))}
-                                    {members.length === 0 && <p className="text-xs text-gray-400 italic text-center py-4">Nenhum membro vinculado.</p>}
-                                </div>
-                            </div>
-
-                            <div className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="font-bold flex items-center gap-2 text-gray-500"><Users size={20} /> Seguidores</h3>
-                                    <span className="bg-gray-100 dark:bg-gray-800 text-gray-500 px-3 py-1 rounded-full text-[10px] font-black">{followers.length}</span>
-                                </div>
-                                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
-                                    {followers.map(follower => (
-                                        <Link key={follower.id} href={`${basePath}/u/${follower.username}`} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                                            <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
-                                                {follower.photoURL ? <img src={follower.photoURL} className="w-full h-full object-cover" /> : <UserIcon className="m-auto mt-2 text-gray-400" size={20}/>}
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-gray-900 dark:text-white">{follower.displayName}</p>
-                                                <p className="text-[10px] text-gray-400">@{follower.username}</p>
-                                            </div>
-                                        </Link>
-                                    ))}
-                                    {followers.length === 0 && <p className="text-xs text-gray-400 italic text-center py-4">Nenhum seguidor ainda.</p>}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800">
-                            <h3 className="font-bold text-lg mb-6 flex items-center gap-2 text-purple-600"><Zap size={20} /> Desempenho da Comunidade</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="p-6 bg-blue-50 dark:bg-blue-900/10 rounded-[2rem] border border-blue-100 dark:border-blue-800 text-center">
-                                    <BookOpen size={28} className="mx-auto text-blue-600 mb-2" />
-                                    <span className="block font-black text-2xl text-blue-700 dark:text-blue-300">{church.stats.totalChaptersRead || 0}</span>
-                                    <span className="text-[10px] font-black uppercase text-blue-400 tracking-widest">Capítulos Lidos</span>
-                                </div>
-                                <div className="p-6 bg-purple-50 dark:bg-purple-900/10 rounded-[2rem] border border-purple-100 dark:border-purple-800 text-center">
-                                    <Star size={28} className="mx-auto text-purple-600 mb-2" />
-                                    <span className="block font-black text-2xl text-purple-700 dark:text-purple-300">{church.stats.totalMana || 0}</span>
-                                    <span className="text-[10px] font-black uppercase text-blue-400 tracking-widest">Maná Acumulado</span>
-                                </div>
-                                <div className="p-6 bg-orange-50 dark:bg-orange-900/10 rounded-[2rem] border border-orange-100 dark:border-orange-800 text-center">
-                                    <Brain size={28} className="mx-auto text-orange-600 mb-2" />
-                                    <span className="block font-black text-2xl text-orange-700 dark:text-orange-300">{church.stats.totalStudiesCreated || 0}</span>
-                                    <span className="text-[10px] font-black uppercase text-orange-400 tracking-widest">Estudos Gerados</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
+
+        {peoplePanel && (
+            <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm md:items-center md:p-6">
+                <div className="w-full max-w-xl rounded-t-[2rem] border border-gray-100 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-bible-darkPaper md:rounded-[2rem]">
+                    <div className="mb-5 flex items-center justify-between gap-4">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{church.name}</p>
+                            <h3 className="text-xl font-black text-gray-900 dark:text-white">
+                                {peoplePanel === 'members' ? 'Membros da igreja' : 'Seguidores'}
+                            </h3>
+                        </div>
+                        <button onClick={() => setPeoplePanel(null)} className="rounded-full bg-gray-100 p-2 text-gray-500 transition hover:text-red-500 dark:bg-gray-800" aria-label="Fechar lista">
+                            <X size={18} />
+                        </button>
+                    </div>
+                    <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+                        {loadingPeople ? (
+                            <div className="flex justify-center py-10"><Loader2 className="animate-spin text-bible-gold" size={28} /></div>
+                        ) : (
+                            (peoplePanel === 'members' ? members : followers).map((person: any) => (
+                                <Link key={person.uid || person.id} href={`${basePath}/u/${person.username}`} className="flex items-center gap-3 rounded-2xl p-3 transition hover:bg-gray-50 dark:hover:bg-gray-900" onClick={() => setPeoplePanel(null)}>
+                                    <div className="h-11 w-11 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                                        {person.photoURL ? <img src={person.photoURL} className="h-full w-full object-cover" alt={person.displayName} /> : <UserIcon className="m-auto mt-3 text-gray-400" size={20} />}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-black text-gray-900 dark:text-white">{person.displayName}</p>
+                                        <p className="text-[10px] font-bold text-gray-400">@{person.username}</p>
+                                    </div>
+                                </Link>
+                            ))
+                        )}
+                        {!loadingPeople && (peoplePanel === 'members' ? members : followers).length === 0 && (
+                            <p className="py-10 text-center text-sm font-medium text-gray-400">
+                                {peoplePanel === 'members' ? 'Nenhum membro vinculado.' : 'Nenhum seguidor ainda.'}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
 
         <PromptModal 
             isOpen={!!prayerToEdit}

@@ -16,6 +16,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { bibleService } from '../services/bibleService';
 import { dbService } from '../services/supabase';
+import { cultoPlusService } from '../services/cultoPlusService';
 import { resolveUserDailyDevotional } from '../services/devotionalResolver';
 import { BIBLE_BOOKS_LIST, DAILY_BIBLE_VERSES } from '../constants';
 import { resolveBibleSearchNavigation } from '../utils/bibleSearchNavigation';
@@ -27,7 +28,9 @@ import { usePrayerWall } from '../hooks/usePrayerWall';
 import { FeedPostCard } from '../components/social/FeedPostCard';
 import KingdomComposer from '../components/social/KingdomComposer';
 import { getMentionNotifications } from '../utils/kingdomHomeFeed';
-import type { Post } from '../types';
+import CultoPlusPublicAgenda from '../components/culto-plus/CultoPlusPublicAgenda';
+import { getAgendaRange } from '../utils/cultoPlusCalendar';
+import type { ChurchService, Post } from '../types';
 
 const quickAccessIcons: Record<InicioQuickAccessItem['iconKey'], React.ReactNode> = {
   book: <BookOpen size={16} />,
@@ -52,7 +55,7 @@ const LockOverlay: React.FC<{ message?: string; className?: string }> = ({ messa
     >
       <div className="bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-md p-1.5 px-2.5 rounded-lg shadow-md border border-gray-200 dark:border-[#333] flex items-center gap-1.5 animate-in fade-in zoom-in duration-300">
         <Lock size={12} className="text-[#c5a059]" />
-        <span className="text-gray-900 dark:text-white font-bold text-[9px] uppercase tracking-widest whitespace-nowrap">
+        <span className="text-gray-900 dark:text-white font-medium text-[9px] uppercase tracking-widest whitespace-nowrap">
           {message}
         </span>
       </div>
@@ -69,19 +72,25 @@ const HomePanel: React.FC<{ className?: string; children: React.ReactNode }> = (
 const HomeSectionHeader: React.FC<{
   icon: React.ReactNode;
   title: string;
+  subtitle?: string;
   actionLabel?: string;
   onAction?: () => void;
   isLightTheme: boolean;
-}> = ({ icon, title, actionLabel, onAction, isLightTheme }) => (
+}> = ({ icon, title, subtitle, actionLabel, onAction, isLightTheme }) => (
   <div className="flex items-center justify-between mb-4">
     <div className="flex items-center gap-2 text-gray-900 dark:text-white">
       {icon}
-      <h2 className="font-bold text-lg md:text-xl lg:text-2xl">{title}</h2>
+      <div>
+        <h2 className="font-medium text-lg md:text-xl lg:text-2xl">{title}</h2>
+        {subtitle && (
+          <p className="text-[10px] font-medium uppercase tracking-widest text-gray-400 dark:text-gray-500">{subtitle}</p>
+        )}
+      </div>
     </div>
     {actionLabel && onAction && (
       <button
         onClick={onAction}
-        className={`text-[#c5a059] font-black text-[10px] tracking-widest uppercase transition-colors ${isLightTheme ? 'hover:text-[#111111]' : 'hover:text-white'}`}
+        className={`text-[#c5a059] font-medium text-[10px] tracking-widest uppercase transition-colors ${isLightTheme ? 'hover:text-[#111111]' : 'hover:text-white'}`}
       >
         {actionLabel}
       </button>
@@ -146,7 +155,7 @@ const KingdomPostGridSection: React.FC<{
   <section className="space-y-3">
     <div className="flex items-center justify-between px-1">
       <div>
-        <h3 className="text-gray-900 dark:text-white font-bold flex items-center gap-2">
+        <h3 className="text-gray-900 dark:text-white font-medium flex items-center gap-2">
           {icon}
           {title}
         </h3>
@@ -237,11 +246,11 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
         {!currentUser && <LockOverlay message="Entrar na comunidade" />}
         <div className="absolute top-[-50%] right-[-10%] w-64 h-64 bg-white/10 blur-3xl rounded-full pointer-events-none" />
         <div className="relative z-10 flex-1">
-          <h2 className="text-white font-bold text-2xl md:text-3xl lg:text-4xl flex items-center gap-2 mb-1">
+          <h2 className="text-white font-medium text-2xl md:text-3xl lg:text-4xl flex items-center gap-2 mb-1">
             <Users size={24} /> Comunidade do Reino
           </h2>
           {churchName ? (
-            <p className="text-blue-200 text-sm font-semibold flex items-center gap-1.5">
+            <p className="text-blue-200 text-sm font-medium flex items-center gap-1.5">
               <Church size={13} /> {churchName}
             </p>
           ) : (
@@ -252,7 +261,7 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
         </div>
         <button
           onClick={() => currentUser ? setIsComposerOpen(true) : openLogin()}
-          className="relative z-10 bg-white text-indigo-700 font-bold text-[11px] px-4 py-2 uppercase tracking-wide rounded-lg shadow-lg hover:bg-gray-100 transition-colors shrink-0 hidden md:flex items-center gap-1.5"
+          className="relative z-10 bg-white text-indigo-700 font-medium text-[11px] px-4 py-2 uppercase tracking-wide rounded-lg shadow-lg hover:bg-gray-100 transition-colors shrink-0 hidden md:flex items-center gap-1.5"
         >
           <PenLine size={13} /> Novo Post
         </button>
@@ -264,14 +273,14 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
         {/* FEED PRINCIPAL */}
         <div className="md:col-span-8 space-y-8">
           <div className="flex items-center justify-between px-1">
-            <h3 className="text-gray-900 dark:text-white font-bold flex items-center gap-2">
+            <h3 className="text-gray-900 dark:text-white font-medium flex items-center gap-2">
               <Layout size={16} className="text-[#c5a059]" />
               Feed do Reino
             </h3>
             {!churchId && (
               <button
                 onClick={() => navigate('/social/igrejas')}
-                className="text-[10px] text-blue-500 font-bold uppercase tracking-widest hover:text-blue-400 flex items-center gap-1"
+                className="text-[10px] text-blue-500 font-medium uppercase tracking-widest hover:text-blue-400 flex items-center gap-1"
               >
                 <Globe size={11} /> Vincular Igreja
               </button>
@@ -325,7 +334,7 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
               )}
               <button
                 onClick={() => navigate('/social')}
-                className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-gray-300 dark:border-[#2A2A2A] rounded-2xl text-gray-500 dark:text-gray-400 hover:border-[#c5a059]/50 hover:text-[#c5a059] transition-colors text-xs font-bold uppercase tracking-widest"
+                className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-gray-300 dark:border-[#2A2A2A] rounded-2xl text-gray-500 dark:text-gray-400 hover:border-[#c5a059]/50 hover:text-[#c5a059] transition-colors text-xs font-medium uppercase tracking-widest"
               >
                 Ver Tudo no Reino <ArrowRight size={14} />
               </button>
@@ -339,12 +348,12 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
           {/* Mural de Oração */}
           <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-gray-900 dark:text-white font-bold text-[13px] flex items-center gap-2">
+              <h3 className="text-gray-900 dark:text-white font-medium text-[13px] flex items-center gap-2">
                 <HandHeart size={14} className="text-pink-500" /> Mural de Oração
               </h3>
               <button
                 onClick={() => navigate('/sala-de-oracao')}
-                className="text-[10px] text-pink-500 font-bold uppercase tracking-widest hover:text-pink-400"
+                className="text-[10px] text-pink-500 font-medium uppercase tracking-widest hover:text-pink-400"
               >
                 Ver Todos
               </button>
@@ -359,16 +368,16 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
                   const isInterceeding = prayer.intercessors.includes(currentUser?.uid || '');
                   return (
                     <div key={prayer.id} className="p-3 bg-gray-50 dark:bg-[#1A1A1A] rounded-xl border border-gray-100 dark:border-[#252525]">
-                      <span className="text-gray-900 dark:text-white font-bold text-xs inline-block mb-1">{prayer.userName}</span>
+                      <span className="text-gray-900 dark:text-white font-medium text-xs inline-block mb-1">{prayer.userName}</span>
                       <p className="text-gray-600 dark:text-gray-400 text-[11px] leading-tight mb-1">{prayer.content}</p>
                       {prayer.intercessorsCount > 0 && (
-                        <p className="text-[10px] text-pink-400 font-semibold mb-2">
+                        <p className="text-[10px] text-pink-400 font-medium mb-2">
                           🙏 {prayer.intercessorsCount} {prayer.intercessorsCount === 1 ? 'pessoa orou' : 'pessoas oraram'}
                         </p>
                       )}
                       <button
                         onClick={() => handleInterced(prayer.id)}
-                        className={`w-full text-center py-1.5 rounded-lg font-bold text-[10px] transition-colors border ${
+                        className={`w-full text-center py-1.5 rounded-lg font-medium text-[10px] transition-colors border ${
                           isInterceeding
                             ? 'bg-pink-500 border-pink-500 text-white hover:bg-pink-600'
                             : 'border-gray-300 dark:border-[#3A3A3A] hover:bg-gray-100 dark:hover:bg-[#2A2A2A] text-gray-600 dark:text-gray-400'
@@ -387,12 +396,12 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
           {/* Grupos */}
           <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-gray-900 dark:text-white font-bold text-[13px] flex items-center gap-2">
+              <h3 className="text-gray-900 dark:text-white font-medium text-[13px] flex items-center gap-2">
                 <Users size={14} className="text-blue-500" /> Grupos
               </h3>
               <button
                 onClick={() => navigate(churchId ? `/social/igreja/${userProfile?.churchData?.churchSlug}` : '/social/igrejas')}
-                className="text-[10px] text-blue-500 font-bold uppercase tracking-widest hover:text-blue-400"
+                className="text-[10px] text-blue-500 font-medium uppercase tracking-widest hover:text-blue-400"
               >
                 Ver
               </button>
@@ -407,7 +416,7 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
                     onClick={() => navigate(`/social/grupo/${group.slug || group.id}`)}
                     className="w-full flex items-center justify-between gap-3 rounded-xl p-3 bg-gray-50 dark:bg-[#1A1A1A] hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors text-left"
                   >
-                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300 line-clamp-1">{group.name}</span>
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 line-clamp-1">{group.name}</span>
                     <ChevronRight size={14} className="text-blue-500 shrink-0" />
                   </button>
                 ))
@@ -418,7 +427,7 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
           {/* Menções */}
           <div className="bg-white dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-gray-900 dark:text-white font-bold text-[13px] flex items-center gap-2">
+              <h3 className="text-gray-900 dark:text-white font-medium text-[13px] flex items-center gap-2">
                 <MessageSquare size={14} className="text-[#c5a059]" /> Menções
               </h3>
             </div>
@@ -435,7 +444,7 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
                       className="w-full flex gap-3 text-left hover:bg-gray-50 dark:hover:bg-[#1A1A1A] rounded-xl p-2 -mx-2 transition-colors"
                     >
                       <div className="w-8 h-8 rounded-full bg-[#c5a059]/20 flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="font-bold text-[#c5a059] text-[10px]">{initials}</span>
+                        <span className="font-medium text-[#c5a059] text-[10px]">{initials}</span>
                       </div>
                       <div>
                         <p className="text-xs text-gray-700 dark:text-gray-300 leading-snug">{n.message}</p>
@@ -502,6 +511,7 @@ const SanctuaryPage: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
   const [searchParams] = useSearchParams();
+  const [churchServices, setChurchServices] = useState<ChurchService[]>([]);
   const [dailyDevotional, setDailyDevotional] = useState<any>(null);
   const [loadingDevotional, setLoadingDevotional] = useState(true);
   const [userStudies, setUserStudies] = useState<any[]>([]);
@@ -521,11 +531,18 @@ const SanctuaryPage: React.FC = () => {
 
   const userName = userProfile?.displayName || 'Visitante';
   const userAvatar = userProfile?.photoURL || currentUser?.user_metadata?.avatar_url || null;
+  const memberChurchName = userProfile?.churchData?.churchName || 'sua igreja';
+  const isPastorProfile = userProfile?.subscriptionTier === 'pastor' || userProfile?.subscriptionTier === 'admin';
+  const churchRoleLabel = isPastorProfile ? 'Pastor' : 'Membro';
+  const memberChurchPrefix = memberChurchName.toLowerCase().startsWith('igreja') ? 'da' : 'da Igreja';
+  const memberChurchPath = userProfile?.churchData?.churchSlug ? `/igreja/${userProfile.churchData.churchSlug}` : '/social/igrejas';
   const userMana = userProfile?.lifetimeXp || 0;
   const userStreak = userProfile?.stats?.daysStreak || 1;
   const chaptersRead = userProfile?.stats?.totalChaptersRead || 0;
   const isAdmin = userProfile?.username === 'gabrielamaro' || currentUser?.email === 'gabrielamaro@live.com';
   const isLightTheme = settings.theme === 'light';
+  const sanctuaryChurchId = userProfile?.churchData?.churchId;
+  const churchAgendaRange = useMemo(() => getAgendaRange(new Date(), 14), []);
   const handleProfileNavigation = () => {
     setIsSettingsOpen(false);
     setIsNotifDropdownOpen(false);
@@ -535,7 +552,42 @@ const SanctuaryPage: React.FC = () => {
     }
     openLogin();
   };
-  const salaAccentClass = 'bg-violet-500/15 text-violet-300';
+  const salaAccentClass = 'bg-violet-500/15 text-violet-700 dark:text-violet-200 ring-1 ring-violet-300/40 dark:ring-violet-400/20';
+  const formatShortDate = (value?: string) => new Date(value || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  const formatServiceTime = (value?: string) => new Date(value || Date.now()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const getServiceBadge = (service: ChurchService) => {
+    const nowTime = Date.now();
+    const start = new Date(service.startsAt).getTime();
+    const end = new Date(service.endsAt).getTime();
+    if (nowTime >= start && nowTime <= end) return 'Ao vivo';
+    if (nowTime < start) return 'Agendado';
+    return service.status === 'finished' ? 'Finalizado' : 'Realizado';
+  };
+
+  useEffect(() => {
+    if (!sanctuaryChurchId) {
+      setChurchServices([]);
+      return;
+    }
+
+    let mounted = true;
+    cultoPlusService.getServicesByChurchRange(sanctuaryChurchId, {
+      startDate: churchAgendaRange.startDate,
+      endDate: churchAgendaRange.endDate,
+      status: ['published', 'live', 'finished'],
+      limit: 6,
+    })
+      .then((services) => {
+        if (mounted) setChurchServices(services);
+      })
+      .catch(() => {
+        if (mounted) setChurchServices([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [sanctuaryChurchId, churchAgendaRange.startDate, churchAgendaRange.endDate]);
   // Referência do Hero sempre é a randômica instantânea
   const heroReference = verseOfTheDay.ref;
 
@@ -683,41 +735,52 @@ const SanctuaryPage: React.FC = () => {
         <div className="space-y-5">
           {/* Usuário e Status */}
           <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={handleProfileNavigation}
-              aria-label={currentUser ? 'Abrir meu perfil' : 'Entrar para abrir perfil'}
-              className={`flex items-center gap-3 rounded-2xl -m-2 p-2 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-[#c5a059]/60 ${
-                isLightTheme ? 'hover:bg-white/70' : 'hover:bg-white/5'
-              }`}
-            >
-              {userAvatar ? (
-                <img
-                  src={userAvatar}
-                  alt={userName}
-                  className="w-10 h-10 rounded-full object-cover ring-2 ring-transparent"
-                />
-              ) : (
-                <div className={`w-10 h-10 rounded-full ring-2 ring-transparent flex items-center justify-center font-bold text-xs ${isLightTheme ? 'bg-[#E2DBCD] text-[#5C4A2A]' : 'bg-[#1A1A1A] text-gray-300'}`}>
-                  {userName.slice(0, 2).toUpperCase()}
-                </div>
-              )}
-              <div className="flex flex-col">
-                <span className="text-gray-600 dark:text-gray-400 text-[11px] font-medium leading-tight">Bem-vindo de volta</span>
-                <span className={`font-bold text-[15px] leading-tight ${isLightTheme ? 'text-[#111111]' : 'text-white'}`}>{userName}</span>
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={handleProfileNavigation}
+                aria-label={currentUser ? 'Abrir meu perfil' : 'Entrar para abrir perfil'}
+                className={`shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#c5a059]/60 ${
+                  isLightTheme ? 'hover:bg-white/70' : 'hover:bg-white/5'
+                }`}
+              >
+                {userAvatar ? (
+                  <img
+                    src={userAvatar}
+                    alt={userName}
+                    className="w-10 h-10 rounded-full object-cover ring-2 ring-transparent"
+                  />
+                ) : (
+                  <div className={`w-10 h-10 rounded-full ring-2 ring-transparent flex items-center justify-center font-medium text-xs ${isLightTheme ? 'bg-[#E2DBCD] text-[#5C4A2A]' : 'bg-[#1A1A1A] text-gray-300'}`}>
+                    {userName.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+              </button>
+              <div className="flex min-w-0 flex-col">
+                <span className="text-gray-600 dark:text-gray-400 text-[11px] font-medium leading-tight">Bem Vindo de volta {userName}</span>
+                <span className={`max-w-[240px] truncate font-medium text-[13px] leading-tight sm:max-w-none ${isLightTheme ? 'text-[#111111]' : 'text-white'}`}>
+                  {churchRoleLabel} {memberChurchPrefix}{' '}
+                  <button
+                    type="button"
+                    onClick={() => navigate(memberChurchPath)}
+                    className="font-medium text-[#c5a059] underline-offset-2 hover:underline focus:outline-none focus:underline"
+                  >
+                    {memberChurchName}
+                  </button>
+                </span>
               </div>
-            </button>
+            </div>
 
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 bg-white dark:bg-[#1A1A1A] rounded-full px-3 py-1.5">
                   <Zap size={14} className="text-[#c5a059]" fill="currentColor" />
-                  <span className="text-gray-900 dark:text-white font-bold text-xs">{userMana.toLocaleString('pt-BR')}</span>
+                  <span className="text-gray-900 dark:text-white font-medium text-xs">{userMana.toLocaleString('pt-BR')}</span>
                   <span className="text-gray-500 dark:text-gray-500 text-[10px] font-medium">Mana</span>
                 </div>
                 <div className="flex items-center gap-1.5 bg-white dark:bg-[#1A1A1A] rounded-full px-3 py-1.5">
                   <Flame size={14} className="text-red-500" fill="currentColor" />
-                  <span className="text-gray-900 dark:text-white font-bold text-xs">{userStreak}</span>
+                  <span className="text-gray-900 dark:text-white font-medium text-xs">{userStreak}</span>
                   <span className="text-gray-500 dark:text-gray-500 text-[10px] font-medium">dias</span>
                 </div>
               </div>
@@ -732,8 +795,8 @@ const SanctuaryPage: React.FC = () => {
                   {isNotifDropdownOpen && (
                     <div className={`absolute right-0 top-full mt-3 w-72 rounded-xl shadow-xl overflow-hidden z-50 ${isLightTheme ? 'bg-white border border-[#E7E2D7]' : 'bg-[#1A1A1A] border border-[#2A2A2A]'}`}>
                       <div className={`p-3 flex items-center justify-between ${isLightTheme ? 'border-b border-[#EFE9DD]' : 'border-b border-[#2A2A2A]'}`}>
-                        <span className={`font-bold text-xs ${isLightTheme ? 'text-[#111111]' : 'text-white'}`}>Notificações</span>
-                        <button onClick={markNotificationsAsRead} className="text-[10px] text-[#c5a059] hover:underline font-bold uppercase">Marcar lidas</button>
+                        <span className={`font-medium text-xs ${isLightTheme ? 'text-[#111111]' : 'text-white'}`}>Notificações</span>
+                        <button onClick={markNotificationsAsRead} className="text-[10px] text-[#c5a059] hover:underline font-medium uppercase">Marcar lidas</button>
                       </div>
                       <div className="max-h-64 overflow-y-auto">
                         {notifications.length === 0 ? (
@@ -748,7 +811,7 @@ const SanctuaryPage: React.FC = () => {
                               }}
                               className={`w-full text-left p-3 transition-colors ${isLightTheme ? 'border-b border-[#F2EEE5] hover:bg-[#F8F4EA]' : 'border-b border-[#2A2A2A] hover:bg-[#252525]'} ${!notif.read ? (isLightTheme ? 'bg-[#FFF8E8]' : 'bg-[#1F1A10]') : ''}`}
                             >
-                              <p className={`text-xs font-bold line-clamp-1 ${isLightTheme ? 'text-[#111111]' : 'text-white'}`}>{notif.title}</p>
+                              <p className={`text-xs font-medium line-clamp-1 ${isLightTheme ? 'text-[#111111]' : 'text-white'}`}>{notif.title}</p>
                               <p className="text-[10px] text-gray-500 dark:text-gray-500 line-clamp-2">{notif.message}</p>
                             </button>
                           ))
@@ -764,48 +827,48 @@ const SanctuaryPage: React.FC = () => {
                   {isSettingsOpen && (
                     <div className={`absolute right-0 top-full mt-3 w-64 rounded-xl shadow-xl overflow-hidden z-50 py-2 ${isLightTheme ? 'bg-white border border-[#E7E2D7]' : 'bg-[#1A1A1A] border border-[#2A2A2A]'}`}>
                       {currentUser && (
-                        <button onClick={() => { setIsSettingsOpen(false); navigate('/perfil'); }} className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-700 hover:bg-[#F8F4EA]' : 'text-gray-300 hover:bg-[#252525]'}`}>
+                        <button onClick={() => { setIsSettingsOpen(false); navigate('/perfil'); }} className={`w-full text-left px-4 py-2 text-xs font-medium flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-700 hover:bg-[#F8F4EA]' : 'text-gray-300 hover:bg-[#252525]'}`}>
                           <User size={16} /> Meu Perfil
                         </button>
                       )}
-                      <button onClick={() => { setIsSettingsOpen(false); navigate('/intro'); }} className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-700 hover:bg-[#F8F4EA]' : 'text-gray-300 hover:bg-[#252525]'}`}>
+                      <button onClick={() => { setIsSettingsOpen(false); navigate('/intro'); }} className={`w-full text-left px-4 py-2 text-xs font-medium flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-700 hover:bg-[#F8F4EA]' : 'text-gray-300 hover:bg-[#252525]'}`}>
                         <Layout size={16} className="text-blue-500" /> Apresentação
                       </button>
-                      <button onClick={() => { setIsSettingsOpen(false); navigate('/regras'); }} className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-700 hover:bg-[#F8F4EA]' : 'text-gray-300 hover:bg-[#252525]'}`}>
+                      <button onClick={() => { setIsSettingsOpen(false); navigate('/regras'); }} className={`w-full text-left px-4 py-2 text-xs font-medium flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-700 hover:bg-[#F8F4EA]' : 'text-gray-300 hover:bg-[#252525]'}`}>
                         <Zap size={16} className="text-purple-500" /> Manual do Maná
                       </button>
-                      <button onClick={() => { toggleTheme(); setIsSettingsOpen(false); }} className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-700 hover:bg-[#F8F4EA]' : 'text-gray-300 hover:bg-[#252525]'}`}>
+                      <button onClick={() => { toggleTheme(); setIsSettingsOpen(false); }} className={`w-full text-left px-4 py-2 text-xs font-medium flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-700 hover:bg-[#F8F4EA]' : 'text-gray-300 hover:bg-[#252525]'}`}>
                         {settings.theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                         {settings.theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
                       </button>
                       <div className={`h-px my-1 ${isLightTheme ? 'bg-[#EFE9DD]' : 'bg-[#2A2A2A]/50'}`} />
-                      <button onClick={() => { setIsSettingsOpen(false); navigate('/suporte'); }} className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-500 hover:bg-[#F8F4EA]' : 'text-gray-400 hover:bg-[#252525]'}`}>
+                      <button onClick={() => { setIsSettingsOpen(false); navigate('/suporte'); }} className={`w-full text-left px-4 py-2 text-xs font-medium flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-500 hover:bg-[#F8F4EA]' : 'text-gray-400 hover:bg-[#252525]'}`}>
                         <LifeBuoy size={16} /> Suporte / Doar
                       </button>
-                      <button onClick={() => { setIsSettingsOpen(false); navigate('/termos'); }} className={`w-full text-left px-4 py-2 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-400 hover:bg-[#F8F4EA]' : 'text-gray-400 hover:bg-[#252525]'}`}>
+                      <button onClick={() => { setIsSettingsOpen(false); navigate('/termos'); }} className={`w-full text-left px-4 py-2 text-[10px] font-medium uppercase tracking-widest flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-400 hover:bg-[#F8F4EA]' : 'text-gray-400 hover:bg-[#252525]'}`}>
                         <Scroll size={16} /> Termos
                       </button>
-                      <button onClick={() => { setIsSettingsOpen(false); navigate('/privacidade'); }} className={`w-full text-left px-4 py-2 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-400 hover:bg-[#F8F4EA]' : 'text-gray-400 hover:bg-[#252525]'}`}>
+                      <button onClick={() => { setIsSettingsOpen(false); navigate('/privacidade'); }} className={`w-full text-left px-4 py-2 text-[10px] font-medium uppercase tracking-widest flex items-center gap-2 transition-colors ${isLightTheme ? 'text-gray-400 hover:bg-[#F8F4EA]' : 'text-gray-400 hover:bg-[#252525]'}`}>
                         <ShieldCheck size={16} /> Privacidade
                       </button>
                       {isAdmin && (
                         <>
                           <div className={`h-px my-1 ${isLightTheme ? 'bg-red-100' : 'bg-red-900/20'}`} />
-                          <button onClick={() => { setIsSettingsOpen(false); navigate('/admin'); }} className={`w-full text-left px-4 py-2 text-xs font-black flex items-center gap-2 transition-colors ${isLightTheme ? 'text-red-600 hover:bg-red-50' : 'text-red-500 hover:bg-red-500/10'}`}>
+                          <button onClick={() => { setIsSettingsOpen(false); navigate('/admin'); }} className={`w-full text-left px-4 py-2 text-xs font-medium flex items-center gap-2 transition-colors ${isLightTheme ? 'text-red-600 hover:bg-red-50' : 'text-red-500 hover:bg-red-500/10'}`}>
                             <Terminal size={16} /> Painel Admin
                           </button>
-                          <button onClick={() => { setIsSettingsOpen(false); navigate('/system-integrity'); }} className={`w-full text-left px-4 py-2 text-xs font-black flex items-center gap-2 transition-colors ${isLightTheme ? 'text-red-600 hover:bg-red-50' : 'text-red-500 hover:bg-red-500/10'}`}>
+                          <button onClick={() => { setIsSettingsOpen(false); navigate('/system-integrity'); }} className={`w-full text-left px-4 py-2 text-xs font-medium flex items-center gap-2 transition-colors ${isLightTheme ? 'text-red-600 hover:bg-red-50' : 'text-red-500 hover:bg-red-500/10'}`}>
                             <ShieldAlert size={16} /> Integridade
                           </button>
                         </>
                       )}
                       <div className={`h-px my-1 ${isLightTheme ? 'bg-[#EFE9DD]' : 'bg-[#2A2A2A]/50'}`} />
                       {currentUser ? (
-                        <button onClick={() => { signOut(); setIsSettingsOpen(false); }} className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${isLightTheme ? 'text-red-600 hover:bg-red-50' : 'text-red-500 hover:bg-red-500/10'}`}>
+                        <button onClick={() => { signOut(); setIsSettingsOpen(false); }} className={`w-full text-left px-4 py-2 text-xs font-medium flex items-center gap-2 transition-colors ${isLightTheme ? 'text-red-600 hover:bg-red-50' : 'text-red-500 hover:bg-red-500/10'}`}>
                           <LogOut size={16} /> Sair
                         </button>
                       ) : (
-                        <button onClick={() => { openLogin(); setIsSettingsOpen(false); }} className="w-full text-left px-4 py-2 text-xs font-bold text-[#c5a059] hover:bg-[#c5a059]/10 flex items-center gap-2 transition-colors">
+                        <button onClick={() => { openLogin(); setIsSettingsOpen(false); }} className="w-full text-left px-4 py-2 text-xs font-medium text-[#c5a059] hover:bg-[#c5a059]/10 flex items-center gap-2 transition-colors">
                           <UserCircle size={16} /> Entrar na Conta
                         </button>
                       )}
@@ -836,7 +899,7 @@ const SanctuaryPage: React.FC = () => {
                 }
               }}
               placeholder="Buscar versículos, estudos, pessoas..."
-              className={`w-full rounded-2xl border py-3 pl-16 pr-24 text-sm font-semibold text-gray-900 placeholder-gray-500 outline-none transition-all focus:border-[#c5a059] focus:ring-4 focus:ring-[#c5a059]/15 dark:text-white dark:placeholder-gray-500 ${isLightTheme ? 'bg-[#FBF8F1] border-[#EFE6D5]' : 'bg-[#0E0E0E] border-[#2A2419]'}`}
+              className={`w-full rounded-2xl border py-3 pl-16 pr-24 text-sm font-medium text-gray-900 placeholder-gray-500 outline-none transition-all focus:border-[#c5a059] focus:ring-4 focus:ring-[#c5a059]/15 dark:text-white dark:placeholder-gray-500 ${isLightTheme ? 'bg-[#FBF8F1] border-[#EFE6D5]' : 'bg-[#0E0E0E] border-[#2A2419]'}`}
             />
             {searchTerm && (
               <button
@@ -877,10 +940,10 @@ const SanctuaryPage: React.FC = () => {
                 }}>
                 <div className="flex items-center gap-2 text-[#c5a059]">
                   <BookOpen size={16} />
-                  <span className="font-bold text-xs uppercase tracking-widest">{searchPreview.formattedRef}</span>
+                  <span className="font-medium text-xs uppercase tracking-widest">{searchPreview.formattedRef}</span>
                 </div>
                 <p className="text-gray-900 dark:text-white text-sm line-clamp-2">"{searchPreview.text}"</p>
-                <span className="text-gray-500 text-[10px] uppercase font-bold mt-1">APERTAR ENTER PARA LER</span>
+                <span className="text-gray-500 text-[10px] uppercase font-medium mt-1">APERTAR ENTER PARA LER</span>
               </div>
             )}
             {!searchPreview && bookAutocomplete.length > 0 && (
@@ -895,11 +958,11 @@ const SanctuaryPage: React.FC = () => {
                     <span className="flex items-center gap-3">
                       <BookOpen size={16} className="text-[#c5a059]" />
                       <span>
-                        <span className={`block text-sm font-bold ${isLightTheme ? 'text-gray-900' : 'text-white'}`}>{suggestion.name}</span>
-                        <span className="block text-[10px] font-black uppercase tracking-widest text-gray-500">Completar referência</span>
+                        <span className={`block text-sm font-medium ${isLightTheme ? 'text-gray-900' : 'text-white'}`}>{suggestion.name}</span>
+                        <span className="block text-[10px] font-medium uppercase tracking-widest text-gray-500">Completar referência</span>
                       </span>
                     </span>
-                    <span className="text-xs font-bold text-[#c5a059]">{suggestion.completion}</span>
+                    <span className="text-xs font-medium text-[#c5a059]">{suggestion.completion}</span>
                   </button>
                 ))}
               </div>
@@ -913,7 +976,7 @@ const SanctuaryPage: React.FC = () => {
               className={`flex items-center gap-2 pb-3 px-1 relative ${activeTab === 'inicio' ? 'text-[#c5a059]' : 'text-gray-500 hover:text-gray-300'}`}
             >
               <Home size={16} />
-              <span className="text-sm font-semibold">Início</span>
+              <span className="text-sm font-medium">Início</span>
               {activeTab === 'inicio' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#c5a059]" />}
             </button>
             <button
@@ -921,7 +984,7 @@ const SanctuaryPage: React.FC = () => {
               className={`flex items-center gap-2 pb-3 px-1 relative ${activeTab === 'criar' ? (isLightTheme ? 'text-[#111111]' : 'text-white') : 'text-gray-500 hover:text-gray-300'}`}
             >
               <Wand2 size={16} />
-              <span className="text-sm font-semibold">Criar</span>
+              <span className="text-sm font-medium">Criar</span>
               {activeTab === 'criar' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-white" />}
             </button>
             <button
@@ -929,7 +992,7 @@ const SanctuaryPage: React.FC = () => {
               className={`flex items-center gap-2 pb-3 px-1 relative ${activeTab === 'reino' ? (isLightTheme ? 'text-[#111111]' : 'text-white') : 'text-gray-500 hover:text-gray-300'}`}
             >
               <User size={16} />
-              <span className="text-sm font-semibold">Reino</span>
+              <span className="text-sm font-medium">Reino</span>
               {activeTab === 'reino' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-white" />}
             </button>
           </div>
@@ -951,21 +1014,21 @@ const SanctuaryPage: React.FC = () => {
                     <img src="https://images.unsplash.com/photo-1525286102666-b3281abadd14?auto=format&fit=crop&q=80&w=1600" alt="" className="w-full h-full object-cover transition-transform duration-[20s] group-hover:scale-105" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0E0E0E] via-[#0E0E0E]/80 to-[#0E0E0E]/30" />
                     <div className="absolute top-10 left-0 w-full text-center pointer-events-none opacity-80">
-                      <h1 className="text-[120px] md:text-[180px] lg:text-[220px] xl:text-[280px] font-black text-white/10 tracking-tighter leading-none select-none">JESUS</h1>
+                      <h1 className="text-[120px] md:text-[180px] lg:text-[220px] xl:text-[280px] font-medium text-white/10 tracking-tighter leading-none select-none">JESUS</h1>
                     </div>
                   </div>
 
                   <div className="relative z-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#c5a059] text-black font-bold text-[11px] rounded-lg mb-4 shadow-lg shadow-[#c5a059]/20">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#c5a059] text-black font-medium text-[11px] rounded-lg mb-4 shadow-lg shadow-[#c5a059]/20">
                       <BookOpen size={14} /> Versículo do Dia
                     </div>
 
-                    <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-white leading-tight mb-8 max-w-4xl line-clamp-3">
+                    <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-medium text-white leading-tight mb-8 max-w-4xl line-clamp-3">
                       "{verseOfTheDay.text}"
                     </h2>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-[#c5a059] font-bold text-lg md:text-xl">- {verseOfTheDay.ref}</span>
+                      <span className="text-[#c5a059] font-medium text-lg md:text-xl">- {verseOfTheDay.ref}</span>
                       <div className="flex items-center gap-3">
                         <button className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); openVerseOfDay(); }}>
                           <Share2 size={18} />
@@ -988,8 +1051,8 @@ const SanctuaryPage: React.FC = () => {
                         <Target size={16} className="text-blue-500" />
                       </div>
                       <div>
-                        <h3 className="text-gray-900 dark:text-white font-bold text-[13px] mb-1">Meta de Leitura</h3>
-                        <span className="text-gray-500 dark:text-gray-500 font-bold text-[10px] flex items-center gap-1 uppercase tracking-wider">RETOMAR <ChevronRight size={12} /></span>
+                        <h3 className="text-gray-900 dark:text-white font-medium text-[13px] mb-1">Meta de Leitura</h3>
+                        <span className="text-gray-500 dark:text-gray-500 font-medium text-[10px] flex items-center gap-1 uppercase tracking-wider">RETOMAR <ChevronRight size={12} /></span>
                       </div>
                     </div>
                     <div className="relative w-16 h-16 flex items-center justify-center flex-shrink-0">
@@ -1008,100 +1071,179 @@ const SanctuaryPage: React.FC = () => {
                           style={{ transition: 'stroke-dashoffset 1s ease-out' }}
                         />
                       </svg>
-                      <span className="absolute inset-0 flex items-center justify-center text-gray-900 dark:text-white font-black text-[10px]">{readPercent}%</span>
+                      <span className="absolute inset-0 flex items-center justify-center text-gray-900 dark:text-white font-medium text-[10px]">{readPercent}%</span>
                     </div>
                   </div>
 
                   {/* Pão Diário */}
                   <div className="bg-gray-50 dark:bg-[#141414] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex justify-between relative overflow-hidden cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors" onClick={() => navigate('/devocional')}>
                     {!currentUser && <LockOverlay message="Ver meu devocional" />}
-                    <div className="absolute right-[-20%] top-[-20%] text-[180px] font-serif font-black text-white/5 leading-none select-none pointer-events-none">99</div>
+                    <div className="absolute right-[-20%] top-[-20%] text-[180px] font-serif font-medium text-white/5 leading-none select-none pointer-events-none">99</div>
 
                     <div className="flex flex-col h-full justify-between relative z-10 w-1/3">
                       <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center mb-6">
                         <Heart size={16} className="text-orange-500" fill="currentColor" />
                       </div>
                       <div>
-                        <h3 className="text-gray-900 dark:text-white font-bold text-[13px] mb-1">Pão Diário</h3>
-                        <span className="text-gray-500 dark:text-gray-500 font-bold text-[10px] flex items-center gap-1 uppercase tracking-wider">ACESSAR <ChevronRight size={12} /></span>
+                        <h3 className="text-gray-900 dark:text-white font-medium text-[13px] mb-1">Pão Diário</h3>
+                        <span className="text-gray-500 dark:text-gray-500 font-medium text-[10px] flex items-center gap-1 uppercase tracking-wider">ACESSAR <ChevronRight size={12} /></span>
                       </div>
                     </div>
 
                     <div className="relative z-10 w-2/3 pl-4 flex flex-col justify-center border-l border-gray-200 dark:border-[#2A2A2A] ml-4 bg-gradient-to-r from-transparent to-gray-50 dark:to-[#141414]">
                       <div className="flex items-center gap-1 text-[#c5a059] mb-2">
                         <Zap size={10} fill="currentColor" />
-                        <span className="text-[9px] font-black tracking-widest uppercase">DEVOCIONAL DO DIA</span>
+                        <span className="text-[9px] font-medium tracking-widest uppercase">DEVOCIONAL DO DIA</span>
                       </div>
                       <p className="text-gray-900 dark:text-white text-fluid-body font-serif italic mb-2 leading-relaxed pr-4 line-clamp-3">
                         "{loadingDevotional ? 'Carregando porção diária...' : (dailyDevotional?.verse || dailyDevotional?.verseText || 'Hoje, enquanto meditamos nas palavras do Senhor...')}"
                       </p>
-                      <span className="text-[#c5a059] font-bold text-[9px] uppercase tracking-widest">
+                      <span className="text-[#c5a059] font-medium text-[9px] uppercase tracking-widest">
                         {loadingDevotional ? '...' : (dailyDevotional?.reference || dailyDevotional?.verseReference || '')}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* 3. PLANOS & SALAS (ADMIN ONLY) */}
+                {/* 3. ESPAÇO + (ADMIN ONLY) */}
+                {sanctuaryChurchId && !isAdmin && (
+                  <div className="space-y-3">
+                    <HomeSectionHeader
+                      icon={<Calendar size={18} className="text-emerald-600" />}
+                      title="Proximos Cultos"
+                      actionLabel="VER CULTOS"
+                      onAction={() => navigate(memberChurchPath)}
+                      isLightTheme={isLightTheme}
+                    />
+                    <CultoPlusPublicAgenda
+                      services={churchServices}
+                      visibleDays={churchAgendaRange.visibleDays}
+                      onOpen={(service) => navigate(`/culto/${service.slug}`)}
+                    />
+                  </div>
+                )}
+
                 {isAdmin && (
                   <div className="pt-2 border-t border-transparent">
                     <HomeSectionHeader
                       icon={<BookOpen size={18} className="text-[#c5a059]" />}
-                      title="Planos & Salas"
+                      title="Espaço +"
+                      subtitle="Espaço do pastor e Igreja"
                       actionLabel="PAINEL DE CONTROLE"
                       onAction={() => navigate('/workspace-pastoral')}
                       isLightTheme={isLightTheme}
                     />
 
-                    <HomePanel className="overflow-hidden">
-                      <div className="flex gap-4 overflow-x-auto pb-1 custom-scrollbar">
+                    <HomePanel className="overflow-hidden space-y-6">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] font-medium uppercase tracking-widest text-violet-600 dark:text-violet-300">Salas</p>
+                            <h3 className="text-sm font-medium text-gray-900 dark:text-white">Salas de Estudo</h3>
+                          </div>
+                          <span className="rounded-full bg-violet-500/10 px-3 py-1 text-[9px] font-medium uppercase tracking-widest text-violet-700 dark:text-violet-200">Premium roxo</span>
+                        </div>
+                        <div className="flex gap-4 overflow-x-auto pb-1 custom-scrollbar">
                       {/* Nova Sala */}
                       <button
                         onClick={() => navigate('/criar-sala')}
-                        className="min-w-[180px] h-[190px] rounded-2xl border border-dashed border-[#c5a059]/40 bg-transparent flex flex-col items-center justify-center gap-4 hover:bg-[#c5a059]/5 transition-colors cursor-pointer shrink-0"
+                        className="min-w-[180px] h-[190px] rounded-2xl border border-dashed border-violet-400/50 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 dark:from-violet-950/30 dark:via-[#1A1A1A] dark:to-fuchsia-950/20 flex flex-col items-center justify-center gap-4 hover:border-violet-500 hover:shadow-lg hover:shadow-violet-900/10 transition-all cursor-pointer shrink-0 group"
                       >
-                        <div className="w-12 h-12 bg-[#c5a059] rounded-xl flex items-center justify-center text-black">
+                        <div className="w-12 h-12 bg-violet-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-700/25 group-hover:scale-105 transition-transform">
                           <Plus size={24} />
                         </div>
-                        <span className="text-gray-900 dark:text-white font-bold text-[11px] uppercase tracking-wider">NOVA SALA</span>
+                        <span className="text-gray-900 dark:text-white font-medium text-[11px] uppercase tracking-wider">Nova sala</span>
                       </button>
 
                       {plans.length > 0 ? plans.map(plan => (
                         <div
                           key={plan.id}
-                          className="min-w-[260px] h-[190px] rounded-2xl overflow-hidden bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#2A2A2A] flex flex-col cursor-pointer hover:border-[#c5a059]/50 transition-all shrink-0 group"
+                          className="min-w-[260px] h-[190px] rounded-2xl overflow-hidden bg-white dark:bg-[#1A1A1A] border border-violet-200 dark:border-violet-900/50 flex flex-col cursor-pointer hover:border-violet-400 hover:shadow-xl hover:shadow-violet-950/10 transition-all shrink-0 group"
                           onClick={() => navigate(`/plano/${plan.id}`)}
                         >
-                          <div className="h-24 bg-gray-100 dark:bg-[#252525] relative overflow-hidden shrink-0">
+                          <div className="h-24 bg-gradient-to-br from-violet-100 via-fuchsia-50 to-white dark:from-violet-950/50 dark:via-[#252525] dark:to-[#1A1A1A] relative overflow-hidden shrink-0">
                             {plan.coverUrl ? (
                               <img src={plan.coverUrl} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={plan.title} />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center opacity-20">
-                                <BookOpen size={30} className="text-[#c5a059]" />
+                              <div className="w-full h-full flex items-center justify-center">
+                                <div className="rounded-2xl bg-white/70 dark:bg-black/25 p-3 shadow-sm ring-1 ring-violet-200/70 dark:ring-violet-500/20">
+                                  <BookOpen size={30} className="text-violet-600 dark:text-violet-300" />
+                                </div>
                               </div>
                             )}
                             <div className="absolute top-2 left-2">
-                              <span className={`${salaAccentClass} font-bold text-[7px] px-1.5 py-0.5 rounded tracking-widest uppercase`}>ATIVA</span>
+                              <span className={`${salaAccentClass} font-medium text-[7px] px-2 py-1 rounded-full tracking-widest uppercase backdrop-blur`}>ATIVA</span>
                             </div>
                           </div>
 
                           <div className="p-4 flex flex-col justify-between flex-1">
-                            <h3 className="text-gray-900 dark:text-white font-bold text-[13px] line-clamp-2 leading-tight group-hover:text-[#c5a059] transition-colors">{plan.title}</h3>
+                            <h3 className="text-gray-900 dark:text-white font-medium text-[13px] line-clamp-2 leading-tight group-hover:text-violet-700 dark:group-hover:text-violet-300 transition-colors">{plan.title}</h3>
 
                             <div className="flex items-center justify-between mt-2">
-                              <div className="flex items-center gap-1 text-[9px] text-gray-500 font-bold uppercase tracking-tighter">
-                                <Users size={10} /> {plan.subscribersCount || 0}
+                              <div className="flex items-center gap-1 text-[9px] text-violet-600 dark:text-violet-300 font-medium uppercase tracking-tighter">
+                                <Users size={10} /> {plan.subscribersCount || 0} membros
                               </div>
-                              <span className="text-gray-400 text-[8px] font-bold">{new Date(plan.createdAt || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                              <span className="text-gray-400 text-[8px] font-medium">{formatShortDate(plan.createdAt)}</span>
                             </div>
                           </div>
                         </div>
                       )) : (
-                        <div className="min-w-[200px] h-[190px] rounded-2xl p-5 bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-center items-center text-center shrink-0">
-                          <BookOpen size={24} className="text-gray-600 mb-3" />
+                        <div className="min-w-[220px] h-[190px] rounded-2xl p-5 bg-violet-50/60 dark:bg-violet-950/10 border border-dashed border-violet-200 dark:border-violet-900/50 flex flex-col justify-center items-center text-center shrink-0">
+                          <BookOpen size={24} className="text-violet-500 mb-3" />
                           <span className="text-gray-500 dark:text-gray-500 text-xs mb-2">Você ainda não tem salas ativas</span>
                         </div>
                       )}
+                      </div>
+
+                      <div className="space-y-3 border-t border-gray-200 pt-5 dark:border-[#2A2A2A]">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] font-medium uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Cultos +</p>
+                            <h3 className="text-sm font-medium text-gray-900 dark:text-white">Cultos da igreja {userProfile?.churchData?.churchName || ''} agendados</h3>
+                          </div>
+                          <button onClick={() => navigate('/workspace-pastoral/cultos')} className="text-[10px] font-medium uppercase tracking-widest text-[#c5a059] hover:text-emerald-700 transition-colors">Ver cultos</button>
+                        </div>
+
+                        <div className="flex gap-4 overflow-x-auto pb-1 custom-scrollbar">
+                          <button
+                            onClick={() => navigate('/workspace-pastoral/cultos/novo')}
+                            className="min-w-[180px] h-[170px] rounded-2xl border border-dashed border-emerald-500/40 bg-gradient-to-br from-emerald-950 via-emerald-800 to-[#c5a059] text-white flex flex-col items-center justify-center gap-4 hover:shadow-xl hover:shadow-emerald-950/20 transition-all cursor-pointer shrink-0 group overflow-hidden relative"
+                          >
+                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.22),transparent_35%)]" />
+                            <div className="relative w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center text-white ring-1 ring-white/20 group-hover:scale-105 transition-transform">
+                              <Sparkles size={24} />
+                            </div>
+                            <span className="relative font-medium text-[11px] uppercase tracking-wider">Novo Culto +</span>
+                          </button>
+
+                          {churchServices.length > 0 ? churchServices.map(service => (
+                            <div
+                              key={service.id}
+                              className="min-w-[260px] h-[170px] rounded-2xl overflow-hidden bg-emerald-50/70 dark:bg-emerald-950/10 border border-emerald-200 dark:border-emerald-900/50 flex flex-col cursor-pointer hover:border-[#c5a059]/70 hover:shadow-xl hover:shadow-emerald-950/10 transition-all shrink-0 group"
+                              onClick={() => navigate(`/culto/${service.slug}`)}
+                            >
+                              <div className="p-4 flex flex-col h-full relative overflow-hidden">
+                                <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[#c5a059]/20 blur-2xl" />
+                                <div className="relative flex items-center justify-between mb-3">
+                                  <span className="rounded-full bg-emerald-700 px-2.5 py-1 text-[7px] font-medium uppercase tracking-widest text-white shadow-sm">{getServiceBadge(service)}</span>
+                                  <span className="text-[9px] font-medium uppercase tracking-widest text-emerald-700 dark:text-emerald-300">{formatServiceTime(service.startsAt)}</span>
+                                </div>
+                                <h3 className="relative text-gray-900 dark:text-white font-medium text-[14px] line-clamp-2 leading-tight group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">{service.title}</h3>
+                                <p className="relative mt-2 text-[10px] font-medium text-gray-500 dark:text-gray-400 line-clamp-1">{service.theme || service.serviceType}</p>
+                                <div className="relative mt-auto flex items-center justify-between">
+                                  <span className="text-gray-400 text-[8px] font-medium">{formatShortDate(service.startsAt)}</span>
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-medium uppercase tracking-widest text-[#c5a059]">Abrir <ArrowRight size={10} /></span>
+                                </div>
+                              </div>
+                            </div>
+                          )) : (
+                            <div className="min-w-[220px] h-[170px] rounded-2xl p-5 bg-emerald-50/60 dark:bg-emerald-950/10 border border-dashed border-emerald-200 dark:border-emerald-900/50 flex flex-col justify-center items-center text-center shrink-0">
+                              <Calendar size={24} className="text-emerald-600 mb-3" />
+                              <span className="text-gray-500 dark:text-gray-400 text-xs mb-2">Nenhum Culto+ criado ainda</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       </div>
                     </HomePanel>
                   </div>
@@ -1127,7 +1269,7 @@ const SanctuaryPage: React.FC = () => {
                       <div className="w-12 h-12 bg-gray-100 dark:bg-[#2A2A2A] flex items-center justify-center rounded-xl mb-4 relative z-10">
                         <FileText size={24} className="text-gray-900 dark:text-white" />
                       </div>
-                      <h3 className="text-gray-900 dark:text-white font-bold text-lg mb-1 relative z-10">Criar Estudo</h3>
+                      <h3 className="text-gray-900 dark:text-white font-medium text-lg mb-1 relative z-10">Criar Estudo</h3>
                       <p className="text-gray-600 dark:text-gray-400 text-xs relative z-10">Análise profunda com IA</p>
                       <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-2xl rounded-full translate-x-1/2 -translate-y-1/2" />
                     </div>
@@ -1137,20 +1279,20 @@ const SanctuaryPage: React.FC = () => {
                       {userStudies.length > 0 ? userStudies.map((study, i) => (
                         <div key={`study-${study.id || i}`} onClick={() => navigate(`/criar-conteudo?id=${study.id}`, { state: { contentId: study.id, studyData: study } })} className="flex-1 bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-between cursor-pointer hover:border-[#c5a059]/30 transition-colors">
                           <div className="flex justify-between items-start mb-2">
-                            <h3 className="text-gray-900 dark:text-white font-bold text-sm line-clamp-2">{study.title}</h3>
-                            <span className="text-gray-500 dark:text-gray-500 text-[10px] font-bold shrink-0">{new Date(study.updatedAt || study.updated_at || study.createdAt || study.created_at || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                            <h3 className="text-gray-900 dark:text-white font-medium text-sm line-clamp-2">{study.title}</h3>
+                            <span className="text-gray-500 dark:text-gray-500 text-[10px] font-medium shrink-0">{new Date(study.updatedAt || study.updated_at || study.createdAt || study.created_at || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
                           </div>
                           <div className="flex items-center gap-2 text-[#c5a059]">
-                            <BookOpen size={14} /> <span className="text-xs font-bold uppercase">{study.status === 'published' ? 'Publicado' : 'Estudo'}</span>
+                            <BookOpen size={14} /> <span className="text-xs font-medium uppercase">{study.status === 'published' ? 'Publicado' : 'Estudo'}</span>
                           </div>
                         </div>
                       )) : (
                         <>
                           <div onClick={() => navigate('/estudos')} className="flex-1 bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-center items-center cursor-pointer hover:border-[#c5a059]/30 transition-colors text-center">
-                            <span className="text-gray-500 dark:text-gray-500 text-xs font-bold">Nenhum estudo iniciado</span>
+                            <span className="text-gray-500 dark:text-gray-500 text-xs font-medium">Nenhum estudo iniciado</span>
                           </div>
                           <div onClick={() => navigate('/estudos')} className="flex-1 bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-center items-center cursor-pointer hover:border-[#c5a059]/30 transition-colors text-center">
-                            <span className="text-gray-500 dark:text-gray-500 text-xs font-bold">Explore a biblioteca</span>
+                            <span className="text-gray-500 dark:text-gray-500 text-xs font-medium">Explore a biblioteca</span>
                           </div>
                         </>
                       )}
@@ -1168,7 +1310,7 @@ const SanctuaryPage: React.FC = () => {
                       <Wand2 size={24} className="text-gray-900 dark:text-white" />
                     </div>
                     <div>
-                      <h2 className="text-gray-900 dark:text-white font-bold text-xl md:text-2xl lg:text-3xl leading-tight">Estúdio Criativo com IA</h2>
+                      <h2 className="text-gray-900 dark:text-white font-medium text-xl md:text-2xl lg:text-3xl leading-tight">Estúdio Criativo com IA</h2>
                       <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base mt-2 pr-4">Transforme sua fé em arte e áudio. Gere imagens sagradas e podcasts inspiradores com inteligência artificial.</p>
                     </div>
                   </div>
@@ -1182,14 +1324,14 @@ const SanctuaryPage: React.FC = () => {
                         <div className="p-1 rounded bg-green-500/10">
                           <Image size={18} className="text-green-500" />
                         </div>
-                        <span className="text-gray-900 dark:text-white font-bold text-[15px]">Gerar Arte Sacra</span>
+                        <span className="text-gray-900 dark:text-white font-medium text-[13px]">Gerar Arte Sacra</span>
                       </div>
                       <p className="text-[#888] text-[11px] leading-relaxed mb-4 min-h-[34px]">Crie imagens inspiradas em versículos, cenas bíblicas ou reflexões espirituais.</p>
                       <div className="flex gap-2">
-                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Realista</span>
-                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Óleo</span>
-                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Cinematográfico</span>
-                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Aquarela</span>
+                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-medium text-gray-600 dark:text-gray-400">Realista</span>
+                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-medium text-gray-600 dark:text-gray-400">Óleo</span>
+                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-medium text-gray-600 dark:text-gray-400">Cinematográfico</span>
+                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-medium text-gray-600 dark:text-gray-400">Aquarela</span>
                       </div>
                     </button>
 
@@ -1202,13 +1344,13 @@ const SanctuaryPage: React.FC = () => {
                         <div className="p-1 rounded bg-pink-500/10">
                           <Mic size={18} className="text-pink-500" />
                         </div>
-                        <span className="text-gray-900 dark:text-white font-bold text-[15px]">Gerar Podcast</span>
+                        <span className="text-gray-900 dark:text-white font-medium text-[13px]">Gerar Podcast</span>
                       </div>
                       <p className="text-[#888] text-[11px] leading-relaxed mb-4 min-h-[34px]">Transforme versículos e reflexões em episódios de podcast com narração IA.</p>
                       <div className="flex gap-2">
-                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Devocional</span>
-                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Estudo</span>
-                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-bold text-gray-600 dark:text-gray-400">Pregação</span>
+                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-medium text-gray-600 dark:text-gray-400">Devocional</span>
+                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-medium text-gray-600 dark:text-gray-400">Estudo</span>
+                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-medium text-gray-600 dark:text-gray-400">Pregação</span>
                       </div>
                     </button>
                   </div>
@@ -1227,15 +1369,15 @@ const SanctuaryPage: React.FC = () => {
                     <Sparkles size={32} className="text-gray-900 dark:text-white" />
                   </div>
                   <div className="relative z-10 flex-1">
-                    <h2 className="text-gray-900 dark:text-white font-bold text-2xl md:text-3xl lg:text-4xl leading-tight mb-2">Seu Estúdio Criativo</h2>
+                    <h2 className="text-gray-900 dark:text-white font-medium text-2xl md:text-3xl lg:text-4xl leading-tight mb-2">Seu Estúdio Criativo</h2>
                     <p className="text-gray-600 dark:text-gray-400 text-[14px] leading-relaxed">
                       Você pode gerar imagens bíblicas, criar episódios de podcast curtos e planejar esboços utilizando os assistentes de IA especializados.
                     </p>
                   </div>
                   <div className="relative z-10 bg-gray-50 dark:bg-[#120F18] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-4 shrink-0 flex items-center gap-4">
                     <div className="flex flex-col">
-                      <span className="text-gray-500 dark:text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-1">Status</span>
-                      <span className="text-green-500 font-bold text-sm flex items-center gap-1"><Zap size={14} /> Ativo</span>
+                      <span className="text-gray-500 dark:text-gray-500 text-[10px] font-medium uppercase tracking-widest mb-1">Status</span>
+                      <span className="text-green-500 font-medium text-sm flex items-center gap-1"><Zap size={14} /> Ativo</span>
                     </div>
                   </div>
                 </div>
@@ -1253,9 +1395,9 @@ const SanctuaryPage: React.FC = () => {
                       </div>
                     </div>
                     <div>
-                      <h3 className="text-gray-900 dark:text-white font-bold text-lg">Gerar Imagens</h3>
+                      <h3 className="text-gray-900 dark:text-white font-medium text-lg">Gerar Imagens</h3>
                       <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">Crie artes sacras com IA.</p>
-                      <div className="mt-4 flex items-center text-blue-500 text-xs font-bold gap-1 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
+                      <div className="mt-4 flex items-center text-blue-500 text-xs font-medium gap-1 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
                         INICIAR <ArrowRight size={12} />
                       </div>
                     </div>
@@ -1272,9 +1414,9 @@ const SanctuaryPage: React.FC = () => {
                       </div>
                     </div>
                     <div>
-                      <h3 className="text-gray-900 dark:text-white font-bold text-lg">Gerar Podcast</h3>
+                      <h3 className="text-gray-900 dark:text-white font-medium text-lg">Gerar Podcast</h3>
                       <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">Narrativas e Devocionais gerados em áudio.</p>
-                      <div className="mt-4 flex items-center text-pink-500 text-xs font-bold gap-1 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
+                      <div className="mt-4 flex items-center text-pink-500 text-xs font-medium gap-1 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
                         INICIAR <ArrowRight size={12} />
                       </div>
                     </div>
@@ -1290,9 +1432,9 @@ const SanctuaryPage: React.FC = () => {
                       </div>
                     </div>
                     <div>
-                      <h3 className="text-gray-900 dark:text-white font-bold text-lg">Esboços de IA</h3>
+                      <h3 className="text-gray-900 dark:text-white font-medium text-lg">Esboços de IA</h3>
                       <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">Aprofundamento de textos.</p>
-                      <div className="mt-4 flex items-center text-green-500 text-xs font-bold gap-1 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
+                      <div className="mt-4 flex items-center text-green-500 text-xs font-medium gap-1 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
                         INICIAR <ArrowRight size={12} />
                       </div>
                     </div>
@@ -1304,8 +1446,8 @@ const SanctuaryPage: React.FC = () => {
                   {/* Historico */}
                   <div className="bg-gray-50 dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
                     <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-gray-900 dark:text-white font-bold flex items-center gap-2"><History size={16} className="text-gray-600 dark:text-gray-400" /> Histórico Recente</h3>
-                      <button className={`text-[10px] text-[#c5a059] font-bold uppercase tracking-widest transition-colors ${isLightTheme ? 'hover:text-[#111111]' : 'hover:text-white'}`}>Ver Tudo</button>
+                      <h3 className="text-gray-900 dark:text-white font-medium flex items-center gap-2"><History size={16} className="text-gray-600 dark:text-gray-400" /> Histórico Recente</h3>
+                      <button className={`text-[10px] text-[#c5a059] font-medium uppercase tracking-widest transition-colors ${isLightTheme ? 'hover:text-[#111111]' : 'hover:text-white'}`}>Ver Tudo</button>
                     </div>
                     <div className="grid grid-cols-4 gap-3">
                       {[
@@ -1320,7 +1462,7 @@ const SanctuaryPage: React.FC = () => {
                             {item.type === 'image' ? <Image size={10} className="text-white" /> : <Mic size={10} className="text-white" />}
                           </div>
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span className="text-white text-[9px] font-bold truncate">{item.title}</span>
+                            <span className="text-white text-[9px] font-medium truncate">{item.title}</span>
                           </div>
                         </div>
                       ))}
@@ -1330,15 +1472,15 @@ const SanctuaryPage: React.FC = () => {
                   {/* Dicas */}
                   <div className="bg-gray-50 dark:bg-[#141414] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
                     <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-gray-900 dark:text-white font-bold flex items-center gap-2"><Book size={16} className="text-gray-600 dark:text-gray-400" /> Dicas de Prompt</h3>
+                      <h3 className="text-gray-900 dark:text-white font-medium flex items-center gap-2"><Book size={16} className="text-gray-600 dark:text-gray-400" /> Dicas de Prompt</h3>
                     </div>
                     <div className="space-y-4">
                       <div className="p-3 bg-white dark:bg-[#1A1A1A] rounded-xl border border-gray-200 dark:border-[#2A2A2A]">
-                        <span className="text-[10px] text-[#c5a059] font-bold uppercase mb-1 block">Imagens</span>
+                        <span className="text-[10px] text-[#c5a059] font-medium uppercase mb-1 block">Imagens</span>
                         <p className="text-gray-600 dark:text-gray-400 text-xs">Para melhores resultados, seja descritivo com o estilo desejado. Ex: "Jesus caminhando sobre as águas, estilo pintura a óleo impressionista, luz dramática".</p>
                       </div>
                       <div className="p-3 bg-white dark:bg-[#1A1A1A] rounded-xl border border-gray-200 dark:border-[#2A2A2A]">
-                        <span className="text-[10px] text-pink-500 font-bold uppercase mb-1 block">Podcasts</span>
+                        <span className="text-[10px] text-pink-500 font-medium uppercase mb-1 block">Podcasts</span>
                         <p className="text-gray-600 dark:text-gray-400 text-xs">Cole o versículo ou citação completa do devocional e defina o tom como "encorajador" ou "reflexivo" para a narração.</p>
                       </div>
                     </div>
@@ -1377,7 +1519,7 @@ const SanctuaryPage: React.FC = () => {
                 <div className="w-10 h-10 border border-white/20 rounded-full flex items-center justify-center bg-transparent">
                   <History size={18} className="text-gray-900 dark:text-white" />
                 </div>
-                <span className="text-gray-900 dark:text-white font-bold text-[15px]">Minhas Atividades</span>
+                <span className="text-gray-900 dark:text-white font-medium text-[13px]">Minhas Atividades</span>
               </div>
               <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
                 <ChevronRight size={18} className="text-[#8A49F6]" />
@@ -1386,13 +1528,13 @@ const SanctuaryPage: React.FC = () => {
 
             {/* Acesso Rápido */}
             <HomePanel className="min-h-[360px]">
-              <h4 className="text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase tracking-wider mb-6 pl-2">ACESSO RÁPIDO</h4>
+              <h4 className="text-[10px] text-gray-500 dark:text-gray-500 font-medium uppercase tracking-wider mb-6 pl-2">ACESSO RÁPIDO</h4>
 
               <div className="space-y-5">
                 {INICIO_QUICK_ACCESS_GROUPS.map((group, groupIndex) => (
                   <div key={group.title} className="space-y-2">
                     <div className="flex items-center gap-2 px-2">
-                      <span className="text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase tracking-[0.22em]">{group.title}</span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-500 font-medium uppercase tracking-[0.22em]">{group.title}</span>
                     </div>
 
                     <div className="space-y-1">
@@ -1405,7 +1547,7 @@ const SanctuaryPage: React.FC = () => {
                           <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center bg-gray-50 dark:bg-[#151515] border border-gray-200 dark:border-[#252525]">
                             <div className={item.colorClass}>{quickAccessIcons[item.iconKey]}</div>
                           </div>
-                          <span className="text-[13px] text-gray-900 dark:text-white font-bold">{item.label}</span>
+                          <span className="text-[13px] text-gray-900 dark:text-white font-medium">{item.label}</span>
                         </button>
                       ))}
                     </div>
@@ -1423,7 +1565,7 @@ const SanctuaryPage: React.FC = () => {
               {!currentUser && <LockOverlay message="Participar do Quiz" />}
               <div className="flex items-center gap-2 mb-6 relative z-10">
                 <Zap size={14} className="text-[#c5a059]" />
-                <span className="text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase tracking-wider">DESCOBERTAS</span>
+                <span className="text-[10px] text-gray-500 dark:text-gray-500 font-medium uppercase tracking-wider">DESCOBERTAS</span>
               </div>
 
               <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-3xl rounded-full -mr-16 -mt-16 pointer-events-none" />
@@ -1431,10 +1573,10 @@ const SanctuaryPage: React.FC = () => {
               <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-3">
                   <Zap size={14} className="text-purple-500" />
-                  <span className="text-[10px] text-purple-500 font-bold uppercase tracking-wider">FLASH QUIZ</span>
+                  <span className="text-[10px] text-purple-500 font-medium uppercase tracking-wider">FLASH QUIZ</span>
                 </div>
 
-                <h3 className="text-gray-900 dark:text-white font-bold text-[15px] mb-5">Quem foi o sucessor de Moisés?</h3>
+                <h3 className="text-gray-900 dark:text-white font-medium text-[13px] mb-5">Quem foi o sucessor de Moisés?</h3>
 
                 <div className="space-y-2">
                   {['Josué', 'Calebe', 'Arão', 'Hur'].map((opt) => (

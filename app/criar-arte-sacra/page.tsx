@@ -108,7 +108,7 @@ export default function CriarArteSacraPage() {
   const [isPostingToFeed, setIsPostingToFeed] = useState(false);
   const [rawGeneratedBase64, setRawGeneratedBase64] = useState<string | null>(null);
   const [finalImg, setFinalImg] = useState<string | null>(null);
-  const [activeControlTab, setActiveControlTab] = useState<EditorControlTab>(null);
+  const [activeControlTab, setActiveControlTab] = useState<EditorControlTab>('templates');
   const [selectedLayer, setSelectedLayer] = useState<EditorLayer>(null);
   const [galleryImages, setGalleryImages] = useState<SacredArtGalleryItem[]>(HARDCODED_FREE_IMAGES);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -417,6 +417,8 @@ export default function CriarArteSacraPage() {
       ...previous,
       bgX: Math.max(0, Math.min(100, (previous.bgX ?? 50) + (info.delta.x / rect.width) * 100)),
       bgY: Math.max(0, Math.min(100, (previous.bgY ?? 50) + (info.delta.y / rect.height) * 100)),
+      textX: Math.max(8, Math.min(92, (previous.textX ?? 50) + (info.delta.x / rect.width) * 18)),
+      textY: Math.max(12, Math.min(88, (previous.textY ?? 50) + (info.delta.y / rect.height) * 18)),
     }));
   };
 
@@ -562,38 +564,69 @@ export default function CriarArteSacraPage() {
         </div>
       </header>
 
-      <main className="flex-1 relative flex flex-col items-center justify-center pt-20 pb-28 md:pb-0 overflow-hidden">
-        <div className="flex-1 w-full flex flex-col md:flex-row items-center justify-center p-4 md:p-12 overflow-auto custom-scrollbar md:gap-8">
-          <SacredArtCanvas
-            canvasContainerRef={canvasContainerRef}
-            rawGeneratedBase64={rawGeneratedBase64}
-            foundVerse={foundVerse}
-            editOptions={editOptions}
-            selectedLayer={selectedLayer}
-            setSelectedLayer={setSelectedLayer}
-            onBgDragEnd={handleBgDragEnd}
-            onTextDragEnd={handleDragEnd}
-            onOpenAi={() => setActiveControlTab('ai')}
-            onOpenTemplates={() => setActiveControlTab('templates')}
-            onCanvasResize={setCanvasSize}
-            onFontSizeScaleChange={(newScale) => {
-              setEditOptions(prev => ({ ...prev, fontSizeScale: Math.max(0.01, newScale) }));
-            }}
-            onBgScaleChange={(newScale) => {
-              setEditOptions(prev => ({ ...prev, bgScale: Math.max(1, Math.min(5, newScale)) }));
-            }}
-            getCSSFilters={getCSSFilters}
-          />
+      <main className="min-h-0 flex-1 relative flex flex-col pt-20 pb-24 md:pb-4 overflow-hidden">
+        <div className="min-h-0 flex-1 w-full grid grid-cols-1 md:grid-cols-[auto_132px_minmax(300px,390px)] items-stretch justify-center gap-3 px-4 md:px-6 pb-4 overflow-hidden">
+          <div className="min-h-0 flex items-center justify-center overflow-hidden">
+            <SacredArtCanvas
+              canvasContainerRef={canvasContainerRef}
+              rawGeneratedBase64={rawGeneratedBase64}
+              foundVerse={foundVerse}
+              editOptions={editOptions}
+              selectedLayer={selectedLayer}
+              setSelectedLayer={setSelectedLayer}
+              onBgDragEnd={handleBgDragEnd}
+              onTextDragEnd={handleDragEnd}
+              onOpenAi={() => setActiveControlTab('ai')}
+              onOpenTemplates={() => setActiveControlTab('templates')}
+              onCanvasResize={setCanvasSize}
+              onFontSizeScaleChange={(newScale) => {
+                setEditOptions(prev => ({ ...prev, fontSizeScale: Math.max(0.01, newScale) }));
+              }}
+              onBgScaleChange={(newScale) => {
+                setEditOptions(prev => ({ ...prev, bgScale: Math.max(1, Math.min(5, newScale)) }));
+              }}
+              getCSSFilters={getCSSFilters}
+            />
+          </div>
 
           {/* Dock Desktop (Ao lado da imagem) */}
-          <div className="hidden md:block shrink-0 animate-in slide-in-from-right-4 duration-500">
-            <SacredArtDock
+          <div className="hidden md:flex min-h-0 items-center justify-center animate-in slide-in-from-right-4 duration-500">
+              <SacredArtDock
+                activeControlTab={activeControlTab}
+                setActiveControlTab={setActiveControlTab}
+                onDownload={handleDownload}
+                onPostToFeed={handlePostToFeed}
+                canPostToFeed={!!finalImg && !isPostingToFeed}
+                isStatic
+              />
+          </div>
+
+          <div className="hidden md:block min-h-0">
+            <SacredArtDrawer
               activeControlTab={activeControlTab}
               setActiveControlTab={setActiveControlTab}
-              onDownload={handleDownload}
-              onPostToFeed={handlePostToFeed}
-              canPostToFeed={!!finalImg && !isPostingToFeed}
-              isStatic
+              galleryImages={galleryImages}
+              currentUser={currentUser ? { uid: currentUser.uid } : null}
+              setGalleryImages={setGalleryImages}
+              setRawGeneratedBase64={setRawGeneratedBase64}
+              editOptions={editOptions}
+              setEditOptions={setEditOptions}
+              selectedStyle={selectedStyle}
+              setSelectedStyle={setSelectedStyle}
+              customPrompt={customPrompt}
+              setCustomPrompt={setCustomPrompt}
+              handleCreateClick={handleCreateClick}
+              isGeneratingImg={isGeneratingImg}
+              fileInputRef={fileInputRef}
+              resetText={resetText}
+              fontSizePx={currentTextLayout.verseFontSizePx}
+              onFontSizePxChange={handleFontSizePxChange}
+              styles={STYLES}
+              fonts={FONTS}
+              colors={COLORS}
+              filters={FILTERS}
+              fallbackImages={HARDCODED_FREE_IMAGES}
+              desktopInline
             />
           </div>
         </div>
@@ -609,31 +642,33 @@ export default function CriarArteSacraPage() {
           />
         </div>
 
-        <SacredArtDrawer
-          activeControlTab={activeControlTab}
-          setActiveControlTab={setActiveControlTab}
-          galleryImages={galleryImages}
-          currentUser={currentUser ? { uid: currentUser.uid } : null}
-          setGalleryImages={setGalleryImages}
-          setRawGeneratedBase64={setRawGeneratedBase64}
-          editOptions={editOptions}
-          setEditOptions={setEditOptions}
-          selectedStyle={selectedStyle}
-          setSelectedStyle={setSelectedStyle}
-          customPrompt={customPrompt}
-          setCustomPrompt={setCustomPrompt}
-          handleCreateClick={handleCreateClick}
-          isGeneratingImg={isGeneratingImg}
-          fileInputRef={fileInputRef}
-          resetText={resetText}
-          fontSizePx={currentTextLayout.verseFontSizePx}
-          onFontSizePxChange={handleFontSizePxChange}
-          styles={STYLES}
-          fonts={FONTS}
-          colors={COLORS}
-          filters={FILTERS}
-          fallbackImages={HARDCODED_FREE_IMAGES}
-        />
+        <div className="md:hidden">
+          <SacredArtDrawer
+            activeControlTab={activeControlTab}
+            setActiveControlTab={setActiveControlTab}
+            galleryImages={galleryImages}
+            currentUser={currentUser ? { uid: currentUser.uid } : null}
+            setGalleryImages={setGalleryImages}
+            setRawGeneratedBase64={setRawGeneratedBase64}
+            editOptions={editOptions}
+            setEditOptions={setEditOptions}
+            selectedStyle={selectedStyle}
+            setSelectedStyle={setSelectedStyle}
+            customPrompt={customPrompt}
+            setCustomPrompt={setCustomPrompt}
+            handleCreateClick={handleCreateClick}
+            isGeneratingImg={isGeneratingImg}
+            fileInputRef={fileInputRef}
+            resetText={resetText}
+            fontSizePx={currentTextLayout.verseFontSizePx}
+            onFontSizePxChange={handleFontSizePxChange}
+            styles={STYLES}
+            fonts={FONTS}
+            colors={COLORS}
+            filters={FILTERS}
+            fallbackImages={HARDCODED_FREE_IMAGES}
+          />
+        </div>
       </main>
 
       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />

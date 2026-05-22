@@ -6,8 +6,8 @@ import './globals.css';
 import { Providers } from './providers';
 import Layout from '../components/Layout';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
-const lora = Lora({ subsets: ['latin'], variable: '--font-lora', style: ['normal', 'italic'] });
+const inter = Inter({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-inter', display: 'swap' });
+const lora = Lora({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-lora', style: ['normal', 'italic'], display: 'swap' });
 const greatVibes = Great_Vibes({ weight: '400', subsets: ['latin'], variable: '--font-great-vibes', preload: false });
 const oswald = Oswald({ subsets: ['latin'], variable: '--font-oswald', preload: false });
 const cinzel = Cinzel({ subsets: ['latin'], variable: '--font-cinzel', preload: false });

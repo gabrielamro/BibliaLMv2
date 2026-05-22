@@ -11,14 +11,15 @@ import {
     MessageSquareHeart, Megaphone, Layout,
     BellRing, Edit2, ArrowRight, ArrowLeft, Home,
     Globe, Eye, EyeOff, Plus, Mail, FileCode, Copy,
-    BookMarked, ScrollText, Code
+    BookMarked, ScrollText, Code, Church, MapPin, UserCog, ExternalLink
 } from 'lucide-react';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useFeatures } from '../contexts/FeatureContext';
 import {
     SystemSettings, PlanFeatures, SubscriptionTier, UserProfile, SystemLog,
-    ReportTicket, AIUsageStats, Devotional, Banner, LandingPageConfig, HomeConfig, SupportTicket
+    ReportTicket, AIUsageStats, Devotional, Banner, LandingPageConfig, HomeConfig, SupportTicket,
+    ChurchRoleRequest
 } from '../types';
 import { DAILY_BREAD } from '../constants';
 
@@ -62,6 +63,7 @@ const APPS = [
     { id: 'megafone', label: 'Megafone', icon: Megaphone, color: 'text-red-500', bgColor: 'bg-red-50', desc: 'Push Notifications' },
     { id: 'billboard', label: 'Billboard', icon: Layout, color: 'text-orange-500', bgColor: 'bg-orange-50', desc: 'Banners Globais' },
     { id: 'finops', label: 'Custos IA', icon: Coins, color: 'text-green-600', bgColor: 'bg-green-50', desc: 'Uso de Tokens' },
+    { id: 'church_management', label: 'Gestão de Igreja', icon: Church, color: 'text-amber-700', bgColor: 'bg-amber-50', desc: 'Aprovar responsáveis e gestores' },
     { id: 'users', label: 'Membros', icon: Users, color: 'text-blue-600', bgColor: 'bg-blue-50', desc: 'Gestão de Usuários' },
     { id: 'moderation', label: 'Moderação', icon: ShieldCheck, color: 'text-red-600', bgColor: 'bg-red-100', desc: 'Denúncias' },
     { id: 'support', label: 'Suporte', icon: MessageSquareHeart, color: 'text-blue-400', bgColor: 'bg-blue-50', desc: 'Tickets' },
@@ -106,7 +108,10 @@ const AdminPage: React.FC = () => {
     const [saving, setSaving] = useState(false);
 
     // Data States
-    const [stats, setStats] = useState({ users: 0, churches: 0 });
+    const [stats, setStats] = useState({ users: 0, churches: 0, pendingChurchRequests: 0 });
+    const [churchRoleRequests, setChurchRoleRequests] = useState<ChurchRoleRequest[]>([]);
+    const [churchRequestFilter, setChurchRequestFilter] = useState<'pending' | 'all'>('pending');
+    const [churchRequestActionId, setChurchRequestActionId] = useState<string | null>(null);
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [logs, setLogs] = useState<SystemLog[]>([]);
     const [aiStats, setAiStats] = useState<AIUsageStats | null>(null);
@@ -202,13 +207,17 @@ const AdminPage: React.FC = () => {
                 const l = await dbService.getSystemLogs();
                 setLogs(l);
             }
+            else if (activeView === 'church_management') {
+                const requests = await dbService.getChurchRoleRequestsForAdmin(churchRequestFilter);
+                setChurchRoleRequests(requests);
+            }
         } catch (e) {
             console.error("Admin Load Error:", e);
             showNotification("Erro ao carregar dados.", "error");
         } finally {
             setLoading(false);
         }
-    }, [activeView, users.length, showNotification]);
+    }, [activeView, users.length, churchRequestFilter, showNotification]);
 
     // --- ACTIONS ---
     const handleUserSearch = async (term: string) => {
@@ -375,6 +384,39 @@ const AdminPage: React.FC = () => {
         }
     };
 
+    const handleReviewChurchRoleRequest = async (requestId: string, action: 'approved' | 'rejected') => {
+        if (!currentUser?.uid && !currentUser?.id) return;
+        const reviewerId = currentUser.uid || currentUser.id;
+        setChurchRequestActionId(requestId);
+        try {
+            await dbService.reviewChurchRoleRequest(requestId, action, reviewerId);
+            setChurchRoleRequests(prev => prev.filter((request) => request.id !== requestId));
+            setStats((prev) => ({
+                ...prev,
+                pendingChurchRequests: action === 'approved' || action === 'rejected'
+                    ? Math.max(0, prev.pendingChurchRequests - 1)
+                    : prev.pendingChurchRequests,
+            }));
+            showNotification(
+                action === 'approved'
+                    ? 'Responsavel aprovado e vinculado como admin da igreja.'
+                    : 'Solicitacao recusada.',
+                'success'
+            );
+        } catch (e) {
+            console.error(e);
+            const message = e instanceof Error ? e.message : '';
+            showNotification(
+                message.includes('row-level security') || message.includes('42501')
+                    ? 'Permissao RLS insuficiente. Aplique scripts/church_role_requests_admin_policies.sql no Supabase.'
+                    : 'Erro ao revisar solicitacao de gestao de igreja.',
+                'error'
+            );
+        } finally {
+            setChurchRequestActionId(null);
+        }
+    };
+
     // --- RENDERERS ---
 
     const renderRoadmap = () => (
@@ -423,7 +465,7 @@ const AdminPage: React.FC = () => {
     const renderDashboard = () => (
         <div className="space-y-8 animate-in fade-in">
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-between">
                     <div>
                         <h3 className="text-gray-500 text-xs font-black uppercase tracking-widest mb-1">Membros Totais</h3>
@@ -442,6 +484,20 @@ const AdminPage: React.FC = () => {
                         <LayoutDashboard size={24} />
                     </div>
                 </div>
+                <button
+                    type="button"
+                    onClick={() => setSearchParams({ view: 'church_management' })}
+                    className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] border border-amber-100 dark:border-amber-900/30 shadow-sm flex items-center justify-between hover:border-amber-300 transition-colors text-left"
+                >
+                    <div>
+                        <h3 className="text-gray-500 text-xs font-black uppercase tracking-widest mb-1">Gestão de Igreja</h3>
+                        <p className="text-3xl font-black text-amber-700 dark:text-amber-400">{loading ? '...' : stats.pendingChurchRequests}</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">Solicitações pendentes</p>
+                    </div>
+                    <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl text-amber-700 dark:text-amber-400">
+                        <Church size={24} />
+                    </div>
+                </button>
             </div>
 
             {/* Launchpad Grid */}
@@ -460,13 +516,140 @@ const AdminPage: React.FC = () => {
                             <h4 className="font-bold text-gray-900 dark:text-white text-sm mb-1">{item.label}</h4>
                             <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight line-clamp-2">{item.desc}</p>
 
-                            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300">
+                            {item.id === 'church_management' && stats.pendingChurchRequests > 0 && (
+                                <span className="absolute top-4 right-4 min-w-6 h-6 px-1 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center">
+                                    {stats.pendingChurchRequests}
+                                </span>
+                            )}
+
+                            <div className={`absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 ${item.id === 'church_management' && stats.pendingChurchRequests > 0 ? 'hidden' : ''}`}>
                                 <ArrowRight size={16} />
                             </div>
                         </button>
                     ))}
                 </div>
             </div>
+        </div>
+    );
+
+    const renderChurchManagement = () => (
+        <div className="space-y-6 animate-in fade-in max-w-5xl mx-auto">
+            <div className="bg-amber-50 dark:bg-amber-900/10 p-4 rounded-2xl border border-amber-100 dark:border-amber-900/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <Church className="text-amber-600" size={24} />
+                    <div>
+                        <h3 className="font-bold text-amber-800 dark:text-amber-300">Gestão de Igreja</h3>
+                        <p className="text-xs text-amber-700/70 dark:text-amber-400/70">Aprove ou recuse quem solicitou ser responsável pela igreja.</p>
+                    </div>
+                </div>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setChurchRequestFilter('pending')}
+                        className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest ${churchRequestFilter === 'pending' ? 'bg-amber-600 text-white' : 'bg-white dark:bg-gray-900 text-gray-500 border border-gray-200 dark:border-gray-700'}`}
+                    >
+                        Pendentes
+                    </button>
+                    <button
+                        onClick={() => setChurchRequestFilter('all')}
+                        className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest ${churchRequestFilter === 'all' ? 'bg-amber-600 text-white' : 'bg-white dark:bg-gray-900 text-gray-500 border border-gray-200 dark:border-gray-700'}`}
+                    >
+                        Todas
+                    </button>
+                </div>
+            </div>
+
+            {loading ? (
+                <div className="flex justify-center py-20">
+                    <Loader2 className="animate-spin text-amber-600" size={32} />
+                </div>
+            ) : churchRoleRequests.length === 0 ? (
+                <div className="text-center p-10 bg-white dark:bg-bible-darkPaper rounded-3xl border border-dashed border-gray-200 dark:border-gray-800">
+                    <Check className="mx-auto text-green-500 mb-2" size={32} />
+                    <p className="text-gray-500 font-medium">Nenhuma solicitação {churchRequestFilter === 'pending' ? 'pendente' : 'encontrada'}.</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 gap-4">
+                    {churchRoleRequests.map((request) => (
+                        <div
+                            key={request.id}
+                            className="bg-white dark:bg-bible-darkPaper p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm"
+                        >
+                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                <div className="flex items-start gap-4 min-w-0">
+                                    <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-900 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                                        {request.userPhotoURL ? (
+                                            <img src={request.userPhotoURL} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <UserCog className="text-gray-400" size={20} />
+                                        )}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                                            <h4 className="font-bold text-gray-900 dark:text-white">{request.userDisplayName}</h4>
+                                            {request.userUsername && (
+                                                <span className="text-xs text-gray-400">@{request.userUsername}</span>
+                                            )}
+                                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                                                {request.requestedRole}
+                                            </span>
+                                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
+                                                request.status === 'pending'
+                                                    ? 'bg-yellow-100 text-yellow-700'
+                                                    : request.status === 'approved'
+                                                        ? 'bg-green-100 text-green-700'
+                                                        : 'bg-red-100 text-red-700'
+                                            }`}>
+                                                {request.status}
+                                            </span>
+                                        </div>
+                                        <p className="font-bold text-bible-leather dark:text-bible-gold">{request.churchName}</p>
+                                        {request.churchLocation && (
+                                            <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                                <MapPin size={12} /> {request.churchLocation}
+                                            </p>
+                                        )}
+                                        <p className="text-[10px] text-gray-400 mt-2 uppercase font-bold tracking-widest">
+                                            Solicitado em {new Date(request.requestedAt).toLocaleString('pt-BR')}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {request.churchSlug && (
+                                        <a
+                                            href={`/social/igreja/${request.churchSlug}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-gray-200"
+                                        >
+                                            <ExternalLink size={12} /> Ver igreja
+                                        </a>
+                                    )}
+                                    {request.status === 'pending' && (
+                                        <>
+                                            <button
+                                                onClick={() => handleReviewChurchRoleRequest(request.id, 'rejected')}
+                                                disabled={churchRequestActionId === request.id}
+                                                className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-bold hover:bg-gray-200 disabled:opacity-60"
+                                            >
+                                                Recusar
+                                            </button>
+                                            <button
+                                                onClick={() => handleReviewChurchRoleRequest(request.id, 'approved')}
+                                                disabled={churchRequestActionId === request.id}
+                                                className="px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold hover:bg-amber-700 flex items-center gap-2 disabled:opacity-60"
+                                            >
+                                                {churchRequestActionId === request.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                                                Aprovar
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 
@@ -1075,6 +1258,7 @@ const AdminPage: React.FC = () => {
                 {activeView === 'billboard' && renderBillboard()}
                 {activeView === 'matrix' && settings && renderMatrix()}
                 {activeView === 'moderation' && renderModeration()}
+                {activeView === 'church_management' && renderChurchManagement()}
                 {activeView === 'support' && renderSupport()}
                 {activeView === 'finops' && renderFinops()}
                 {activeView === 'logs' && renderLogs()}

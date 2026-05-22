@@ -47,6 +47,15 @@ export const generateSermonOutline = async (contextText: string, theme: string, 
     return await gemini.generateSermonOutline(contextText, theme, audience, title);
 };
 
+export const generateChurchServicePlanning = async (
+    verseReference: string,
+    verseText: string,
+    userPrompt: string,
+    provider: AIProvider = 'gemini'
+) => {
+    return await gemini.generateChurchServicePlanning(verseReference, verseText, userPrompt);
+};
+
 export const generateSermonIllustration = async (theme: string, context: string, provider: AIProvider = 'gemini') => {
     return await gemini.generateSermonIllustration(theme, context);
 };

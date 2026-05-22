@@ -32,6 +32,17 @@ const config: Config = {
                 'extra-loose': '2.2',
             }
         },
+        fontWeight: {
+            thin: '400',
+            extralight: '400',
+            light: '400',
+            normal: '400',
+            medium: '500',
+            semibold: '500',
+            bold: '500',
+            extrabold: '500',
+            black: '500',
+        },
     },
     plugins: [
         require('@tailwindcss/typography'),

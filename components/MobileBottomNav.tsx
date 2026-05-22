@@ -1,5 +1,5 @@
 "use client";
-import { useNavigate, useLocation, useSearchParams } from '../utils/router';
+import { useNavigate, useLocation } from '../utils/router';
 
 import React from 'react';
 
@@ -11,7 +11,7 @@ const MobileBottomNav: React.FC = () => {
   const location = useLocation();
   const { unreadNotificationsCount, currentUser, userProfile, openLogin } = useAuth();
   const churchPath = userProfile?.churchData?.churchSlug
-    ? `/social/igreja/${userProfile.churchData.churchSlug}`
+    ? `/igreja/${userProfile.churchData.churchSlug}`
     : '/social/igrejas';
 
   const navItems = [
@@ -89,7 +89,8 @@ const MobileBottomNav: React.FC = () => {
                 !location.pathname.startsWith('/social/church')
               );
             } else if (item.id === 'church') {
-              isActive = location.pathname.startsWith('/social/igreja') ||
+              isActive = location.pathname.startsWith('/igreja') ||
+                location.pathname.startsWith('/social/igreja') ||
                 location.pathname.startsWith('/social/igrejas') ||
                 location.pathname.startsWith('/social/church');
             } else {

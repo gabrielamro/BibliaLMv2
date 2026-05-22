@@ -11,8 +11,22 @@
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02", "cv03", "cv04", "kern";
+    font-synthesis-weight: none;
     text-rendering: optimizeLegibility;
     overscroll-behavior-y: none;
+  }
+
+  b,
+  strong,
+  th,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: 500;
   }
 
   html {
@@ -26,6 +40,13 @@
 }
 
 @layer utilities {
+  .font-semibold,
+  .font-bold,
+  .font-extrabold,
+  .font-black {
+    font-weight: 500;
+  }
+
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }

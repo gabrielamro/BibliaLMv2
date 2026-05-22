@@ -6,6 +6,7 @@ import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { dbService } from '../../services/supabase';
 import { Users, BookOpen, Target, Dices, TrendingUp, Plus, ArrowRight, Shield, Trophy, Medal, MoreVertical, LayoutGrid, Map, HandHeart, X } from 'lucide-react';
+import CultoPlusWorkspacePreview from '../culto-plus/CultoPlusWorkspacePreview';
 
 import QuizBuilderModal from '../QuizBuilderModal';
 
@@ -151,12 +152,16 @@ const WorkspaceOnePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Planos & Salas */}
+      {/* Espaço + */}
       <section className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2rem] shadow-sm border border-purple-100 dark:border-purple-900/40">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <BookOpen className="text-purple-700 dark:text-violet-300" /> Planos & Salas
-          </h2>
+          <div className="flex items-center gap-2">
+            <BookOpen className="text-purple-700 dark:text-violet-300" />
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Espaço +</h2>
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">Espaço do pastor e Igreja</p>
+            </div>
+          </div>
           {plans.length > 3 && (
             <button onClick={() => setShowAllPlans(!showAllPlans)} className="text-sm font-bold text-purple-700 dark:text-violet-300 hover:underline flex items-center gap-1">
               {showAllPlans ? 'Ver Menos' : 'Ver Todos'} <ArrowRight size={16} />
@@ -239,6 +244,8 @@ const WorkspaceOnePage: React.FC = () => {
           ))}
         </div>
       </section>
+
+      <CultoPlusWorkspacePreview />
 
       {/* Jogos */}
       <section className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-800">
