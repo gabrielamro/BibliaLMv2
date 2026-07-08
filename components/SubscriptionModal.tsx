@@ -7,14 +7,15 @@ import { X, Check, Loader2, Crown, ShieldCheck, CreditCard, ExternalLink, Zap } 
 import { SUBSCRIPTION_PLANS } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
 import { paymentService } from '../services/paymentService';
-import { SubscriptionTier } from '../types';
+import { SubscriptionPlan, SubscriptionTier } from '../types';
 
 interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
+  prompt?: string | null;
 }
 
-const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose }) => {
+const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, prompt }) => {
   const { currentUser, systemSettings, showNotification } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -23,7 +24,14 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose }
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [loading, setLoading] = useState(false);
 
-  const activePlan = SUBSCRIPTION_PLANS.find(p => p.id === selectedPlanId) || SUBSCRIPTION_PLANS[3];
+  const configuredPlans = systemSettings.subscription?.plans;
+  const plans = SUBSCRIPTION_PLANS.map((fallback) => {
+      const configured = configuredPlans?.find((plan) => plan.id === fallback.id);
+      return { ...fallback, ...configured };
+  }).filter((plan) => plan.active !== false);
+
+  const visiblePaidPlans = plans.filter(p => p.price > 0 || p.priceAnnual > 0);
+  const activePlan = plans.find(p => p.id === selectedPlanId) || visiblePaidPlans[0] || SUBSCRIPTION_PLANS[3];
   
   const getPrice = (planId: string, cycle: 'monthly' | 'yearly') => {
       const prices = systemSettings.subscription?.prices;
@@ -38,7 +46,13 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose }
       return cycle === 'monthly' ? (plan?.price || 0) : (plan?.priceAnnual || 0);
   };
 
-  const currentPrice = getPrice(selectedPlanId, billingCycle);
+  const getPlanPrice = (plan: SubscriptionPlan, cycle: 'monthly' | 'yearly') => {
+      const settingPrice = getPrice(plan.id, cycle);
+      if (settingPrice > 0) return settingPrice;
+      return cycle === 'monthly' ? plan.price : plan.priceAnnual;
+  };
+
+  const currentPrice = getPlanPrice(activePlan, billingCycle);
 
   const handleSubscribe = async () => {
     if (!currentUser) {
@@ -59,7 +73,8 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose }
         const sub = await paymentService.createSubscription(
             currentPrice, 
             title,
-            currentUser.email
+            currentUser.email,
+            billingCycle
         );
         
         if (sub.initPoint) {
@@ -83,10 +98,13 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose }
         
         {/* Lado Esquerdo: Planos e Vantagens */}
         <div className="flex-1 p-8 bg-gray-50 dark:bg-gray-900/50">
-            <h2 className="text-2xl font-serif font-bold mb-6 text-gray-900 dark:text-white">Escolha seu Plano</h2>
+            <h2 className="text-2xl font-serif font-bold mb-3 text-gray-900 dark:text-white">Escolha seu Plano</h2>
+            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                {prompt || 'Libere mais capacidade para estudar, criar e organizar sua rotina no BibliaLM.'}
+            </p>
             
             <div className="space-y-3">
-                {SUBSCRIPTION_PLANS.filter(p => p.price > 0).map(plan => (
+                {visiblePaidPlans.map(plan => (
                     <div 
                         key={plan.id}
                         onClick={() => setSelectedPlanId(plan.id as SubscriptionTier)}
@@ -97,8 +115,11 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose }
                                 <span className={`w-2 h-2 rounded-full ${plan.id === 'gold' ? 'bg-yellow-500' : 'bg-gray-400'}`}></span>
                                 <span className="font-bold text-gray-900 dark:text-white">{plan.name}</span>
                             </div>
-                            <span className="font-black text-bible-gold text-lg">R$ {getPrice(plan.id, billingCycle).toFixed(2)}</span>
+                            <span className="font-black text-bible-gold text-lg">R$ {getPlanPrice(plan, billingCycle).toFixed(2)}</span>
                         </div>
+                        {plan.description && (
+                            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{plan.description}</p>
+                        )}
                     </div>
                 ))}
             </div>

@@ -8,7 +8,7 @@ import { Check, Crown, ShieldCheck, CreditCard, Zap, Star, ArrowLeft, Loader2, I
 import { SUBSCRIPTION_PLANS } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
 import { paymentService } from '../services/paymentService';
-import { SubscriptionTier, PlanFeatures } from '../types';
+import { SubscriptionTier, PlanFeatures, SubscriptionPlan } from '../types';
 import SEO from '../components/SEO';
 
 const FEATURE_DESCRIPTIONS: Record<keyof PlanFeatures, string> = {
@@ -47,24 +47,31 @@ const SubscriptionPage: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
-  const getPrice = (planId: string, cycle: 'monthly' | 'yearly') => {
+  const plans = useMemo<SubscriptionPlan[]>(() => {
+      const configuredPlans = systemSettings.subscription?.plans;
+
+      return SUBSCRIPTION_PLANS.map((fallback) => {
+          const configured = configuredPlans?.find((plan) => plan.id === fallback.id);
+          return { ...fallback, ...configured };
+      }).filter((plan) => plan.active !== false && plan.id !== 'admin');
+  }, [systemSettings.subscription?.plans]);
+
+  const getPrice = (plan: SubscriptionPlan, cycle: 'monthly' | 'yearly') => {
       const prices = systemSettings.subscription?.prices;
-      if (planId === 'pastor') return cycle === 'monthly' ? 59.90 : 599.00;
       
       if (prices) {
-          switch(planId) {
+          switch(plan.id) {
               case 'bronze': return cycle === 'monthly' ? prices.bronzeMonthly : prices.bronzeAnnual;
               case 'silver': return cycle === 'monthly' ? prices.silverMonthly : prices.silverAnnual;
               case 'gold': return cycle === 'monthly' ? prices.goldMonthly : prices.goldAnnual;
           }
       }
-      const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
-      return cycle === 'monthly' ? (plan?.price || 0) : (plan?.priceAnnual || 0);
+      return cycle === 'monthly' ? plan.price : plan.priceAnnual;
   };
 
   const getDynamicBenefits = (tierId: SubscriptionTier) => {
       if (!systemSettings.featuresMatrix || !systemSettings.featuresMatrix[tierId]) {
-          return SUBSCRIPTION_PLANS.find(p => p.id === tierId)?.benefits || [];
+          return plans.find(p => p.id === tierId)?.benefits || [];
       }
       
       const features = systemSettings.featuresMatrix[tierId];
@@ -90,18 +97,19 @@ const SubscriptionPage: React.FC = () => {
         return;
     }
 
-    const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
+    const plan = plans.find(p => p.id === planId);
     if (!plan) return;
 
     setLoadingPlan(planId);
     try {
-        const price = getPrice(planId, billingCycle);
+        const price = getPrice(plan, billingCycle);
         const title = `Apoio ${billingCycle === 'yearly' ? 'Anual' : 'Mensal'} BíbliaLM - ${plan.name}`;
         
         const sub = await paymentService.createSubscription(
             price, 
             title,
-            currentUser.email
+            currentUser.email,
+            billingCycle
         );
         
         if (sub.initPoint) {
@@ -154,8 +162,8 @@ const SubscriptionPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-20">
-            {SUBSCRIPTION_PLANS.map((plan, idx) => {
-                const price = getPrice(plan.id, billingCycle);
+            {plans.map((plan, idx) => {
+                const price = getPrice(plan, billingCycle);
                 const isCurrent = userProfile?.subscriptionTier === plan.id;
                 const isGold = plan.id === 'gold';
                 const isPastor = plan.id === 'pastor';
@@ -174,16 +182,21 @@ const SubscriptionPage: React.FC = () => {
                         } animate-in fade-in slide-in-from-bottom-8`}
                         style={{ animationDelay: `${idx * 150}ms` }}
                     >
-                        {(isGold || isPastor) && (
+                        {(plan.recommended || isPastor) && (
                             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-bible-gold text-bible-leather px-3 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg whitespace-nowrap">
                                 {isPastor ? 'Liderança' : 'Recomendado'}
                             </div>
                         )}
 
                         <div className="mb-6 text-center md:text-left">
-                            <h3 className={`text-lg font-black uppercase tracking-[0.2em] mb-4 ${isGold || isPastor ? 'text-bible-gold' : 'text-gray-400'}`}>
+                            <h3 className={`text-lg font-black uppercase tracking-[0.2em] mb-4 ${isGold || isPastor || plan.recommended ? 'text-bible-gold' : 'text-gray-400'}`}>
                                 {plan.name}
                             </h3>
+                            {plan.description && (
+                                <p className={`text-xs leading-relaxed mb-4 ${isGold || isPastor ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+                                    {plan.description}
+                                </p>
+                            )}
                             <div className="flex items-baseline justify-center md:justify-start gap-1">
                                 {isFree ? (
                                     <span className="text-3xl font-black text-gray-400">GRÁTIS</span>

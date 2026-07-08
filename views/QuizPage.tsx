@@ -32,7 +32,7 @@ const QuizPage: React.FC = () => {
   const quizId = searchParams.get('id');
   const state = location.state as { initialTopic?: string };
   
-  const { currentUser, userProfile, recordActivity, openLogin } = useAuth();
+  const { currentUser, userProfile, recordActivity, openLogin, checkFeatureAccess, openSubscription } = useAuth();
   const { isFeatureEnabled } = useFeatures();
   
   const [view, setView] = useState<'menu' | 'journey_map' | 'topic_select' | 'ranked_setup' | 'loading' | 'game' | 'result' | 'external_start'>('menu');
@@ -128,6 +128,11 @@ const QuizPage: React.FC = () => {
   };
 
   const startGame = async (mode: any, selectedTopic: string, diff: any, customGameMode?: 'classic' | 'infinite') => {
+    if (!checkFeatureAccess('aiDeepAnalysis')) {
+        openSubscription('Quizzes gerados por IA usam analise avancada para criar perguntas novas a partir do tema escolhido.');
+        return;
+    }
+
     setGameMode(mode);
     setTopic(selectedTopic);
     setDifficulty(diff);
@@ -184,6 +189,12 @@ const QuizPage: React.FC = () => {
     // 2. Verifica se chegou ao fim da lista de perguntas atual
     if (currentQIndex === questions.length - 1) {
         if (isInfinite && (gameMode === 'ranked' || customQuizData?.type === 'ai_generated')) {
+            if (!checkFeatureAccess('aiDeepAnalysis')) {
+                openSubscription('O modo infinito gera novas perguntas com IA e faz parte dos recursos avancados.');
+                finishGame();
+                return;
+            }
+
             // MODO INFINITO IA: Carrega mais perguntas
             setIsLoadingMore(true);
             try {

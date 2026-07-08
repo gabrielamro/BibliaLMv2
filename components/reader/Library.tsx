@@ -2,7 +2,7 @@
 import { useNavigate } from '../../utils/router';
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { Search, X, BookOpen, ChevronRight, Sparkles, GraduationCap, Target, Coffee, Palette, Bookmark, Languages, Check } from 'lucide-react';
+import { Search, X, BookOpen, ChevronRight, Sparkles, GraduationCap, Target, Coffee, Palette, Languages, Check } from 'lucide-react';
 import { BIBLE_BOOKS_LIST } from '../../constants';
 import { searchMatch } from '../../utils/textUtils';
 import { resolveBibleSearchNavigation } from '../../utils/bibleSearchNavigation';
@@ -80,7 +80,6 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
 
     const quickActions = [
         { label: 'Pão Diário', icon: <Coffee size={14} />, path: '/devocional', color: 'text-orange-500' },
-        { label: 'Minhas Notas', icon: <Bookmark size={14} />, path: '/notes', color: 'text-yellow-600' },
         { label: 'Metas', icon: <Target size={14} />, path: '/plano', color: 'text-green-500' },
         { label: 'Artes', icon: <Palette size={14} />, path: '/estudio-criativo', color: 'text-pink-500' },
     ];

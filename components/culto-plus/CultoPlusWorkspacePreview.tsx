@@ -11,7 +11,9 @@ import { ChurchService, ChurchServiceStatus } from '../../types';
 const STATUS_LABELS: Record<ChurchServiceStatus, string> = {
   draft: 'Rascunho',
   published: 'Publicado',
+  checkin_open: 'Check-in aberto',
   live: 'Ao vivo',
+  in_progress: 'Em andamento',
   finished: 'Encerrado',
   archived: 'Arquivado',
 };
@@ -19,7 +21,9 @@ const STATUS_LABELS: Record<ChurchServiceStatus, string> = {
 const STATUS_STYLES: Record<ChurchServiceStatus, string> = {
   draft: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
   published: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300',
+  checkin_open: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-300',
   live: 'bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300',
+  in_progress: 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300',
   finished: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
   archived: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
 };

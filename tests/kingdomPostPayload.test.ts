@@ -12,6 +12,7 @@ test('builds full and legacy post insert payloads for compatible publishing', ()
     content: 'Uma reflexao do Reino',
     type: 'reflection',
     destination: 'cell',
+    visibility: 'group',
     churchId: '00000000-0000-0000-0000-000000000002',
     cellId: '00000000-0000-0000-0000-000000000003',
     image: 'https://example.com/post.webp',
@@ -22,6 +23,7 @@ test('builds full and legacy post insert payloads for compatible publishing', ()
 
   assert.equal(payloads.length, 2);
   assert.equal(payloads[0].destination, 'cell');
+  assert.equal(payloads[0].visibility, 'group');
   assert.equal(payloads[0].cell_id, '00000000-0000-0000-0000-000000000003');
   assert.deepEqual(payloads[0].liked_by, []);
   assert.equal(payloads[0].views_count, 0);

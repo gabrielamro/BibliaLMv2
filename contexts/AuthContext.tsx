@@ -10,10 +10,44 @@ import {
 import { UserProfile, Badge, ActionType, ReadingPosition, UserActivity, UserStats, SystemSettings, SubscriptionTier, UserUsage, PlanFeatures, AppNotification } from '../types';
 import { BADGES, SUBSCRIPTION_PLANS } from '../constants';
 import { applyActivityRules } from '../utils/activityRules';
+import { canAccessPastoralWorkspace, toManaActorRole } from '../utils/profileAccess';
 
 const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   general: { maintenanceMode: false, welcomeMessage: "Bem-vindo" },
-  gamification: { xpReadingChapter: 20, xpDailyGoal: 50, xpDevotional: 15, xpCreateStudy: 30, xpShare: 10, xpMarkVerse: 2, xpCreateSermon: 40, xpCreateImage: 10, xpUseChat: 5 },
+  gamification: {
+    xpReadingChapter: 20,
+    xpDailyGoal: 50,
+    xpReadingPresence: 5,
+    xpDevotional: 15,
+    xpCreateStudy: 30,
+    xpShare: 10,
+    xpMarkVerse: 2,
+    xpCreateSermon: 40,
+    xpCreateImage: 10,
+    xpUseChat: 5,
+    xpDeepStudy: 20,
+    xpQuizCompletion: 20,
+    xpSocialFollow: 3,
+    xpPrayerWall: 8,
+    xpCreateNote: 5,
+    xpSocialLike: 1,
+    xpSocialPost: 8,
+    xpStartModule: 5,
+    xpJoinPlan: 10,
+    xpCreateEvaluation: 20,
+    xpFinishTrack: 60,
+    xpCollectArtifact: 5,
+    xpSocialInteraction: 5,
+    xpInviteSent: 2,
+    xpInviteAccepted: 15,
+    xpSocialComment: 4,
+    xpSocialMention: 3,
+    xpGroupComment: 4,
+    xpChurchComment: 4,
+    xpContentShare: 10,
+    xpPlanComment: 4,
+    xpCultoCheckin: 10,
+  },
   links: { pixKey: "", supportUrl: "" },
   costs: { imageGen: 0, podcastGen: 0, deepAnalysis: 0, captionGen: 0, sermonGen: 0 },
   limits: { freeImages: 2, freePodcasts: 1, dailyFreeChat: 10 },
@@ -23,8 +57,19 @@ const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
       silverMonthly: 19.99, silverAnnual: 119.90,
       goldMonthly: 39.99, goldAnnual: 239.90
     },
-    promo: { active: false, title: "Oferta Limitada", description: "Acesso total liberado!", color: "bg-bible-gold" }
-  }
+    promo: { active: false, title: "Oferta Limitada", description: "Acesso total liberado!", color: "bg-bible-gold" },
+    plans: SUBSCRIPTION_PLANS
+  },
+  gamificationCampaigns: [{
+    id: 'season-word-constancy',
+    title: 'Temporada da Constancia',
+    description: 'Complete leituras, devocionais, oracoes e quizzes para fortalecer sua jornada semanal.',
+    startsAt: '2026-06-01',
+    endsAt: '2026-06-30',
+    rewardLabel: 'Selo de participacao',
+    targetActions: ['reading_chapter', 'devotional', 'prayer_wall', 'quiz_completion'],
+    isActive: true,
+  }]
 };
 
 interface AuthContextType {
@@ -59,7 +104,10 @@ interface AuthContextType {
   clearBadgeNotification: () => void;
   markNotificationsAsRead: () => Promise<void>;
   addSystemNotification: (title: string, message: string, type: AppNotification['type'], link?: string) => Promise<void>;
-  openSubscription: () => void;
+  openSubscription: (reason?: string) => void;
+  closeSubscription: () => void;
+  isSubscriptionModalOpen: boolean;
+  subscriptionPrompt: string | null;
 
   // Credit System
   isBuyCreditsModalOpen: boolean;
@@ -87,6 +135,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [subscriptionPrompt, setSubscriptionPrompt] = useState<string | null>(null);
   const [isBuyCreditsModalOpen, setIsBuyCreditsModalOpen] = useState(false);
   const [intendedPath, setIntendedPath] = useState<string | null>(null);
 
@@ -103,6 +153,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const openBuyCredits = () => setIsBuyCreditsModalOpen(true);
   const closeBuyCredits = () => setIsBuyCreditsModalOpen(false);
+  const openSubscription = (reason?: string) => {
+    setSubscriptionPrompt(reason || null);
+    setIsSubscriptionModalOpen(true);
+  };
+  const closeSubscription = () => {
+    setIsSubscriptionModalOpen(false);
+    setSubscriptionPrompt(null);
+  };
 
   // Carrega configurações do sistema
   useEffect(() => {
@@ -176,6 +234,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               credits: 0,
               badges: ['event_early'],
               subscriptionTier: 'free',
+              profileType: 'user',
               subscriptionStatus: 'active',
               activityLog: [],
               stats: { totalChaptersRead: 0, daysStreak: 1, studiesCreated: 0, totalDevotionalsRead: 0, totalNotes: 0, totalShares: 0, totalImagesGenerated: 0, totalChatMessages: 0, totalSermonsCreated: 0, totalVersesMarked: 0, totalQuizzesCompleted: 0, perfectQuizzes: 0 }
@@ -215,7 +274,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 stringified: (() => { try { return JSON.stringify(e); } catch { return String(e); } })()
               };
 
-          console.error("Erro detalhado ao carregar perfil:", {
+          console.error("Erro detalhado ao carregar perfil:\n", JSON.stringify({
             uid,
             stage,
             message: e?.message,
@@ -223,7 +282,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             details: e?.details,
             hint: e?.hint,
             parsedError
-          });
+          }, null, 2));
 
           setUserProfile(prev => prev ?? {
             uid,
@@ -235,6 +294,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             lifetimeXp: 0,
             badges: ['event_early'],
             subscriptionTier: 'free',
+            profileType: 'user',
             subscriptionStatus: 'active',
             activityLog: [],
             stats: {
@@ -302,6 +362,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       credits: 0,
       badges: ['event_early'],
       subscriptionTier: tier,
+      profileType: tier === 'pastor' ? 'pastor' : 'user',
       subscriptionStatus: 'active',
       activityLog: [],
       stats: { totalChaptersRead: 0, daysStreak: 1, studiesCreated: 0, totalDevotionalsRead: 0, totalNotes: 0, totalShares: 0, totalImagesGenerated: 0, totalChatMessages: 0, totalSermonsCreated: 0, totalVersesMarked: 0, totalQuizzesCompleted: 0, perfectQuizzes: 0 },
@@ -337,10 +398,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const checkFeatureAccess = (feature: keyof PlanFeatures): boolean => {
-    return true;
     const tier = userProfile?.subscriptionTier || 'free';
     const featuresMatrix = systemSettings?.featuresMatrix;
     const tierFeatures = featuresMatrix?.[tier];
+
+    if (['churchAdminPanel', 'cellCreation', 'aiSermonBuilder'].includes(feature) && canAccessPastoralWorkspace(userProfile)) {
+      return true;
+    }
 
     if (tierFeatures) return Boolean(tierFeatures?.[feature]);
 
@@ -366,7 +430,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const recordActivity = async (action: ActionType, details: string, meta: any = {}) => {
     if (!currentUser || !userProfile) return;
-    const { activityLog, lifetimeXp: newXp } = applyActivityRules({
+    const { activity, activityLog, lifetimeXp: newXp, stats } = applyActivityRules({
       profile: userProfile,
       action,
       details,
@@ -381,10 +445,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setNewUnlockedBadge(badge);
         addSystemNotification("Nova Conquista!", `Você desbloqueou o selo: ${badge.name}`, 'badge');
       }
+      if (badge.category !== 'level' && badge.requirementStat && badge.requirement && ((stats?.[badge.requirementStat] as number | undefined) ?? 0) >= badge.requirement && !newBadges.includes(badge.id)) {
+        newBadges.push(badge.id);
+        setNewUnlockedBadge(badge);
+        addSystemNotification("Nova Conquista!", `VocÃª desbloqueou o selo: ${badge.name}`, 'badge');
+      }
     });
 
-    await dbService.updateUserProfile(currentUser.id, { lifetimeXp: newXp, badges: newBadges, activityLog });
-    setUserProfile(prev => prev ? { ...prev, lifetimeXp: newXp, badges: newBadges, activityLog } : null);
+    await dbService.updateUserProfile(currentUser.id, { lifetimeXp: newXp, badges: newBadges, activityLog, stats });
+    if ((activity.meta?.xpGained ?? 0) > 0 && activity.meta?.manaEventKey) {
+      dbService.recordManaEvent({
+        userId: currentUser.id,
+        churchId: userProfile.churchData?.churchId ?? null,
+        groupId: userProfile.churchData?.groupId ?? null,
+        actorRole: toManaActorRole(userProfile),
+        actionType: action,
+        sourceType: meta.sourceType ?? undefined,
+        sourceId: meta.sourceId ?? meta.postId ?? meta.planId ?? meta.groupId ?? meta.serviceId ?? meta.commentId ?? undefined,
+        eventKey: activity.meta.manaEventKey,
+        xpAmount: activity.meta.xpGained,
+        occurredAt: activity.timestamp,
+        periodKey: activity.timestamp.slice(0, 10),
+        status: 'valid',
+        meta: activity.meta,
+      }).catch(() => undefined);
+    }
+    setUserProfile(prev => prev ? { ...prev, lifetimeXp: newXp, badges: newBadges, activityLog, stats } : null);
   };
 
   const markChapterCompleted = async (bookId: string, chapter: number) => {
@@ -399,11 +485,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lastActiveBookId: bookId,
         lastActiveChapter: chapter,
       };
-      const newStats = { ...userProfile.stats, totalChaptersRead: (userProfile.stats?.totalChaptersRead || 0) + 1 };
-      setUserProfile(prev => prev ? { ...prev, progress: newProgress as any, stats: newStats } : null);
-      await dbService.updateUserProfile(currentUser.id, { progress: newProgress, stats: newStats });
+      setUserProfile(prev => prev ? { ...prev, progress: newProgress as any } : null);
+      await dbService.updateUserProfile(currentUser.id, { progress: newProgress });
+      await recordActivity('reading_chapter', `Capitulo lido: ${bookId} ${chapter}`, { sourceId: `${bookId}-${chapter}` });
     }
-    await recordActivity('reading_chapter', `Capítulo lido: ${bookId} ${chapter}`, { xpGained: 20 });
   };
 
   const upgradeSubscription = async (tier: SubscriptionTier, duration: 'monthly' | 'yearly' = 'monthly') => {
@@ -439,17 +524,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isLoginModalOpen, intendedPath, openLogin, closeLogin, setIntendedPath,
       signIn, signInWithApple, signInWithEmail, signUpWithEmail, resetPassword, signOut,
       recordActivity, earnMana: (a, d) => recordActivity(a, d || 'Ação realizada'),
-      updateLastReadingPosition: (p) => currentUser ? dbService.updateUserProfile(currentUser.id, { lastReadingPosition: p }) : Promise.resolve(),
+      updateLastReadingPosition: async (p) => {
+        if (currentUser) await dbService.updateUserProfile(currentUser.id, { lastReadingPosition: p });
+      },
       markChapterCompleted,
       notification, showNotification: (m, t = 'info') => setNotification({ message: m, type: t }), clearNotification: () => setNotification(null),
       newUnlockedBadge, clearBadgeNotification: () => setNewUnlockedBadge(null),
       checkFeatureAccess, incrementUsage, upgradeSubscription, markNotificationsAsRead, addSystemNotification,
-      openSubscription: () => setNotification({ message: "Assinaturas desativadas temporariamente. Aproveite todos os recursos!", type: 'info' }),
+      openSubscription, closeSubscription, isSubscriptionModalOpen, subscriptionPrompt,
       isBuyCreditsModalOpen, openBuyCredits, closeBuyCredits, deductPoints, buyCredits,
       updateProfile: async (updates: Partial<UserProfile>) => {
         if (!currentUser) return;
-        await dbService.updateUserProfile(currentUser.id, updates);
-        setUserProfile(prev => prev ? { ...prev, ...updates } : null);
+        const persistedProfile = await dbService.updateUserProfile(currentUser.id, updates);
+        setUserProfile(prev => persistedProfile ?? (prev ? { ...prev, ...updates } : null));
       }
     }}>
       {!loading && children}

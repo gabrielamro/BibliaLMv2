@@ -20,6 +20,8 @@ import { cultoPlusService } from '../services/cultoPlusService';
 import { INSPIRATIONAL_VERSES, BIBLE_BOOKS_LIST } from '../constants';
 import { normalizeText } from '../utils/textUtils';
 import { getAgendaRange } from '../utils/cultoPlusCalendar';
+import { canAccessPastoralWorkspace } from '../utils/profileAccess';
+import ManaNudge from './ManaNudge';
 // O componente ActiveJourneys foi movido para o backlog (desativados)
 
 
@@ -61,7 +63,7 @@ const HomeDashboard: React.FC = () => {
             if (remoteConfig) setConfig(remoteConfig);
         };
         const loadUserPlans = async () => {
-            if (currentUser && userProfile?.subscriptionTier === 'pastor') {
+            if (currentUser && canAccessPastoralWorkspace(userProfile)) {
                 const plans = await dbService.getUserCustomPlans(currentUser.uid);
                 setUserPlans(plans.slice(0, 3));
             }
@@ -157,7 +159,7 @@ const HomeDashboard: React.FC = () => {
     };
 
     const hasReadingPlan = userProfile?.readingPlan?.isActive;
-    const isPastor = userProfile?.subscriptionTier === 'pastor';
+    const isPastor = canAccessPastoralWorkspace(userProfile);
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const currentScrollY = e.currentTarget.scrollTop;
 
@@ -447,25 +449,6 @@ const HomeDashboard: React.FC = () => {
                             </section>
                         )}
 
-                        {/* FONTE DE CONHECIMENTO (NEW CARD) */}
-                        <section className="animate-in fade-in slide-in-from-bottom-4">
-                            <div onClick={() => navigate('/fonte-conhecimento')} className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-800 cursor-pointer hover:border-bible-gold transition-all group relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-bible-gold/10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-                                <div className="flex items-center gap-4 relative z-10">
-                                    <div className="w-14 h-14 bg-bible-gold text-white rounded-2xl flex items-center justify-center shadow-lg">
-                                        <Crown size={28} />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Fonte de Conhecimento</h3>
-
-                                    </div>
-                                    <div className="ml-auto bg-gray-50 dark:bg-gray-800 p-2 rounded-full text-gray-400 group-hover:text-bible-gold transition-colors">
-                                        <ArrowRight size={20} />
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-
                         {/* Active Journeys */}
 
 
@@ -573,6 +556,9 @@ const HomeDashboard: React.FC = () => {
                                 <button onClick={() => navigate('/perfil')} className="w-full py-2 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-bold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                                     Ver Perfil Completo
                                 </button>
+                                <div className="mt-4">
+                                    <ManaNudge profile={userProfile || null} compact />
+                                </div>
                             </div>
                         )}
 

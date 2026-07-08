@@ -4,8 +4,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { generateChapterAudioStream } from '../services/pastorAgent';
 import { decodeAudioData } from '../utils/audioUtils';
+import { useAuth } from '../contexts/AuthContext';
 
 const useAudioNarration = (chapterText: string) => {
+  const { checkFeatureAccess, openSubscription } = useAuth();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -51,6 +53,11 @@ const useAudioNarration = (chapterText: string) => {
 
   const startNarration = useCallback(async () => {
     if (!chapterText) return;
+    if (!checkFeatureAccess('audioNarration')) {
+      openSubscription('A narracao de audio transforma o capitulo em uma experiencia de escuta e faz parte dos recursos avancados.');
+      return;
+    }
+
     stopAudio(true);
     setIsGenerating(true);
 
@@ -99,7 +106,7 @@ const useAudioNarration = (chapterText: string) => {
     } finally {
         setIsGenerating(false);
     }
-  }, [chapterText, playbackRate, stopAudio, updateProgress]);
+  }, [chapterText, playbackRate, stopAudio, updateProgress, checkFeatureAccess, openSubscription]);
 
   const togglePlayPause = useCallback(() => {
     if (isPlaying) {

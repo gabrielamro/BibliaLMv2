@@ -220,6 +220,8 @@ const SortableCanvasBlock: React.FC<SortableCanvasBlockProps> = ({
     transition,
     zIndex: isDragging ? 50 : undefined,
     gridColumn: gridColumn ?? (layoutUnits ? `span ${layoutUnits} / span ${layoutUnits}` : undefined),
+    marginTop: index === 0 ? 0 : paddingTop,
+    marginBottom: paddingBottom,
   };
 
   return (
@@ -387,6 +389,7 @@ const SortableCanvasBlock: React.FC<SortableCanvasBlockProps> = ({
         onUpdate={onUpdateBlock}
         authorName={authorName}
         canvasWidth={canvasWidth}
+        layoutWidth={layoutWidth || block.layoutWidth || block.data?.layoutWidth}
       />
     </div>
   );

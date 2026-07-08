@@ -7,7 +7,7 @@ import {
   List, ListOrdered, Minus,
   Undo, Redo,
   Link, Unlink,
-  BookOpen, Heart, Zap, Hand, LayoutTemplate, ChevronDown, ChevronRight, Paintbrush,
+  BookOpen, Heart, Zap, Hand, LayoutTemplate, ChevronDown, ChevronRight, Paintbrush, Type,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import PromptModal from '../../PromptModal';
@@ -43,12 +43,13 @@ const DEFAULT_CONTENT = `
 interface ToolbarProps {
   editorRef: React.RefObject<HTMLDivElement | null>;
   onExec: (cmd: string, val?: string) => void;
+  onFontSize: (delta: number) => void;
   onInsertHtml: (html: string) => void;
 }
 
 const Divider = () => <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5 flex-shrink-0" />;
 
-const FullToolbar: React.FC<ToolbarProps> = ({ onExec, onInsertHtml }) => {
+const FullToolbar: React.FC<ToolbarProps> = ({ onExec, onFontSize, onInsertHtml }) => {
   const [showBlocks, setShowBlocks] = useState(false);
   const [showColor, setShowColor] = useState(false);
   const [showHeadingMenu, setShowHeadingMenu] = useState(false);
@@ -160,6 +161,28 @@ const FullToolbar: React.FC<ToolbarProps> = ({ onExec, onInsertHtml }) => {
       <B title="Itálico (Ctrl+I)" icon={<Italic size={15} />} cmd="italic" />
       <B title="Sublinhado (Ctrl+U)" icon={<Underline size={15} />} cmd="underline" />
       <B title="Tachado" icon={<Strikethrough size={15} />} cmd="strikeThrough" />
+
+      <Divider />
+
+      {/* Font size */}
+      <button
+        type="button"
+        title="Diminuir fonte"
+        aria-label="Diminuir fonte"
+        onMouseDown={(e) => { e.preventDefault(); onFontSize(-2); }}
+        className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 transition-all flex-shrink-0"
+      >
+        <Type size={13} />
+      </button>
+      <button
+        type="button"
+        title="Aumentar fonte"
+        aria-label="Aumentar fonte"
+        onMouseDown={(e) => { e.preventDefault(); onFontSize(2); }}
+        className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 transition-all flex-shrink-0"
+      >
+        <Type size={18} />
+      </button>
 
       <Divider />
 
@@ -342,6 +365,45 @@ export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, is
     }
   }, [data, onUpdate]);
 
+  const changeFontSize = useCallback((delta: number) => {
+    const editorEl = editorRef.current;
+    if (!editorEl) return;
+
+    editorEl.focus();
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+    if (!editorEl.contains(range.commonAncestorContainer)) return;
+
+    const currentElement = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+      ? range.commonAncestorContainer as HTMLElement
+      : range.commonAncestorContainer.parentElement;
+    const computedSize = currentElement ? parseFloat(window.getComputedStyle(currentElement).fontSize) : 17;
+    const nextSize = Math.min(72, Math.max(10, Math.round(computedSize + delta)));
+
+    if (selection.isCollapsed) {
+      const target = currentElement && editorEl.contains(currentElement) ? currentElement : editorEl;
+      target.style.fontSize = `${nextSize}px`;
+    } else {
+      const span = document.createElement('span');
+      span.style.fontSize = `${nextSize}px`;
+      try {
+        const contents = range.extractContents();
+        span.appendChild(contents);
+        range.insertNode(span);
+        selection.removeAllRanges();
+        const nextRange = document.createRange();
+        nextRange.selectNodeContents(span);
+        selection.addRange(nextRange);
+      } catch {
+        document.execCommand('fontSize', false, nextSize >= computedSize ? '4' : '2');
+      }
+    }
+
+    onUpdate?.({ ...data, content: editorEl.innerHTML });
+  }, [data, onUpdate]);
+
   return (
     <div className="w-full h-full flex flex-col bg-white dark:bg-[#1c1917] rounded-2xl overflow-hidden border border-gray-200/70 dark:border-white/5 shadow-sm">
       <style>{`
@@ -354,6 +416,7 @@ export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, is
           caret-color: #c5a059;
           overflow-wrap: anywhere;
           word-break: normal;
+          text-align: justify;
         }
         .dark .rtb-editor { color: #e7e5e4; background: #1c1917; }
         .rtb-editor:focus { outline: none; }
@@ -385,7 +448,13 @@ export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, is
           color: #57534e; margin: 1em 0 0.4em 0;
         }
         .dark .rtb-editor h3 { color: #a8a29e; }
-        .rtb-editor p { margin: 0 0 0.85em 0; }
+        .rtb-editor p { margin: 0 0 0.85em 0; text-align: justify; }
+        .rtb-editor p[style*="text-align:center"],
+        .rtb-editor p[style*="text-align: center"] { text-align: center; }
+        .rtb-editor p[style*="text-align:right"],
+        .rtb-editor p[style*="text-align: right"] { text-align: right; }
+        .rtb-editor p[style*="text-align:left"],
+        .rtb-editor p[style*="text-align: left"] { text-align: left; }
         .rtb-editor p:empty { display: none; }
         .rtb-editor blockquote {
           border-left: 4px solid #c5a059;
@@ -397,9 +466,9 @@ export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, is
           color: #57534e;
         }
         .dark .rtb-editor blockquote { color: #a8a29e; background: rgba(197,160,89,0.1); }
-        .rtb-editor ul { list-style: disc; padding-left: 1.5em; margin: 0 0 0.85em 0; }
-        .rtb-editor ol { list-style: decimal; padding-left: 1.5em; margin: 0 0 0.85em 0; }
-        .rtb-editor li { margin-bottom: 0.3em; }
+        .rtb-editor ul { list-style: disc; padding-left: 1.5em; margin: 0 0 0.85em 0; text-align: justify; }
+        .rtb-editor ol { list-style: decimal; padding-left: 1.5em; margin: 0 0 0.85em 0; text-align: justify; }
+        .rtb-editor li { margin-bottom: 0.3em; text-align: justify; }
         .rtb-editor strong, .rtb-editor b { font-weight: 700; }
         .rtb-editor em, .rtb-editor i { font-style: italic; }
         .rtb-editor u { text-decoration: underline; }
@@ -414,6 +483,7 @@ export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, is
         <FullToolbar
           editorRef={editorRef}
           onExec={execFormat}
+          onFontSize={changeFontSize}
           onInsertHtml={insertHtml}
         />
       )}

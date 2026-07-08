@@ -39,6 +39,8 @@ interface PlanStudioShellProps {
   onOpenEvaluation: () => void;
   onGenerateWithAI: () => void;
   onImportLessons: () => void;
+  detailsValidationError?: string | null;
+  detailsForceOpenSignal?: number;
 }
 
 const PlanStudioShell: React.FC<PlanStudioShellProps> = (props) => {
@@ -48,7 +50,7 @@ const PlanStudioShell: React.FC<PlanStudioShellProps> = (props) => {
   const showEvaluation = props.activeTab === 'evaluation';
 
   return (
-    <div className="min-h-[100dvh] bg-purple-50/70 text-gray-950 dark:bg-black dark:text-white">
+    <div className="flex h-[100dvh] flex-col overflow-y-auto overscroll-contain bg-purple-50/70 text-gray-950 dark:bg-black dark:text-white">
       <PlanStudioHeader
         plan={props.plan}
         savedPlanId={props.savedPlanId}
@@ -60,7 +62,7 @@ const PlanStudioShell: React.FC<PlanStudioShellProps> = (props) => {
         onPreview={props.onPreview}
       />
 
-      <main className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 lg:p-8">
+      <main className="mx-auto flex w-full max-w-[1500px] flex-1 flex-col gap-6 p-4 pb-24 lg:p-8">
         <PlanStudioTabs activeTab={props.activeTab} onChange={props.onTabChange} />
 
         {showEvaluation ? (
@@ -90,6 +92,8 @@ const PlanStudioShell: React.FC<PlanStudioShellProps> = (props) => {
               onAttachCover={props.onAttachCover}
               isGeneratingCover={props.isGeneratingCover}
               isUploadingCover={props.isUploadingCover}
+              validationError={props.detailsValidationError}
+              forceOpenSignal={props.detailsForceOpenSignal}
             />
           )}
 

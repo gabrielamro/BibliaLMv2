@@ -15,7 +15,7 @@ import SocialNavigation from '../../components/SocialNavigation';
 const PostViewPage: React.FC = () => {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -23,7 +23,7 @@ const PostViewPage: React.FC = () => {
     const fetchPost = async () => {
         if (!postId) return;
         try {
-            const found = await dbService.getPost(postId);
+            const found = await dbService.getPost(postId, userProfile);
             if (found) {
                 setPost(found);
                 dbService.incrementMetric('posts', postId, 'views')
@@ -39,7 +39,7 @@ const PostViewPage: React.FC = () => {
         }
     };
     fetchPost();
-  }, [postId]);
+  }, [postId, userProfile]);
 
   if (loading) return <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-bible-gold" /></div>;
 

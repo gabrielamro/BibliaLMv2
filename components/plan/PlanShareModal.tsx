@@ -108,8 +108,8 @@ const PlanShareModal: React.FC<Props> = ({
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-bible-darkPaper">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-bible-darkPaper">
           <div>
-            <h2 id="plan-share-title" className="text-base font-black text-gray-900 dark:text-white">Compartilhar sala</h2>
-            <p className="mt-1 text-xs font-medium text-gray-500">Controle o link, o acesso e a distribuicao desta preview.</p>
+            <h2 id="plan-share-title" className="text-base font-black text-gray-900 dark:text-white">Privacidade e convites</h2>
+            <p className="mt-1 text-xs font-medium text-gray-500">Controle quem pode acessar as aulas, copie o link ou convide pessoas.</p>
           </div>
           <button type="button" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800" aria-label="Fechar">
             <X size={18} />
@@ -118,7 +118,7 @@ const PlanShareModal: React.FC<Props> = ({
 
         <div className="space-y-5 p-4 md:p-6">
           <section className="space-y-3">
-            <label htmlFor="plan-share-url" className="text-[10px] font-black uppercase tracking-widest text-gray-400">Link para compartilhar</label>
+            <label htmlFor="plan-share-url" className="text-[10px] font-black uppercase tracking-widest text-gray-400">Link da sala</label>
             <div className="flex flex-col gap-2 sm:flex-row">
               <input
                 id="plan-share-url"
@@ -140,7 +140,7 @@ const PlanShareModal: React.FC<Props> = ({
           <section className="grid gap-3 md:grid-cols-2">
             {[
               { id: 'public', label: 'Publico', icon: Globe, text: 'Qualquer pessoa com o link pode acessar.' },
-              { id: 'invite_only', label: 'Privado', icon: Lock, text: 'Somente usuarios definidos acessam.' },
+              { id: 'invite_only', label: 'Convite', icon: Lock, text: 'Somente usuarios convidados acessam.' },
               { id: 'church', label: 'Igreja', icon: Users, text: 'Membros da igreja do pastor.' },
               { id: 'group', label: 'Grupo', icon: Users, text: 'Um grupo especifico da igreja.' },
             ].map((item) => {
@@ -162,7 +162,7 @@ const PlanShareModal: React.FC<Props> = ({
 
           {requiresUsers && (
             <section className="space-y-2">
-              <label htmlFor="plan-share-users" className="text-[10px] font-black uppercase tracking-widest text-gray-400">Quem pode acessar</label>
+              <label htmlFor="plan-share-users" className="text-[10px] font-black uppercase tracking-widest text-gray-400">Convidar usuarios</label>
               <input
                 id="plan-share-users"
                 value={userIdsText}

@@ -38,7 +38,6 @@ import {
   normalizeAIBuildBlocks
 } from '../components/Builder';
 import { ImageUploadButton } from '../components/Builder/ImageUploadButton';
-import ObreiroIAChatbot from '../components/ObreiroIAChatbot';
 import type { ContentPrivacyLevel } from '../types';
 import {
   buildContentSharePostContent,
@@ -82,9 +81,9 @@ interface ContentData {
 // Template de estrutura por tipo (Roadmap V2)
 const coreOnePageBlocks: BlockType[] = ['hero-split', 'biblical', 'study-outline', 'rich-text', 'related-verses', 'slide', 'reflection-question', 'authority', 'footer'];
 
-const initialOnePageLayout: { type: BlockType; layoutWidth?: '1/1' | '1/2' | '1/3' | '2/3' }[] = [
+const initialOnePageLayout: { type: BlockType; layoutWidth?: '1/1' | '1/2' | '1/3' }[] = [
   { type: 'hero-split', layoutWidth: '1/1' },
-  { type: 'biblical', layoutWidth: '2/3' },
+  { type: 'biblical', layoutWidth: '1/2' },
   { type: 'study-outline', layoutWidth: '1/3' },
   { type: 'rich-text', layoutWidth: '1/1' },
   { type: 'slide', layoutWidth: '1/1' },
@@ -93,6 +92,18 @@ const initialOnePageLayout: { type: BlockType; layoutWidth?: '1/1' | '1/2' | '1/
   { type: 'footer', layoutWidth: '1/1' },
   { type: 'reflection-question', layoutWidth: '1/1' },
 ];
+
+const aiOnePageLayoutWidths: Partial<Record<BlockType, NonNullable<Block['layoutWidth']>>> = {
+  'hero-split': '1/1',
+  biblical: '1/2',
+  'study-outline': '1/3',
+  'rich-text': '1/1',
+  slide: '1/1',
+  'related-verses': '1/1',
+  authority: '1/1',
+  footer: '1/1',
+  'reflection-question': '1/1',
+};
 
 const contentTemplates: Record<ContentType, any[]> = {
   article: initialOnePageLayout,
@@ -648,7 +659,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
             }
 
             // Forçar layoutWidth: 1) valor do Roadmap por índice, 2) valor por tipo, 3) valor da IA, 4) fallback 1/1
-            const enforcedWidth = b.layoutWidth || '1/1';
+            const enforcedWidth = aiOnePageLayoutWidths[b.type as BlockType] || b.layoutWidth || b.data?.layoutWidth || '1/1';
 
             // Lógica dinâmica para Related Verses: Ajusta largura baseada na quantidade (1=1/3, 2=1/2, 3+=1/1)
 
@@ -656,7 +667,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
               id: b.id,
               type: b.type,
               layoutWidth: enforcedWidth,
-              data: b.data
+              data: { ...(b.data || {}), layoutWidth: enforcedWidth }
             };
           });
 
@@ -853,7 +864,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
 
   const savePreviewShareSettings = async () => {
     if (!content.id) {
-      showNotification('Gere o preview antes de salvar as configuracoes de compartilhamento.', 'warning');
+      showNotification('Gere o preview antes de salvar as configurações de compartilhamento.', 'warning');
       return;
     }
 
@@ -890,7 +901,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
       showNotification('Configuracoes de compartilhamento salvas.', 'success');
     } catch (error) {
       console.error('Erro ao salvar compartilhamento:', error);
-      showNotification('Erro ao salvar configuracoes de compartilhamento.', 'error');
+      showNotification('Erro ao salvar configurações de compartilhamento.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -899,7 +910,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
   const sharePreviewToFeed = async () => {
     if (!currentUser || !content.id) return;
     if ((content.meta.visibility || 'public') !== 'public') {
-      showNotification('Somente conteudos publicos podem ser compartilhados no Feed do Reino.', 'warning');
+      showNotification('Somente conteúdos públicos podem ser compartilhados no Feed do Reino.', 'warning');
       return;
     }
 
@@ -927,9 +938,9 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
       try {
         await recordActivity?.('social_post', `Compartilhou o estudo ${content.meta.title || 'sem titulo'} no Reino`);
       } catch (activityError) {
-        console.warn('Conteudo compartilhado, mas a atividade nao foi registrada.', activityError);
+        console.warn('Conteúdo compartilhado, mas a atividade não foi registrada.', activityError);
       }
-      showNotification('Conteudo compartilhado no Feed do Reino.', 'success');
+      showNotification('Conteúdo compartilhado no Feed do Reino.', 'success');
       setShowShareSettings(false);
       navigate('/social', { state: { refreshFeed: true } });
     } catch (error) {
@@ -1343,18 +1354,18 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                   </div>
 
                   {/* Botão Central de Adicionar Bloco */}
-                  <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] xl:hidden flex flex-col items-center">
+                  <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[110] xl:hidden flex flex-col items-center pb-[env(safe-area-inset-bottom)]">
                     <button
                       onClick={() => setIsMobileAddMenuOpen(true)}
-                      className="w-20 h-20 bg-gradient-to-br from-indigo-600 to-violet-700 text-white rounded-full shadow-[0_10px_30px_-5px_rgba(79,70,229,0.5)] flex items-center justify-center active:scale-90 transition-all hover:scale-105 border-4 border-white dark:border-gray-900 group"
+                      className="w-14 h-14 bg-gradient-to-br from-indigo-600 to-violet-700 text-white rounded-2xl shadow-[0_10px_24px_-8px_rgba(79,70,229,0.55)] flex items-center justify-center active:scale-90 transition-all hover:scale-105 border-2 border-white dark:border-gray-900 group"
                       aria-label="Adicionar Bloco"
                     >
                       <div className="relative">
-                        <Plus size={36} className="group-hover:rotate-90 transition-transform duration-500" />
-                        <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-white rounded-full animate-ping" />
+                        <Plus size={26} className="group-hover:rotate-90 transition-transform duration-500" />
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white rounded-full animate-ping" />
                       </div>
                     </button>
-                    <span className="text-[10px] font-black uppercase tracking-widest mt-2 text-bible-gold drop-shadow-sm">Novo Bloco</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest mt-1.5 text-bible-gold drop-shadow-sm">Novo Bloco</span>
                   </div>
                 </>
               )}
@@ -1827,19 +1838,14 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                       : 'max-w-7xl rounded-2xl'
                   }`}>
                   <div className="w-full h-full p-6 md:p-12 lg:px-20">
-                    {Array.isArray(content.blocks) ? (
-                      content.blocks.map(block => (
-                        <BlockRenderer key={block.id} block={block} isEditing={false} authorName={currentUser?.displayName} canvasWidth={canvasWidth} />
-                      ))
-                    ) : (
-                      <UnifiedEditor
-                        content={content.blocks}
-                        readOnly={true}
-                        onChange={() => { }}
-                        studyId={content.id || content.slug}
-                        studyTitle={content.meta.title}
-                      />
-                    )}
+                    <UnifiedEditor
+                      content={content.blocks}
+                      readOnly={true}
+                      onChange={() => { }}
+                      canvasWidth={canvasWidth}
+                      studyId={content.id || content.slug}
+                      studyTitle={content.meta.title}
+                    />
                   </div>
                 </div>
               </main>
@@ -1917,12 +1923,12 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
 
                       <section className="space-y-3 rounded-xl border border-bible-gold/20 bg-bible-gold/5 p-3">
                         <label className="text-[10px] font-black uppercase tracking-widest text-bible-gold">Feed do Reino</label>
-                        <textarea value={shareFeedDescription} onChange={event => setShareFeedDescription(event.target.value)} placeholder="Escreva uma descricao breve para edificar quem vera no Feed do Reino..." className="min-h-20 w-full resize-none rounded-xl border border-bible-gold/20 bg-white px-3 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-bible-gold/30 dark:bg-gray-900" />
+                        <textarea value={shareFeedDescription} onChange={event => setShareFeedDescription(event.target.value)} placeholder="Escreva uma descrição breve para edificar quem verá no Feed do Reino..." className="min-h-20 w-full resize-none rounded-xl border border-bible-gold/20 bg-white px-3 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-bible-gold/30 dark:bg-gray-900" />
                         <button onClick={sharePreviewToFeed} disabled={isSharingToFeed || (content.meta.visibility || 'public') !== 'public'} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-bible-leather px-4 text-xs font-black uppercase tracking-widest text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-bible-gold dark:text-black">
                           {isSharingToFeed ? <Loader2 className="animate-spin" size={15} /> : <Send size={15} />}
                           Compartilhar no Feed do Reino
                         </button>
-                        {(content.meta.visibility || 'public') !== 'public' && <p className="text-xs font-medium text-gray-500">Para evitar link inacessivel, publique no feed apenas conteudos publicos.</p>}
+                        {(content.meta.visibility || 'public') !== 'public' && <p className="text-xs font-medium text-gray-500">Para evitar link inacessível, publique no feed apenas conteúdos públicos.</p>}
                       </section>
                     </div>
 
@@ -1930,7 +1936,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                       <button onClick={() => setShowShareSettings(false)} className="min-h-11 rounded-xl px-4 text-xs font-black uppercase tracking-widest text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">Cancelar</button>
                       <button onClick={savePreviewShareSettings} disabled={isSaving} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-bible-gold px-5 text-xs font-black uppercase tracking-widest text-white shadow-md disabled:opacity-50">
                         {isSaving ? <Loader2 className="animate-spin" size={15} /> : <Check size={15} />}
-                        Salvar configuracoes
+                        Salvar configurações
                       </button>
                     </div>
                   </div>
@@ -2049,7 +2055,6 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
   return (
     <>
       {renderStepContent()}
-      <ObreiroIAChatbot />
     </>
   );
 };

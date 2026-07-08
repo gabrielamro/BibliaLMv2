@@ -9,10 +9,13 @@ import {
   ServiceCheckin,
   ServiceLiveState,
   ServiceLiturgyItem,
+  ServiceLiturgyKind,
   ServiceMinistry,
   ServiceMinistryMember,
   ServiceNote,
   ServicePrayerRequest,
+  ServicePublicInvite,
+  ServicePublicInviteStatus,
   ServiceReactionSummary,
   ServiceReactionType,
   ServiceScheduleAssignment,
@@ -23,6 +26,15 @@ import {
 } from '../types';
 import { generateSlug } from '../utils/textUtils';
 import { formatSupabaseError, getMissingColumnNameFromError, isMissingColumnError } from '../utils/supabaseErrors';
+import {
+  getCurrentLiturgyMoment,
+  getExperienceMoments,
+  getNextLiturgyMoment,
+  resolveServiceStreamStatus,
+  resolveWorshipExperienceMode,
+  type ServiceExperienceMoment,
+  type WorshipExperienceMode,
+} from '../utils/cultoPlusExperience';
 import { generateChurchServicePlanning, generateSermonOutline, generateSpecificPrayer } from './pastorAgent';
 
 type CreateChurchServiceInput = {
@@ -92,6 +104,40 @@ export type UserCheckedInService = {
   checkedInAt: string;
 };
 
+export type ServiceExperienceDTO = {
+  service: ChurchService;
+  mode: WorshipExperienceMode;
+  stream: {
+    status: ReturnType<typeof resolveServiceStreamStatus>;
+    liveUrl?: string;
+    replayUrl?: string;
+  };
+  currentMoment: ServiceLiturgyItem | null;
+  nextMoment: ServiceLiturgyItem | null;
+  moments: ServiceExperienceMoment[];
+  liveState: ServiceLiveState | null;
+  participation: ChurchServiceStats & {
+    reactions: ServiceReactionSummary;
+  };
+  viewer: {
+    isAuthenticated: boolean;
+    checkedIn: boolean;
+    canCheckIn: boolean;
+    canManageService: boolean;
+    canViewServiceSchedule: boolean;
+    canViewMyAssignment: boolean;
+    myAssignments: ServiceScheduleAssignment[];
+    notes: ServiceNote[];
+    savedKeyVerse: boolean;
+  };
+  content: {
+    publicPrayers: ServicePrayerRequest[];
+    posts: Post[];
+    scheduleAssignments: ServiceScheduleAssignment[];
+    nextService?: ChurchService;
+  };
+};
+
 const SERVICE_STORAGE_KEY = 'biblialm.cultoPlus.services';
 const CHECKIN_STORAGE_KEY = 'biblialm.cultoPlus.checkins';
 const NOTE_STORAGE_KEY = 'biblialm.cultoPlus.notes';
@@ -106,6 +152,7 @@ const MINISTRY_MEMBER_STORAGE_KEY = 'biblialm.cultoPlus.ministryMembers';
 const SCHEDULE_STORAGE_KEY = 'biblialm.cultoPlus.schedules';
 const LIVE_STATE_STORAGE_KEY = 'biblialm.cultoPlus.liveStates';
 const AI_CONTENT_STORAGE_KEY = 'biblialm.cultoPlus.aiContent';
+const PUBLIC_INVITE_STORAGE_KEY = 'biblialm.cultoPlus.publicInvites';
 
 export const CULTO_PLUS_PLAN_MATRIX = {
   free: { tier: 'free', label: 'Gratuito', monthlyServiceLimit: 4, dashboard: true, ai: false, schedules: false, advancedQr: false, branding: false, exports: false, advancedAnalytics: false },
@@ -251,6 +298,89 @@ const getLocalServiceNotes = (serviceId: string, userId: string) =>
     .filter((note) => note.serviceId === serviceId && note.userId === userId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+const getLocalUserServiceNotes = (userId: string) =>
+  readStorage<ServiceNote[]>(NOTE_STORAGE_KEY, [])
+    .filter((note) => note.userId === userId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+const mapServicePublicInvite = (row: any): ServicePublicInvite => ({
+  id: row.id,
+  serviceId: row.service_id,
+  churchId: row.church_id,
+  invitedByUserId: row.invited_by_user_id ?? null,
+  invitedByName: row.invited_by_name ?? null,
+  invitedUserId: row.invited_user_id ?? null,
+  invitedName: row.invited_name ?? null,
+  token: row.token,
+  status: row.status as ServicePublicInviteStatus,
+  source: row.source ?? 'share',
+  openedAt: row.opened_at ?? null,
+  acceptedAt: row.accepted_at ?? null,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at ?? null,
+});
+
+const getServiceViewerPermissions = async (service: ChurchService, userId?: string) => {
+  const fallback = {
+    canManageService: Boolean(userId && service.createdBy === userId),
+    canViewServiceSchedule: false,
+  };
+  if (!userId) return fallback;
+
+  try {
+    const [
+      { data: roles, error: rolesError },
+      { data: teams, error: teamsError },
+      { data: church, error: churchError },
+    ] = await Promise.all([
+      supabase
+        .from('church_member_roles')
+        .select('role, scope_type, scope_id')
+        .eq('church_id', service.churchId)
+        .eq('user_id', userId)
+        .eq('status', 'active'),
+      supabase
+        .from('church_service_teams')
+        .select('id, leader_id')
+        .eq('church_id', service.churchId)
+        .eq('status', 'active'),
+      supabase
+        .from('churches')
+        .select('admins')
+        .eq('id', service.churchId)
+        .maybeSingle(),
+    ]);
+    if (rolesError) throw rolesError;
+    if (teamsError) throw teamsError;
+    if (churchError) throw churchError;
+
+    const isCreator = service.createdBy === userId;
+    const legacyAdmins = Array.isArray(church?.admins) ? church.admins : [];
+    const isLegacyChurchAdmin = legacyAdmins.includes(userId);
+    const isChurchManager = (roles ?? []).some((role: any) =>
+      role.role === 'church_manager' || role.role === 'pastor'
+    );
+    const isTeamLeader = (teams ?? []).some((team: any) => team.leader_id === userId);
+    const isTeamMember = (roles ?? []).some((role: any) =>
+      role.scope_type === 'team' && Boolean(role.scope_id)
+    );
+    const isChurchLeader = (roles ?? []).some((role: any) =>
+      role.role === 'leader' && (role.scope_type === 'church' || role.scope_type === 'team')
+    );
+
+    return {
+      canManageService: isCreator || isChurchManager || isLegacyChurchAdmin,
+      canViewServiceSchedule: isCreator || isChurchManager || isLegacyChurchAdmin || isTeamLeader || isTeamMember || isChurchLeader,
+    };
+  } catch (error) {
+    const message = formatSupabaseError(error).toLowerCase();
+    if (!message.includes('church_member_roles') && !message.includes('church_service_teams')) {
+      console.warn('Nao foi possivel resolver permissoes do culto:', error);
+    }
+    return fallback;
+  }
+};
+
 const emptyReactionSummary = (): ServiceReactionSummary => ({ amen: 0, glory: 0, hallelujah: 0 });
 
 const mapMinistry = (row: any): ServiceMinistry => ({
@@ -314,6 +444,11 @@ const buildServiceContext = (service: ChurchService, notes = '') =>
       `${item.startsAt} ${item.title}`,
       item.songList ? `musicas: ${item.songList.replace(/\n/g, ', ')}` : '',
       item.verseRef ? `texto: ${item.verseRef} ${item.verseText ?? ''}` : '',
+      item.scriptureReadingRef ? `leitura biblica: ${item.scriptureReadingRef} ${item.scriptureReadingText ?? ''}` : '',
+      item.leaderScript ? `fala do dirigente: ${item.leaderScript}` : '',
+      item.prayerGuide ? `guia de oracao: ${item.prayerGuide}` : '',
+      item.transitionText ? `transicao: ${item.transitionText}` : '',
+      item.sermonPoints?.length ? `pontos: ${item.sermonPoints.join('; ')}` : '',
       item.notes ? `notas: ${item.notes}` : '',
     ].filter(Boolean).join(' - ')).join(' | ')}`,
     notes ? `Anotacoes/sermao: ${notes}` : '',
@@ -322,21 +457,71 @@ const buildServiceContext = (service: ChurchService, notes = '') =>
 const SERVICE_TYPE_VALUES: ChurchServiceType[] = ['sunday', 'youth', 'women', 'cell', 'conference', 'vigil', 'communion', 'other'];
 const LITURGY_KIND_VALUES = ['entrance', 'opening', 'worship', 'word', 'offering', 'prayer', 'response', 'closing', 'other'] as const;
 const PIX_KEY_TYPE_VALUES = ['cpf', 'phone', 'email', 'random'] as const;
+const LITURGY_KIND_ALIASES: Record<string, ServiceLiturgyKind> = {
+  entrada: 'entrance',
+  recepcao: 'entrance',
+  recepção: 'entrance',
+  abertura: 'opening',
+  louvor: 'worship',
+  adoracao: 'worship',
+  adoração: 'worship',
+  palavra: 'word',
+  pregacao: 'word',
+  pregação: 'word',
+  mensagem: 'word',
+  oferta: 'offering',
+  ofertas: 'offering',
+  dizimos: 'offering',
+  dizimos_ofertas: 'offering',
+  dizimos_e_ofertas: 'offering',
+  dízimos: 'offering',
+  oracao: 'prayer',
+  oração: 'prayer',
+  intercessao: 'prayer',
+  intercessão: 'prayer',
+  resposta: 'response',
+  apelo: 'response',
+  encerramento: 'closing',
+  final: 'closing',
+};
+
+const normalizeLiturgyKind = (value: unknown): ServiceLiturgyKind => {
+  const raw = String(value || '').trim().toLowerCase();
+  if (LITURGY_KIND_VALUES.includes(raw as ServiceLiturgyKind)) return raw as ServiceLiturgyKind;
+  return LITURGY_KIND_ALIASES[raw] ?? 'other';
+};
+
+const getPlanningItems = (raw: any) => {
+  if (Array.isArray(raw?.liturgyItems)) return raw.liturgyItems;
+  if (Array.isArray(raw?.timeline)) return raw.timeline;
+  if (Array.isArray(raw?.programacao)) return raw.programacao;
+  if (Array.isArray(raw?.programação)) return raw.programação;
+  if (Array.isArray(raw?.items)) return raw.items;
+  return [];
+};
 
 const normalizePlanningSuggestion = (raw: any): CultoPlusPlanningSuggestion => {
   const serviceType = SERVICE_TYPE_VALUES.includes(raw?.serviceType) ? raw.serviceType : 'sunday';
-  const liturgyItems = Array.isArray(raw?.liturgyItems)
-    ? raw.liturgyItems
-        .filter((item: any) => LITURGY_KIND_VALUES.includes(item?.kind))
+  const liturgyItems = getPlanningItems(raw)
         .map((item: any, index: number) => ({
-          id: `ai_${item.kind}_${index}`,
-          kind: item.kind,
-          title: String(item.title || '').slice(0, 80),
-          startsAt: String(item.startsAt || '').match(/^\d{2}:\d{2}$/) ? item.startsAt : undefined,
+          id: `ai_${normalizeLiturgyKind(item.kind ?? item.type ?? item.tipo)}_${index}`,
+          kind: normalizeLiturgyKind(item.kind ?? item.type ?? item.tipo),
+          title: String(item.title || item.titulo || item.name || item.nome || '').slice(0, 80),
+          startsAt: String(item.startsAt || item.time || item.horario || item.horário || '').match(/^\d{2}:\d{2}$/)
+            ? String(item.startsAt || item.time || item.horario || item.horário)
+            : undefined,
           responsible: String(item.responsible || '').slice(0, 80),
-          notes: String(item.notes || '').slice(0, 800),
+          notes: String(item.notes || item.descricao || item.descrição || item.description || '').slice(0, 800),
           verseRef: String(item.verseRef || '').slice(0, 40),
           verseText: String(item.verseText || '').slice(0, 600),
+          scriptureReadingRef: String(item.scriptureReadingRef || item.readingRef || item.leituraRef || '').slice(0, 40),
+          scriptureReadingText: String(item.scriptureReadingText || item.readingText || item.leituraTexto || '').slice(0, 900),
+          leaderScript: String(item.leaderScript || item.hostScript || item.falaDirigente || item.fala || '').slice(0, 900),
+          prayerGuide: String(item.prayerGuide || item.oracao || item.oração || '').slice(0, 900),
+          transitionText: String(item.transitionText || item.transicao || item.transição || '').slice(0, 500),
+          sermonPoints: Array.isArray(item.sermonPoints || item.pontos)
+            ? (item.sermonPoints || item.pontos).map((point: any) => String(point || '').slice(0, 180)).filter(Boolean).slice(0, 5)
+            : [],
           songList: Array.isArray(item.songs)
             ? item.songs.map((song: any) => String(song || '').slice(0, 120)).filter(Boolean).join('\n')
             : String(item.songList || '').slice(0, 600),
@@ -344,7 +529,7 @@ const normalizePlanningSuggestion = (raw: any): CultoPlusPlanningSuggestion => {
           pixKey: String(item.pixKey || '').slice(0, 160),
           sortOrder: index,
         }))
-    : [];
+        .filter((item: Partial<ServiceLiturgyItem>) => item.title || item.notes || item.kind !== 'other');
 
   return {
     title: String(raw?.title || '').slice(0, 80),
@@ -352,6 +537,29 @@ const normalizePlanningSuggestion = (raw: any): CultoPlusPlanningSuggestion => {
     serviceType,
     pastoralFocus: String(raw?.pastoralFocus || '').slice(0, 500),
     liturgyItems,
+  };
+};
+
+const fallbackServicePlanning = (
+  verseReference: string,
+  verseText: string,
+  userPrompt: string,
+): CultoPlusPlanningSuggestion => {
+  const theme = userPrompt.trim() || `Culto baseado em ${verseReference}`;
+  return {
+    title: 'Culto de Celebracao',
+    theme: theme.slice(0, 120),
+    serviceType: 'sunday',
+    pastoralFocus: `Conduzir a igreja a ouvir, responder e praticar ${verseReference}.`,
+    liturgyItems: [
+      { kind: 'entrance', title: 'Recepcao e ambiente', startsAt: '18:45', leaderScript: 'Seja bem-vindo. Que este seja um tempo de reverencia, comunhao e escuta da Palavra de Deus.', transitionText: 'Vamos preparar o coracao para iniciar o culto.', notes: 'Receba a igreja com acolhimento e prepare o coracao para o culto.' },
+      { kind: 'opening', title: 'Abertura e oracao', startsAt: '19:00', leaderScript: `Abrimos este culto reconhecendo a presenca de Deus e pedindo que sua Palavra em ${verseReference} guie nossa resposta.`, prayerGuide: 'Ore agradecendo pela presenca de Deus, confessando dependencia e pedindo coracoes atentos.', notes: `Abrimos este culto reconhecendo a presenca de Deus e pedindo que sua Palavra em ${verseReference} guie nossa resposta.` },
+      { kind: 'worship', title: 'Louvor e adoracao', startsAt: '19:15', leaderScript: 'Cantamos para declarar quem Deus e e responder com gratidao ao seu cuidado.', transitionText: 'Depois do louvor, seguiremos para a leitura e proclamacao da Palavra.', notes: 'Momento de adoracao congregacional em resposta a graca de Deus.' },
+      { kind: 'word', title: 'Palavra', startsAt: '19:50', verseRef: verseReference, verseText, scriptureReadingRef: verseReference, scriptureReadingText: verseText, sermonPoints: ['Ouvir o texto com humildade', 'Responder em fe e obediencia', 'Praticar a Palavra durante a semana'], leaderScript: `A leitura biblica de hoje esta em ${verseReference}.`, notes: `${verseReference}: ${verseText}` },
+      { kind: 'offering', title: 'Dizimos e ofertas', startsAt: '20:35', notes: 'Contribuimos com gratidao, reconhecendo que tudo vem do Senhor.' },
+      { kind: 'prayer', title: 'Resposta e intercessao', startsAt: '20:45', prayerGuide: 'Ore para que a Palavra produza fe, arrependimento e obediencia concreta na igreja.', notes: 'Ore para que a Palavra produza fe, arrependimento e obediencia concreta.' },
+      { kind: 'closing', title: 'Encerramento', startsAt: '20:55', leaderScript: 'Encerramos este culto enviados para viver a Palavra com fidelidade e amor.', transitionText: 'Compartilhe esta mensagem e caminhe com a igreja durante a semana.', notes: 'Encerramos enviados para viver a Palavra durante a semana.' },
+    ],
   };
 };
 
@@ -412,7 +620,7 @@ export const cultoPlusService = {
         .from('church_services')
         .select('*')
         .eq('church_id', churchId)
-        .order('starts_at', { ascending: false })
+        .order('starts_at', { ascending: true })
         .limit(options?.limit ?? 12);
 
       if (!options?.includeDrafts) query = query.neq('status', 'draft').neq('status', 'archived');
@@ -422,7 +630,7 @@ export const cultoPlusService = {
       return (data ?? []).map(mapService);
     } catch (error) {
       if (!isMissingServiceSchema(error)) throw new Error(`Erro ao carregar cultos. ${formatSupabaseError(error)}`);
-      const local = getLocalServices(churchId);
+      const local = getLocalServices(churchId).sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
       return options?.limit ? local.slice(0, options.limit) : local;
     }
   },
@@ -476,6 +684,17 @@ export const cultoPlusService = {
     }
   },
 
+  getServiceById: async (serviceId: string): Promise<ChurchService | null> => {
+    try {
+      const { data, error } = await supabase.from('church_services').select('*').eq('id', serviceId).maybeSingle();
+      if (error) throw error;
+      return data ? mapService(data) : null;
+    } catch (error) {
+      if (!isMissingServiceSchema(error)) throw new Error(`Erro ao carregar culto. ${formatSupabaseError(error)}`);
+      return getLocalServices().find((service) => service.id === serviceId) ?? null;
+    }
+  },
+
   getServiceBySlug: async (slug: string): Promise<ChurchService | null> => {
     try {
       const { data, error } = await supabase.from('church_services').select('*').eq('slug', slug).maybeSingle();
@@ -485,6 +704,84 @@ export const cultoPlusService = {
       if (!isMissingServiceSchema(error)) throw new Error(`Erro ao carregar culto. ${formatSupabaseError(error)}`);
       return getLocalServices().find((service) => service.slug === slug) ?? null;
     }
+  },
+
+  getServiceExperienceBySlug: async (slug: string, userId?: string): Promise<ServiceExperienceDTO | null> => {
+    const service = await cultoPlusService.getServiceBySlug(slug);
+    if (!service) return null;
+
+    const [
+      stats,
+      liveState,
+      reactions,
+      publicPrayers,
+      posts,
+      scheduleAssignments,
+      notes,
+      checkedIn,
+      nextServices,
+      viewerPermissions,
+    ] = await Promise.all([
+      cultoPlusService.getServiceStats(service.id).catch(() => emptyStats()),
+      (service.status === 'live' || service.status === 'in_progress')
+        ? cultoPlusService.getLiveState(service.id).catch(() => null)
+        : Promise.resolve(null),
+      cultoPlusService.getReactionSummary(service.id).catch(() => emptyReactionSummary()),
+      cultoPlusService.getPublicPrayerRequests(service.id).catch(() => []),
+      cultoPlusService.getServicePosts(service.id).catch(() => []),
+      cultoPlusService.getScheduleAssignments(service.id).catch(() => []),
+      userId ? cultoPlusService.getMyNotes(service.id, userId).catch(() => []) : Promise.resolve([]),
+      userId ? cultoPlusService.hasCheckedIn(service.id, userId).catch(() => false) : Promise.resolve(false),
+      cultoPlusService.getServicesByChurchRange(service.churchId, {
+        startDate: new Date(service.startsAt).toISOString(),
+        endDate: new Date(new Date(service.startsAt).getTime() + 1000 * 60 * 60 * 24 * 90).toISOString(),
+        status: ['published', 'checkin_open', 'live', 'in_progress'],
+        limit: 6,
+      }).catch(() => []),
+      getServiceViewerPermissions(service, userId).catch(() => ({ canManageService: Boolean(userId && service.createdBy === userId), canViewServiceSchedule: false })),
+    ]);
+
+    const nowDate = new Date();
+    const streamStatus = resolveServiceStreamStatus(service, nowDate);
+    const mode = resolveWorshipExperienceMode({ serviceStatus: service.status, streamStatus });
+    const currentMoment = getCurrentLiturgyMoment(service, nowDate, liveState?.currentItemId);
+    const nextMoment = getNextLiturgyMoment(service, currentMoment);
+    const myAssignments = userId ? scheduleAssignments.filter((assignment) => assignment.userId === userId) : [];
+    const nextService = nextServices.find((item) => item.id !== service.id && new Date(item.startsAt) > new Date(service.startsAt));
+
+    return {
+      service,
+      mode,
+      stream: {
+        status: streamStatus,
+        liveUrl: service.liveUrl,
+      },
+      currentMoment,
+      nextMoment,
+      liveState,
+      moments: getExperienceMoments(service, currentMoment, nowDate),
+      participation: {
+        ...stats,
+        reactions,
+      },
+      viewer: {
+        isAuthenticated: Boolean(userId),
+        checkedIn,
+        canCheckIn: mode === 'before' || mode === 'during_with_live' || mode === 'during_without_live',
+        canManageService: viewerPermissions.canManageService,
+        canViewServiceSchedule: viewerPermissions.canViewServiceSchedule || myAssignments.length > 0,
+        canViewMyAssignment: myAssignments.length > 0,
+        myAssignments,
+        notes,
+        savedKeyVerse: false,
+      },
+      content: {
+        publicPrayers,
+        posts,
+        scheduleAssignments,
+        nextService,
+      },
+    };
   },
 
   updateService: async (serviceId: string, updates: UpdateChurchServiceInput): Promise<void> => {
@@ -968,9 +1265,13 @@ export const cultoPlusService = {
   generateServicePlanning: async (input: GenerateServicePlanningInput): Promise<CultoPlusPlanningSuggestion> => {
     const raw = await generateChurchServicePlanning(input.verseReference, input.verseText, input.userPrompt);
     if (!raw) {
-      throw new Error('Nao foi possivel gerar o planejamento do culto.');
+      return fallbackServicePlanning(input.verseReference, input.verseText, input.userPrompt);
     }
-    return normalizePlanningSuggestion(raw);
+    const suggestion = normalizePlanningSuggestion(raw);
+    if (!suggestion.liturgyItems?.length) {
+      return fallbackServicePlanning(input.verseReference, input.verseText, input.userPrompt);
+    }
+    return suggestion;
   },
 
   generateAiContent: async (kind: ServiceAiContentKind, service: ChurchService, userId: string, notes = ''): Promise<ServiceAiContent> => {
@@ -1078,6 +1379,122 @@ export const cultoPlusService = {
       ['Engajamento percentual', `${analytics.engagementRate}%`],
     ];
     return rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+  },
+
+  createPublicInvite: async (
+    service: ChurchService,
+    inviter: { uid?: string; id?: string; displayName?: string } | null | undefined,
+    source: ServicePublicInvite['source'] = 'share',
+  ): Promise<ServicePublicInvite> => {
+    const inviterId = inviter?.uid ?? inviter?.id ?? null;
+    const invite: ServicePublicInvite = {
+      id: makeId('svcinv'),
+      serviceId: service.id,
+      churchId: service.churchId,
+      invitedByUserId: inviterId,
+      invitedByName: inviter?.displayName ?? null,
+      invitedUserId: null,
+      invitedName: null,
+      token: `${service.slug}-${makeId('i')}`,
+      status: 'created',
+      source,
+      openedAt: null,
+      acceptedAt: null,
+      createdAt: now(),
+      updatedAt: now(),
+    };
+
+    try {
+      const { data, error } = await supabase
+        .from('service_public_invites')
+        .insert({
+          service_id: service.id,
+          church_id: service.churchId,
+          invited_by_user_id: inviterId,
+          invited_by_name: invite.invitedByName,
+          token: invite.token,
+          status: invite.status,
+          source,
+          created_at: invite.createdAt,
+          updated_at: invite.updatedAt,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data ? mapServicePublicInvite(data) : invite;
+    } catch (error) {
+      if (!isMissingServiceSchema(error) && !formatSupabaseError(error).toLowerCase().includes('service_public_invites')) {
+        throw new Error(`Erro ao criar convite. ${formatSupabaseError(error)}`);
+      }
+      const invites = readStorage<ServicePublicInvite[]>(PUBLIC_INVITE_STORAGE_KEY, []);
+      writeStorage(PUBLIC_INVITE_STORAGE_KEY, [invite, ...invites]);
+      return invite;
+    }
+  },
+
+  getPublicInviteByToken: async (token: string): Promise<ServicePublicInvite | null> => {
+    if (!token) return null;
+    try {
+      const { data, error } = await supabase
+        .from('service_public_invites')
+        .select('*')
+        .eq('token', token)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? mapServicePublicInvite(data) : null;
+    } catch (error) {
+      if (!isMissingServiceSchema(error) && !formatSupabaseError(error).toLowerCase().includes('service_public_invites')) return null;
+      return readStorage<ServicePublicInvite[]>(PUBLIC_INVITE_STORAGE_KEY, []).find((item) => item.token === token) ?? null;
+    }
+  },
+
+  markPublicInviteOpened: async (token: string): Promise<void> => {
+    const openedAt = now();
+    try {
+      const { error } = await supabase
+        .from('service_public_invites')
+        .update({ status: 'opened', opened_at: openedAt, updated_at: openedAt })
+        .eq('token', token)
+        .in('status', ['created', 'opened']);
+      if (error) throw error;
+    } catch (error) {
+      if (!isMissingServiceSchema(error) && !formatSupabaseError(error).toLowerCase().includes('service_public_invites')) return;
+      const invites = readStorage<ServicePublicInvite[]>(PUBLIC_INVITE_STORAGE_KEY, []);
+      writeStorage(PUBLIC_INVITE_STORAGE_KEY, invites.map((item) => item.token === token ? { ...item, status: 'opened', openedAt, updatedAt: openedAt } : item));
+    }
+  },
+
+  acceptPublicInvite: async (token: string, user?: any, profile?: UserProfile | null): Promise<void> => {
+    const userId = user?.uid ?? user?.id ?? null;
+    if (!token || !userId) return;
+    const acceptedAt = now();
+    try {
+      const { error } = await supabase
+        .from('service_public_invites')
+        .update({
+          status: 'accepted',
+          invited_user_id: userId,
+          invited_name: profile?.displayName ?? user?.displayName ?? null,
+          accepted_at: acceptedAt,
+          opened_at: acceptedAt,
+          updated_at: acceptedAt,
+        })
+        .eq('token', token)
+        .in('status', ['created', 'opened']);
+      if (error) throw error;
+    } catch (error) {
+      if (!isMissingServiceSchema(error) && !formatSupabaseError(error).toLowerCase().includes('service_public_invites')) return;
+      const invites = readStorage<ServicePublicInvite[]>(PUBLIC_INVITE_STORAGE_KEY, []);
+      writeStorage(PUBLIC_INVITE_STORAGE_KEY, invites.map((item) => item.token === token ? {
+        ...item,
+        status: 'accepted',
+        invitedUserId: userId,
+        invitedName: profile?.displayName ?? null,
+        openedAt: acceptedAt,
+        acceptedAt,
+        updatedAt: acceptedAt,
+      } : item));
+    }
   },
 
   getReactionSummary: async (serviceId: string): Promise<ServiceReactionSummary> => {
@@ -1396,6 +1813,25 @@ export const cultoPlusService = {
     }
   },
 
+  getUserNotes: async (userId: string): Promise<ServiceNote[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('service_notes')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      const remoteNotes = (data ?? []).map(mapServiceNote);
+      const localOnlyNotes = getLocalUserServiceNotes(userId)
+        .filter((localNote) => !remoteNotes.some((remoteNote) => remoteNote.id === localNote.id));
+      return [...localOnlyNotes, ...remoteNotes]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (error) {
+      if (!isMissingServiceSchema(error)) return [];
+      return getLocalUserServiceNotes(userId);
+    }
+  },
+
   saveNote: async (serviceId: string, userId: string, content: string, tags: string[] = []): Promise<ServiceNote> => {
     const note: ServiceNote = {
       id: makeId('note'),
@@ -1430,6 +1866,22 @@ export const cultoPlusService = {
       writeStorage(NOTE_STORAGE_KEY, [note, ...notes]);
       return note;
     }
+  },
+
+  deleteNote: async (noteId: string, userId: string): Promise<void> => {
+    try {
+      const { error } = await supabase
+        .from('service_notes')
+        .delete()
+        .eq('id', noteId)
+        .eq('user_id', userId);
+      if (error) throw error;
+    } catch (error) {
+      if (!isMissingServiceSchema(error)) throw new Error(`Erro ao excluir anotacao. ${formatSupabaseError(error)}`);
+    }
+
+    const notes = readStorage<ServiceNote[]>(NOTE_STORAGE_KEY, []);
+    writeStorage(NOTE_STORAGE_KEY, notes.filter((note) => !(note.id === noteId && note.userId === userId)));
   },
 
   createServicePost: async ({ service, user, profile, content }: ServicePostInput): Promise<void> => {

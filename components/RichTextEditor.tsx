@@ -220,6 +220,11 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     const handleAiImageGeneration = async (promptText: string) => {
         if (!promptText || !promptText.trim()) return;
 
+        if (!checkFeatureAccess('aiImageGen')) {
+            openSubscription('A geracao de imagens com IA usa creditos e recursos criativos avancados.');
+            return;
+        }
+
         setIsGeneratingAi(true);
         try {
             // Usa o serviço Gemini existente

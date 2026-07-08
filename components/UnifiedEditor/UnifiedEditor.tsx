@@ -25,6 +25,7 @@ interface UnifiedEditorProps {
   canvasWidth?: 'mobile' | 'tablet' | 'desktop' | 'full';
   studyId?: string;
   studyTitle?: string;
+  compactTopSpacing?: boolean;
 }
 
 export interface UnifiedEditorRef {
@@ -35,7 +36,7 @@ export interface UnifiedEditorRef {
   redo: () => void;
 }
 
-export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorProps>(({ content, onChange, onBlockSelect, readOnly = false, canvasWidth = 'desktop', studyId, studyTitle }, ref) => {
+export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorProps>(({ content, onChange, onBlockSelect, readOnly = false, canvasWidth = 'desktop', studyId, studyTitle, compactTopSpacing = false }, ref) => {
   const [isEndPickerOpen, setIsEndPickerOpen] = React.useState(false);
   const parsedContent = React.useMemo(() => {
     if (Array.isArray(content)) {
@@ -56,7 +57,10 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        link: false,
+        underline: false,
+      }),
       Placeholder.configure({
         placeholder: 'Digite "/" para menus, escreva ou arraste um bloco do painel lateral...',
       }),
@@ -326,13 +330,6 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
           padding-bottom: 96px !important;
         }
 
-        .unified-editor-container[data-canvas-width="mobile"] .ProseMirror > [data-type="custom-block"],
-        .unified-editor-container[data-canvas-width="mobile"] .ProseMirror > .node-customBlock {
-          flex: 0 0 100% !important;
-          width: 100% !important;
-          max-width: 100% !important;
-        }
-
         .ProseMirror * {
           box-sizing: border-box !important;
         }
@@ -366,6 +363,14 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
           flex: 0 0 calc(66.6666% - 0.833rem) !important; width: calc(66.6666% - 0.833rem) !important; max-width: calc(66.6666% - 0.833rem) !important;
         }
 
+        .unified-editor-container[data-canvas-width="mobile"] .ProseMirror > [data-type="custom-block"],
+        .unified-editor-container[data-canvas-width="mobile"] .ProseMirror > .node-customBlock {
+          flex: 0 0 100% !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+        }
         /* ===== ALINHAMENTO DE BLOCOS (Flex Spacing) ===== */
         .ProseMirror > [layoutalign="center"] {
           margin-left: auto !important;
@@ -409,7 +414,7 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
       {!readOnly && editor && <EditorBubbleMenu editor={editor} />}
       {!readOnly && editor && <EditorFloatingMenu editor={editor} />}
 
-      <div className={`mx-auto relative w-full ${!readOnly ? (isMobileCanvas ? 'pt-3 pb-24 px-0' : 'pt-8 pb-32 px-2 sm:px-4') : ''}`}>
+      <div className={`mx-auto relative w-full ${!readOnly ? (isMobileCanvas ? `${compactTopSpacing ? 'pt-0' : 'pt-3'} pb-24 px-0` : `${compactTopSpacing ? 'pt-0' : 'pt-8'} pb-32 px-2 sm:px-4`) : ''}`}>
         {Array.isArray(content) ? (
           <BlockListEditor
             blocks={content}

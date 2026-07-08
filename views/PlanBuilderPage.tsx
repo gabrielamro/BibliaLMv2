@@ -46,6 +46,14 @@ const getUnitLabel = (freq: PlanningFrequency, index: number) => {
     }
 };
 
+const getLessonDisplayTitle = (freq: PlanningFrequency | undefined, index: number, title: string) => {
+    const prefix = getUnitLabel(freq || 'weekly', index);
+    return `${prefix}: ${title || 'Nova Aula'}`;
+};
+
+const stripLessonDisplayPrefix = (title: string) =>
+    title.replace(/^(Dia|Semana|Mês|Unidade)\s+\d+:\s*/i, '').trim();
+
 const PlanBuilderPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -377,6 +385,11 @@ const PlanBuilderPage: React.FC = () => {
     };
 
     const handleSuggestPrompt = async () => {
+        if (!checkFeatureAccess('aiImageGen')) {
+            openSubscription('A sugestao de capa com IA faz parte dos recursos criativos avancados.');
+            return;
+        }
+
         if (!plan.title || !plan.description) {
             showNotification("Preencha título e descrição para a IA sugerir um prompt.", "warning");
             return;
@@ -393,6 +406,11 @@ const PlanBuilderPage: React.FC = () => {
     };
 
     const handleGenerateCover = async () => {
+        if (!checkFeatureAccess('aiImageGen')) {
+            openSubscription('A geracao de capa com IA usa recursos criativos avancados para melhorar a apresentacao da sala.');
+            return;
+        }
+
         const promptToUse = coverPrompt || plan.description;
         if (!plan.title || !promptToUse) {
             showNotification("Informe um título e um prompt (ou descrição) para a IA.", "warning");
@@ -665,6 +683,21 @@ const PlanBuilderPage: React.FC = () => {
             </div>
         );
 
+    const activeUnit = plan.weeks?.find((unit) => unit.id === activeWeekId);
+    const activeLessonIndex = activeUnit?.days.findIndex((day) => day.id === editingDayId) ?? -1;
+    const activeLessonNumber = activeLessonIndex >= 0 ? activeLessonIndex + 1 : (activeUnit?.days.length || 0) + 1;
+    const editingDisplayTitle = getLessonDisplayTitle(plan.planningFrequency, activeLessonNumber, dayTitle || editingDayTitle);
+    const displayEditorBlocks = editorBlocks.map((block, index) => {
+        if (index > 0 || !['hero', 'hero-split'].includes(block.type)) return block;
+        return {
+            ...block,
+            data: {
+                ...block.data,
+                title: editingDisplayTitle,
+            },
+        };
+    });
+
     return (
         <div className={editingDayId ? "h-[100dvh] bg-bible-paper dark:bg-black overflow-hidden flex flex-col" : "h-full bg-bible-paper dark:bg-black overflow-y-auto flex flex-col"}>
             <SEO title="Sala de Estudos" />
@@ -842,20 +875,9 @@ const PlanBuilderPage: React.FC = () => {
                                                                     >
                                                                         <div className="p-2 bg-bible-gold/10 text-bible-gold rounded-lg"><FileText size={18} /></div>
                                                                         <div className="flex-1 min-w-0">
-                                                                            <input
-                                                                                type="text"
-                                                                                value={day.title}
-                                                                                onClick={(e) => e.stopPropagation()}
-                                                                                onChange={(e) => setPlan(prev => ({
-                                                                                    ...prev,
-                                                                                    weeks: prev.weeks?.map(w => w.id === unit.id
-                                                                                        ? { ...w, days: w.days.map(d => d.id === day.id ? { ...d, title: e.target.value } : d) }
-                                                                                        : w
-                                                                                    )
-                                                                                }))}
-                                                                                placeholder="Título da aula"
-                                                                                className="text-sm font-bold text-gray-900 dark:text-white bg-transparent outline-none w-full truncate hover:bg-gray-50 dark:hover:bg-gray-800 focus:bg-gray-50 dark:focus:bg-gray-800 rounded px-1 -mx-1 transition-colors"
-                                                                            />
+                                                                            <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                                                                                {getLessonDisplayTitle(plan.planningFrequency, index + 1, day.title)}
+                                                                            </p>
                                                                             <p className="text-[10px] text-gray-500 truncate">{day.description || 'Sem referência definida'}</p>
                                                                         </div>
                                                                         <div className="flex items-center gap-2">
@@ -1058,24 +1080,25 @@ const PlanBuilderPage: React.FC = () => {
                         <CreateContentV3Page 
                             embeddedContext={{
                                 initialContent: {
-                                    id: editingDayId,
-                                    title: dayTitle,
-                                    type: 'article',
-                                    status: 'draft',
-                                    blocks: editorBlocks,
-                                    meta: { title: dayTitle, description: dayRef, tags: dayTags, category: dayCategory }
-                                },
-                                onSave: async (content, status) => {
-                                    // Sincroniza o estado do PlanBuilderPage com os dados salvos no CreateLandingPage
-                                    setDayTitle(content.meta.title || '');
-                                    setDayRef(content.meta.description || '');
-                                    setDayTags(content.meta.tags || []);
-                                    setDayCategory(content.meta.category || 'Geral');
+                                     id: editingDayId,
+                                     title: editingDisplayTitle,
+                                     type: 'article',
+                                     status: 'draft',
+                                     blocks: displayEditorBlocks,
+                                     meta: { title: editingDisplayTitle, description: dayRef, tags: dayTags, category: dayCategory }
+                                 },
+                                 onSave: async (content, status) => {
+                                     // Sincroniza o estado do PlanBuilderPage com os dados salvos no CreateLandingPage
+                                     const cleanTitle = stripLessonDisplayPrefix(content.meta.title || '');
+                                     setDayTitle(cleanTitle);
+                                     setDayRef(content.meta.description || '');
+                                     setDayTags(content.meta.tags || []);
+                                     setDayCategory(content.meta.category || 'Geral');
                                     setEditorBlocks(content.blocks || []);
                                     
-                                    const newDay: PlanDayContent = {
-                                        id: editingDayId,
-                                        title: content.meta.title || dayTitle || 'Nova Aula',
+                                     const newDay: PlanDayContent = {
+                                         id: editingDayId,
+                                         title: cleanTitle || dayTitle || 'Nova Aula',
                                         description: content.meta.description || dayRef,
                                         htmlContent: '<p>Conteúdo em construção...</p>',
                                         blocksConfig: content.blocks,
@@ -1098,10 +1121,11 @@ const PlanBuilderPage: React.FC = () => {
                                     }));
                                     showNotification("Aula salva com sucesso!", "success");
                                     setEditingDayId(null);
-                                },
-                                onClose: () => setEditingDayId(null),
-                                isEmbedded: true
-                            }}
+                                 },
+                                 onClose: () => setEditingDayId(null),
+                                 isEmbedded: true,
+                                 displayTitle: editingDisplayTitle
+                             }}
                         />
                     </div>
                 )}

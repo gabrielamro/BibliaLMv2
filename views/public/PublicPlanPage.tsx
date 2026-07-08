@@ -1,5 +1,5 @@
 "use client";
-import { useNavigate, useParams } from '../../utils/router';
+import { useNavigate, useParams, useSearchParams } from '../../utils/router';
 
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
@@ -16,6 +16,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useHeader } from '../../contexts/HeaderContext';
 import StandardHeader from '../../components/ui/StandardHeader';
 import { ContentBuilder } from '../../components/Builder/ContentBuilder';
+import { BlockRenderer } from '../../components/Builder/BlockRenderer';
 import PlanOwnerPreviewActions from '../../components/plan/PlanOwnerPreviewActions';
 import PlanShareModal from '../../components/plan/PlanShareModal';
 import { buildPlanSharePostContent, canUserAccessPlan, getPlanSharePath, getPlanShareUrl } from '../../utils/planSharing';
@@ -24,6 +25,7 @@ type Tab = 'content' | 'ranking';
 
 const PublicPlanPage: React.FC = () => {
     const { planId } = useParams<{ planId: string }>();
+    const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const { currentUser, userProfile, openLogin, showNotification, earnMana, updateProfile, recordActivity } = useAuth();
     const { setTitle, setBreadcrumbs, resetHeader, setIsHeaderHidden } = useHeader();
@@ -54,6 +56,172 @@ const PublicPlanPage: React.FC = () => {
     const [isReadingScrolled, setIsReadingScrolled] = useState(false);
     const lastReadingScrollY = useRef(0);
 
+    const stripHtml = useCallback((value: string) => {
+        if (!value) return '';
+        if (typeof window === 'undefined') return value.replace(/<[^>]*>?/gm, ' ');
+        const element = document.createElement('div');
+        element.innerHTML = value;
+        return element.textContent || element.innerText || '';
+    }, []);
+
+    const extractReadableText = useCallback((value: unknown): string => {
+        if (!value) return '';
+        if (typeof value === 'string') return stripHtml(value);
+        if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+        if (Array.isArray(value)) return value.map(extractReadableText).filter(Boolean).join('. ');
+        if (typeof value === 'object') {
+            const objectValue = value as Record<string, unknown>;
+            const preferredKeys = [
+                'title',
+                'subtitle',
+                'description',
+                'content',
+                'text',
+                'body',
+                'question',
+                'answer',
+                'reference',
+                'formatted',
+            ];
+            const preferredText = preferredKeys
+                .map((key) => extractReadableText(objectValue[key]))
+                .filter(Boolean)
+                .join('. ');
+            if (preferredText) return preferredText;
+            return Object.values(objectValue).map(extractReadableText).filter(Boolean).join('. ');
+        }
+        return '';
+    }, [stripHtml]);
+
+    const readableDayText = useMemo(() => {
+        if (!readingDay) return '';
+        const parts = [
+            readingDay.title,
+            readingDay.description,
+            readingDay.refData?.formatted,
+            readingDay.htmlContent,
+            readingDay.blocksConfig?.map((block) => extractReadableText(block.data)).join('. '),
+        ];
+        return parts.map((part) => extractReadableText(part)).filter(Boolean).join('. ').replace(/\s+/g, ' ').trim();
+    }, [extractReadableText, readingDay]);
+
+    const renderFocusedBlock = useCallback((block: any, index: number) => {
+        const data = block.data || {};
+        const text = extractReadableText(data).replace(/\s+/g, ' ').trim();
+
+        if (['authority', 'footer', 'cta', 'spacer'].includes(block.type)) {
+            return null;
+        }
+
+        if (block.type === 'hero' || block.type === 'hero-split') {
+            return (
+                <section key={block.id || index} className="mb-8 border-b border-stone-200/70 pb-7 dark:border-white/10">
+                    <p className="text-[10px] font-black uppercase tracking-[0.26em] text-purple-700 dark:text-violet-300">{plan?.title}</p>
+                    <h1 className="mt-3 font-serif text-3xl leading-tight text-stone-950 dark:text-white md:text-5xl">
+                        {data.title || readingDay?.title}
+                    </h1>
+                    {(data.subtitle || readingDay?.description) && (
+                        <p className="mt-4 text-base leading-8 text-stone-600 dark:text-stone-300">
+                            {data.subtitle || readingDay?.description}
+                        </p>
+                    )}
+                    {data.imageUrl && (
+                        <img
+                            src={data.imageUrl}
+                            alt={data.imageAlt || data.title || readingDay?.title || 'Imagem da aula'}
+                            className="mt-6 aspect-[16/9] w-full rounded-xl object-cover"
+                            loading="lazy"
+                        />
+                    )}
+                </section>
+            );
+        }
+
+        if (block.type === 'biblical') {
+            return (
+                <blockquote key={block.id || index} className="my-8 border-l-4 border-purple-700 bg-purple-50/70 px-5 py-4 text-stone-800 dark:border-violet-400 dark:bg-violet-950/20 dark:text-stone-100">
+                    <p className="font-serif text-xl leading-9">{data.text || data.verse || text}</p>
+                    {(data.reference || data.formatted) && (
+                        <cite className="mt-3 block text-xs font-black not-italic uppercase tracking-[0.22em] text-purple-700 dark:text-violet-300">
+                            {data.reference || data.formatted}
+                        </cite>
+                    )}
+                </blockquote>
+            );
+        }
+
+        if (block.type === 'study-outline') {
+            const items = Array.isArray(data.items) ? data.items : [];
+            if (!items.length) return null;
+            return (
+                <nav key={block.id || index} className="my-8 rounded-xl border border-stone-200 bg-white/70 p-5 dark:border-white/10 dark:bg-white/5" aria-label="Roteiro da aula">
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">{data.title || 'Roteiro'}</p>
+                    <ol className="mt-3 space-y-2 text-sm font-semibold leading-6 text-stone-700 dark:text-stone-200">
+                        {items.map((item: string, itemIndex: number) => <li key={`${item}-${itemIndex}`}>{itemIndex + 1}. {item}</li>)}
+                    </ol>
+                </nav>
+            );
+        }
+
+        if (block.type === 'reflection-question') {
+            return (
+                <section key={block.id || index} className="my-10 rounded-xl border border-purple-200 bg-purple-50 p-5 dark:border-violet-900/50 dark:bg-violet-950/20">
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-purple-700 dark:text-violet-300">{data.title || 'Reflexao'}</p>
+                    <p className="mt-3 font-serif text-2xl leading-9 text-stone-900 dark:text-white">{data.question || text}</p>
+                </section>
+            );
+        }
+
+        if (data.content || data.html || data.body) {
+            return (
+                <section
+                    key={block.id || index}
+                    className="focused-prose my-8"
+                    dangerouslySetInnerHTML={{ __html: data.content || data.html || data.body }}
+                />
+            );
+        }
+
+        if (!text) return null;
+        return (
+            <section key={block.id || index} className="my-8">
+                {data.title && block.type !== 'rich-text' && (
+                    <h2 className="mb-3 font-serif text-2xl text-stone-950 dark:text-white">{data.title}</h2>
+                )}
+                <p className="leading-[1.9] text-stone-700 dark:text-stone-200">{text}</p>
+            </section>
+        );
+    }, [extractReadableText, plan?.title, readingDay?.description, readingDay?.title]);
+
+    const stopAudio = useCallback(() => {
+        if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+        window.speechSynthesis.cancel();
+        setIsAudioPlaying(false);
+    }, []);
+
+    const toggleAudio = useCallback(() => {
+        if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+            showNotification("Leitura em voz alta indisponivel neste navegador.", "warning");
+            return;
+        }
+        if (isAudioPlaying) {
+            stopAudio();
+            return;
+        }
+        if (!readableDayText) {
+            showNotification("Nao encontrei texto para narrar nesta aula.", "info");
+            return;
+        }
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(readableDayText);
+        utterance.lang = 'pt-BR';
+        utterance.rate = 0.95;
+        utterance.onend = () => setIsAudioPlaying(false);
+        utterance.onerror = () => setIsAudioPlaying(false);
+        setIsAudioPlaying(true);
+        window.speechSynthesis.speak(utterance);
+    }, [isAudioPlaying, readableDayText, showNotification, stopAudio]);
+
     const handleReadingScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const currentScrollY = e.currentTarget.scrollTop;
         if (currentScrollY > lastReadingScrollY.current && currentScrollY > 50) {
@@ -75,6 +243,7 @@ const PublicPlanPage: React.FC = () => {
         }
         return '';
     }, [plan, readingDay]);
+    const totalLessons = useMemo(() => plan?.weeks.reduce((total, week) => total + week.days.length, 0) || 0, [plan]);
     const [isJoining, setIsJoining] = useState(false);
     const [assignedTeam, setAssignedTeam] = useState<PlanTeam | null>(null);
 
@@ -88,6 +257,17 @@ const PublicPlanPage: React.FC = () => {
     const [showShareModal, setShowShareModal] = useState(false);
     const [isSavingShareSettings, setIsSavingShareSettings] = useState(false);
     const [isSharingToFeed, setIsSharingToFeed] = useState(false);
+    const routeLessonId = searchParams.get('aula') || searchParams.get('lesson') || searchParams.get('dia');
+
+    const openReadingDay = useCallback((day: PlanDayContent, options?: { replace?: boolean }) => {
+        setReadingDay(day);
+        setSearchParams({ aula: day.id, lesson: null, dia: null }, { replace: options?.replace });
+    }, [setSearchParams]);
+
+    const closeReadingDay = useCallback((options?: { replace?: boolean }) => {
+        setReadingDay(null);
+        setSearchParams({ aula: null, lesson: null, dia: null }, { replace: options?.replace });
+    }, [setSearchParams]);
 
     const loadPlan = useCallback(async () => {
         if (!planId) return;
@@ -138,6 +318,28 @@ const PublicPlanPage: React.FC = () => {
     }, [planId, currentUser]);
 
     useEffect(() => { loadPlan(); }, [loadPlan]);
+
+    useEffect(() => {
+        setIsHeaderHidden(true);
+        return () => setIsHeaderHidden(false);
+    }, [setIsHeaderHidden]);
+
+    useEffect(() => {
+        if (!plan) return;
+        if (!routeLessonId) {
+            if (readingDay) setReadingDay(null);
+            return;
+        }
+        if (readingDay?.id === routeLessonId) return;
+
+        const routeLesson = plan.weeks
+            .flatMap((week) => week.days)
+            .find((day) => day.id === routeLessonId);
+
+        if (routeLesson) {
+            setReadingDay(routeLesson);
+        }
+    }, [plan, readingDay, routeLessonId]);
 
     // --- HEARTBEAT & REAL-TIME PRESENCE ---
     const isOwner = plan?.authorId === currentUser?.uid;
@@ -207,6 +409,8 @@ const PublicPlanPage: React.FC = () => {
     useEffect(() => {
         if (activeTab === 'ranking') loadRanking();
     }, [activeTab, planId]);
+
+    useEffect(() => stopAudio, [readingDay, stopAudio]);
 
     const toggleWeek = (weekId: string) => {
         setExpandedWeeks(prev => ({ ...prev, [weekId]: !prev[weekId] }));
@@ -288,7 +492,7 @@ const PublicPlanPage: React.FC = () => {
     };
 
     const handleCompleteReading = async () => {
-        if (!readingDay || !plan || !currentUser) { setReadingDay(null); return; }
+        if (!readingDay || !plan || !currentUser) { closeReadingDay({ replace: true }); return; }
         const points = 100;
         await dbService.updatePlanProgress(plan.id, currentUser.uid, readingDay.id, points);
         // Telemetria
@@ -297,7 +501,7 @@ const PublicPlanPage: React.FC = () => {
         setMyStats(prev => prev ? ({ ...prev, points: prev.points + points, completedSteps: [...prev.completedSteps, readingDay.id] }) : null);
         await earnMana('deep_study');
         showNotification("Estudo concluído!", "success");
-        setReadingDay(null);
+        closeReadingDay();
     };
 
     const handleFollowStudy = async () => {
@@ -387,7 +591,13 @@ const PublicPlanPage: React.FC = () => {
             const added = await dbService.addPlanComment(commentData);
             setComments(prev => [...prev, added]);
             setNewComment('');
-            earnMana('social_interaction');
+            await recordActivity('plan_comment', 'Comentou em uma jornada', {
+                sourceId: `${plan.id}-${readingDay.id}-${added.id}`,
+                planId: plan.id,
+                dayId: readingDay.id,
+                commentId: added.id,
+                text: newComment,
+            });
         } catch (e) {
             showNotification("Erro ao postar comentário.", "error");
         } finally {
@@ -422,11 +632,11 @@ const PublicPlanPage: React.FC = () => {
                 setTitle(dayLabel || readingDay.title);
                 setBreadcrumbs([
                     { label: 'Planos', path: '/estudos' },
-                    { label: plan.title, onClick: () => setReadingDay(null) },
+                    { label: plan.title, onClick: () => closeReadingDay() },
                     { label: dayLabel || 'Leitura' }
                 ]);
             } else {
-                setIsHeaderHidden(false);
+                setIsHeaderHidden(true);
                 setTitle(plan.title);
                 setBreadcrumbs([
                     { label: 'Planos', path: '/estudos' },
@@ -443,14 +653,50 @@ const PublicPlanPage: React.FC = () => {
     if (loading) return <div className="h-screen flex items-center justify-center bg-purple-50 dark:bg-bible-darkPaper"><Loader2 className="animate-spin text-purple-700 dark:text-violet-300" size={40} /></div>;
     if (!plan) return <div>Plano não encontrado</div>;
 
+    const canViewContent = Boolean(myStats || canUserAccessPlan(plan, userProfile, currentUser?.uid));
+    const focusedHasHero = Boolean(readingDay?.blocksConfig?.some((block: any) => ['hero', 'hero-split'].includes(block.type)));
+
     // --- READING VIEW (INLINE) ---
-    if (readingDay) {
+    if (readingDay && canViewContent) {
         return (
             <div
-                className={`h-full overflow-y-auto custom-scrollbar transition-all duration-500 ${isFocusedMode ? 'bg-white dark:bg-bible-darkPaper' : 'bg-gray-50 dark:bg-black/20 p-4 md:p-8'}`}
+                className={`h-full overflow-y-auto custom-scrollbar transition-all duration-500 ${isFocusedMode ? 'bg-[#fbfaf7] text-stone-800 dark:bg-[#080706] dark:text-stone-100' : 'bg-gray-50 dark:bg-black/20 px-4 pb-4 pt-2 md:px-8 md:pb-8 md:pt-4'}`}
                 onScroll={handleReadingScroll}
             >
                 <SEO title={readingDay.title} />
+                <style>{`
+                    .reader-html :where(p, li, blockquote, span, div),
+                    .focused-reader :where(p, li, blockquote) {
+                        font-size: inherit;
+                    }
+                    .reader-html :where(h1),
+                    .focused-reader :where(h1) {
+                        font-size: calc(var(--reader-font-size, 16px) * 2);
+                    }
+                    .reader-html :where(h2),
+                    .focused-reader :where(h2) {
+                        font-size: calc(var(--reader-font-size, 16px) * 1.6);
+                    }
+                    .reader-html :where(h3),
+                    .focused-reader :where(h3) {
+                        font-size: calc(var(--reader-font-size, 16px) * 1.35);
+                    }
+                    .focused-prose :where(p, li) {
+                        margin: 1rem 0;
+                        line-height: 1.9;
+                    }
+                    .focused-prose :where(h1, h2, h3) {
+                        margin: 2rem 0 1rem;
+                        font-family: Georgia, serif;
+                        line-height: 1.25;
+                    }
+                    .focused-prose :where(blockquote) {
+                        margin: 2rem 0;
+                        border-left: 4px solid #7e22ce;
+                        padding: 1rem 1.25rem;
+                        background: rgba(126, 34, 206, 0.08);
+                    }
+                `}</style>
 
                 {/* Glassmorphism Progress Bar */}
                 <div className={`fixed top-0 left-0 w-full z-[100] h-1 transition-all duration-500 ${isFocusedMode ? 'opacity-0' : 'opacity-100'} bg-black/5 dark:bg-white/5 backdrop-blur-sm`}>
@@ -460,18 +706,69 @@ const PublicPlanPage: React.FC = () => {
                     />
                 </div>
 
-                <div className={`max-w-7xl mx-auto transition-all duration-500 ${isFocusedMode ? 'pt-12' : 'pt-4'} relative`}>
-                    {/* Floating Reading Toolbar */}
-                    <div className={`sticky top-4 z-[90] flex justify-center mb-6 transition-all duration-300 ${isReadingScrolled || isFocusedMode ? '-translate-y-24 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100 hover:opacity-100'}`}>
-                        <div className="bg-white/80 dark:bg-bible-darkPaper/80 backdrop-blur-md border border-gray-100 dark:border-gray-800 p-2 rounded-2xl shadow-xl flex items-center gap-2">
+                <div className={`mx-auto transition-all duration-500 ${isFocusedMode ? 'max-w-[760px] px-5 pb-24 pt-8 md:px-8 md:pt-12' : 'max-w-7xl pt-0'} relative`}>
+                    {!isFocusedMode && (
+                        <header className="sticky top-0 z-[90] mb-3 flex min-h-14 items-center justify-between gap-3 border-b border-gray-100/80 bg-gray-50/95 px-1 py-2 backdrop-blur-md dark:border-gray-800/80 dark:bg-black/70 md:px-2">
+                            <div className="flex min-w-0 items-center gap-3">
                                 <button
-                                    onClick={() => setReadingDay(null)}
+                                    onClick={() => closeReadingDay()}
+                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-white hover:text-purple-700 dark:hover:bg-gray-900 dark:hover:text-violet-300"
+                                    title="Voltar"
+                                    aria-label="Voltar"
+                                >
+                                    <ArrowLeft size={20} />
+                                </button>
+                                <span className="shrink-0 text-sm font-medium text-stone-500 dark:text-stone-300">
+                                    {dayLabel}{totalLessons ? `/${totalLessons}` : ''}
+                                </span>
+                                <div className="min-w-0 border-l border-gray-200 pl-3 dark:border-gray-800">
+                                    <p className="truncate text-[10px] font-black uppercase tracking-tight text-purple-700 dark:text-violet-300">{readingDay.title}</p>
+                                    <p className="mt-0.5 flex items-center gap-1 truncate text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                                        <BookOpen size={10} /> {plan?.category || 'Geral'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                                {isOwner && (
+                                    <button
+                                        onClick={() => navigate(`/criar-sala?id=${plan.id}`, { state: { planData: plan } })}
+                                        className="hidden items-center gap-1 rounded-lg bg-purple-100 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-purple-700 transition-all hover:bg-purple-700 hover:text-white dark:bg-purple-950/40 dark:text-violet-200 sm:flex"
+                                        title="Voltar para edição"
+                                    >
+                                        <Edit3 size={11} />
+                                        Editar
+                                    </button>
+                                )}
+                                <button
+                                    onClick={toggleAudio}
+                                    className={`flex h-9 w-9 items-center justify-center rounded-lg transition-all ${isAudioPlaying ? 'bg-purple-700 text-white dark:bg-violet-500' : 'text-gray-500 hover:bg-white dark:hover:bg-gray-900'}`}
+                                    title={isAudioPlaying ? 'Pausar leitura' : 'Escutar leitura'}
+                                    aria-label={isAudioPlaying ? 'Pausar leitura' : 'Escutar leitura'}
+                                >
+                                    {isAudioPlaying ? <PauseCircle size={19} /> : <Volume2 size={19} />}
+                                </button>
+                                <button
+                                    onClick={() => setIsFocusedMode(true)}
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-white hover:text-purple-700 dark:hover:bg-gray-900 dark:hover:text-violet-300"
+                                    title="Modo leitura focada"
+                                    aria-label="Modo leitura focada"
+                                >
+                                    <Moon size={19} />
+                                </button>
+                            </div>
+                        </header>
+                    )}
+                    {/* Floating Reading Toolbar */}
+                    {isFocusedMode && <div className={`${isFocusedMode ? 'fixed left-1/2 top-4 -translate-x-1/2' : 'sticky top-2'} z-[90] flex justify-center mb-4 transition-all duration-300 ${isReadingScrolled ? '-translate-y-24 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100 hover:opacity-100'}`}>
+                        <div className={`${isFocusedMode ? 'bg-white/90 dark:bg-black/80 border-stone-200 dark:border-white/10 p-1.5 rounded-full shadow-2xl' : 'bg-white/80 dark:bg-bible-darkPaper/80 border-gray-100 dark:border-gray-800 p-2 rounded-2xl shadow-xl'} backdrop-blur-md border flex items-center gap-2`}>
+                                <button
+                                    onClick={() => closeReadingDay()}
                                     className="p-2 text-gray-400 hover:text-purple-700 dark:hover:text-violet-300 transition-colors"
                                     title="Voltar"
                                 >
                                     <ArrowLeft size={18} />
                                 </button>
-                                {isOwner && (
+                                {!isFocusedMode && isOwner && (
                                     <button
                                         onClick={() => navigate(`/criar-sala?id=${plan.id}`, { state: { planData: plan } })}
                                         className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg font-bold text-[10px] uppercase tracking-widest hover:bg-purple-700 hover:text-white transition-all flex items-center gap-1.5 dark:bg-purple-950/40 dark:text-violet-200"
@@ -485,30 +782,32 @@ const PublicPlanPage: React.FC = () => {
 
                             {/* Font Size Controls */}
                             <div className="flex items-center bg-gray-50 dark:bg-gray-900 rounded-xl p-1">
-                                <button onClick={() => setFontSize(Math.max(14, fontSize - 2))} className="p-1.5 text-gray-500 hover:text-purple-700 dark:hover:text-violet-300 transition-colors"><Type size={14} /></button>
+                                <button
+                                    onClick={() => setFontSize(Math.max(12, fontSize - 2))}
+                                    disabled={fontSize <= 12}
+                                    className="p-1.5 text-gray-500 hover:text-purple-700 disabled:opacity-30 disabled:hover:text-gray-500 dark:hover:text-violet-300 transition-colors"
+                                    title="Diminuir texto"
+                                >
+                                    <Type size={14} />
+                                </button>
                                 <span className="text-[10px] font-bold w-8 text-center text-gray-400">{fontSize}</span>
-                                <button onClick={() => setFontSize(Math.min(32, fontSize + 2))} className="p-1.5 text-gray-500 hover:text-purple-700 dark:hover:text-violet-300 transition-colors"><Type size={18} /></button>
+                                <button
+                                    onClick={() => setFontSize(Math.min(32, fontSize + 2))}
+                                    disabled={fontSize >= 32}
+                                    className="p-1.5 text-gray-500 hover:text-purple-700 disabled:opacity-30 disabled:hover:text-gray-500 dark:hover:text-violet-300 transition-colors"
+                                    title="Aumentar texto"
+                                >
+                                    <Type size={18} />
+                                </button>
                             </div>
 
                             <div className="w-px h-6 bg-gray-100 dark:bg-gray-800 mx-1" />
 
                             {/* Audio Player */}
                             <button
-                                onClick={() => {
-                                    if (isAudioPlaying) {
-                                        window.speechSynthesis.cancel();
-                                        setIsAudioPlaying(false);
-                                    } else {
-                                        const text = readingDay.htmlContent.replace(/<[^>]*>?/gm, '').trim();
-                                        const utter = new SpeechSynthesisUtterance(text);
-                                        utter.lang = 'pt-BR';
-                                        utter.onend = () => setIsAudioPlaying(false);
-                                        setIsAudioPlaying(true);
-                                        window.speechSynthesis.speak(utter);
-                                    }
-                                }}
+                                onClick={toggleAudio}
                                 className={`p-2 rounded-xl transition-all ${isAudioPlaying ? 'bg-purple-700 text-white dark:bg-violet-500' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                                title="Escutar Leitura"
+                                title={isAudioPlaying ? 'Pausar leitura' : 'Escutar leitura'}
                             >
                                 {isAudioPlaying ? <PauseCircle size={20} /> : <Volume2 size={20} />}
                             </button>
@@ -517,15 +816,15 @@ const PublicPlanPage: React.FC = () => {
                             <button
                                 onClick={() => setIsFocusedMode(!isFocusedMode)}
                                 className={`p-2 rounded-xl transition-all ${isFocusedMode ? 'bg-purple-700 text-white dark:bg-violet-500' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                                title="Modo Leitura Focada"
+                                title={isFocusedMode ? 'Sair do modo leitura' : 'Modo leitura focada'}
                             >
                                 <Moon size={20} />
                             </button>
                         </div>
-                    </div>
+                    </div>}
                     {/* Content Container */}
-                    <div className="p-2 md:p-4">
-                        <header className={`mb-8 transition-all duration-500 ${isFocusedMode ? 'opacity-0 h-0 overflow-hidden mb-0' : 'opacity-100'}`}>
+                    <div className={isFocusedMode ? 'pt-12 md:pt-10' : 'p-2 md:p-4'}>
+                        <header className="hidden">
                             <p className="text-xs font-bold text-purple-700 dark:text-violet-300 uppercase tracking-tighter mb-1">{plan?.title}</p>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-gray-500 text-[10px] font-bold uppercase tracking-widest">
                                 <span className="flex items-center gap-1"><BookOpen size={10} /> {plan?.category}</span>
@@ -535,26 +834,63 @@ const PublicPlanPage: React.FC = () => {
                             </div>
                         </header>
 
-                        {readingDay.blocksConfig && readingDay.blocksConfig.length > 0 ? (
-                            <div className="animate-in fade-in duration-700">
-                                <ContentBuilder
-                                    blocks={readingDay.blocksConfig}
-                                    selectedBlockId={null}
-                                    onSelectBlock={() => {}}
-                                    onUpdateBlock={() => {}}
-                                    onMoveBlock={() => {}}
-                                    onDuplicateBlock={() => {}}
-                                    onRemoveBlock={() => {}}
-                                    onAddBlock={() => {}}
-                                    isEditing={false}
-                                    canvasWidth="full"
-                                    authorName={plan.authorName}
-                                />
+                        {isFocusedMode && readingDay.blocksConfig && readingDay.blocksConfig.length > 0 ? (
+                            <article
+                                className="reader-content focused-reader animate-in fade-in duration-700"
+                                style={{ fontSize: `${fontSize}px`, ['--reader-font-size' as string]: `${fontSize}px` }}
+                            >
+                                {!focusedHasHero && (
+                                    <section className="mb-8 border-b border-stone-200/70 pb-7 dark:border-white/10">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.26em] text-purple-700 dark:text-violet-300">{plan?.title}</p>
+                                        <h1 className="mt-3 font-serif text-3xl leading-tight text-stone-950 dark:text-white md:text-5xl">{readingDay.title}</h1>
+                                        {readingDay.description && <p className="mt-4 text-base leading-8 text-stone-600 dark:text-stone-300">{readingDay.description}</p>}
+                                    </section>
+                                )}
+                                {readingDay.blocksConfig.map(renderFocusedBlock)}
+                            </article>
+                        ) : readingDay.blocksConfig && readingDay.blocksConfig.length > 0 ? (
+                            <div
+                                className="reader-content flex flex-wrap justify-center items-start animate-in fade-in duration-700"
+                                style={{ fontSize: `${fontSize}px`, ['--reader-font-size' as string]: `${fontSize}px` }}
+                            >
+                                {readingDay.blocksConfig.map((block, index) => {
+                                    const layoutWidth = block.layoutWidth || block.data?.layoutWidth || '1/1';
+                                    const isMobileOutline = block.type === 'study-outline';
+                                    const widthClass = isMobileOutline
+                                        ? 'w-full md:w-1/3'
+                                        : layoutWidth === '1/2'
+                                            ? 'w-full md:w-1/2'
+                                            : layoutWidth === '1/3'
+                                                ? 'w-full md:w-1/3'
+                                                : layoutWidth === '2/3'
+                                                    ? 'w-full md:w-2/3'
+                                                    : 'w-full';
+                                    const topSpacing = index === 0 ? 0 : Math.max(0, Number(block.data?.padding?.top ?? 0));
+                                    const bottomSpacing = Math.max(40, Number(block.data?.padding?.bottom ?? 0));
+
+                                    return (
+                                        <div
+                                            key={block.id}
+                                            className={`${widthClass} px-1`}
+                                            style={{ marginTop: topSpacing, marginBottom: bottomSpacing }}
+                                            data-testid={`published-lesson-block-${block.type}-${index}`}
+                                            data-width={layoutWidth}
+                                        >
+                                            <BlockRenderer
+                                                block={block}
+                                                isEditing={false}
+                                                authorName={plan.authorName}
+                                                canvasWidth="desktop"
+                                                layoutWidth={layoutWidth}
+                                            />
+                                        </div>
+                                    );
+                                })}
                             </div>
                         ) : (
                             <div
-                                className="prose dark:prose-invert max-w-none font-serif leading-relaxed text-gray-800 dark:text-gray-200 empty:hidden [&_h1]:text-[1.5rem] [&_h1]:font-black [&_h1]:mb-6"
-                                style={{ fontSize: `${fontSize}px` }}
+                                className={isFocusedMode ? "reader-content reader-html focused-prose font-serif text-stone-800 dark:text-stone-100 empty:hidden" : "reader-content reader-html prose dark:prose-invert max-w-none font-serif leading-relaxed text-gray-800 dark:text-gray-200 empty:hidden [&_h1]:text-[1.5rem] [&_h1]:font-black [&_h1]:mb-6"}
+                                style={{ fontSize: `${fontSize}px`, ['--reader-font-size' as string]: `${fontSize}px` }}
                                 dangerouslySetInnerHTML={{ __html: readingDay.htmlContent }}
                             />
                         )}
@@ -608,11 +944,11 @@ const PublicPlanPage: React.FC = () => {
                             </div>
                         </div>
 
-                        {!myStats && (
+                        {!isFocusedMode && !myStats && (
                             <div className="mt-16 p-8 bg-gray-100 dark:bg-gray-900 rounded-3xl text-center border border-gray-200 dark:border-gray-800">
                                 <p className="text-sm text-gray-500 font-bold mb-4">Você está visualizando como espectador</p>
                                 <button
-                                    onClick={() => { setReadingDay(null); handleJoinClick(); }}
+                                    onClick={() => { closeReadingDay(); handleJoinClick(); }}
                                     className="px-8 py-4 bg-purple-700 text-white rounded-xl font-bold uppercase text-xs tracking-widest shadow-lg shadow-purple-900/15 hover:scale-105 hover:bg-purple-800 transition-transform dark:bg-violet-500"
                                 >
                                     Entrar para Salvar Progresso
@@ -711,7 +1047,6 @@ const PublicPlanPage: React.FC = () => {
     const shareUrl = typeof window !== 'undefined'
         ? getPlanShareUrl(plan.id, plan.shareSlug, window.location.origin)
         : getPlanShareUrl(plan.id, plan.shareSlug);
-    const canViewContent = Boolean(myStats || canUserAccessPlan(plan, userProfile, currentUser?.uid));
     const canDownloadPdf = canViewContent && (Boolean(plan.allowPdfDownload) || isOwner);
 
     const handleCopyShareUrl = async (value: string) => {
@@ -789,6 +1124,15 @@ const PublicPlanPage: React.FC = () => {
         window.print();
     };
 
+    const handleBackToPreviousPage = () => {
+        if (typeof window !== 'undefined' && window.history.length > 1) {
+            navigate(-1);
+            return;
+        }
+
+        navigate('/estudos');
+    };
+
     return (
         <div className="h-full bg-gray-50 dark:bg-black/20 overflow-y-auto">
             <SEO title={plan.title} description={plan.description} />
@@ -809,6 +1153,18 @@ const PublicPlanPage: React.FC = () => {
                     }
                 }
             `}</style>
+
+            <div className="fixed left-3 top-3 z-[90] md:left-6 md:top-6">
+                <button
+                    onClick={handleBackToPreviousPage}
+                    className="inline-flex h-10 items-center gap-2 rounded-full border border-white/20 bg-black/35 px-3 text-white shadow-lg shadow-black/20 backdrop-blur-md transition-all hover:bg-black/50 focus:outline-none focus:ring-2 focus:ring-white/60 md:h-11 md:px-4"
+                    aria-label="Voltar"
+                    title="Voltar"
+                >
+                    <ArrowLeft size={18} />
+                    <span className="hidden text-[11px] font-black uppercase tracking-widest sm:inline">Voltar</span>
+                </button>
+            </div>
 
             <StandardHeader
                 title={plan.title || 'Jornada Sem Título'}
@@ -916,7 +1272,7 @@ const PublicPlanPage: React.FC = () => {
                 </div>
 
                 {activeTab === 'content' && (
-                    <div className="space-y-4 animate-in fade-in">
+                    <div className="space-y-6 animate-in fade-in">
                         {(!plan.weeks || plan.weeks.length === 0) && (
                             <div className="text-center py-20 bg-white dark:bg-bible-darkPaper rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm mt-4">
                                 <BookOpen size={48} className="mx-auto text-gray-200 dark:text-gray-800 mb-4" />
@@ -939,12 +1295,12 @@ const PublicPlanPage: React.FC = () => {
                                     <ChevronDown className={`text-gray-400 transition-transform ${expandedWeeks[week.id] ? 'rotate-180' : ''}`} />
                                 </button>
                                 {expandedWeeks[week.id] && (
-                                    <div className="bg-gray-50/50 dark:bg-black/20 p-4 pt-0 space-y-3 pb-6">
-                                        <div className="h-px w-full bg-gray-100 dark:bg-gray-800 mb-4"></div>
+                                    <div className="bg-gray-50/50 dark:bg-black/20 p-5 pt-0 space-y-5 pb-7">
+                                        <div className="h-px w-full bg-gray-100 dark:bg-gray-800 mb-5"></div>
                                         {week.days.map((day) => {
                                             const isDone = myStats?.completedSteps.includes(day.id);
                                             return (
-                                                <div key={day.id} onClick={() => canViewContent ? setReadingDay(day) : showNotification("Entre na sala para ler", "info")} className={`relative flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer group ${isDone ? 'bg-white dark:bg-bible-darkPaper border-green-200 dark:border-green-900/30' : 'bg-white dark:bg-bible-darkPaper border-transparent hover:border-purple-300 hover:shadow-sm'}`}>
+                                                <div key={day.id} onClick={() => canViewContent ? openReadingDay(day) : showNotification("Entre na sala para ler", "info")} className={`relative flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer group ${isDone ? 'bg-white dark:bg-bible-darkPaper border-green-200 dark:border-green-900/30' : 'bg-white dark:bg-bible-darkPaper border-transparent hover:border-purple-300 hover:shadow-sm'}`}>
                                                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isDone ? 'bg-green-500 text-white shadow-green-200 shadow-lg' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 group-hover:bg-purple-700 group-hover:text-white dark:group-hover:bg-violet-500'}`}>
                                                         {isDone ? <CheckCircle2 size={20} /> : <Play size={20} className="ml-1" />}
                                                     </div>

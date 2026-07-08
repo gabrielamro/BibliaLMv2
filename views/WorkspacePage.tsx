@@ -5,6 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 import { dbService } from '../services/supabase';
+import { cultoPlusService } from '../services/cultoPlusService';
 import { SavedStudy, CustomPlan, Note, ContentStatus, ContentType } from '../types';
 import {
     PlusCircle, BookOpen, Trash2, Search, Loader2,
@@ -16,6 +17,7 @@ import StandardCard from '../components/ui/StandardCard';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { useHeader } from '../contexts/HeaderContext';
 import { getEditDestinationForContent, isStandaloneStudyContent } from '../utils/contentEditing';
+import { getNoteAreaClasses, normalizeServiceNote, normalizeStandardNote } from '../utils/centralizedNotes';
 
 // --- TYPES ---
 type ViewMode = 'grid' | 'list';
@@ -27,7 +29,7 @@ const isPlan = (item: any): item is CustomPlan => item.type === 'plan';
 const isStudy = (item: any): item is SavedStudy => item.type === 'study';
 
 const WorkspacePage: React.FC = () => {
-    const { currentUser, showNotification } = useAuth();
+    const { currentUser, userProfile, showNotification } = useAuth();
     const { setTitle, setIcon, resetHeader } = useHeader();
     const navigate = useNavigate();
     const isFirstRender = React.useRef(true);
@@ -54,9 +56,6 @@ const WorkspacePage: React.FC = () => {
     useEffect(() => {
         if (isFirstRender.current) {
             isFirstRender.current = false;
-        } else if (content.length > 0) {
-            // Skip fetch if we already have content (avoids refetch after delete)
-            return;
         }
         
         const fetchData = async () => {
@@ -64,10 +63,18 @@ const WorkspacePage: React.FC = () => {
             setLoading(true);
             try {
                 // Fetch parallel base data
-                const [studiesData, publicStudiesData, notesData] = await Promise.all([
+                const enrolledPlanIds = Array.from(new Set([
+                    ...((userProfile as any)?.enrolledPlans || []),
+                    ...((currentUser as any)?.enrolledPlans || []),
+                ])).filter(Boolean) as string[];
+
+                const [studiesData, publicStudiesData, notesData, serviceNotesData, ownedPlansData, enrolledPlansData] = await Promise.all([
                     dbService.getAll(currentUser.uid, 'studies'),
                     dbService.getAll(currentUser.uid, 'public_studies'),
                     dbService.getAll(currentUser.uid, 'notes'),
+                    cultoPlusService.getUserNotes(currentUser.uid),
+                    dbService.getUserCustomPlans(currentUser.uid),
+                    dbService.getEnrolledPlans(enrolledPlanIds),
                 ]);
 
                 // Normalize data
@@ -97,9 +104,17 @@ const WorkspacePage: React.FC = () => {
                         coverUrl: s.cover_image || meta?.coverImage || s.coverUrl 
                     };
                 }).filter(isStandaloneStudyContent);
-                const normalizedNotes = (notesData as any[]).map(n => ({ ...n, type: 'note', title: n.title || 'Anotação sem título' }));
+                const normalizedNotes = [
+                    ...(notesData as any[]).map(normalizeStandardNote),
+                    ...(serviceNotesData as any[]).map(normalizeServiceNote),
+                ];
 
-                setContent([...normalizedStudies, ...normalizedPublicStudies, ...normalizedNotes]);
+                const ownedPlans = (ownedPlansData as CustomPlan[]).map(plan => ({ ...plan, type: 'plan' as const }));
+                const enrolledPlans = (enrolledPlansData as CustomPlan[])
+                    .filter(plan => plan.authorId !== currentUser.uid)
+                    .map(plan => ({ ...plan, type: 'plan' as const, isEnrolled: true }));
+
+                setContent([...normalizedStudies, ...normalizedPublicStudies, ...normalizedNotes, ...ownedPlans, ...enrolledPlans]);
             } catch (e) {
                 console.error(e);
                 showNotification("Erro ao carregar workspace.", "error");
@@ -108,7 +123,7 @@ const WorkspacePage: React.FC = () => {
             }
         };
         fetchData();
-    }, [currentUser, showNotification]);
+    }, [currentUser, userProfile, showNotification]);
 
     // --- FILTERING ---
     const filteredContent = useMemo(() => {
@@ -119,6 +134,7 @@ const WorkspacePage: React.FC = () => {
             filtered = filtered.filter(c => {
                 if (activeFilter === 'note') return isNote(c);
                 if (activeFilter === 'study') return isStudy(c);
+                if (activeFilter === 'plan') return isPlan(c);
                 return false;
             });
         }
@@ -149,6 +165,11 @@ const WorkspacePage: React.FC = () => {
 
     // --- ACTIONS ---
     const handleEdit = (item: SavedStudy | CustomPlan | Note) => {
+        if (isNote(item)) {
+            navigate((item as any).sourceType === 'service_note' ? '/culto' : '/estudos');
+            return;
+        }
+
         // Se for um estudo seguido, vai para a visualização
         if (isStudy(item) && item.isFollowed) {
             navigate(`/v/${item.id}`);
@@ -168,6 +189,11 @@ const WorkspacePage: React.FC = () => {
     };
 
     const handlePreview = (item: any) => {
+        if (isNote(item)) {
+            navigate((item as any).sourceType === 'service_note' ? '/culto' : '/estudos');
+            return;
+        }
+
         if (isStudy(item)) {
             const destination = getEditDestinationForContent(item as any);
             if (destination) {
@@ -205,7 +231,7 @@ const WorkspacePage: React.FC = () => {
             if (deleteType === 'plan') {
                  const plan = content.find(c => String(c.id) === String(idToDelete)) as CustomPlan;
                  if (plan && plan.authorId !== currentUser.uid) {
-                     const updatedEnrolled = (currentUser as any).enrolledPlans?.filter((id: string) => String(id) !== String(idToDelete)) || [];
+                      const updatedEnrolled = ((userProfile as any)?.enrolledPlans || (currentUser as any).enrolledPlans || []).filter((id: string) => String(id) !== String(idToDelete));
                      await dbService.updateUserProfile(currentUser.uid, { enrolledPlans: updatedEnrolled });
                      setContent(prev => prev.filter(c => String(c.id) !== String(idToDelete)));
                      showNotification("Plano removido da sua lista.", "success");
@@ -213,7 +239,12 @@ const WorkspacePage: React.FC = () => {
                  }
                  await dbService.delete(currentUser.uid, 'custom_plans', idToDelete);
              } else if (deleteType === 'note') {
-                 await dbService.delete(currentUser.uid, 'notes', idToDelete);
+                 const note = content.find(c => String(c.id) === String(idToDelete)) as any;
+                 if (note?.sourceType === 'service_note') {
+                     await cultoPlusService.deleteNote(idToDelete, currentUser.uid);
+                 } else {
+                     await dbService.delete(currentUser.uid, 'notes', idToDelete);
+                 }
              } else if (deleteType === 'study') {
                  // Tenta deletar de ambas as tabelas pois um estudo pode estar em qualquer uma delas (legado vs novo)
                  await Promise.allSettled([
@@ -245,9 +276,9 @@ const WorkspacePage: React.FC = () => {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'published': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+            case 'published': return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300';
             case 'draft': return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
-            default: return 'bg-blue-100 text-blue-600';
+            default: return 'bg-cyan-100 text-cyan-700';
         }
     };
 
@@ -269,13 +300,13 @@ const WorkspacePage: React.FC = () => {
                                 placeholder="Buscar no workspace..."
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm outline-none focus:ring-2 ring-bible-gold/30 transition-all"
+                                className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm outline-none focus:ring-2 ring-cyan-500/30 transition-all"
                             />
                         </div>
 
                         <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg shrink-0">
-                            <button onClick={() => setViewMode('grid')} className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-gray-700 shadow-sm text-bible-gold' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
-                            <button onClick={() => setViewMode('list')} className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-bible-gold' : 'text-gray-400'}`}><List size={16} /></button>
+                            <button onClick={() => setViewMode('grid')} className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-gray-700 shadow-sm text-cyan-700 dark:text-cyan-300' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
+                            <button onClick={() => setViewMode('list')} className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-cyan-700 dark:text-cyan-300' : 'text-gray-400'}`}><List size={16} /></button>
                         </div>
                     </div>
 
@@ -283,7 +314,7 @@ const WorkspacePage: React.FC = () => {
                     <div className="flex gap-2 w-full md:w-auto justify-end">
                         <button
                             onClick={() => navigate('/criar-conteudo')}
-                            className="bg-bible-leather dark:bg-bible-gold text-white dark:text-black px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-md flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all whitespace-nowrap"
+                            className="bg-cyan-700 text-white px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-md shadow-cyan-900/10 flex items-center gap-2 hover:bg-cyan-800 dark:bg-cyan-500 dark:hover:bg-cyan-400 active:scale-95 transition-all whitespace-nowrap"
                         >
                             <PlusCircle size={16} /> Criar Novo
                         </button>
@@ -295,14 +326,15 @@ const WorkspacePage: React.FC = () => {
                     {[
                         { id: 'all', label: 'Tudo', icon: <Layers size={14} /> },
                         { id: 'study', label: 'Estudos', icon: <BookOpen size={14} /> },
+                        { id: 'plan', label: 'Salas', icon: <Calendar size={14} /> },
                         { id: 'note', label: 'Notas', icon: <FileText size={14} /> }
                     ].map(f => (
                         <button
                             key={f.id}
                             onClick={() => setActiveFilter(f.id as any)}
                             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${activeFilter === f.id
-                                ? 'bg-bible-gold text-white border-bible-gold shadow-md'
-                                : 'bg-white dark:bg-bible-darkPaper border-gray-200 dark:border-gray-800 text-gray-500 hover:border-gray-300'
+                                ? 'bg-cyan-700 text-white border-cyan-700 shadow-md shadow-cyan-900/10 dark:bg-cyan-500 dark:border-cyan-500'
+                                : 'bg-white dark:bg-bible-darkPaper border-gray-200 dark:border-gray-800 text-gray-500 hover:border-cyan-300 hover:text-cyan-700 dark:hover:text-cyan-300'
                                 }`}
                         >
                             {f.icon} {f.label}
@@ -331,7 +363,7 @@ const WorkspacePage: React.FC = () => {
 
                 {/* CONTENT GRID/LIST */}
                 {loading ? (
-                    <div className="flex justify-center py-20"><Loader2 className="animate-spin text-bible-gold" size={32} /></div>
+                    <div className="flex justify-center py-20"><Loader2 className="animate-spin text-cyan-700 dark:text-cyan-300" size={32} /></div>
                 ) : filteredContent.length === 0 ? (
                     <div className="text-center py-20 bg-white dark:bg-bible-darkPaper rounded-[2rem] border-2 border-dashed border-gray-200 dark:border-gray-800 animate-in fade-in">
                         <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
@@ -348,6 +380,7 @@ const WorkspacePage: React.FC = () => {
                             const itemType = isPlan(item) ? 'plan' : (isNote(item) ? 'note' : 'study');
                             const isFollowedStudy = isStudy(item) && item.isFollowed;
                             const isThirdPartyPlan = isPlan(item) && item.authorId !== currentUser.uid;
+                            const isEnrolledPlan = isPlan(item) && Boolean((item as any).isEnrolled);
                             const actionLabel = (isFollowedStudy || isThirdPartyPlan) ? 'Visualizar' : 'Editar';
 
                             return viewMode === 'grid' ? (
@@ -356,9 +389,10 @@ const WorkspacePage: React.FC = () => {
                                     title={item.title || 'Sem título'}
                                     subtitle={description?.substring(0, 100) || 'Sem descrição'}
                                     badges={[
-                                        { label: typeLabel, color: 'bg-blue-50 text-blue-600', icon: getIconForType(item) },
-                                        { label: item.status === 'published' ? 'Publicado' : 'Rascunho', color: item.status === 'published' ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500' },
-                                        ...(isFollowedStudy ? [{ label: 'Aula Salva', color: 'bg-bible-gold/10 text-bible-gold font-black' }] : [])
+                                        { label: typeLabel, color: isNote(item) ? getNoteAreaClasses((item as any).noteArea) : isPlan(item) ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-violet-300' : 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300', icon: getIconForType(item) },
+                                        ...(isNote(item) ? [{ label: (item as any).noteAreaLabel || 'Geral', color: getNoteAreaClasses((item as any).noteArea) }] : [{ label: item.status === 'published' ? 'Publicado' : 'Rascunho', color: getStatusColor(item.status) }]),
+                                        ...(isFollowedStudy ? [{ label: 'Aula Salva', color: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 font-black' }] : []),
+                                        ...(isEnrolledPlan ? [{ label: 'Inscrito', color: 'bg-purple-50 text-purple-700 font-black dark:bg-purple-950/40 dark:text-violet-300' }] : [])
                                     ]}
                                     metrics={isPlan(item) || isStudy(item) ? item.metrics : undefined}
                                     actionLabel={actionLabel}
@@ -372,6 +406,7 @@ const WorkspacePage: React.FC = () => {
                                     }}
                                     date={new Date(item.updatedAt || item.createdAt).toLocaleDateString('pt-BR')}
                                     coverUrl={item.coverUrl}
+                                    contentKind={isPlan(item) ? 'room' : 'study'}
                                     // Adiciona Share para itens publicados que tenham slug
                                     onShare={item.status === 'published' && (item as any).slug ? (e) => {
                                         e.stopPropagation();
@@ -385,21 +420,23 @@ const WorkspacePage: React.FC = () => {
                                     secondaryIcon={<Trash2 size={14} />}
                                 />
                             ) : (
-                                <div key={item.id} className="bg-white dark:bg-bible-darkPaper p-4 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-between hover:border-bible-gold/30 transition-all group">
+                                <div key={item.id} className="bg-white dark:bg-bible-darkPaper p-4 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-between hover:border-cyan-300 dark:hover:border-cyan-700 transition-all group">
                                     <div 
                                         className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
                                         onClick={() => handlePreview(item)}
                                     >
-                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isFollowedStudy ? 'bg-bible-gold/10 text-bible-gold' : 'bg-blue-50 text-blue-600'}`}>
+                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isNote(item) ? getNoteAreaClasses((item as any).noteArea) : isPlan(item) ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-violet-300' : 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300'}`}>
                                             {getIconForType(item)}
                                         </div>
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-2">
                                                 <h4 className="font-bold text-sm text-gray-900 dark:text-white truncate">{item.title}</h4>
-                                                {isFollowedStudy && <span className="bg-bible-gold/10 text-bible-gold text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest">Aula</span>}
+                                                {isNote(item) && <span className={`${getNoteAreaClasses((item as any).noteArea)} text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest`}>{(item as any).noteAreaLabel || 'Geral'}</span>}
+                                                {isFollowedStudy && <span className="bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest">Aula</span>}
+                                                {isEnrolledPlan && <span className="bg-purple-50 text-purple-700 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest dark:bg-purple-950/40 dark:text-violet-300">Inscrito</span>}
                                             </div>
                                             <div className="flex items-center gap-2 text-xs text-gray-400">
-                                                <span className={`w-2 h-2 rounded-full ${item.status === 'published' ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                                                <span className={`w-2 h-2 rounded-full ${item.status === 'published' ? 'bg-cyan-500' : 'bg-gray-300'}`}></span>
                                                 <span>{new Date(item.updatedAt || item.createdAt).toLocaleDateString('pt-BR')}</span>
                                             </div>
                                         </div>
@@ -407,7 +444,7 @@ const WorkspacePage: React.FC = () => {
                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button 
                                             onClick={(e) => { e.stopPropagation(); handlePreview(item); }} 
-                                            className="p-2 hover:bg-bible-gold/10 rounded-lg text-bible-gold"
+                                            className="p-2 hover:bg-cyan-500/10 rounded-lg text-cyan-700 dark:text-cyan-300"
                                             title="Visualizar"
                                         >
                                             <Eye size={16} />
@@ -415,7 +452,7 @@ const WorkspacePage: React.FC = () => {
                                         {item.status === 'published' && (item as any).slug && (
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleShare(item); }} 
-                                                className="p-2 hover:bg-bible-gold/10 rounded-lg text-bible-gold"
+                                                className="p-2 hover:bg-cyan-500/10 rounded-lg text-cyan-700 dark:text-cyan-300"
                                                 title="Copiar Link de Compartilhamento"
                                             >
                                                 <Share2 size={16} />

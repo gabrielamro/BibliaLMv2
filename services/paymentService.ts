@@ -52,7 +52,7 @@ export const paymentService = {
    * Cria uma assinatura recorrente (PreApproval).
    * O usuário será redirecionado para o Checkout Pro para autorizar.
    */
-  createSubscription: async (amount: number, title: string, email: string): Promise<PaymentStatus> => {
+  createSubscription: async (amount: number, title: string, email: string, billingCycle: 'monthly' | 'yearly' = 'monthly'): Promise<PaymentStatus> => {
     try {
       const response = await fetch(`${API_BASE}/preapproval`, {
         method: 'POST',
@@ -65,7 +65,7 @@ export const paymentService = {
           reason: title,
           payer_email: email,
           auto_recurring: {
-            frequency: 1,
+            frequency: billingCycle === 'yearly' ? 12 : 1,
             frequency_type: "months",
             transaction_amount: amount,
             currency_id: "BRL"

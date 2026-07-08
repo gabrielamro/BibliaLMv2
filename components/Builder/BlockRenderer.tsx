@@ -113,8 +113,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   const hasExplicitGridWidth =
     currentLayoutWidth === '1/1' ||
     currentLayoutWidth === '1/2' ||
-    currentLayoutWidth === '1/3' ||
-    currentLayoutWidth === '2/3';
+    currentLayoutWidth === '1/3';
 
   // Quando o grid da V2 controla a largura, o bloco deve ocupar toda a coluna atribuída.
   if (hasExplicitGridWidth) {

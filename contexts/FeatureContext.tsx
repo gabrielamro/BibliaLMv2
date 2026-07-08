@@ -24,6 +24,8 @@ const DEFAULT_FEATURES: FeatureFlag[] = [
   { id: '6', key: 'feature_images', label: 'Geração de Imagens', description: 'Criação de imagens com IA.', isEnabled: true, rolloutPercentage: 100 },
   { id: '7', key: 'ai_chat', label: 'Chat com IA', description: 'Obreiro IA para tirar dúvidas.', isEnabled: true, rolloutPercentage: 100 },
   { id: '8', key: 'workspace_pastoral', label: 'Workspace Pastoral', description: 'Área administrativa para pastores.', isEnabled: true, rolloutPercentage: 100 },
+  { id: '9', key: 'church_management', label: 'Gestao da Igreja', description: 'Modulo independente para gestao, designacoes, equipes e acompanhamento.', isEnabled: true, rolloutPercentage: 100 },
+  { id: '10', key: 'member_church_journey', label: 'Minha Igreja', description: 'Area do membro para retornos, equipes, designacoes, insignias e Mana.', isEnabled: true, rolloutPercentage: 100 },
 ];
 
 export const FeatureProvider: React.FC<{ children: ReactNode }> = ({ children }) => {

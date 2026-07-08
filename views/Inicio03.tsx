@@ -9,7 +9,7 @@ import {
   Plus, FileText, Image, Mic, History, Trophy, Crown, Target, Heart, ArrowRight, Sun, Moon,
   Users, MessageSquare, Calendar, Sparkles, CreditCard, HelpCircle, Book, Layout, Coffee, Map, Brain,
   LifeBuoy, Scroll, ShieldCheck, Terminal, ShieldAlert, LogOut, UserCircle, X, Lock,
-  HandHeart, Loader2, Globe, PenLine, Church
+  HandHeart, Loader2, Globe, PenLine, Church, Clock, ChevronLeft, ListTodo
 } from 'lucide-react';
 
 import { useSettings } from '../contexts/SettingsContext';
@@ -22,7 +22,8 @@ import { BIBLE_BOOKS_LIST, DAILY_BIBLE_VERSES } from '../constants';
 import { resolveBibleSearchNavigation } from '../utils/bibleSearchNavigation';
 import { getBibleBookAutocomplete } from '../utils/bibleBookAutocomplete';
 import { getReadingGoalProgress, INICIO_QUICK_ACCESS_GROUPS, type InicioQuickAccessItem } from '../utils/inicioHome';
-import { isStandaloneStudyContent } from '../utils/contentEditing';
+import { getEditDestinationForContent, isStandaloneStudyContent } from '../utils/contentEditing';
+import { getNoteAreaClasses, getNoteAreaTextClasses, normalizeServiceNote, normalizeStandardNote } from '../utils/centralizedNotes';
 import { useKingdomFeed } from '../hooks/useKingdomFeed';
 import { usePrayerWall } from '../hooks/usePrayerWall';
 import { FeedPostCard } from '../components/social/FeedPostCard';
@@ -30,7 +31,9 @@ import KingdomComposer from '../components/social/KingdomComposer';
 import { getMentionNotifications } from '../utils/kingdomHomeFeed';
 import CultoPlusPublicAgenda from '../components/culto-plus/CultoPlusPublicAgenda';
 import { getAgendaRange } from '../utils/cultoPlusCalendar';
+import { canAccessPastoralWorkspace, isGeneralManager } from '../utils/profileAccess';
 import type { ChurchService, Post } from '../types';
+import PaidAccountBadge from '../components/PaidAccountBadge';
 
 const quickAccessIcons: Record<InicioQuickAccessItem['iconKey'], React.ReactNode> = {
   book: <BookOpen size={16} />,
@@ -492,10 +495,20 @@ const SanctuaryPage: React.FC = () => {
   const { settings, toggleTheme } = useSettings();
   const { plans } = useWorkspace();
 
-  const [activeTab, setActiveTab] = useState<'inicio' | 'criar' | 'reino'>(() => {
+  type HomeTab = 'inicio' | 'criar' | 'reino' | 'gestao' | 'calendario';
+
+  const HOME_TAB_HASHES: Record<HomeTab, string> = {
+    inicio: '',
+    criar: '#criativo',
+    reino: '#reino',
+    gestao: '#gestao',
+    calendario: '#calendario',
+  };
+
+  const [activeTab, setActiveTab] = useState<HomeTab>(() => {
     try {
       const saved = sessionStorage.getItem('inicio_active_tab');
-      if (saved === 'inicio' || saved === 'criar' || saved === 'reino') {
+      if (saved === 'inicio' || saved === 'criar' || saved === 'reino' || saved === 'gestao' || saved === 'calendario') {
         return saved;
       }
     } catch (e) { }
@@ -515,6 +528,13 @@ const SanctuaryPage: React.FC = () => {
   const [dailyDevotional, setDailyDevotional] = useState<any>(null);
   const [loadingDevotional, setLoadingDevotional] = useState(true);
   const [userStudies, setUserStudies] = useState<any[]>([]);
+  const [userNotes, setUserNotes] = useState<any[]>([]);
+  const [userPlans, setUserPlans] = useState<any[]>([]);
+  const [isCurrentChurchManager, setIsCurrentChurchManager] = useState(false);
+  type StudyShelfTypeFilter = 'all' | 'study' | 'plan' | 'note';
+  type StudyShelfStatusFilter = 'all' | 'draft' | 'published';
+  const [studyShelfTypeFilter, setStudyShelfTypeFilter] = useState<StudyShelfTypeFilter>('all');
+  const [studyShelfStatusFilter, setStudyShelfStatusFilter] = useState<StudyShelfStatusFilter>('all');
   const [searchPreview, setSearchPreview] = useState<{ text: string, formattedRef: string, routeState: any } | null>(null);
   const bookAutocomplete = useMemo(
     () => getBibleBookAutocomplete(searchTerm, BIBLE_BOOKS_LIST, 4),
@@ -532,8 +552,11 @@ const SanctuaryPage: React.FC = () => {
   const userName = userProfile?.displayName || 'Visitante';
   const userAvatar = userProfile?.photoURL || currentUser?.user_metadata?.avatar_url || null;
   const memberChurchName = userProfile?.churchData?.churchName || 'sua igreja';
-  const isPastorProfile = userProfile?.subscriptionTier === 'pastor' || userProfile?.subscriptionTier === 'admin';
-  const churchRoleLabel = isPastorProfile ? 'Pastor' : 'Membro';
+  const isPastorProfile = canAccessPastoralWorkspace(userProfile);
+  const baseChurchRoleLabel = isPastorProfile ? 'Pastor' : 'Membro';
+  const churchRoleLabel = (isGeneralManager(userProfile) || isCurrentChurchManager)
+    ? `${baseChurchRoleLabel} e Gestor`
+    : baseChurchRoleLabel;
   const memberChurchPrefix = memberChurchName.toLowerCase().startsWith('igreja') ? 'da' : 'da Igreja';
   const memberChurchPath = userProfile?.churchData?.churchSlug ? `/igreja/${userProfile.churchData.churchSlug}` : '/social/igrejas';
   const userMana = userProfile?.lifetimeXp || 0;
@@ -543,6 +566,32 @@ const SanctuaryPage: React.FC = () => {
   const isLightTheme = settings.theme === 'light';
   const sanctuaryChurchId = userProfile?.churchData?.churchId;
   const churchAgendaRange = useMemo(() => getAgendaRange(new Date(), 14), []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadChurchManagerStatus = async () => {
+      if (!currentUser?.uid || !sanctuaryChurchId) {
+        setIsCurrentChurchManager(false);
+        return;
+      }
+
+      if (isGeneralManager(userProfile)) {
+        setIsCurrentChurchManager(true);
+        return;
+      }
+
+      const isManager = await dbService.isUserChurchManager(currentUser.uid, sanctuaryChurchId);
+      if (!cancelled) setIsCurrentChurchManager(isManager);
+    };
+
+    loadChurchManagerStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.uid, sanctuaryChurchId, userProfile?.profileType, userProfile?.subscriptionTier]);
+
   const handleProfileNavigation = () => {
     setIsSettingsOpen(false);
     setIsNotifDropdownOpen(false);
@@ -554,14 +603,84 @@ const SanctuaryPage: React.FC = () => {
   };
   const salaAccentClass = 'bg-violet-500/15 text-violet-700 dark:text-violet-200 ring-1 ring-violet-300/40 dark:ring-violet-400/20';
   const formatShortDate = (value?: string) => new Date(value || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-  const formatServiceTime = (value?: string) => new Date(value || Date.now()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
-  const getServiceBadge = (service: ChurchService) => {
-    const nowTime = Date.now();
-    const start = new Date(service.startsAt).getTime();
-    const end = new Date(service.endsAt).getTime();
-    if (nowTime >= start && nowTime <= end) return 'Ao vivo';
-    if (nowTime < start) return 'Agendado';
-    return service.status === 'finished' ? 'Finalizado' : 'Realizado';
+  const getContentDate = (item: any) => new Date(item?.updatedAt || item?.updated_at || item?.createdAt || item?.created_at || 0).getTime();
+  const studyShelfItems = useMemo(() => {
+    let items = [...userStudies, ...userPlans, ...userNotes];
+
+    if (studyShelfTypeFilter !== 'all') {
+      items = items.filter((item) => item.type === studyShelfTypeFilter);
+    }
+
+    if (studyShelfStatusFilter !== 'all') {
+      items = items.filter((item) => item.status === studyShelfStatusFilter);
+    }
+
+    return items.sort((a, b) => getContentDate(b) - getContentDate(a));
+  }, [studyShelfTypeFilter, studyShelfStatusFilter, userNotes, userPlans, userStudies]);
+  const studyShelfConfig = useMemo(() => {
+    if (studyShelfTypeFilter === 'note') return {
+      actionLabel: 'Abrir estudos',
+      actionPath: '/estudos',
+      lockLabel: 'Ver estudos',
+      emptyTitle: 'Nenhum registro encontrado',
+      emptyHint: 'Abrir estudos',
+    };
+    if (studyShelfTypeFilter === 'plan') return {
+      actionLabel: 'Nova sala',
+      actionPath: '/criar-sala',
+      lockLabel: 'Ver salas',
+      emptyTitle: 'Nenhuma sala encontrada',
+      emptyHint: 'Ver salas',
+    };
+    return {
+      actionLabel: 'Novo estudo',
+      actionPath: '/criar-conteudo',
+      lockLabel: 'Criar com IA',
+      emptyTitle: 'Nada encontrado',
+      emptyHint: 'Abrir estudos',
+    };
+  }, [studyShelfTypeFilter]);
+  const getStudyShelfTypeLabel = (item: any) => {
+    if (item.type === 'plan') return 'SALA';
+    if (item.type === 'note') return 'NOTA';
+    return 'ESTUDO';
+  };
+  const getStudyShelfStatusLabel = (item: any) => {
+    if (item.type === 'note') return item.noteAreaLabel || 'Geral';
+    if (item.type === 'plan') return item.isEnrolled ? 'Inscrito' : (item.status === 'published' ? 'Publicado' : 'Rascunho');
+    return item.status === 'published' ? 'Publicado' : 'Rascunho';
+  };
+  const getStudyShelfTitle = (item: any) => item.title || item.sourceStudyTitle || item.content?.slice?.(0, 90) || 'Estudo sem titulo';
+  const getStudyShelfTitleClass = (item: any) => {
+    const titleLength = String(getStudyShelfTitle(item)).length;
+    if (titleLength > 72) return 'text-[11px] leading-snug line-clamp-4';
+    if (titleLength > 44) return 'text-[12px] leading-snug line-clamp-4';
+    return 'text-[13px] leading-tight line-clamp-3';
+  };
+  const handleStudyShelfItemClick = (item: any) => {
+    if (item.type === 'note') {
+      navigate('/estudos');
+      return;
+    }
+
+    if (item.type === 'plan') {
+      if (item.authorId !== (currentUser?.uid || currentUser?.id)) {
+        navigate(`/jornada/${item.id}`);
+        return;
+      }
+
+      const destination = getEditDestinationForContent(item);
+      navigate(destination?.path || `/criar-sala?id=${item.id}`, destination?.state ? { state: destination.state } : undefined);
+      return;
+    }
+
+    if (item.isFollowed) {
+      navigate(`/v/${item.id}`);
+      return;
+    }
+
+    const destination = getEditDestinationForContent(item);
+    navigate(destination?.path || `/criar-conteudo?id=${item.id}`, destination?.state ? { state: destination.state } : { state: { contentId: item.id, studyData: item } });
   };
 
   useEffect(() => {
@@ -660,17 +779,31 @@ const SanctuaryPage: React.FC = () => {
   }, [currentUser]);
 
   useEffect(() => {
+    let mounted = true;
     const loadUserStudies = async () => {
       if (!currentUser) {
         setUserStudies([]);
+        setUserNotes([]);
+        setUserPlans([]);
         return;
       }
 
-      const uid = currentUser.id ?? currentUser.uid;
+      const uid = currentUser.uid ?? currentUser.id;
       try {
-        const [studiesData, publicStudiesData] = await Promise.all([
+        const enrolledPlanIds = Array.from(new Set([
+          ...((userProfile as any)?.enrolledPlans || []),
+          ...((userProfile as any)?.enrolled_plans || []),
+          ...((currentUser as any)?.enrolledPlans || []),
+          ...((currentUser as any)?.enrolled_plans || []),
+        ].filter(Boolean)));
+
+        const [studiesData, publicStudiesData, notesData, serviceNotesData, ownedPlansData, enrolledPlansData] = await Promise.all([
           dbService.getAll(uid, 'studies'),
           dbService.getAll(uid, 'public_studies'),
+          dbService.getAll(uid, 'notes'),
+          cultoPlusService.getUserNotes(uid),
+          dbService.getUserCustomPlans(uid),
+          dbService.getEnrolledPlans(enrolledPlanIds),
         ]);
 
         const normalizeStudy = (study: any) => {
@@ -692,17 +825,31 @@ const SanctuaryPage: React.FC = () => {
           .map(normalizeStudy)
           .filter(isStandaloneStudyContent)
           .sort((a, b) => new Date(b.updatedAt || b.updated_at || b.createdAt || b.created_at || 0).getTime() - new Date(a.updatedAt || a.updated_at || a.createdAt || a.created_at || 0).getTime())
-          .slice(0, 2);
+          .slice(0, 24);
 
+        if (!mounted) return;
         setUserStudies(studies);
+        setUserNotes([...(notesData as any[]).map(normalizeStandardNote), ...(serviceNotesData as any[]).map(normalizeServiceNote)]
+          .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime())
+          .slice(0, 24));
+        setUserPlans([...(ownedPlansData as any[]), ...(enrolledPlansData as any[]).filter((plan) => plan.authorId !== uid)]
+          .map((plan) => ({ ...plan, type: 'plan', isEnrolled: plan.authorId !== uid }))
+          .sort((a, b) => new Date(b.updatedAt || b.updated_at || b.createdAt || b.created_at || 0).getTime() - new Date(a.updatedAt || a.updated_at || a.createdAt || a.created_at || 0).getTime())
+          .slice(0, 24));
       } catch (error) {
         console.error('[Inicio03] Erro ao carregar estudos:', error);
+        if (!mounted) return;
         setUserStudies([]);
+        setUserNotes([]);
+        setUserPlans([]);
       }
     };
 
     loadUserStudies();
-  }, [currentUser]);
+    return () => {
+      mounted = false;
+    };
+  }, [currentUser, userProfile]);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -757,7 +904,10 @@ const SanctuaryPage: React.FC = () => {
                 )}
               </button>
               <div className="flex min-w-0 flex-col">
-                <span className="text-gray-600 dark:text-gray-400 text-[11px] font-medium leading-tight">Bem Vindo de volta {userName}</span>
+                <span className="flex flex-wrap items-center gap-2 text-gray-600 dark:text-gray-400 text-[11px] font-medium leading-tight">
+                  <span>Bem Vindo de volta {userName}</span>
+                  <PaidAccountBadge tier={userProfile?.subscriptionTier} compact />
+                </span>
                 <span className={`max-w-[240px] truncate font-medium text-[13px] leading-tight sm:max-w-none ${isLightTheme ? 'text-[#111111]' : 'text-white'}`}>
                   {churchRoleLabel} {memberChurchPrefix}{' '}
                   <button
@@ -995,6 +1145,22 @@ const SanctuaryPage: React.FC = () => {
               <span className="text-sm font-medium">Reino</span>
               {activeTab === 'reino' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-white" />}
             </button>
+            <button
+              onClick={() => setActiveTab('gestao')}
+              className={`flex items-center gap-2 pb-3 px-1 relative ${activeTab === 'gestao' ? (isLightTheme ? 'text-[#111111]' : 'text-white') : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              <Church size={16} />
+              <span className="text-sm font-medium">Gestão</span>
+              {activeTab === 'gestao' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#c5a059]" />}
+            </button>
+            <button
+              onClick={() => setActiveTab('calendario')}
+              className={`flex items-center gap-2 pb-3 px-1 relative ${activeTab === 'calendario' ? (isLightTheme ? 'text-[#111111]' : 'text-white') : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              <Calendar size={16} />
+              <span className="text-sm font-medium">Calendário</span>
+              {activeTab === 'calendario' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#3b82f6]" />}
+            </button>
           </div>
         </div>
 
@@ -1004,36 +1170,37 @@ const SanctuaryPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 lg:gap-10 mt-10">
 
           {/* COLUNA ESQUERDA (Principal) - ocupa 8 colunas no grid baseado no anexo */}
-          <div className="lg:col-span-9 space-y-6 md:space-y-8 lg:space-y-12">
+          <div className="lg:col-span-12 space-y-6 md:space-y-8 lg:space-y-12">
 
             {activeTab === 'inicio' && (
               <>
                 {/* 1. HERO - VERSÍCULO DO DIA */}
-                <div className="relative rounded-2xl md:rounded-[2rem] overflow-hidden min-h-[320px] md:min-h-[400px] flex flex-col justify-end p-6 md:p-10 group cursor-pointer" onClick={openVerseOfDay}>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-5 lg:gap-6 items-stretch">
+                <div className="relative rounded-2xl overflow-hidden min-h-[220px] md:min-h-[250px] lg:min-h-[260px] lg:col-span-8 flex flex-col justify-end p-5 md:p-7 group cursor-pointer" onClick={openVerseOfDay}>
                   <div className="absolute inset-0">
                     <img src="https://images.unsplash.com/photo-1525286102666-b3281abadd14?auto=format&fit=crop&q=80&w=1600" alt="" className="w-full h-full object-cover transition-transform duration-[20s] group-hover:scale-105" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0E0E0E] via-[#0E0E0E]/80 to-[#0E0E0E]/30" />
-                    <div className="absolute top-10 left-0 w-full text-center pointer-events-none opacity-80">
-                      <h1 className="text-[120px] md:text-[180px] lg:text-[220px] xl:text-[280px] font-medium text-white/10 tracking-tighter leading-none select-none">JESUS</h1>
+                    <div className="absolute top-6 left-0 w-full text-center pointer-events-none opacity-80">
+                      <h1 className="text-[100px] md:text-[150px] lg:text-[190px] font-medium text-white/10 tracking-tighter leading-none select-none">JESUS</h1>
                     </div>
                   </div>
 
                   <div className="relative z-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#c5a059] text-black font-medium text-[11px] rounded-lg mb-4 shadow-lg shadow-[#c5a059]/20">
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1.5 bg-[#c5a059] text-black font-medium text-[10px] rounded-lg mb-4 shadow-lg shadow-[#c5a059]/20">
                       <BookOpen size={14} /> Versículo do Dia
                     </div>
 
-                    <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-medium text-white leading-tight mb-8 max-w-4xl line-clamp-3">
+                    <h2 className="text-2xl md:text-3xl lg:text-4xl font-medium text-white leading-tight mb-6 max-w-3xl line-clamp-3">
                       "{verseOfTheDay.text}"
                     </h2>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-[#c5a059] font-medium text-lg md:text-xl">- {verseOfTheDay.ref}</span>
+                      <span className="text-[#c5a059] font-medium text-sm md:text-base">- {verseOfTheDay.ref}</span>
                       <div className="flex items-center gap-3">
-                        <button className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); openVerseOfDay(); }}>
+                        <button className="w-10 h-10 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); openVerseOfDay(); }}>
                           <Share2 size={18} />
                         </button>
-                        <button className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); openVerseOfDay(); }}>
+                        <button className="w-10 h-10 bg-white/10 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all text-white" onClick={(e) => { e.stopPropagation(); openVerseOfDay(); }}>
                           <Bookmark size={18} />
                         </button>
                       </div>
@@ -1042,9 +1209,8 @@ const SanctuaryPage: React.FC = () => {
                 </div>
 
                 {/* 2. META LIDA & PÃO DIÁRIO */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Meta de Leitura */}
-                  <div className="bg-gray-50 dark:bg-[#141414] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex justify-between items-center cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors relative" onClick={() => navigate('/plano')}>
+                  <div className="lg:col-span-4 min-h-[180px] bg-gray-50 dark:bg-[#141414] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex justify-between items-center cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors relative" onClick={() => navigate('/plano')}>
                     {!currentUser && <LockOverlay message="Acompanhar progresso" />}
                     <div className="flex flex-col h-full justify-between">
                       <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center mb-6">
@@ -1076,7 +1242,7 @@ const SanctuaryPage: React.FC = () => {
                   </div>
 
                   {/* Pão Diário */}
-                  <div className="bg-gray-50 dark:bg-[#141414] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex justify-between relative overflow-hidden cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors" onClick={() => navigate('/devocional')}>
+                  <div className="lg:col-span-6 min-h-[160px] bg-gray-50 dark:bg-[#141414] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex justify-between relative overflow-hidden cursor-pointer hover:border-gray-300 dark:hover:border-[#3A3A3A] transition-colors" onClick={() => navigate('/devocional')}>
                     {!currentUser && <LockOverlay message="Ver meu devocional" />}
                     <div className="absolute right-[-20%] top-[-20%] text-[180px] font-serif font-medium text-white/5 leading-none select-none pointer-events-none">99</div>
 
@@ -1103,6 +1269,37 @@ const SanctuaryPage: React.FC = () => {
                       </span>
                     </div>
                   </div>
+
+                  {/* Oração do Dia */}
+                  <div
+                    className="lg:col-span-6 min-h-[160px] bg-stone-50 dark:bg-stone-950/20 rounded-2xl p-6 border border-stone-200 dark:border-stone-800 flex flex-col md:flex-row md:items-center justify-between gap-5 cursor-pointer hover:border-stone-500/60 dark:hover:border-stone-500/60 transition-colors relative overflow-hidden"
+                    onClick={() => navigate('/oracoes')}
+                  >
+                    <div className="absolute right-[-40px] top-[-70px] text-[160px] font-serif font-medium text-stone-900/5 dark:text-stone-300/5 leading-none select-none pointer-events-none">AM</div>
+                    <div className="flex items-start gap-4 relative z-10">
+                      <div className="w-9 h-9 rounded-full bg-stone-500/10 flex items-center justify-center flex-shrink-0">
+                        <HandHeart size={17} className="text-stone-700 dark:text-stone-300" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5 text-stone-700 dark:text-stone-300 mb-2">
+                          <Sparkles size={11} fill="currentColor" />
+                          <span className="text-[9px] font-medium tracking-widest uppercase">ORAÇÃO DO DIA</span>
+                        </div>
+                        <h3 className="text-gray-900 dark:text-white font-medium text-[15px] mb-1">Oração ao Amanhecer</h3>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm font-serif italic leading-relaxed max-w-2xl line-clamp-2">
+                          "Pai amado, obrigado por este novo dia. Entrego minhas mãos para o Teu trabalho e meus pés para o Teu caminho..."
+                        </p>
+                        <span className="mt-3 inline-flex text-stone-700 dark:text-stone-300 font-medium text-[9px] uppercase tracking-widest">BIBLIALM</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); navigate('/oracoes'); }}
+                      className="relative z-10 inline-flex items-center justify-center gap-1.5 rounded-xl bg-stone-800 px-4 py-3 text-[10px] font-medium uppercase tracking-widest text-white hover:bg-stone-900 transition-colors min-h-11"
+                    >
+                      Ler Completa <ChevronRight size={13} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* 3. ESPAÇO + (ADMIN ONLY) */}
@@ -1119,6 +1316,8 @@ const SanctuaryPage: React.FC = () => {
                       services={churchServices}
                       visibleDays={churchAgendaRange.visibleDays}
                       onOpen={(service) => navigate(`/culto/${service.slug}`)}
+                      layout="carousel"
+                      pageSize={6}
                     />
                   </div>
                 )}
@@ -1204,10 +1403,10 @@ const SanctuaryPage: React.FC = () => {
                           <button onClick={() => navigate('/workspace-pastoral/cultos')} className="text-[10px] font-medium uppercase tracking-widest text-[#c5a059] hover:text-emerald-700 transition-colors">Ver cultos</button>
                         </div>
 
-                        <div className="flex gap-4 overflow-x-auto pb-1 custom-scrollbar">
+                        <div className="grid gap-3 lg:grid-cols-[180px_minmax(0,1fr)]">
                           <button
                             onClick={() => navigate('/workspace-pastoral/cultos/novo')}
-                            className="min-w-[180px] h-[170px] rounded-2xl border border-dashed border-emerald-500/40 bg-gradient-to-br from-emerald-950 via-emerald-800 to-[#c5a059] text-white flex flex-col items-center justify-center gap-4 hover:shadow-xl hover:shadow-emerald-950/20 transition-all cursor-pointer shrink-0 group overflow-hidden relative"
+                            className="min-h-[170px] rounded-2xl border border-dashed border-emerald-500/40 bg-gradient-to-br from-emerald-950 via-emerald-800 to-[#c5a059] text-white flex flex-col items-center justify-center gap-4 hover:shadow-xl hover:shadow-emerald-950/20 transition-all cursor-pointer group overflow-hidden relative"
                           >
                             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.22),transparent_35%)]" />
                             <div className="relative w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center text-white ring-1 ring-white/20 group-hover:scale-105 transition-transform">
@@ -1216,32 +1415,14 @@ const SanctuaryPage: React.FC = () => {
                             <span className="relative font-medium text-[11px] uppercase tracking-wider">Novo Culto +</span>
                           </button>
 
-                          {churchServices.length > 0 ? churchServices.map(service => (
-                            <div
-                              key={service.id}
-                              className="min-w-[260px] h-[170px] rounded-2xl overflow-hidden bg-emerald-50/70 dark:bg-emerald-950/10 border border-emerald-200 dark:border-emerald-900/50 flex flex-col cursor-pointer hover:border-[#c5a059]/70 hover:shadow-xl hover:shadow-emerald-950/10 transition-all shrink-0 group"
-                              onClick={() => navigate(`/culto/${service.slug}`)}
-                            >
-                              <div className="p-4 flex flex-col h-full relative overflow-hidden">
-                                <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[#c5a059]/20 blur-2xl" />
-                                <div className="relative flex items-center justify-between mb-3">
-                                  <span className="rounded-full bg-emerald-700 px-2.5 py-1 text-[7px] font-medium uppercase tracking-widest text-white shadow-sm">{getServiceBadge(service)}</span>
-                                  <span className="text-[9px] font-medium uppercase tracking-widest text-emerald-700 dark:text-emerald-300">{formatServiceTime(service.startsAt)}</span>
-                                </div>
-                                <h3 className="relative text-gray-900 dark:text-white font-medium text-[14px] line-clamp-2 leading-tight group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">{service.title}</h3>
-                                <p className="relative mt-2 text-[10px] font-medium text-gray-500 dark:text-gray-400 line-clamp-1">{service.theme || service.serviceType}</p>
-                                <div className="relative mt-auto flex items-center justify-between">
-                                  <span className="text-gray-400 text-[8px] font-medium">{formatShortDate(service.startsAt)}</span>
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-medium uppercase tracking-widest text-[#c5a059]">Abrir <ArrowRight size={10} /></span>
-                                </div>
-                              </div>
-                            </div>
-                          )) : (
-                            <div className="min-w-[220px] h-[170px] rounded-2xl p-5 bg-emerald-50/60 dark:bg-emerald-950/10 border border-dashed border-emerald-200 dark:border-emerald-900/50 flex flex-col justify-center items-center text-center shrink-0">
-                              <Calendar size={24} className="text-emerald-600 mb-3" />
-                              <span className="text-gray-500 dark:text-gray-400 text-xs mb-2">Nenhum Culto+ criado ainda</span>
-                            </div>
-                          )}
+                          <CultoPlusPublicAgenda
+                            services={churchServices}
+                            visibleDays={churchAgendaRange.visibleDays}
+                            onOpen={(service) => navigate(`/culto/${service.slug}`)}
+                            emptyLabel="Nenhum Culto+ criado ainda"
+                            layout="carousel"
+                            pageSize={6}
+                          />
                         </div>
                       </div>
                       </div>
@@ -1251,110 +1432,194 @@ const SanctuaryPage: React.FC = () => {
 
                 {/* 4. MEUS ESTUDOS E CARDS */}
                 <div className={`pt-2 border-t ${isAdmin ? 'border-gray-200 dark:border-[#2A2A2A] mt-6' : 'border-transparent'}`}>
-                  <HomeSectionHeader
-                    icon={<FileText size={18} className="text-[#c5a059]" />}
-                    title="Meus Estudos"
-                    actionLabel="VER TODOS"
-                    onAction={() => navigate('/estudos')}
-                    isLightTheme={isLightTheme}
-                  />
-
-                  <HomePanel className="flex flex-col md:flex-row gap-4 h-[240px]">
-                    {/* Box Criar Estudo */}
-                    <div
-                      className="w-full md:w-[25%] bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col items-center justify-center relative overflow-hidden cursor-pointer hover:border-blue-500/30 transition-colors"
-                      onClick={() => navigate('/criar-conteudo')}
-                    >
-                      {!currentUser && <LockOverlay message="Criar com IA" />}
-                      <div className="w-12 h-12 bg-gray-100 dark:bg-[#2A2A2A] flex items-center justify-center rounded-xl mb-4 relative z-10">
-                        <FileText size={24} className="text-gray-900 dark:text-white" />
-                      </div>
-                      <h3 className="text-gray-900 dark:text-white font-medium text-lg mb-1 relative z-10">Criar Estudo</h3>
-                      <p className="text-gray-600 dark:text-gray-400 text-xs relative z-10">Análise profunda com IA</p>
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-2xl rounded-full translate-x-1/2 -translate-y-1/2" />
+                  <div className="mb-4 flex items-center justify-between gap-4 px-1">
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-widest text-cyan-700 dark:text-cyan-300">Estudos</p>
+                      <h2 className="text-gray-900 dark:text-white font-medium text-lg md:text-xl lg:text-2xl">Meus Estudos</h2>
                     </div>
+                    <button
+                      onClick={() => navigate('/estudos')}
+                      className="rounded-full bg-cyan-500/10 px-3 py-1 text-[9px] font-medium uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-500/15 dark:text-cyan-200"
+                    >
+                      Biblioteca
+                    </button>
+                  </div>
+
+                  <div className="mb-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    {[
+                      { id: 'all', label: 'Tudo' },
+                      { id: 'study', label: 'Estudos' },
+                      { id: 'plan', label: 'Salas' },
+                    ].map((filter) => (
+                      <button
+                        key={filter.id}
+                        onClick={() => setStudyShelfTypeFilter(filter.id as StudyShelfTypeFilter)}
+                        className={`whitespace-nowrap rounded-xl px-4 py-2 text-[10px] font-medium uppercase tracking-widest transition-all ${studyShelfTypeFilter === filter.id ? 'bg-cyan-700 text-white shadow-md shadow-cyan-900/10' : 'bg-white text-gray-500 hover:text-cyan-700 dark:bg-[#1A1A1A] dark:text-gray-400 dark:hover:text-cyan-300'}`}
+                      >
+                        {filter.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mb-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    {[
+                      { id: 'all', label: 'Todos Status' },
+                      { id: 'draft', label: 'Rascunhos' },
+                      { id: 'published', label: 'Publicados' },
+                    ].map((filter) => (
+                      <button
+                        key={filter.id}
+                        onClick={() => setStudyShelfStatusFilter(filter.id as StudyShelfStatusFilter)}
+                        className={`whitespace-nowrap rounded-lg px-3 py-2 text-[9px] font-medium uppercase tracking-widest transition-all ${studyShelfStatusFilter === filter.id ? 'bg-gray-800 text-white dark:bg-white dark:text-black' : 'bg-transparent text-gray-400 hover:bg-gray-100 dark:hover:bg-[#1A1A1A]'}`}
+                      >
+                        {filter.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+                    {/* Box Criar Estudo */}
+                    <button
+                      className="min-w-[180px] h-[190px] rounded-2xl border border-dashed border-cyan-400/50 bg-gradient-to-br from-cyan-50 via-white to-sky-50 dark:from-cyan-950/25 dark:via-[#1A1A1A] dark:to-sky-950/15 flex flex-col items-center justify-center gap-4 hover:border-cyan-500 hover:shadow-lg hover:shadow-cyan-900/10 transition-all cursor-pointer shrink-0 group relative overflow-hidden"
+                      onClick={() => navigate(studyShelfConfig.actionPath)}
+                    >
+                      {!currentUser && <LockOverlay message={studyShelfConfig.lockLabel} />}
+                      <div className="w-12 h-12 bg-cyan-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-cyan-700/25 group-hover:scale-105 transition-transform">
+                        <Plus size={24} />
+                      </div>
+                      <span className="text-gray-900 dark:text-white font-medium text-[11px] uppercase tracking-wider">{studyShelfConfig.actionLabel}</span>
+                    </button>
 
                     {/* Box Cards Escuros */}
-                    <div className="w-full md:w-[75%] flex gap-4 h-full">
-                      {userStudies.length > 0 ? userStudies.map((study, i) => (
-                        <div key={`study-${study.id || i}`} onClick={() => navigate(`/criar-conteudo?id=${study.id}`, { state: { contentId: study.id, studyData: study } })} className="flex-1 bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-between cursor-pointer hover:border-[#c5a059]/30 transition-colors">
-                          <div className="flex justify-between items-start mb-2">
-                            <h3 className="text-gray-900 dark:text-white font-medium text-sm line-clamp-2">{study.title}</h3>
-                            <span className="text-gray-500 dark:text-gray-500 text-[10px] font-medium shrink-0">{new Date(study.updatedAt || study.updated_at || study.createdAt || study.created_at || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                    <div className="contents">
+                      {studyShelfItems.length > 0 ? studyShelfItems.slice(0, 6).map((study, i) => (
+                        <div key={`${study.type || 'content'}-${study.id || i}`} onClick={() => handleStudyShelfItemClick(study)} className="min-w-[260px] h-[190px] rounded-2xl overflow-hidden bg-white dark:bg-[#1A1A1A] border border-cyan-200 dark:border-cyan-900/50 flex flex-col cursor-pointer hover:border-cyan-400 hover:shadow-xl hover:shadow-cyan-950/10 transition-all shrink-0 group">
+                          <div className="h-24 bg-gradient-to-br from-cyan-100 via-sky-50 to-white dark:from-cyan-950/50 dark:via-[#252525] dark:to-[#1A1A1A] relative overflow-hidden shrink-0">
+                            {(study.coverUrl || study.cover_url || study.imageUrl || study.image_url) ? (
+                              <img src={study.coverUrl || study.cover_url || study.imageUrl || study.image_url || study.coverImage} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={getStudyShelfTitle(study)} />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <div className="rounded-2xl bg-white/70 dark:bg-black/25 p-3 shadow-sm ring-1 ring-cyan-200/70 dark:ring-cyan-500/20">
+                                  {study.type === 'note' ? <PenLine size={30} className="text-cyan-700 dark:text-cyan-300" /> : study.type === 'plan' ? <BookOpen size={30} className="text-cyan-700 dark:text-cyan-300" /> : <FileText size={30} className="text-cyan-700 dark:text-cyan-300" />}
+                                </div>
+                              </div>
+                            )}
+                            <div className="absolute top-2 left-2">
+                              <span className={`rounded-full px-2 py-1 text-[7px] font-medium uppercase tracking-widest backdrop-blur ${study.type === 'note' ? getNoteAreaClasses(study.noteArea) : 'bg-cyan-500/15 text-cyan-800 dark:text-cyan-100'}`}>{getStudyShelfTypeLabel(study)}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 text-[#c5a059]">
-                            <BookOpen size={14} /> <span className="text-xs font-medium uppercase">{study.status === 'published' ? 'Publicado' : 'Estudo'}</span>
+                          <div className="p-4 flex flex-col justify-between flex-1 min-h-0">
+                            <h3 className={`h-[48px] text-gray-900 dark:text-white font-medium overflow-hidden group-hover:text-cyan-700 dark:group-hover:text-cyan-300 transition-colors ${getStudyShelfTitleClass(study)}`}>{getStudyShelfTitle(study)}</h3>
+                            <div className="flex items-center justify-between mt-2">
+                              <div className="flex items-center gap-1 text-[9px] text-cyan-700 dark:text-cyan-300 font-medium uppercase tracking-tighter">
+                                {study.type === 'note' ? <PenLine size={10} /> : study.type === 'plan' ? <Users size={10} /> : <BookOpen size={10} />}
+                                <span className={study.type === 'note' ? getNoteAreaTextClasses(study.noteArea) : ''}>{getStudyShelfStatusLabel(study)}</span>
+                              </div>
+                              <span className="text-gray-400 text-[8px] font-medium">{formatShortDate(study.updatedAt || study.updated_at || study.createdAt || study.created_at)}</span>
+                            </div>
                           </div>
                         </div>
                       )) : (
                         <>
-                          <div onClick={() => navigate('/estudos')} className="flex-1 bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-center items-center cursor-pointer hover:border-[#c5a059]/30 transition-colors text-center">
-                            <span className="text-gray-500 dark:text-gray-500 text-xs font-medium">Nenhum estudo iniciado</span>
+                          <div onClick={() => navigate(studyShelfConfig.actionPath)} className="min-w-[260px] h-[190px] rounded-2xl p-5 bg-cyan-50/60 dark:bg-cyan-950/10 border border-dashed border-cyan-200 dark:border-cyan-900/50 flex flex-col justify-center items-center text-center shrink-0 cursor-pointer hover:border-cyan-400 transition-colors">
+                            <FileText size={24} className="text-cyan-600 dark:text-cyan-300 mb-3" />
+                            <span className="text-gray-500 dark:text-gray-500 text-xs font-medium">{studyShelfConfig.emptyTitle}</span>
                           </div>
-                          <div onClick={() => navigate('/estudos')} className="flex-1 bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 border border-gray-200 dark:border-[#2A2A2A] flex flex-col justify-center items-center cursor-pointer hover:border-[#c5a059]/30 transition-colors text-center">
-                            <span className="text-gray-500 dark:text-gray-500 text-xs font-medium">Explore a biblioteca</span>
+                          <div onClick={() => navigate('/estudos')} className="min-w-[260px] h-[190px] rounded-2xl p-5 bg-white dark:bg-[#1A1A1A] border border-cyan-100 dark:border-cyan-900/40 flex flex-col justify-center items-center text-center shrink-0 cursor-pointer hover:border-cyan-400 transition-colors">
+                            <BookOpen size={24} className="text-cyan-600 dark:text-cyan-300 mb-3" />
+                            <span className="text-gray-500 dark:text-gray-500 text-xs font-medium">{studyShelfConfig.emptyHint}</span>
                           </div>
                         </>
                       )}
                     </div>
-                  </HomePanel>
+                  </div>
                 </div>
 
-                {/* 5. ESTÚDIO CRIATIVO */}
-                <HomePanel className="relative overflow-hidden">
+                {/* 5. ESTÚDIO CRIATIVO + FLASH QUIZ */}
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                  <HomePanel className="relative overflow-hidden lg:col-span-7">
 
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/5 blur-3xl rounded-full" />
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-pink-500/5 blur-3xl rounded-full" />
 
-                  <div className="flex items-center gap-4 mb-6 relative z-10">
-                    <div className="w-12 h-12 bg-[#c5a059] rounded-xl flex items-center justify-center border border-white/10 shadow-lg">
-                      <Wand2 size={24} className="text-gray-900 dark:text-white" />
+                  <div className="flex items-center gap-4 mb-5 relative z-10">
+                    <div className="w-11 h-11 bg-[#c5a059] rounded-xl flex items-center justify-center border border-white/10 shadow-lg shrink-0">
+                      <Wand2 size={22} className="text-gray-900 dark:text-white" />
                     </div>
                     <div>
-                      <h2 className="text-gray-900 dark:text-white font-medium text-xl md:text-2xl lg:text-3xl leading-tight">Estúdio Criativo com IA</h2>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base mt-2 pr-4">Transforme sua fé em arte e áudio. Gere imagens sagradas e podcasts inspiradores com inteligência artificial.</p>
+                      <h2 className="text-gray-900 dark:text-white font-medium text-xl md:text-2xl leading-tight">Estúdio Criativo com IA</h2>
+                      <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm mt-2 pr-2">Transforme sua fé em arte e áudio com ferramentas de criação por IA.</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative z-10">
                     <button
                       onClick={() => navigate('/criar-arte-sacra')}
-                      className="bg-white dark:bg-[#1A1A1A] p-5 rounded-2xl border border-gray-200 dark:border-[#2A2A2A] text-left hover:border-green-500/30 transition-colors min-h-[190px] flex flex-col justify-between"
+                      className="bg-white dark:bg-[#1A1A1A] p-4 rounded-2xl border border-gray-200 dark:border-[#2A2A2A] text-left hover:border-green-500/30 transition-colors min-h-[150px] flex flex-col justify-between"
                     >
                       <div className="flex items-center gap-2 mb-3">
                         <div className="p-1 rounded bg-green-500/10">
-                          <Image size={18} className="text-green-500" />
+                          <Image size={17} className="text-green-500" />
                         </div>
                         <span className="text-gray-900 dark:text-white font-medium text-[13px]">Gerar Arte Sacra</span>
                       </div>
-                      <p className="text-[#888] text-[11px] leading-relaxed mb-4 min-h-[34px]">Crie imagens inspiradas em versículos, cenas bíblicas ou reflexões espirituais.</p>
-                      <div className="flex gap-2">
+                      <p className="text-[#888] text-[11px] leading-relaxed mb-4">Crie imagens inspiradas em versículos e cenas bíblicas.</p>
+                      <div className="flex flex-wrap gap-2">
                         <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-medium text-gray-600 dark:text-gray-400">Realista</span>
                         <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-medium text-gray-600 dark:text-gray-400">Óleo</span>
-                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-medium text-gray-600 dark:text-gray-400">Cinematográfico</span>
                         <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-medium text-gray-600 dark:text-gray-400">Aquarela</span>
                       </div>
                     </button>
 
                     <button
                       onClick={() => navigate('/criar-podcast')}
-                      className="bg-white dark:bg-[#1A1A1A] p-5 rounded-2xl border border-gray-200 dark:border-[#2A2A2A] text-left hover:border-pink-500/30 transition-colors relative min-h-[190px] flex flex-col justify-between"
+                      className="bg-white dark:bg-[#1A1A1A] p-4 rounded-2xl border border-gray-200 dark:border-[#2A2A2A] text-left hover:border-pink-500/30 transition-colors relative min-h-[150px] flex flex-col justify-between"
                     >
                       {!currentUser && <LockOverlay message="Criar Podcast" />}
                       <div className="flex items-center gap-2 mb-3">
                         <div className="p-1 rounded bg-pink-500/10">
-                          <Mic size={18} className="text-pink-500" />
+                          <Mic size={17} className="text-pink-500" />
                         </div>
                         <span className="text-gray-900 dark:text-white font-medium text-[13px]">Gerar Podcast</span>
                       </div>
-                      <p className="text-[#888] text-[11px] leading-relaxed mb-4 min-h-[34px]">Transforme versículos e reflexões em episódios de podcast com narração IA.</p>
-                      <div className="flex gap-2">
+                      <p className="text-[#888] text-[11px] leading-relaxed mb-4">Transforme reflexões em episódios com narração IA.</p>
+                      <div className="flex flex-wrap gap-2">
                         <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-medium text-gray-600 dark:text-gray-400">Devocional</span>
                         <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-medium text-gray-600 dark:text-gray-400">Estudo</span>
-                        <span className="px-2 py-1 bg-gray-100 dark:bg-white/5 rounded text-[9px] font-medium text-gray-600 dark:text-gray-400">Pregação</span>
                       </div>
                     </button>
                   </div>
-                </HomePanel>
+                  </HomePanel>
+                  <HomePanel className="relative overflow-hidden min-h-[320px] lg:col-span-5">
+                    {!currentUser && <LockOverlay message="Participar do Quiz" />}
+                    <div className="flex items-center gap-2 mb-6 relative z-10">
+                      <Zap size={14} className="text-[#c5a059]" />
+                      <span className="text-[10px] text-gray-500 dark:text-gray-500 font-medium uppercase tracking-wider">DESCOBERTAS</span>
+                    </div>
+
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-3xl rounded-full -mr-16 -mt-16 pointer-events-none" />
+
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Zap size={14} className="text-purple-500" />
+                        <span className="text-[10px] text-purple-500 font-medium uppercase tracking-wider">FLASH QUIZ</span>
+                      </div>
+
+                      <h3 className="text-gray-900 dark:text-white font-medium text-[13px] mb-5">Quem foi o sucessor de Moisés?</h3>
+
+                      <div className="space-y-2">
+                        {['Josué', 'Calebe', 'Arão', 'Hur'].map((opt) => (
+                          <button
+                            key={opt}
+                            onClick={() => navigate('/quiz')}
+                            className="w-full text-left bg-white dark:bg-[#1A1A1A] hover:bg-gray-50 dark:hover:bg-[#252525] border border-gray-200 dark:border-[#2A2A2A] rounded-xl py-3 px-4 text-[13px] text-gray-700 dark:text-gray-300 font-medium transition-colors"
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </HomePanel>
+                </div>
               </>
             )}
 
@@ -1502,12 +1767,223 @@ const SanctuaryPage: React.FC = () => {
               />
             )}
 
+            {/* ==================== ABA GESTÃO ==================== */}
+            {activeTab === 'gestao' && (
+              <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+                <div className="bg-gradient-to-r from-gray-800 to-gray-900 dark:from-[#111] dark:to-[#1A1A1A] rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between relative overflow-hidden border border-gray-700 dark:border-[#333]">
+                  <div className="absolute top-[-50%] right-[-10%] w-64 h-64 bg-[#c5a059]/10 blur-3xl rounded-full pointer-events-none" />
+                  <div className="relative z-10 flex-1 mb-4 md:mb-0">
+                    <h2 className="text-white font-medium text-2xl md:text-3xl flex items-center gap-3 mb-2">
+                      <Church size={28} className="text-[#c5a059]" /> Gestão da Igreja
+                    </h2>
+                    <p className="text-gray-400 text-sm max-w-xl leading-relaxed">
+                      Painel de controle para líderes e administradores. Gerencie pessoas, equipes, QR Codes de formulários e acompanhe indicadores da sua igreja.
+                    </p>
+                  </div>
+                  <div className="relative z-10 bg-black/40 backdrop-blur border border-white/10 rounded-xl p-3 shrink-0 flex items-center gap-3">
+                    <span className="text-gray-400 text-[10px] font-medium uppercase tracking-widest">Acesso Restrito</span>
+                    <Lock size={14} className="text-[#c5a059]" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    { title: 'Pessoas', desc: 'Diretório e acompanhamento', icon: <Users size={20} className="text-blue-500" />, path: '/gestao-igreja/pessoas', badge: '1.2k Ativos', badgeColor: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
+                    { title: 'Equipes', desc: 'Líderes e voluntários', icon: <Target size={20} className="text-green-500" />, path: '/gestao-igreja/equipes', badge: '12 Equipes', badgeColor: 'bg-green-500/10 text-green-600 dark:text-green-400' },
+                    { title: 'QR Codes', desc: 'Check-in e formulários', icon: <Globe size={20} className="text-cyan-500" />, path: '/gestao-igreja/qrcodes', badge: '+45 Hoje', badgeColor: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400' },
+                    { title: 'Inbox Pastoral', desc: 'Pedidos e aconselhamento', icon: <Heart size={20} className="text-pink-500" />, path: '/gestao-igreja/inbox', badge: '3 Pendentes', badgeColor: 'bg-pink-500/10 text-pink-600 dark:text-pink-400', alert: true },
+                    { title: 'Designações', desc: 'Funções e tarefas', icon: <Settings size={20} className="text-orange-500" />, path: '/gestao-igreja/designacoes', badge: '8 Escalas', badgeColor: 'bg-orange-500/10 text-orange-600 dark:text-orange-400' },
+                    { title: 'Notificações', desc: 'Avisos e alertas', icon: <Bell size={20} className="text-yellow-500" />, path: '/gestao-igreja/notificacoes', badge: 'Enviadas: 124', badgeColor: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' },
+                    { title: 'Permissões', desc: 'Controle de acesso', icon: <ShieldCheck size={20} className="text-purple-500" />, path: '/gestao-igreja/permissoes', badge: 'Seguro', badgeColor: 'bg-purple-500/10 text-purple-600 dark:text-purple-400' },
+                    { title: 'Indicadores', desc: 'Métricas da igreja', icon: <Zap size={20} className="text-[#c5a059]" />, path: '/gestao-igreja/indicadores', badge: '+15% Frequência', badgeColor: 'bg-[#c5a059]/10 text-[#c5a059]' },
+                  ].map((card, i) => (
+                    <button
+                      key={i}
+                      onClick={() => navigate(card.path)}
+                      className="bg-white dark:bg-[#161616] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-5 text-left hover:border-[#c5a059]/50 hover:shadow-lg transition-all group flex flex-col justify-between min-h-[140px] relative overflow-hidden"
+                    >
+                      <div className="flex items-start justify-between mb-4 relative z-10">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-[#1A1A1A] flex items-center justify-center border border-gray-100 dark:border-[#333] group-hover:scale-105 transition-transform">
+                            {card.icon}
+                          </div>
+                          {card.badge && (
+                            <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider ${card.badgeColor} ${card.alert ? 'animate-pulse ring-1 ring-pink-500/30' : ''}`}>
+                              {card.badge}
+                            </span>
+                          )}
+                        </div>
+                        <ChevronRight size={14} className="text-gray-300 dark:text-gray-600 group-hover:text-[#c5a059] transition-colors" />
+                      </div>
+                      <div className="relative z-10">
+                        <h3 className="text-gray-900 dark:text-white font-medium text-[13px]">{card.title}</h3>
+                        <p className="text-gray-500 text-[11px] mt-1 line-clamp-1">{card.desc}</p>
+                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-white/5 dark:to-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ==================== ABA CALENDÁRIO ==================== */}
+            {activeTab === 'calendario' && (
+              <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+                <div className="bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-900 dark:to-[#111] rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between relative overflow-hidden shadow-lg">
+                  <div className="absolute top-[-50%] right-[-10%] w-64 h-64 bg-blue-400/20 blur-3xl rounded-full pointer-events-none" />
+                  <div className="relative z-10 flex-1 mb-4 md:mb-0">
+                    <h2 className="text-white font-medium text-2xl md:text-3xl flex items-center gap-3 mb-2">
+                      <Calendar size={28} className="text-blue-300" /> Meu Calendário
+                    </h2>
+                    <p className="text-blue-100/80 text-sm max-w-xl leading-relaxed">
+                      Sua agenda pessoal na igreja. Visualize seus eventos, escalas, cultos e gerencie convites pendentes.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Coluna Esquerda: Calendário e Convites */}
+                  <div className="lg:col-span-1 space-y-6">
+                    {/* Mini Calendario Decorativo */}
+                    <div className="bg-white dark:bg-[#161616] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-gray-900 dark:text-white font-medium text-[13px]">Junho 2026</h3>
+                        <div className="flex gap-1">
+                          <button className="p-1 rounded bg-gray-50 dark:bg-[#222]"><ChevronLeft size={14}/></button>
+                          <button className="p-1 rounded bg-gray-50 dark:bg-[#222]"><ChevronRight size={14}/></button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-gray-400 font-medium mb-2">
+                        <div>D</div><div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1 text-center text-xs">
+                        {[...Array(30)].map((_, i) => (
+                          <div key={i} className={`p-1.5 rounded-full ${i+1 === 26 ? 'bg-blue-500 text-white font-bold' : (i+1 === 28 || i+1 === 15) ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-700 dark:text-gray-300'}`}>
+                            {i+1}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Convites Pendentes */}
+                    <div className="bg-white dark:bg-[#161616] border border-orange-200 dark:border-orange-900/30 rounded-2xl p-5 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 blur-2xl rounded-full pointer-events-none" />
+                      <div className="flex items-center gap-2 mb-4 relative z-10">
+                        <Bell size={16} className="text-orange-500" />
+                        <h3 className="text-gray-900 dark:text-white font-medium text-[13px]">Convites Pendentes</h3>
+                        <span className="ml-auto bg-orange-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">2</span>
+                      </div>
+                      <div className="space-y-3 relative z-10">
+                        <div className="p-3 bg-orange-50 dark:bg-orange-950/20 rounded-xl border border-orange-100 dark:border-orange-900/20">
+                          <p className="text-xs text-gray-800 dark:text-gray-200 font-medium mb-1">Escala: Louvor (Baterista)</p>
+                          <p className="text-[10px] text-gray-500 mb-3">Culto de Domingo • 28/06 às 18:00</p>
+                          <div className="flex gap-2">
+                            <button className="flex-1 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold py-1.5 rounded-lg transition-colors">Aceitar</button>
+                            <button className="flex-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] hover:bg-gray-50 dark:hover:bg-[#2A2A2A] text-gray-700 dark:text-gray-300 text-[10px] font-bold py-1.5 rounded-lg transition-colors">Recusar</button>
+                          </div>
+                        </div>
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-xl border border-blue-100 dark:border-blue-900/20">
+                          <p className="text-xs text-gray-800 dark:text-gray-200 font-medium mb-1">Convite: Pequeno Grupo</p>
+                          <p className="text-[10px] text-gray-500 mb-3">Célula de Jovens • Sexta às 20:00</p>
+                          <div className="flex gap-2">
+                            <button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-bold py-1.5 rounded-lg transition-colors">Aceitar</button>
+                            <button className="flex-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] hover:bg-gray-50 dark:hover:bg-[#2A2A2A] text-gray-700 dark:text-gray-300 text-[10px] font-bold py-1.5 rounded-lg transition-colors">Recusar</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Coluna Direita: Próximos Eventos */}
+                  <div className="lg:col-span-2">
+                    <div className="bg-white dark:bg-[#161616] border border-gray-200 dark:border-[#2A2A2A] rounded-2xl p-6">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-gray-900 dark:text-white font-medium text-[15px] flex items-center gap-2">
+                          <ListTodo size={18} className="text-blue-500" /> Próximos Compromissos
+                        </h3>
+                        <button className="text-[11px] text-blue-500 font-medium hover:underline">Ver Agenda Completa</button>
+                      </div>
+
+                      <div className="space-y-6">
+                        {/* Hoje */}
+                        <div>
+                          <div className="flex items-center gap-3 mb-3">
+                            <span className="text-xs font-bold text-gray-900 dark:text-white uppercase">Hoje</span>
+                            <div className="flex-1 h-px bg-gray-100 dark:bg-[#222]" />
+                          </div>
+                          <div className="space-y-3">
+                            <div className="flex gap-4 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-[#1A1A1A] transition-colors border border-transparent hover:border-gray-100 dark:hover:border-[#2A2A2A] group cursor-pointer">
+                              <div className="flex flex-col items-center justify-center min-w-[50px]">
+                                <span className="text-[10px] text-gray-400 font-medium uppercase">Qui</span>
+                                <span className="text-xl font-bold text-gray-900 dark:text-white">26</span>
+                              </div>
+                              <div className="w-1 bg-green-500 rounded-full" />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="bg-green-500/10 text-green-600 dark:text-green-400 text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">Culto</span>
+                                  <span className="text-gray-400 text-[10px] flex items-center gap-1"><Clock size={10} /> 19:30</span>
+                                </div>
+                                <h4 className="text-[13px] font-medium text-gray-900 dark:text-white mb-0.5 group-hover:text-blue-500 transition-colors">Culto de Ensino</h4>
+                                <p className="text-[11px] text-gray-500">Participação como <strong className="text-gray-700 dark:text-gray-300">Membro</strong></p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Fim de Semana */}
+                        <div>
+                          <div className="flex items-center gap-3 mb-3">
+                            <span className="text-xs font-bold text-gray-900 dark:text-white uppercase">Domingo</span>
+                            <div className="flex-1 h-px bg-gray-100 dark:bg-[#222]" />
+                          </div>
+                          <div className="space-y-3">
+                            <div className="flex gap-4 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-[#1A1A1A] transition-colors border border-transparent hover:border-gray-100 dark:hover:border-[#2A2A2A] group cursor-pointer">
+                              <div className="flex flex-col items-center justify-center min-w-[50px]">
+                                <span className="text-[10px] text-gray-400 font-medium uppercase">Dom</span>
+                                <span className="text-xl font-bold text-gray-900 dark:text-white">28</span>
+                              </div>
+                              <div className="w-1 bg-[#c5a059] rounded-full" />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="bg-[#c5a059]/10 text-[#c5a059] text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">Santa Ceia</span>
+                                  <span className="text-gray-400 text-[10px] flex items-center gap-1"><Clock size={10} /> 18:00</span>
+                                </div>
+                                <h4 className="text-[13px] font-medium text-gray-900 dark:text-white mb-0.5 group-hover:text-blue-500 transition-colors">Culto de Celebração e Santa Ceia</h4>
+                                <p className="text-[11px] text-gray-500">Participação como <strong className="text-gray-700 dark:text-gray-300">Pastor</strong> (Pregador)</p>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-4 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-[#1A1A1A] transition-colors border border-transparent hover:border-gray-100 dark:hover:border-[#2A2A2A] group cursor-pointer">
+                              <div className="flex flex-col items-center justify-center min-w-[50px]">
+                                <span className="text-[10px] text-transparent font-medium uppercase">Dom</span>
+                                <span className="text-xl font-bold text-transparent">28</span>
+                              </div>
+                              <div className="w-1 bg-purple-500 rounded-full" />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">Reunião</span>
+                                  <span className="text-gray-400 text-[10px] flex items-center gap-1"><Clock size={10} /> 20:30</span>
+                                </div>
+                                <h4 className="text-[13px] font-medium text-gray-900 dark:text-white mb-0.5 group-hover:text-blue-500 transition-colors">Reunião de Liderança</h4>
+                                <p className="text-[11px] text-gray-500">Participação como <strong className="text-gray-700 dark:text-gray-300">Pastor</strong></p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
 
           {/* ========================================================= */}
           {/* COLUNA DIREITA (Sidebar) */}
           {/* ========================================================= */}
-          <div className="lg:col-span-3 space-y-6 md:space-y-8 lg:space-y-10">
+          <div className="hidden">
 
             {/* Minhas Atividades Button */}
             <button

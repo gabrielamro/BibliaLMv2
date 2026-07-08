@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Plus, Trash2, Save, Clock, Check, HelpCircle, FileQuestion, AlertCircle, Sparkles, Wand2, Loader2 } from 'lucide-react';
 import { StudyEvaluation, StudyQuestion } from '../types';
 import { generateBibleQuiz } from '../services/pastorAgent';
@@ -10,10 +10,18 @@ interface EvaluationBuilderModalProps {
   onClose: () => void;
   onSave: (data: Omit<StudyEvaluation, 'id' | 'planId' | 'authorId' | 'createdAt' | 'updatedAt'>) => void;
   initialData?: StudyEvaluation;
+  lessons?: EvaluationSourceLesson[];
+}
+
+export interface EvaluationSourceLesson {
+  id: string;
+  title: string;
+  description?: string;
+  content: string;
 }
 
 const EvaluationBuilderModal: React.FC<EvaluationBuilderModalProps> = ({ 
-  isOpen, onClose, onSave, initialData 
+  isOpen, onClose, onSave, initialData, lessons = []
 }) => {
   const [title, setTitle] = useState(initialData?.title || '');
   const [timeLimit, setTimeLimit] = useState(initialData?.timeLimitMinutes || 0);
@@ -22,7 +30,8 @@ const EvaluationBuilderModal: React.FC<EvaluationBuilderModalProps> = ({
 
   // AI State
   const [showAiPanel, setShowAiPanel] = useState(false);
-  const [aiTopic, setAiTopic] = useState('');
+  const [selectedLessonId, setSelectedLessonId] = useState('');
+  const [aiGuidance, setAiGuidance] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Question editing state
@@ -31,11 +40,20 @@ const EvaluationBuilderModal: React.FC<EvaluationBuilderModalProps> = ({
   const [newOptions, setNewOptions] = useState<string[]>(['', '', '', '']);
   const [correctIndex, setCorrectIndex] = useState(0);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!selectedLessonId && lessons.length > 0) {
+      setSelectedLessonId(lessons[0].id);
+    }
+  }, [isOpen, lessons, selectedLessonId]);
+
   if (!isOpen) return null;
 
+  const selectedLesson = lessons.find((lesson) => lesson.id === selectedLessonId);
+
   const handleGenerateAiQuestions = async () => {
-    if (!aiTopic.trim()) {
-        setError("Digite um tema para a IA.");
+    if (!selectedLesson) {
+        setError("Selecione uma aula criada para a IA analisar.");
         return;
     }
 
@@ -44,7 +62,15 @@ const EvaluationBuilderModal: React.FC<EvaluationBuilderModalProps> = ({
 
     try {
         // Gera 5 questões de dificuldade média sobre o tema
-        const aiQuestions = await generateBibleQuiz(aiTopic, 'medium');
+        const lessonPrompt = [
+            'Gere 5 perguntas de avaliação com base exclusivamente na aula criada abaixo.',
+            'As perguntas devem verificar se o aluno compreendeu os pontos centrais, aplicações práticas e referências bíblicas presentes na aula.',
+            `Título da aula: ${selectedLesson.title}`,
+            selectedLesson.description ? `Descrição: ${selectedLesson.description}` : '',
+            aiGuidance.trim() ? `Orientação extra do professor: ${aiGuidance.trim()}` : '',
+            `Conteúdo da aula:\n${selectedLesson.content || 'Conteúdo ainda não preenchido.'}`,
+        ].filter(Boolean).join('\n\n');
+        const aiQuestions = await generateBibleQuiz(lessonPrompt, 'medium');
         
         if (aiQuestions && aiQuestions.length > 0) {
             // Mapeia para o formato StudyQuestion
@@ -57,10 +83,13 @@ const EvaluationBuilderModal: React.FC<EvaluationBuilderModalProps> = ({
             }));
 
             setQuestions(prev => [...prev, ...newQuestions]);
+            if (!title.trim()) {
+                setTitle(`Avaliação - ${selectedLesson.title}`);
+            }
             setShowAiPanel(false);
-            setAiTopic('');
+            setAiGuidance('');
         } else {
-            setError("Não foi possível gerar questões sobre este tema. Tente outro.");
+            setError("Não foi possível gerar questões para esta aula. Revise o conteúdo e tente novamente.");
         }
     } catch (e) {
         console.error(e);
@@ -190,24 +219,40 @@ const EvaluationBuilderModal: React.FC<EvaluationBuilderModalProps> = ({
                 {showAiPanel && (
                     <div className="p-4 pt-0 animate-in slide-in-from-top-2">
                         <p className="text-xs text-purple-600/70 dark:text-purple-400 mb-3">
-                            Digite um tema bíblico e o Obreiro IA irá gerar 5 questões de múltipla escolha para você revisar.
+                            Selecione uma aula criada para o Obreiro IA analisar o conteúdo e gerar perguntas alinhadas ao que foi ensinado.
                         </p>
-                        <div className="flex gap-2">
-                            <input 
-                                type="text" 
-                                value={aiTopic}
-                                onChange={e => setAiTopic(e.target.value)}
-                                placeholder="Ex: Vida de Davi, Sermão da Montanha..."
-                                className="flex-1 p-2 bg-white dark:bg-gray-900 border border-purple-200 dark:border-purple-800 rounded-lg text-sm outline-none"
-                                onKeyDown={e => e.key === 'Enter' && handleGenerateAiQuestions()}
+                        <div className="grid gap-3">
+                            <select
+                                value={selectedLessonId}
+                                onChange={e => setSelectedLessonId(e.target.value)}
+                                className="w-full p-3 bg-white dark:bg-gray-900 border border-purple-200 dark:border-purple-800 rounded-xl text-sm font-bold outline-none focus:ring-2 ring-purple-400"
+                            >
+                                {lessons.length === 0 && <option value="">Nenhuma aula criada ainda</option>}
+                                {lessons.map((lesson) => (
+                                    <option key={lesson.id} value={lesson.id}>{lesson.title}</option>
+                                ))}
+                            </select>
+                            {selectedLesson && (
+                                <div className="rounded-xl bg-white/70 dark:bg-gray-900/70 border border-purple-100 dark:border-purple-800 p-3">
+                                    <p className="text-xs font-bold text-purple-900 dark:text-purple-100 line-clamp-1">{selectedLesson.title}</p>
+                                    <p className="mt-1 text-[11px] text-purple-700/70 dark:text-purple-300/80 line-clamp-2">
+                                        {selectedLesson.description || 'A IA vai usar os blocos e textos salvos desta aula.'}
+                                    </p>
+                                </div>
+                            )}
+                            <textarea
+                                value={aiGuidance}
+                                onChange={e => setAiGuidance(e.target.value)}
+                                placeholder="Opcional: destaque o foco da avaliação, ex: aplicações práticas, versículos principais..."
+                                className="min-h-[78px] w-full resize-none p-3 bg-white dark:bg-gray-900 border border-purple-200 dark:border-purple-800 rounded-xl text-sm outline-none focus:ring-2 ring-purple-400"
                             />
                             <button 
                                 onClick={handleGenerateAiQuestions}
-                                disabled={isGenerating || !aiTopic}
-                                className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-purple-700 disabled:opacity-50"
+                                disabled={isGenerating || !selectedLesson}
+                                className="w-full bg-purple-600 text-white px-4 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-purple-700 disabled:opacity-50"
                             >
                                 {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
-                                Gerar
+                                Gerar avaliação pela aula
                             </button>
                         </div>
                     </div>

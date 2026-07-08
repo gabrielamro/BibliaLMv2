@@ -32,6 +32,7 @@ import { dbService } from '../services/supabase';
 import ObreiroIAChatbot from './ObreiroIAChatbot';
 import { SYSTEM_VERSION } from '../constants';
 import { getLayoutShellState } from './layoutShell';
+import { canAccessPastoralWorkspace } from '../utils/profileAccess';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -98,7 +99,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     });
 
     const isAdmin = userProfile?.username === 'gabrielamaro' || currentUser?.email === 'gabrielamaro@live.com';
-    const isPastor = userProfile?.subscriptionTier === 'pastor';
+    const isPastor = canAccessPastoralWorkspace(userProfile);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -469,109 +470,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         </div>
                     )}
 
-                    {/* Desktop Header - Hidden in Focus Mode / Home */}
-                    <header className={`hidden md:flex sticky top-0 items-center justify-between px-8 py-4 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 z-[120] shrink-0 h-20 ${isFocusMode || isCustomHomeShell || isHeaderHidden ? '!hidden' : ''}`}>
-                        <div className="flex items-center gap-4">
-                            {showBackButton && (
-                                <button onClick={() => navigate(-1)} className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
-                                    <ArrowLeft size={20} />
-                                </button>
-                            )}
 
-                            {headerIcon && (
-                                <div className="text-bible-gold shrink-0 scale-[1.3] origin-left mr-2">
-                                    {headerIcon}
-                                </div>
-                            )}
-
-                            <div className="flex flex-col justify-center">
-                                {breadcrumbs.length > 0 ? (
-                                    <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">
-                                        {breadcrumbs.map((crumb, index) => (
-                                            <React.Fragment key={index}>
-                                                {index > 0 && <ChevronRight size={10} className="mx-1" />}
-                                                <span
-                                                    onClick={() => {
-                                                        if (crumb.onClick) crumb.onClick();
-                                                        else if (crumb.path) navigate(crumb.path);
-                                                    }}
-                                                    className={`cursor-pointer hover:text-bible-gold transition-colors ${index === breadcrumbs.length - 1 ? 'text-gray-600 dark:text-gray-300' : ''}`}
-                                                >
-                                                    {crumb.label}
-                                                </span>
-                                            </React.Fragment>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">
-                                        {headerSubtitle || 'BÍBLIA'}
-                                    </p>
-                                )}
-                                <h2 className="text-xl md:text-2xl font-sans font-black tracking-tight text-gray-900 dark:text-white leading-none">
-                                    {headerTitle || pageTitle}
-                                </h2>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center justify-end gap-4 w-32 flex-shrink-0">
-                            <button onClick={toggleTheme} className="p-2 text-gray-400 hover:text-bible-gold transition-colors">
-                                {settings.theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-                            </button>
-
-                            {currentUser && (
-                                <div className="relative" ref={notifRef}>
-                                    <button onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)} className="p-2 text-gray-400 hover:text-bible-gold transition-colors relative">
-                                        <Bell size={20} />
-                                        {unreadNotificationsCount > 0 && (
-                                            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-black"></span>
-                                        )}
-                                    </button>
-                                    {isNotifDropdownOpen && (
-                                        <div className="absolute right-0 mt-4 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[130] animate-in fade-in zoom-in-95 origin-top-right">
-                                            <div className="p-4 border-b border-gray-50 dark:border-gray-800 flex justify-between items-center">
-                                                <span className="font-bold text-sm">Notificações</span>
-                                                <button onClick={markNotificationsAsRead} className="text-[10px] text-bible-gold hover:underline font-bold uppercase">Marcar lidas</button>
-                                            </div>
-                                            <div className="max-h-80 overflow-y-auto">
-                                                {notifications.length === 0 ? (
-                                                    <div className="p-8 text-center text-gray-400 text-xs">Nenhuma nova notificação</div>
-                                                ) : (
-                                                    notifications.map(notif => (
-                                                        <div key={notif.id} className={`p-4 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${!notif.read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
-                                                            <p className="text-xs font-bold text-gray-900 dark:text-white mb-1">{notif.title}</p>
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400">{notif.message}</p>
-                                                        </div>
-                                                    ))
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            <div className="relative" ref={desktopSettingsRef}>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
-                                    className={`p-2 rounded-full transition-colors ${isSettingsMenuOpen ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-bible-gold'}`}
-                                >
-                                    <Settings size={20} />
-                                </button>
-                                {isSettingsMenuOpen && (
-                                    <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[130] animate-in fade-in zoom-in-95 origin-top-right">
-                                        {renderSettingsDropdown()}
-                                    </div>
-                                )}
-                            </div>
-
-                            {isFreePlan && (
-                                <button onClick={() => setIsSupportModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-full text-xs font-bold hover:bg-red-100 transition-colors">
-                                    <Heart size={14} fill="currentColor" />
-                                    <span>Ofertar</span>
-                                </button>
-                            )}
-                        </div>
-                    </header>
 
                     <div className={showMobileNav ? 'pb-[var(--mobile-bottom-nav-height)] md:pb-0' : ''}>
                         {children}

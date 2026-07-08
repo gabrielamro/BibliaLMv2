@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { dbService } from '../services/supabase';
 import { PrayerRequest } from '../types';
 
@@ -33,8 +33,14 @@ const MOCK_PRAYERS: PrayerRequest[] = [
 export function usePrayerWall(churchId?: string, limit = 2) {
   const [prayers, setPrayers] = useState<PrayerRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const mountedRef = useRef(false);
+  const requestIdRef = useRef(0);
 
   const loadPrayers = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    const canUpdate = () => mountedRef.current && requestId === requestIdRef.current;
+
+    if (!mountedRef.current) return;
     setIsLoading(true);
     try {
       let data: PrayerRequest[] = [];
@@ -44,16 +50,24 @@ export function usePrayerWall(churchId?: string, limit = 2) {
         // Busca global via prayer_requests (sem filtro de target)
         data = await dbService.getPrayerRequests('global', 'global');
       }
+      if (!canUpdate()) return;
       setPrayers(data.slice(0, limit));
     } catch {
+      if (!canUpdate()) return;
       setPrayers(MOCK_PRAYERS.slice(0, limit));
     } finally {
-      setIsLoading(false);
+      if (canUpdate()) setIsLoading(false);
     }
   }, [churchId, limit]);
 
   useEffect(() => {
+    mountedRef.current = true;
     loadPrayers();
+
+    return () => {
+      mountedRef.current = false;
+      requestIdRef.current += 1;
+    };
   }, [loadPrayers]);
 
   const intercede = useCallback(async (prayerId: string, uid: string, isActive: boolean) => {

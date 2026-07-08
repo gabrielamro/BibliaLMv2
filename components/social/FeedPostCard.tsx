@@ -114,6 +114,14 @@ const TYPE_IDENTITY: Record<string, { label: string, icon: React.ElementType, co
     }
 };
 
+const FEED_REASON_LABEL: Record<string, string> = {
+    following: 'Seguindo',
+    same_church: 'Sua igreja',
+    same_group: 'Seu grupo',
+    public_discovery: 'Sugerido',
+    global_public: 'Publico',
+};
+
 const PostMenu = ({ post, onEdit, onDelete }: { post: Post, onEdit?: (p: Post) => void, onDelete?: (id: string) => void }) => {
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -163,6 +171,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
     const identity = TYPE_IDENTITY[post.type] || TYPE_IDENTITY['default'];
     const IdentityIcon = identity.icon;
     const postImage = getPostImageSource(post);
+    const feedReasonLabel = post.feedReason && !isOwner ? FEED_REASON_LABEL[post.feedReason] : '';
 
     const renderContent = () => {
         if (post.type === 'study' || post.type === 'room') {
@@ -355,6 +364,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
                             {post.serviceId && <span className="max-w-[150px] overflow-hidden whitespace-nowrap bg-bible-gold/15 text-bible-leather dark:text-bible-gold text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase inline-flex items-center gap-1 border border-bible-gold/30"><CalendarDays size={8} className="shrink-0" /> <span className="truncate">{post.serviceTitle || 'Culto+'}</span></span>}
                             {post.alsoShowOnChurch && post.destination === 'cell' && <span className="bg-blue-100 text-blue-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase flex items-center gap-1 border border-blue-200/50"><Church size={8} /> + Mural</span>}
                             {post.type === 'cell_meeting' && <span className="bg-green-100 text-green-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase">Encontro</span>}
+                            {feedReasonLabel && <span className="bg-gray-100 text-gray-500 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase flex items-center gap-1 dark:bg-gray-800 dark:text-gray-300"><Eye size={8} /> {feedReasonLabel}</span>}
                         </div>
                         <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-0.5">
                             <span>{postDate}</span>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { EditorTopBar } from '../../UnifiedEditor/components/EditorTopBar';
 
 interface StudyOutlineBlockProps {
@@ -41,10 +41,41 @@ const useScrollSpy = (itemCount: number, enabled: boolean) => {
 };
 
 export const StudyOutlineBlock: React.FC<StudyOutlineBlockProps> = ({ data, isEditing, onUpdate, editor }) => {
+  const rootRef = useRef<HTMLElement | null>(null);
   const items = Array.isArray(data.items) ? data.items : [];
   const enableScrollSpy = data.enableScrollSpy && !isEditing;
   const spyActiveIndex = useScrollSpy(items.length, enableScrollSpy);
   const activeIndex = enableScrollSpy ? spyActiveIndex : (typeof data.activeIndex === 'number' ? data.activeIndex : 0);
+
+  const getReaderRoot = useCallback(() => rootRef.current?.closest('.reader-content') || document, []);
+  const normalizeSectionTitle = useCallback((value: string) => (
+    value.replace(/^\s*\d+[\).\-\s]+/, '').replace(/\s+/g, ' ').trim().toLowerCase()
+  ), []);
+
+  const indexStudySections = useCallback(() => {
+    const readerRoot = getReaderRoot();
+    const headings = Array.from(
+      readerRoot.querySelectorAll<HTMLElement>('.rtb-editor h2, .rtb-editor h3, .focused-prose h2, .focused-prose h3')
+    ).filter((heading) => heading.offsetParent !== null);
+
+    headings.forEach((heading) => heading.removeAttribute('data-study-section'));
+
+    const usedHeadings = new Set<HTMLElement>();
+    items.forEach((item: string, index: number) => {
+      const normalizedItem = normalizeSectionTitle(item);
+      const matchingHeading = headings.find((heading) => {
+        if (usedHeadings.has(heading)) return false;
+        return normalizeSectionTitle(heading.textContent || '').includes(normalizedItem);
+      });
+      const fallbackHeading = headings.find((heading) => !usedHeadings.has(heading));
+      const target = matchingHeading || fallbackHeading;
+      if (!target) return;
+
+      usedHeadings.add(target);
+      target.setAttribute('data-study-section', String(index));
+      target.style.scrollMarginTop = '112px';
+    });
+  }, [getReaderRoot, items, normalizeSectionTitle]);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -78,17 +109,26 @@ export const StudyOutlineBlock: React.FC<StudyOutlineBlockProps> = ({ data, isEd
   // Efeito adicional para garantir que o scroll spy funcione no modo visualização
   useEffect(() => {
     if (isEditing) return;
-    const h2s = document.querySelectorAll('.rtb-editor h2');
-    h2s.forEach((h2, idx) => {
-      h2.setAttribute('data-study-section', String(idx));
-    });
-  }, [isEditing, items]);
+    const readerRoot = getReaderRoot();
+    const scheduleIndex = () => {
+      requestAnimationFrame(indexStudySections);
+      window.setTimeout(indexStudySections, 120);
+    };
+
+    scheduleIndex();
+
+    const observerTarget = readerRoot === document ? document.body : readerRoot;
+    const observer = new MutationObserver(scheduleIndex);
+    observer.observe(observerTarget, { childList: true, subtree: true, characterData: true });
+
+    return () => observer.disconnect();
+  }, [getReaderRoot, indexStudySections, isEditing]);
 
   const scrollToSection = (index: number) => {
     if (enableScrollSpy) return;
     
-    const sections = document.querySelectorAll('[data-study-section]');
-    const target = sections[index];
+    indexStudySections();
+    const target = getReaderRoot().querySelector(`[data-study-section="${index}"]`);
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       onUpdate?.({ ...data, activeIndex: index });
@@ -97,8 +137,8 @@ export const StudyOutlineBlock: React.FC<StudyOutlineBlockProps> = ({ data, isEd
 
   const handleItemClick = (index: number) => {
     if (enableScrollSpy) {
-      const sections = document.querySelectorAll('[data-study-section]');
-      const target = sections[index];
+      indexStudySections();
+      const target = getReaderRoot().querySelector(`[data-study-section="${index}"]`);
       if (target) {
         target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
@@ -108,13 +148,13 @@ export const StudyOutlineBlock: React.FC<StudyOutlineBlockProps> = ({ data, isEd
   };
 
   return (
-    <section className="rounded-[32px] border border-gray-100 dark:border-white/5 bg-white dark:bg-bible-darkPaper p-6 md:p-8 shadow-lg w-full h-full">
+    <section ref={rootRef} className="flex h-full min-h-[420px] w-full flex-col rounded-[32px] border border-gray-100 bg-white p-6 shadow-lg dark:border-white/5 dark:bg-bible-darkPaper md:p-8">
       {isEditing && editor && (
         <div className="mb-4 bg-white/50 rounded-2xl overflow-hidden border border-bible-gold/10">
           <EditorTopBar editor={editor} />
         </div>
       )}
-      <div className="p-3">
+      <div className="flex flex-1 flex-col p-3">
         <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#b3874c]">{data.title || 'Sumário'}</p>
         <p className="mt-1 text-sm text-[#7b6c5e]">{data.description}</p>
 
@@ -130,7 +170,7 @@ export const StudyOutlineBlock: React.FC<StudyOutlineBlockProps> = ({ data, isEd
           </div>
         )}
 
-        <div className="mt-5 space-y-2">
+        <div className="mt-5 flex-1 space-y-2">
           {items.map((item: string, index: number) => (
             <button
               key={`${item}-${index}`}

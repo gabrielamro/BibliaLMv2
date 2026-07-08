@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useNavigate, useLocation, useParams, useSearchParams } from '../../utils/router';
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
@@ -26,6 +26,7 @@ import { generateSlug } from '../../utils/textUtils';
 import { FeedPostCard } from '../../components/social/FeedPostCard';
 import ChurchServicesPreview from '../../components/culto-plus/ChurchServicesPreview';
 import CultoPlusPublicAgenda from '../../components/culto-plus/CultoPlusPublicAgenda';
+import { isAdminProfile, isGeneralManager, isGeneralPastor } from '../../utils/profileAccess';
 
 type ChurchMuralItem =
     | (PrayerRequest & { muralType?: 'prayer' })
@@ -156,6 +157,8 @@ const ChurchProfilePage: React.FC = () => {
   const [isRequestingResponsibility, setIsRequestingResponsibility] = useState(false);
   const [responsibilityRequestStatus, setResponsibilityRequestStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
   const [isJoiningChurch, setIsJoiningChurch] = useState(false);
+  const [isLeavingChurch, setIsLeavingChurch] = useState(false);
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
 
   // Modal States
   const [prayerToEdit, setPrayerToEdit] = useState<PrayerRequest | null>(null);
@@ -410,9 +413,27 @@ const ChurchProfilePage: React.FC = () => {
           setIsJoiningChurch(false);
       }
   };
+
+  const handleLeaveChurch = async () => {
+      if (!church || !currentUserId) return;
+      setIsLeavingChurch(true);
+      try {
+          await dbService.leaveChurch(currentUserId, church.id);
+          await updateProfile({
+              churchData: undefined,
+          });
+          showNotification(`Você deixou de ser membro de ${church.name}.`, 'success');
+          setIsLeaveModalOpen(false);
+      } catch (error) {
+          console.error(formatRuntimeError(error));
+          showNotification('Não foi possível desvincular da igreja.', 'error');
+      } finally {
+          setIsLeavingChurch(false);
+      }
+  };
   const isVisionary = userProfile?.subscriptionTier === 'gold';
-  const requestedChurchRole = userProfile?.subscriptionTier === 'admin' ? 'admin' : 'pastor';
-  const canRequestResponsibility = isMember && !isOwner && (userProfile?.subscriptionTier === 'pastor' || userProfile?.subscriptionTier === 'admin' || userProfile?.subscriptionTier === 'gold');
+  const requestedChurchRole = isAdminProfile(userProfile) ? 'admin' : 'pastor';
+  const canRequestResponsibility = isMember && !isOwner && (isGeneralPastor(userProfile) || isGeneralManager(userProfile) || userProfile?.subscriptionTier === 'gold');
   const canChangeLogo = isOwner || isVisionary;
   const hasPendingResponsibilityRequest = responsibilityRequestStatus === 'pending';
 
@@ -768,12 +789,42 @@ const ChurchProfilePage: React.FC = () => {
                                 <Bell size={14} fill={isFollowing ? 'currentColor' : 'none'} />
                                 {isFollowing ? 'Seguindo' : 'Seguir'}
                             </button>
-                            {!isMember && (
-                                <button onClick={handleJoinChurch} disabled={isJoiningChurch} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-green-50 px-3 text-[10px] font-black uppercase tracking-widest text-green-700 ring-1 ring-green-100 transition hover:bg-green-100 disabled:opacity-60">
-                                    {isJoiningChurch ? <Loader2 size={14} className="animate-spin" /> : <LogIn size={14} />}
-                                    Membro
+                            
+                            <button
+                                onClick={() => {
+                                    if (isMember) {
+                                        setIsLeaveModalOpen(true);
+                                    } else {
+                                        handleJoinChurch();
+                                    }
+                                }}
+                                disabled={isJoiningChurch || isLeavingChurch}
+                                className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-[10px] font-black uppercase tracking-widest transition active:scale-95 disabled:opacity-60 ${
+                                    isMember
+                                        ? 'bg-green-600 text-white hover:bg-green-700 ring-1 ring-green-500'
+                                        : 'bg-green-50 text-green-700 ring-1 ring-green-100 hover:bg-green-100'
+                                }`}
+                            >
+                                {isJoiningChurch || isLeavingChurch ? (
+                                    <Loader2 size={14} className="animate-spin" />
+                                ) : isMember ? (
+                                    <UserCheck size={14} />
+                                ) : (
+                                    <LogIn size={14} />
+                                )}
+                                Sou Membro
+                            </button>
+
+                            {(!church.admins || church.admins.length === 0) && (
+                                <button
+                                    onClick={() => navigate(`${basePath}/igreja/${church.slug}/gerir`)}
+                                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-3 text-[10px] font-black uppercase tracking-widest transition active:scale-95"
+                                >
+                                    <Shield size={14} />
+                                    Gerir Igreja
                                 </button>
                             )}
+
                             <button onClick={() => navigate('/workspace-pastoral')} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-gray-50 px-3 text-[10px] font-black uppercase tracking-widest text-gray-700 ring-1 ring-gray-100 transition hover:bg-gray-100 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-800">
                                 <Crown size={14} />
                                 Espaço
@@ -1289,6 +1340,18 @@ const ChurchProfilePage: React.FC = () => {
             title="Excluir Grupo"
             message={`Deseja remover o grupo "${groupToDelete?.name || ''}" desta igreja?`}
             confirmText={isDeletingGroup ? "Excluindo..." : "Sim, Excluir"}
+            variant="danger"
+        />
+
+        <ConfirmationModal
+            isOpen={isLeaveModalOpen}
+            onClose={() => {
+                if (!isLeavingChurch) setIsLeaveModalOpen(false);
+            }}
+            onConfirm={handleLeaveChurch}
+            title="Sair da Igreja"
+            message={`Deseja deixar de ser membro da igreja ${church.name}?`}
+            confirmText={isLeavingChurch ? "Saindo..." : "Sim, Sair"}
             variant="danger"
         />
     </div>

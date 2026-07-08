@@ -8,7 +8,7 @@ export const blockLabels: Record<BlockType, { label: string; description: string
   },
   hero: {
     label: 'Capa Impactante',
-    description: 'Titulo, subtitulo e CTA com fundo visual',
+    description: 'Título, subtítulo e CTA com fundo visual',
     color: 'bg-blue-500 text-white'
   },
   authority: {
@@ -17,23 +17,23 @@ export const blockLabels: Record<BlockType, { label: string; description: string
     color: 'bg-purple-500 text-white'
   },
   biblical: {
-    label: 'Versiculo em Destaque',
-    description: 'Texto biblico com design elegante',
+    label: 'Versículo em Destaque',
+    description: 'Texto bíblico com design elegante',
     color: 'bg-amber-500 text-white'
   },
   video: {
-    label: 'Video / Player',
+    label: 'Vídeo / Player',
     description: 'Embed de YouTube ou aula gravada',
     color: 'bg-red-500 text-white'
   },
   'study-content': {
-    label: 'Conteudo do Estudo',
-    description: 'Area principal de texto rico e estruturado',
+    label: 'Conteúdo do Estudo',
+    description: 'Área principal de texto rico e estruturado',
     color: 'bg-emerald-500 text-white'
   },
   slide: {
     label: 'Carrossel / Slides',
-    description: 'Sequencia de slides com texto e fundo',
+    description: 'Sequência de slides com texto e fundo',
     color: 'bg-indigo-500 text-white'
   },
   'hero-split': {
@@ -47,27 +47,27 @@ export const blockLabels: Record<BlockType, { label: string; description: string
     color: 'bg-yellow-700 text-white'
   },
   'related-verses': {
-    label: 'Versiculos Relacionados',
-    description: 'Lista lateral de referencias e resumos',
+    label: 'Versículos Relacionados',
+    description: 'Lista lateral de referências e resumos',
     color: 'bg-orange-700 text-white'
   },
   'reflection-question': {
-    label: 'Pergunta ao Coracao',
+    label: 'Pergunta ao Coração',
     description: 'Fechamento reflexivo com resposta pessoal',
     color: 'bg-rose-600 text-white'
   },
   'references-chain': {
-    label: 'Referencias Encadeadas',
-    description: 'Versiculos conectados em formato de cadeia',
+    label: 'Referências Encadeadas',
+    description: 'Versículos conectados em formato de cadeia',
     color: 'bg-teal-600 text-white'
   },
   'cta': {
     label: 'Bloco de CTA',
-    description: 'Chamada para acao com botoes',
+    description: 'Chamada para ação com botões',
     color: 'bg-violet-600 text-white'
   },
   footer: {
-    label: 'Rodape / Social',
+    label: 'Rodapé / Social',
     description: 'Copyright e links de redes sociais',
     color: 'bg-gray-800 text-white'
   },
@@ -89,9 +89,9 @@ export const defaultBlockData: Record<BlockType, any> = {
     padding: 4
   },
   hero: {
-    title: 'A Revelacao Plena',
-    subtitle: 'Uma jornada profunda pelas bases da fe crista e o poder da Palavra.',
-    ctaText: 'Comecar agora',
+    title: 'A Revelação Plena',
+    subtitle: 'Uma jornada profunda pelas bases da fé cristã e o poder da Palavra.',
+    ctaText: 'Começar agora',
     alignment: 'center',
     showCta: true,
     showSubtitle: true,
@@ -104,33 +104,33 @@ export const defaultBlockData: Record<BlockType, any> = {
   authority: {
     name: 'Nome do Autor',
     photo: '',
-    bio: 'Uma breve descricao sobre o autor e sua autoridade no tema.',
+    bio: 'Uma breve descrição sobre o autor e sua autoridade no tema.',
     badges: [],
     socials: { instagram: '', youtube: '', website: '' },
     padding: 4
   },
   biblical: {
-    verse: 'Joao 3:16',
-    text: 'Porque Deus amou o mundo de tal maneira que deu o seu Filho unigenito, para que todo aquele que nele cre nao pereca, mas tenha a vida eterna.',
-    reference: 'Joao 3:16',
+    verse: 'João 3:16',
+    text: 'Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna.',
+    reference: 'João 3:16',
     style: 'classic',
     showImage: false,
     enableHyperlink: true,
     showCta: false,
-    ctaText: 'Ver na Biblia',
+    ctaText: 'Ver na Bíblia',
     ctaStyle: 'solid',
     padding: 8
   },
   video: {
     url: '',
-    title: 'Video Introdutorio',
+    title: 'Vídeo Introdutório',
     description: '',
     thumbnail: '',
     padding: 4
   },
   footer: {
     logo: '',
-    tagline: 'Transformando vidas atraves da Palavra',
+    tagline: 'Transformando vidas através da Palavra',
     links: [],
     copyright: `(c) ${new Date().getFullYear()} Todos os direitos reservados`,
     showSocial: true,
@@ -152,7 +152,7 @@ export const defaultBlockData: Record<BlockType, any> = {
         backgroundImage: 'https://images.unsplash.com/photo-1509021436665-8f07dbf5bf1d?q=80&w=2000',
         type: 'image',
         title: 'A Palavra de Deus',
-        description: 'A Palavra de Deus e viva, eficaz e penetra o coracao com verdade e discernimento.',
+        description: 'A Palavra de Deus é viva, eficaz e penetra o coração com verdade e discernimento.',
         mediaUrl: 'https://images.unsplash.com/photo-1509021436665-8f07dbf5bf1d?q=80&w=2000',
         overlayOpacity: 0.6,
         layout: 'image-right',
@@ -167,7 +167,7 @@ export const defaultBlockData: Record<BlockType, any> = {
     padding: 0
   },
   'hero-split': {
-    title: 'A gratidao transforma o coracao e nos aproxima de Deus.',
+    title: 'A gratidão transforma o coração e nos aproxima de Deus.',
     eyebrow: 'Hero split',
     imageUrl: '',
     imageAlt: 'Imagem editorial do estudo',
@@ -177,8 +177,8 @@ export const defaultBlockData: Record<BlockType, any> = {
   },
   'study-outline': {
     title: 'Sumário',
-    description: 'Navegue pelas secoes do estudo',
-    items: ['Introducao', 'Contexto Historico', 'Mergulho nas Escrituras', 'Aplicacao Pratica', 'Reflexao Final'],
+    description: 'Navegue pelas seções do estudo',
+    items: ['Introdução', 'Contexto Histórico', 'Mergulho nas Escrituras', 'Aplicação Prática', 'Reflexão Final'],
     activeIndex: 0,
     enableScrollSpy: true,
     padding: 4,
@@ -186,37 +186,37 @@ export const defaultBlockData: Record<BlockType, any> = {
     showOnMobile: false
   },
   'related-verses': {
-    title: 'Versiculos Relacionados',
-    description: 'Card lateral para referencias de apoio e pequenos comentarios.',
+    title: 'Versículos Relacionados',
+    description: 'Card lateral para referências de apoio e pequenos comentários.',
     verses: [
-      { reference: 'Salmos 118:1', summary: 'A gratidao aparece como resposta comunitaria ao amor constante do Senhor.' },
-      { reference: 'Colossenses 3:17', summary: 'Tudo no template aponta para uma vida centrada em Cristo e marcada por gratidao.' },
-      { reference: 'Filipenses 4:6', summary: 'A estrutura finaliza em pratica pastoral, levando a oracao e confianca.' }
+      { reference: 'Salmos 118:1', summary: 'A gratidão aparece como resposta comunitária ao amor constante do Senhor.' },
+      { reference: 'Colossenses 3:17', summary: 'Tudo no template aponta para uma vida centrada em Cristo e marcada por gratidão.' },
+      { reference: 'Filipenses 4:6', summary: 'A estrutura finaliza em prática pastoral, levando à oração e confiança.' }
     ],
     padding: 4,
     layoutWidth: '1/3'
   },
   'reflection-question': {
-    title: 'Pergunta ao Coracao',
-    question: 'Como voce quer responder a esta mensagem nos proximos dias?',
+    title: 'Pergunta ao Coração',
+    question: 'Como você quer responder a esta mensagem nos próximos dias?',
     support: 'A V2 fecha com um convite pessoal e pastoral para transformar leitura em resposta.',
-    placeholder: 'Escreva um comentario, oracao guiada, compromisso ou reflexao pastoral...',
+    placeholder: 'Escreva um comentário, oração guiada, compromisso ou reflexão pastoral...',
     padding: 6
   },
   'references-chain': {
-    title: 'Referencias Encadeadas',
-    description: 'Versiculos conectados ao tema principal',
+    title: 'Referências Encadeadas',
+    description: 'Versículos conectados ao tema principal',
     references: [
-      { reference: 'Salmos 118:1', text: 'O Senhor e o meu pastor...', summary: 'A gratidao como resposta ao amor de Deus.' },
-      { reference: 'Colossenses 3:17', text: 'Tudo o que fizeres...', summary: 'Viver com gratidao em todas as circunstancias.' }
+      { reference: 'Salmos 118:1', text: 'O Senhor é o meu pastor...', summary: 'A gratidão como resposta ao amor de Deus.' },
+      { reference: 'Colossenses 3:17', text: 'Tudo o que fizeres...', summary: 'Viver com gratidão em todas as circunstâncias.' }
     ],
     showExpandAll: true,
     padding: 4
   },
   'cta': {
-    headline: 'Crie seus proprios estudos',
-    subheadline: 'Junte-se a comunidade BibleLM para acesso ilimitado',
-    primaryText: 'Comecar Gratuitamente',
+    headline: 'Crie seus próprios estudos',
+    subheadline: 'Junte-se à comunidade BibleLM para acesso ilimitado',
+    primaryText: 'Começar Gratuitamente',
     secondaryText: 'Ver mais estudos',
     primaryStyle: 'gradient',
     backgroundStyle: 'warm',

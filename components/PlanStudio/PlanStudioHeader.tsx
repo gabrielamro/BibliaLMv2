@@ -53,32 +53,33 @@ const PlanStudioHeader: React.FC<PlanStudioHeaderProps> = ({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
             onClick={onPreview}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-purple-100 bg-white px-4 text-sm font-black text-purple-700 transition-colors hover:border-purple-300 hover:bg-purple-50 dark:border-purple-900/40 dark:bg-gray-900 dark:text-violet-200"
+            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-purple-100 bg-white px-2 text-xs font-black text-purple-700 transition-colors hover:border-purple-300 hover:bg-purple-50 dark:border-purple-900/40 dark:bg-gray-900 dark:text-violet-200 sm:gap-2 sm:px-4 sm:text-sm"
           >
             <Eye size={16} />
-            Visualizar
+            <span className="truncate">Visualizar</span>
           </button>
           <button
             type="button"
             onClick={onSave}
             disabled={isSaving}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-purple-100 bg-white px-4 text-sm font-black text-purple-700 transition-colors hover:border-purple-300 hover:bg-purple-50 disabled:opacity-60 dark:border-purple-900/40 dark:bg-gray-900 dark:text-violet-200"
+            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-purple-100 bg-white px-2 text-xs font-black text-purple-700 transition-colors hover:border-purple-300 hover:bg-purple-50 disabled:opacity-60 dark:border-purple-900/40 dark:bg-gray-900 dark:text-violet-200 sm:gap-2 sm:px-4 sm:text-sm"
           >
             {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            Salvar
+            <span className="truncate">Salvar</span>
           </button>
           <button
             type="button"
             onClick={onPublish}
             disabled={isPublishing}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-purple-700 px-5 text-sm font-black text-white shadow-lg shadow-purple-900/15 transition-transform hover:bg-purple-800 active:scale-[0.98] disabled:opacity-60 dark:bg-violet-500"
+            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl bg-purple-700 px-2 text-xs font-black text-white shadow-lg shadow-purple-900/15 transition-transform hover:bg-purple-800 active:scale-[0.98] disabled:opacity-60 dark:bg-violet-500 sm:gap-2 sm:px-5 sm:text-sm"
           >
             {isPublishing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-            Publicar sala
+            <span className="truncate sm:hidden">Publicar</span>
+            <span className="hidden truncate sm:inline">Publicar sala</span>
           </button>
         </div>
       </div>

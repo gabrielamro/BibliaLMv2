@@ -243,7 +243,7 @@ const SavedStudies: React.FC = () => {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                     <input 
                         type="text" 
-                        placeholder="Buscar estudos e notas..." 
+                        placeholder="Buscar estudos e registros..." 
                         value={searchTerm} 
                         onChange={e => setSearchTerm(e.target.value)} 
                         className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-bible-darkPaper border border-gray-200 dark:border-gray-800 rounded-xl text-sm outline-none focus:ring-2 ring-bible-gold/30"
@@ -259,7 +259,7 @@ const SavedStudies: React.FC = () => {
 
             <div className="flex p-1 bg-white dark:bg-bible-darkPaper rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-x-auto no-scrollbar w-full md:w-auto">
                 <button onClick={() => setActiveTab('all')} className={`flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'all' ? 'bg-gray-100 dark:bg-gray-800 text-bible-gold' : 'text-gray-400'}`}>Tudo</button>
-                <button onClick={() => setActiveTab('user')} className={`flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'user' ? 'bg-gray-100 dark:bg-gray-800 text-bible-gold' : 'text-gray-400'}`}>Minhas Notas</button>
+                <button onClick={() => setActiveTab('user')} className={`flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'user' ? 'bg-gray-100 dark:bg-gray-800 text-bible-gold' : 'text-gray-400'}`}>Meus Registros</button>
                 <button onClick={() => setActiveTab('ia')} className={`flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'ia' ? 'bg-gray-100 dark:bg-gray-800 text-bible-gold' : 'text-gray-400'}`}>Estudos IA</button>
                 <button onClick={() => setActiveTab('podcasts')} className={`flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'podcasts' ? 'bg-gray-100 dark:bg-gray-800 text-bible-gold' : 'text-gray-400'}`}>Podcasts</button>
             </div>

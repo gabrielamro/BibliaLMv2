@@ -16,7 +16,7 @@ create table if not exists public.church_services (
   key_verse_text text,
   banner_url text,
   live_url text,
-  status text not null default 'published',
+  status text not null default 'published' check (status in ('draft', 'published', 'checkin_open', 'live', 'in_progress', 'finished', 'archived')),
   slug text not null unique,
   created_by uuid not null references public.profiles(id) on delete cascade,
   liturgy_items jsonb not null default '[]'::jsonb,
@@ -164,6 +164,23 @@ create table if not exists public.service_ai_contents (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.service_public_invites (
+  id uuid primary key default gen_random_uuid(),
+  service_id text not null references public.church_services(id) on delete cascade,
+  church_id uuid not null references public.churches(id) on delete cascade,
+  invited_by_user_id uuid references public.profiles(id) on delete set null,
+  invited_by_name text,
+  invited_user_id uuid references public.profiles(id) on delete set null,
+  invited_name text,
+  token text not null unique,
+  status text not null default 'created' check (status in ('created', 'opened', 'accepted', 'cancelled')),
+  source text not null default 'share' check (source in ('copy', 'share', 'qr', 'manual')),
+  opened_at timestamptz,
+  accepted_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.posts add column if not exists service_id text;
 alter table public.posts add column if not exists service_title text;
 
@@ -205,6 +222,48 @@ create index if not exists service_live_states_church_id_idx
 
 create index if not exists service_ai_contents_service_user_idx
   on public.service_ai_contents(service_id, user_id, created_at desc);
+
+create index if not exists service_public_invites_service_status_idx
+  on public.service_public_invites(service_id, status, created_at desc);
+
+create index if not exists service_public_invites_token_idx
+  on public.service_public_invites(token);
+
+create index if not exists service_public_invites_invited_by_idx
+  on public.service_public_invites(invited_by_user_id, created_at desc);
+
+do $$
+declare
+  realtime_table text;
+begin
+  foreach realtime_table in array array[
+    'church_services',
+    'service_live_states',
+    'service_reactions',
+    'service_prayer_requests',
+    'posts',
+    'service_checkins',
+    'service_visits',
+    'service_verse_saves',
+    'service_schedule_assignments'
+  ]
+  loop
+    if to_regclass(format('public.%I', realtime_table)) is not null
+      and not exists (
+        select 1
+        from pg_publication_tables
+        where pubname = 'supabase_realtime'
+          and schemaname = 'public'
+          and tablename = realtime_table
+      )
+    then
+      execute format('alter publication supabase_realtime add table public.%I', realtime_table);
+    end if;
+  end loop;
+exception
+  when undefined_object then
+    null;
+end $$;
 
 create or replace function public.refresh_church_service_counts(p_service_id text)
 returns void
@@ -292,11 +351,15 @@ alter table public.service_ministry_members enable row level security;
 alter table public.service_schedule_assignments enable row level security;
 alter table public.service_live_states enable row level security;
 alter table public.service_ai_contents enable row level security;
+alter table public.service_public_invites enable row level security;
+
+grant select on public.service_public_invites to anon, authenticated;
+grant insert, update on public.service_public_invites to authenticated;
 
 drop policy if exists "Public can read published church services" on public.church_services;
 create policy "Public can read published church services"
   on public.church_services for select
-  using (status in ('published', 'live', 'finished'));
+  using (status in ('published', 'checkin_open', 'live', 'in_progress', 'finished', 'archived'));
 
 drop policy if exists "Authors can read own church services" on public.church_services;
 create policy "Authors can read own church services"
@@ -559,3 +622,33 @@ drop policy if exists "Users can create own service ai contents" on public.servi
 create policy "Users can create own service ai contents"
   on public.service_ai_contents for insert
   with check (auth.uid() = user_id);
+
+drop policy if exists "Public can read service invites by token" on public.service_public_invites;
+create policy "Public can read service invites by token"
+  on public.service_public_invites
+  for select
+  to anon, authenticated
+  using (status in ('created', 'opened', 'accepted'));
+
+drop policy if exists "Authenticated users can create service invites" on public.service_public_invites;
+create policy "Authenticated users can create service invites"
+  on public.service_public_invites
+  for insert
+  to authenticated
+  with check ((select auth.uid()) = invited_by_user_id);
+
+drop policy if exists "Invite actors can update service invites" on public.service_public_invites;
+create policy "Invite actors can update service invites"
+  on public.service_public_invites
+  for update
+  to authenticated
+  using (
+    (select auth.uid()) = invited_by_user_id
+    or invited_user_id is null
+    or (select auth.uid()) = invited_user_id
+  )
+  with check (
+    (select auth.uid()) = invited_by_user_id
+    or invited_user_id is null
+    or (select auth.uid()) = invited_user_id
+  );

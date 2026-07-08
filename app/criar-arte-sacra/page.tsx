@@ -136,7 +136,7 @@ export default function CriarArteSacraPage() {
   useEffect(() => {
     setTitle('Estúdio de Arte Sacra');
     setBreadcrumbs([
-      { label: 'Galeria', onClick: () => navigate('/artes-sacras') },
+      { label: 'Estúdio Criativo', onClick: () => navigate('/estudio-criativo') },
       { label: 'Editor' },
     ]);
 
@@ -479,41 +479,41 @@ export default function CriarArteSacraPage() {
       <SEO title="Criar Arte Sacra | Estúdio" />
 
       <header
-        className="absolute top-0 left-0 right-0 h-20 flex items-center justify-between px-4 md:px-8 pointer-events-none"
+        className="relative shrink-0 flex items-start justify-between gap-2 px-3 sm:px-4 md:px-8 pt-3 pb-3 pointer-events-none"
         style={{ zIndex: EDITOR_LAYER_Z_INDEX.header }}
       >
         <div className="flex items-center gap-2 pointer-events-auto">
           <button
-            onClick={() => navigate('/artes-sacras')}
+            onClick={() => navigate('/estudio-criativo')}
             className="p-3 bg-white/80 dark:bg-black/60 shadow-lg rounded-full text-gray-400 hover:text-bible-gold transition-all backdrop-blur-md border border-gray-200 dark:border-white/5"
           >
             <ArrowLeft size={20} />
           </button>
         </div>
 
-        <div className="flex-1 flex justify-center pointer-events-auto">
+        <div className="min-w-0 flex-1 flex justify-center pointer-events-auto">
           <div className="flex flex-col items-center gap-2 group">
-            <div className="flex items-center gap-3">
+            <div className="flex w-full flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 md:gap-3">
               {/* Search Bar (Text Entry Style) */}
-              <div className={`flex items-center gap-3 bg-white dark:bg-[#0A0A0A] py-3 px-5 rounded-2xl border border-gray-200 dark:border-white/10 shadow-2xl transition-all focus-within:border-bible-gold/50 focus-within:ring-4 focus-within:ring-bible-gold/5 ${TOP_SEARCH_BAR_WIDTH_CLASS}`}>
-                <div className="w-1 h-5 bg-bible-gold rounded-full shrink-0 animate-pulse" />
+              <div className={`min-w-0 flex items-center gap-3 bg-[#101010]/95 py-3 px-4 sm:px-5 rounded-2xl border border-white/12 shadow-2xl transition-all focus-within:border-bible-gold/70 focus-within:ring-4 focus-within:ring-bible-gold/10 ${TOP_SEARCH_BAR_WIDTH_CLASS}`}>
+                <div className="w-1 h-5 bg-bible-gold rounded-full shrink-0" />
                 <input
                   type="text"
                   value={refInput}
                   onChange={(e) => setRefInput(e.target.value)}
-                  className="bg-transparent border-none focus:outline-none text-sm md:text-base font-medium text-gray-900 dark:text-white w-full placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                  className="min-w-0 w-full bg-transparent border-none focus:outline-none text-sm md:text-base font-semibold text-white caret-bible-gold placeholder:text-white/55"
                   placeholder="Adicione o versículo..."
                 />
               </div>
 
               {/* Aspect Ratio Controls (Fora) */}
-              <div className="flex items-center gap-1 bg-white/80 dark:bg-black/60 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-full p-1 shadow-xl">
+              <div className="flex shrink-0 items-center justify-center gap-1 bg-[#101010]/85 backdrop-blur-md border border-white/10 rounded-full p-1 shadow-xl">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setEditOptions((current) => ({ ...current, aspectRatio: 'feed' }));
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${editOptions.aspectRatio === 'feed' ? 'bg-bible-gold text-black shadow-lg shadow-bible-gold/20' : 'text-gray-400 hover:text-white'}`}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${editOptions.aspectRatio === 'feed' ? 'bg-bible-gold text-black shadow-lg shadow-bible-gold/20' : 'text-white/65 hover:text-white hover:bg-white/10'}`}
                 >
                   <LayoutGrid size={12} /> Feed
                 </button>
@@ -522,7 +522,7 @@ export default function CriarArteSacraPage() {
                     e.stopPropagation();
                     setEditOptions((current) => ({ ...current, aspectRatio: 'story' }));
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${editOptions.aspectRatio === 'story' ? 'bg-bible-gold text-black shadow-lg shadow-bible-gold/20' : 'text-gray-400 hover:text-white'}`}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${editOptions.aspectRatio === 'story' ? 'bg-bible-gold text-black shadow-lg shadow-bible-gold/20' : 'text-white/65 hover:text-white hover:bg-white/10'}`}
                 >
                   <Smartphone size={12} /> Story
                 </button>
@@ -548,7 +548,7 @@ export default function CriarArteSacraPage() {
 
             {foundVerse && (
               <div className="animate-in slide-in-from-top-2 fade-in duration-300 mt-1">
-                <p className="text-xs md:text-sm text-white/40 font-serif italic text-center max-w-[450px] line-clamp-2 px-4 leading-relaxed">
+                <p className="text-xs md:text-sm text-white/62 font-serif italic text-center max-w-[620px] line-clamp-2 px-4 leading-relaxed">
                   “{foundVerse.text}”
                 </p>
               </div>
@@ -564,7 +564,7 @@ export default function CriarArteSacraPage() {
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 relative flex flex-col pt-20 pb-24 md:pb-4 overflow-hidden">
+      <main className="min-h-0 flex-1 relative flex flex-col pb-24 md:pb-4 overflow-hidden">
         <div className="min-h-0 flex-1 w-full grid grid-cols-1 md:grid-cols-[auto_132px_minmax(300px,390px)] items-stretch justify-center gap-3 px-4 md:px-6 pb-4 overflow-hidden">
           <div className="min-h-0 flex items-center justify-center overflow-hidden">
             <SacredArtCanvas

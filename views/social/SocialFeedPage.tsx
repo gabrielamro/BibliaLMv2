@@ -3,7 +3,7 @@ import { useNavigate, useLocation, useSearchParams } from '../../utils/router';
 
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Loader2, Plus, Zap, Heart, Sparkles, Quote, Users, PenLine, ImageIcon, Mic2, X, MapPin, AlertCircle } from 'lucide-react';
+import { Loader2, Plus, Zap, Heart, Sparkles, Quote, Users, PenLine, ImageIcon, X, MapPin, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFeatures, FeatureGuard } from '../../contexts/FeatureContext';
 import { useHeader } from '../../contexts/HeaderContext';
@@ -49,7 +49,7 @@ const FeatureDisabled = () => (
 );
 
 const SocialFeedPage: React.FC = () => {
-    const { currentUser, userProfile, openLogin, showNotification } = useAuth();
+    const { currentUser, userProfile, openLogin, showNotification, recordActivity } = useAuth();
     const { isFeatureEnabled } = useFeatures();
     const { setIsHeaderHidden } = useHeader();
     const navigate = useNavigate();
@@ -177,7 +177,7 @@ const SocialFeedPage: React.FC = () => {
         setPosts(prev => prev.map(p => p.id === postId ? { ...p, commentsCount: (p.commentsCount || 0) + 1 } : p));
     };
 
-    const handleActionClick = (action: 'write' | 'image' | 'podcast' | 'checkin') => {
+    const handleActionClick = (action: 'write' | 'image' | 'checkin') => {
         setIsPlusMenuOpen(false);
         if (!currentUser) { openLogin(); return; }
 
@@ -192,9 +192,6 @@ const SocialFeedPage: React.FC = () => {
                 break;
             case 'image':
                 navigate('/criar-arte-sacra');
-                return;
-            case 'podcast':
-                navigate('/criar-podcast');
                 return;
         }
     };
@@ -356,10 +353,6 @@ const SocialFeedPage: React.FC = () => {
                                 <span className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg shadow-xl border border-gray-100 dark:border-gray-700 opacity-0 group-hover:opacity-100 transition-opacity">Criar Arte</span>
                                 <button onClick={() => handleActionClick('image')} className="w-12 h-12 rounded-2xl bg-white dark:bg-gray-800 text-pink-50 shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border border-gray-100 dark:border-gray-700"><ImageIcon size={22} /></button>
                             </div>
-                            <div className="flex items-center gap-3 group">
-                                <span className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg shadow-xl border border-gray-100 dark:border-gray-700 opacity-0 group-hover:opacity-100 transition-opacity">Podcast</span>
-                                <button onClick={() => handleActionClick('podcast')} className="w-12 h-12 rounded-2xl bg-white dark:bg-gray-800 text-purple-500 shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border border-gray-100 dark:border-gray-700"><Mic2 size={22} /></button>
-                            </div>
                         </div>
                     </div>
                 )}
@@ -415,6 +408,7 @@ const SocialFeedPage: React.FC = () => {
                 onClose={() => setCommentsPost(null)}
                 onCommentAdded={handleCommentAdded}
                 showNotification={showNotification}
+                recordActivity={recordActivity}
             />
         </div>
     );

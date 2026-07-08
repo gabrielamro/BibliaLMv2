@@ -1,6 +1,22 @@
 import { NodeViewWrapper } from '@tiptap/react';
 import React, { useState } from 'react';
-import { Settings2, Copy, Trash2, GripVertical, Columns, Plus } from 'lucide-react';
+import {
+  AlignCenter,
+  AlignJustify,
+  AlignLeft,
+  AlignRight,
+  Bold,
+  Copy,
+  GripVertical,
+  Italic,
+  Link,
+  Settings2,
+  Trash2,
+  Type,
+  Underline,
+  Columns,
+  Plus,
+} from 'lucide-react';
 import { BlockRenderer } from '../../Builder/BlockRenderer';
 import { useAuth } from '../../../contexts/AuthContext';
 import { blockLabels } from '../../Builder/constants';
@@ -9,7 +25,6 @@ import { BlockPickerMenu } from './BlockPickerMenu';
 
 const widthToClass: Record<string, string> = {
   '1/1': 'w-full',
-  '2/3': 'w-[66.666%]',
   '1/2': 'w-1/2',
   '1/3': 'w-1/3',
 };
@@ -21,6 +36,7 @@ export const BlockNodeView = (props: any) => {
   const isSelected = props.selected;
   const [ghostDragOver, setGhostDragOver] = useState<number | null>(null);
   const [activeGhostPicker, setActiveGhostPicker] = useState<number | null>(null);
+  const [isTextToolboxOpen, setIsTextToolboxOpen] = useState(false);
 
   const handleUpdate = (_id: string, newData: any) => {
     props.updateAttributes({
@@ -58,6 +74,53 @@ export const BlockNodeView = (props: any) => {
     event.preventDefault();
     event.stopPropagation();
     props.updateAttributes({ layoutAlign: align });
+  };
+
+  const runInlineCommand = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    const activeElement = document.activeElement as HTMLElement | null;
+    activeElement?.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'formatSetBlockText' }));
+    activeElement?.focus();
+  };
+
+  const changeFontSize = (delta: number) => {
+    const selection = window.getSelection();
+    const target = document.activeElement as HTMLElement | null;
+    if (!selection || selection.rangeCount === 0 || !target) return;
+
+    const range = selection.getRangeAt(0);
+    const currentElement = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+      ? range.commonAncestorContainer as HTMLElement
+      : range.commonAncestorContainer.parentElement;
+    const computedSize = currentElement ? parseFloat(window.getComputedStyle(currentElement).fontSize) : 16;
+    const nextSize = Math.min(72, Math.max(10, Math.round(computedSize + delta)));
+
+    if (selection.isCollapsed) {
+      target.style.fontSize = `${nextSize}px`;
+    } else {
+      const span = document.createElement('span');
+      span.style.fontSize = `${nextSize}px`;
+      range.surroundContents(span);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
+    target.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'formatFontSize' }));
+    target.focus();
+  };
+
+  const promptForLink = () => {
+    const url = window.prompt('URL do link');
+    if (!url) return;
+    runInlineCommand('createLink', url);
+  };
+
+  const openTextToolboxForTarget = (target: EventTarget | null) => {
+    if (!props.editor.isEditable || !(target instanceof HTMLElement)) return;
+    if (target.closest('.rtb-editor')) return;
+    if (target.isContentEditable || target.matches('input, textarea')) {
+      setIsTextToolboxOpen(true);
+    }
   };
 
   if (!blockData) return null;
@@ -144,7 +207,6 @@ export const BlockNodeView = (props: any) => {
   // Calcular quantos ghost slots cabem com base nos vizinhos na mesma "linha"
   const widthFraction = (lw: string): number => {
     if (lw === '1/1') return 1;
-    if (lw === '2/3') return 2/3;
     if (lw === '1/2') return 1/2;
     if (lw === '1/3') return 1/3;
     return 1;
@@ -263,6 +325,12 @@ export const BlockNodeView = (props: any) => {
       layoutwidth={layoutWidth}
       layoutalign={props.node.attrs.layoutAlign || 'left'}
       className={`custom-block-outer relative group box-border px-1 transition-all duration-300 w-full ${isSelected ? 'z-[60]' : 'z-auto'}`}
+      onFocusCapture={(event: React.FocusEvent<HTMLElement>) => openTextToolboxForTarget(event.target)}
+      onMouseDownCapture={(event: React.MouseEvent<HTMLElement>) => openTextToolboxForTarget(event.target)}
+      onBlurCapture={(event: React.FocusEvent<HTMLElement>) => {
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+        window.setTimeout(() => setIsTextToolboxOpen(false), 80);
+      }}
     >
       <div className={`w-full transition-all duration-300 ${isSelected && props.editor.isEditable ? 'relative rounded-2xl ring-2 ring-bible-gold shadow-2xl' : 'ring-transparent'}`}>
 
@@ -285,7 +353,7 @@ export const BlockNodeView = (props: any) => {
               <Trash2 size={14} />
             </button>
 
-            <div className="pointer-events-auto absolute -top-4 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border border-gray-100 bg-white p-1 shadow-lg">
+            <div className="pointer-events-auto absolute bottom-3 right-3 flex items-center gap-1 rounded-full border border-gray-100 bg-white p-1 shadow-lg">
               {['1/3', '1/2', '1/1'].map((option) => (
                 <button
                   key={option}
@@ -328,6 +396,70 @@ export const BlockNodeView = (props: any) => {
             >
               <Settings2 size={12} />
               CONFIGURAR
+            </button>
+          </div>
+        )}
+
+        {props.editor.isEditable && isTextToolboxOpen && (
+          <div
+            data-testid="inline-text-toolbox"
+            className="absolute left-1/2 top-3 z-[90] flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-gray-100 bg-white/95 p-1.5 shadow-2xl backdrop-blur dark:border-gray-800 dark:bg-gray-900/95"
+            onMouseDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+          >
+            {[
+              { label: 'Negrito', icon: Bold, command: 'bold' },
+              { label: 'Italico', icon: Italic, command: 'italic' },
+              { label: 'Sublinhado', icon: Underline, command: 'underline' },
+              { label: 'Alinhar esquerda', icon: AlignLeft, command: 'justifyLeft' },
+              { label: 'Centralizar', icon: AlignCenter, command: 'justifyCenter' },
+              { label: 'Alinhar direita', icon: AlignRight, command: 'justifyRight' },
+              { label: 'Justificar', icon: AlignJustify, command: 'justifyFull' },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.command}
+                  type="button"
+                  title={item.label}
+                  aria-label={item.label}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-bible-gold/10 hover:text-bible-gold"
+                  onClick={() => runInlineCommand(item.command)}
+                >
+                  <Icon size={15} />
+                </button>
+              );
+            })}
+            <div className="mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700" />
+            <button
+              type="button"
+              title="Diminuir fonte"
+              aria-label="Diminuir fonte"
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-bible-gold/10 hover:text-bible-gold"
+              onClick={() => changeFontSize(-2)}
+            >
+              <Type size={13} />
+            </button>
+            <button
+              type="button"
+              title="Aumentar fonte"
+              aria-label="Aumentar fonte"
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-bible-gold/10 hover:text-bible-gold"
+              onClick={() => changeFontSize(2)}
+            >
+              <Type size={18} />
+            </button>
+            <div className="mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700" />
+            <button
+              type="button"
+              title="Inserir link"
+              aria-label="Inserir link"
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-bible-gold/10 hover:text-bible-gold"
+              onClick={promptForLink}
+            >
+              <Link size={15} />
             </button>
           </div>
         )}

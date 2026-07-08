@@ -21,7 +21,9 @@ type CultoPlusCalendarViewProps = {
 const statusStyles: Record<ChurchService['status'], string> = {
   draft: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-300',
   published: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-800',
+  checkin_open: 'bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200 dark:bg-cyan-950/30 dark:text-cyan-300 dark:ring-cyan-800',
   live: 'bg-red-50 text-red-700 ring-1 ring-red-200 dark:bg-red-950/30 dark:text-red-300 dark:ring-red-800',
+  in_progress: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:ring-amber-800',
   finished: 'bg-white text-gray-500 ring-1 ring-gray-200 dark:bg-bible-darkPaper dark:text-gray-400 dark:ring-gray-800',
   archived: 'bg-gray-100 text-gray-400 dark:bg-gray-900 dark:text-gray-500',
 };
@@ -29,7 +31,9 @@ const statusStyles: Record<ChurchService['status'], string> = {
 const statusLabel: Record<ChurchService['status'], string> = {
   draft: 'Rascunho',
   published: 'Publicado',
+  checkin_open: 'Check-in',
   live: 'Ao vivo',
+  in_progress: 'Andamento',
   finished: 'Finalizado',
   archived: 'Arquivado',
 };

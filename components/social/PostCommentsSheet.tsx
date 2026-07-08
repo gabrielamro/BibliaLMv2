@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2, MessageCircle, Send, X } from 'lucide-react';
-import { Post, PostComment, UserProfile } from '../../types';
+import { ActionType, Post, PostComment, UserProfile } from '../../types';
 import { dbService } from '../../services/supabase';
 
 interface PostCommentsSheetProps {
@@ -11,6 +11,7 @@ interface PostCommentsSheetProps {
   onClose: () => void;
   onCommentAdded?: (postId: string) => void;
   showNotification: (message: string, type: any) => void;
+  recordActivity?: (action: ActionType, details: string, meta?: any) => Promise<void>;
 }
 
 const QUICK_EMOJIS = ['❤️', '🙏', '🔥', '😂', '😢'];
@@ -39,6 +40,7 @@ const PostCommentsSheet: React.FC<PostCommentsSheetProps> = ({
   onClose,
   onCommentAdded,
   showNotification,
+  recordActivity,
 }) => {
   const [comments, setComments] = useState<PostComment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -80,6 +82,12 @@ const PostCommentsSheet: React.FC<PostCommentsSheetProps> = ({
       setComments(prev => [...prev, newComment]);
       setDraft('');
       onCommentAdded?.(post.id);
+      await recordActivity?.('social_comment', 'Comentou em uma publicacao do Reino', {
+        sourceId: `${post.id}-${newComment.id}`,
+        postId: post.id,
+        commentId: newComment.id,
+        text,
+      });
     } catch (error) {
       console.error(error);
       showNotification('Erro ao enviar comentário.', 'error');

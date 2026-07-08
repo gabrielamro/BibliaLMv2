@@ -31,6 +31,7 @@ As mensagens de commit devem ser semanticas:
 | 2026-04-23 | feat | app/, components/, utils/ | Acesso Freemium & Estudio Profissional - v1.9.0 | Antigravity |
 | 2026-04-29 | docs | _ARCHITECT_AGENT.md | Regra obrigatoria para avaliar e manter log de atividades em funcionalidades modificadas | Codex |
 | 2026-05-06 | feat | core | Ecossistema Social & Expansão Eclesiástica - v2.0.0 | Antigravity |
+| 2026-06-12 | feat | utils/, services/, app/competicao, views/ | Expansao de Mana, niveis, regras e competicao - v2.3.0 | Codex |
 
 
 ---

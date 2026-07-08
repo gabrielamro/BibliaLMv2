@@ -5,14 +5,14 @@ import {
   X, Send, BookOpen, Heart, Sparkles, MapPin, 
   Users, Church, Globe, Loader2, Search, Quote, 
   Smile, Flame, Zap, HelpCircle, Check, HandHeart,
-  PenLine, ChevronDown, ListFilter, ImageIcon, Trash2, Camera
+  PenLine, ChevronDown, ListFilter, ImageIcon, Trash2, Camera, Lock
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { bibleService } from '../../services/bibleService';
 import { dbService, uploadBlob } from '../../services/supabase';
 import { findNearbyChurches, NearbyPlace } from '../../services/pastorAgent';
-import { MoodType } from '../../types';
+import { MoodType, PostVisibility } from '../../types';
 import { base64ToBlob } from '../../utils/imageOptimizer';
 import { extractMentionUsernames } from '../../utils/kingdomHomeFeed';
 import { encodeMoodContent } from '../../utils/socialPostMood';
@@ -79,6 +79,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
   const [activeTab, setActiveTab] = useState<PostTabType>(initialTab || 'reflection');
   const [content, setContent] = useState('');
   const [destination, setDestination] = useState<Destination>('global');
+  const [visibility, setVisibility] = useState<PostVisibility>('public');
   const [selectedMood, setSelectedMood] = useState<MoodType | null>(null);
   const [alsoShowOnChurch, setAlsoShowOnChurch] = useState(false);
   
@@ -96,6 +97,22 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
 
   const [isPosting, setIsPosting] = useState(false);
   const searchTimeoutRef = useRef<any>(null);
+
+  const setPostVisibility = (nextVisibility: PostVisibility) => {
+    setVisibility(nextVisibility);
+    if (nextVisibility === 'group') {
+      setDestination('cell');
+      setAlsoShowOnChurch(false);
+      return;
+    }
+    if (nextVisibility === 'church') {
+      setDestination('church');
+      setAlsoShowOnChurch(false);
+      return;
+    }
+    setDestination('global');
+    setAlsoShowOnChurch(false);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -213,6 +230,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
             likedBy: [],
             location: selectedPlace ? selectedPlace.name : (userProfile.city || 'Reino'),
             destination: destination,
+            visibility,
             alsoShowOnChurch: alsoShowOnChurch,
             time: 'Agora'
         };
@@ -272,6 +290,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
       setSelectedPlace(null);
       setNearbyPlaces([]);
       setDestination('global');
+      setVisibility('public');
       setAlsoShowOnChurch(false);
   };
 
@@ -461,9 +480,28 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
         {/* Rodapé: Destino e Botão de Ação */}
         <div className="p-4 md:p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-black/20 pb-safe">
             <div className="max-w-md mx-auto space-y-4">
-                
+
+                <div className="rounded-2xl border border-gray-100 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Quem pode ver</span>
+                            <p className="text-[10px] font-bold text-bible-gold">
+                                {visibility === 'public' ? 'Publico e descoberta' : visibility === 'followers' ? 'Apenas seguidores' : visibility === 'group' ? `Grupo: ${userProfile?.churchData?.groupName}` : visibility === 'church' ? `Igreja: ${userProfile?.churchData?.churchName}` : 'Somente voce'}
+                            </p>
+                        </div>
+                        <Lock size={16} className="text-gray-300" />
+                    </div>
+                    <div className="grid grid-cols-5 gap-2">
+                        <button onClick={() => setPostVisibility('public')} className={`flex min-h-10 items-center justify-center rounded-xl border text-xs transition-all ${visibility === 'public' ? 'border-bible-gold bg-bible-gold/10 text-bible-gold' : 'border-gray-100 text-gray-400 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800'}`} title="Publico"><Globe size={17} /></button>
+                        <button onClick={() => setPostVisibility('followers')} className={`flex min-h-10 items-center justify-center rounded-xl border text-xs transition-all ${visibility === 'followers' ? 'border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' : 'border-gray-100 text-gray-400 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800'}`} title="Seguidores"><Users size={17} /></button>
+                        <button onClick={() => userProfile?.churchData?.groupId && setPostVisibility('group')} disabled={!userProfile?.churchData?.groupId} className={`flex min-h-10 items-center justify-center rounded-xl border text-xs transition-all disabled:opacity-35 ${visibility === 'group' ? 'border-indigo-500 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20' : 'border-gray-100 text-gray-400 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800'}`} title="Grupo"><ListFilter size={17} /></button>
+                        <button onClick={() => userProfile?.churchData?.churchId && setPostVisibility('church')} disabled={!userProfile?.churchData?.churchId} className={`flex min-h-10 items-center justify-center rounded-xl border text-xs transition-all disabled:opacity-35 ${visibility === 'church' ? 'border-blue-500 bg-blue-50 text-blue-600 dark:bg-blue-900/20' : 'border-gray-100 text-gray-400 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800'}`} title="Igreja"><Church size={17} /></button>
+                        <button onClick={() => setPostVisibility('private')} className={`flex min-h-10 items-center justify-center rounded-xl border text-xs transition-all ${visibility === 'private' ? 'border-gray-700 bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100' : 'border-gray-100 text-gray-400 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800'}`} title="Privado"><Lock size={17} /></button>
+                    </div>
+                </div>
+                 
                 {/* Seletor de Destino */}
-                <div className="flex items-center justify-between px-1">
+                <div className="hidden">
                     <div className="flex flex-col">
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Publicar em:</span>
                         <span className="text-[9px] text-bible-gold font-bold">
@@ -472,7 +510,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                     </div>
                     <div className="flex gap-2">
                         <button 
-                            onClick={() => { setDestination('global'); setAlsoShowOnChurch(false); }}
+                            onClick={() => setPostVisibility('public')}
                             className={`p-3 rounded-xl border-2 transition-all ${destination === 'global' ? 'border-bible-gold bg-bible-gold/10 text-bible-gold shadow-md' : 'border-transparent text-gray-400 hover:bg-gray-100'}`}
                             title="Global"
                         >
@@ -481,7 +519,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                         
                         {userProfile?.churchData?.groupId && (
                             <button 
-                                onClick={() => { setDestination('cell'); setAlsoShowOnChurch(false); }}
+                                onClick={() => setPostVisibility('group')}
                                 className={`p-3 rounded-xl border-2 transition-all ${destination === 'cell' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 shadow-md' : 'border-transparent text-gray-400 hover:bg-gray-100'}`}
                                 title="Célula"
                             >
@@ -491,7 +529,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
 
                         {userProfile?.churchData?.churchId && (
                             <button 
-                                onClick={() => { setDestination('church'); setAlsoShowOnChurch(false); }}
+                                onClick={() => setPostVisibility('church')}
                                 className={`p-3 rounded-xl border-2 transition-all ${destination === 'church' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 shadow-md' : 'border-transparent text-gray-400 hover:bg-gray-100'}`}
                                 title="Igreja"
                             >
@@ -502,7 +540,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                 </div>
                 
                 {/* Opção de Cross-posting para Igreja */}
-                {destination === 'cell' && userProfile?.churchData?.churchId && (
+                {visibility === 'group' && userProfile?.churchData?.churchId && (
                     <div className="flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/50 dark:border-blue-800/30 animate-in fade-in slide-in-from-top-1">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-white dark:bg-gray-800 rounded-xl text-blue-600 shadow-sm">
@@ -528,7 +566,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                     className="w-full py-5 bg-bible-leather dark:bg-bible-gold text-white dark:text-black font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isPosting ? <Loader2 className="animate-spin" size={20}/> : <Zap size={18} fill="currentColor"/>}
-                    {destination === 'global' ? 'Publicar no Reino' : 'Enviar para Comunidade'}
+                    {visibility === 'private' ? 'Salvar privado' : visibility === 'followers' ? 'Publicar para seguidores' : destination === 'global' ? 'Publicar no Reino' : 'Enviar para Comunidade'}
                 </button>
             </div>
         </div>

@@ -326,7 +326,7 @@ export const ReflectionQuestionBlock: React.FC<ReflectionQuestionBlockProps> = (
       {!isEditable && (
         <div className="mt-4 text-center">
           <p className="text-[10px] text-[#b3a08d] italic">
-            💡 Suas reflexões ficam salvas em Minhas Notas → com referência a este estudo
+            Suas reflexoes ficam salvas em Meus Registros com referencia a este estudo
           </p>
         </div>
       )}

@@ -42,15 +42,16 @@ export function buildKingdomHomeFeedSections(
 ): KingdomHomeFeedSections {
   const churchId = userProfile?.churchData?.churchId;
   const uniqueGroups = Array.from(new Map(groups.map((group) => [group.id, group])).values());
+  const communityLimit = Math.min(2, limit);
 
   return {
     highlightedPosts: getHighlightedPosts(posts, limit),
     churchPosts: churchId
-      ? posts.filter((post) => post.churchId === churchId).slice(0, limit)
+      ? posts.filter((post) => post.churchId === churchId).slice(0, communityLimit)
       : [],
     groupSections: uniqueGroups.map((group) => ({
       group,
-      posts: posts.filter((post) => post.cellId === group.id).slice(0, limit),
+      posts: posts.filter((post) => post.cellId === group.id).slice(0, communityLimit),
     })),
   };
 }

@@ -64,6 +64,7 @@ const SortableLessonRow: React.FC<SortableLessonRowProps> = ({
         transform: CSS.Transform.toString(transform),
         transition,
       }}
+      onClick={() => onOpenLesson(unitId, lesson)}
       className={`group flex items-center gap-3 rounded-2xl border border-purple-100 bg-white p-3 transition-all dark:border-purple-900/40 dark:bg-[#0f0f0f] ${
         isDragging ? 'shadow-2xl ring-2 ring-purple-500/30' : 'shadow-sm'
       }`}
@@ -72,6 +73,7 @@ const SortableLessonRow: React.FC<SortableLessonRowProps> = ({
         type="button"
         {...attributes}
         {...listeners}
+        onClick={(event) => event.stopPropagation()}
         className="flex h-10 w-8 shrink-0 touch-none items-center justify-center text-gray-300"
         aria-label="Reordenar aula"
       >
@@ -84,6 +86,14 @@ const SortableLessonRow: React.FC<SortableLessonRowProps> = ({
         <input
           value={lesson.title}
           onChange={(event) => onRenameLesson(unitId, lesson.id, event.target.value)}
+          onClick={(event) => {
+            if (window.innerWidth < 640) {
+              event.preventDefault();
+              onOpenLesson(unitId, lesson);
+              return;
+            }
+            event.stopPropagation();
+          }}
           placeholder="Titulo da aula"
           className="w-full bg-transparent text-sm font-black text-gray-950 outline-none dark:text-white"
           aria-label="Titulo da aula"
@@ -101,6 +111,7 @@ const SortableLessonRow: React.FC<SortableLessonRowProps> = ({
       <button
         type="button"
         onClick={() => onDeleteLesson(unitId, lesson.id)}
+        onPointerDown={(event) => event.stopPropagation()}
         aria-label="Excluir aula"
         className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-300 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
       >

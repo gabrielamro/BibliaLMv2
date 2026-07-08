@@ -5,13 +5,13 @@ import React, { useState } from 'react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { dbService } from '../../services/supabase';
-import { Users, BookOpen, Target, Dices, TrendingUp, Plus, ArrowRight, Shield, Trophy, Medal, MoreVertical, LayoutGrid, Map, HandHeart, X } from 'lucide-react';
+import { Users, BookOpen, Target, Dices, TrendingUp, Plus, ArrowRight, Shield, Trophy, Medal, MoreVertical, LayoutGrid, HandHeart, X } from 'lucide-react';
 import CultoPlusWorkspacePreview from '../culto-plus/CultoPlusWorkspacePreview';
 
 import QuizBuilderModal from '../QuizBuilderModal';
 
 const WorkspaceOnePage: React.FC = () => {
-  const { plans, teams, quizzes, tracks, prayers, loading, saveQuiz, createTeam } = useWorkspace();
+  const { plans, teams, quizzes, prayers, loading, saveQuiz, createTeam } = useWorkspace();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
 
@@ -46,15 +46,14 @@ const WorkspaceOnePage: React.FC = () => {
     setNewTeamName('');
   };
 
-  const handleAction = async (type: 'plan' | 'track' | 'prayer' | 'quiz', id: string, action: 'edit' | 'delete' | 'toggle_status') => {
+  const handleAction = async (type: 'plan' | 'prayer' | 'quiz', id: string, action: 'edit' | 'delete' | 'toggle_status') => {
     if (!currentUser) return;
     setActiveMenuId(null);
-    const tableName = type === 'plan' ? 'custom_plans' : type === 'track' ? 'reading_tracks' : type === 'prayer' ? 'guided_prayers' : 'custom_quizzes';
+    const tableName = type === 'plan' ? 'custom_plans' : type === 'prayer' ? 'guided_prayers' : 'custom_quizzes';
 
     try {
       if (action === 'edit') {
         if (type === 'plan') navigate(`/criar-sala?id=${id}`);
-        else if (type === 'track') navigate(`/trilhas/gerenciar?id=${id}`);
         else if (type === 'prayer') navigate(`/oracoes/gerenciar?id=${id}`);
       } else if (action === 'delete') {
         if (window.confirm("Tem certeza que deseja excluir?")) {
@@ -76,7 +75,7 @@ const WorkspaceOnePage: React.FC = () => {
     }
   };
 
-  const ActionMenu = ({ id, type, currentStatus }: { id: string, type: 'plan' | 'track' | 'prayer' | 'quiz', currentStatus?: string }) => (
+  const ActionMenu = ({ id, type, currentStatus }: { id: string, type: 'plan' | 'prayer' | 'quiz', currentStatus?: string }) => (
     <div className="absolute right-0 mt-2 w-36 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden animate-in fade-in zoom-in-95">
       <button onClick={() => handleAction(type, id, 'edit')} className="w-full px-4 py-2.5 text-left text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 border-b border-gray-50 dark:border-gray-700">
         <Plus size={14} className="rotate-45" /> Editar
@@ -291,72 +290,6 @@ const WorkspaceOnePage: React.FC = () => {
           ))}
         </div>
       </section>
-
-      {/* Trilhas de Estudo (DESATIVADO)
-      {tracks.length > 0 && (
-        <section className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-800">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <BookOpen className="text-bible-gold" /> Trilhas de Estudo
-            </h2>
-            {tracks.length > 3 && (
-              <button onClick={() => setShowAllTracks(!showAllTracks)} className="text-sm font-bold text-bible-gold hover:underline flex items-center gap-1">
-                {showAllTracks ? 'Ver Menos' : 'Ver Todas'} <ArrowRight size={16} />
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div
-              onClick={() => navigate('/trilhas/gerenciar?action=new')}
-              className="bg-gradient-to-br from-bible-gold/5 to-transparent p-6 rounded-[1.5rem] border-2 border-dashed border-bible-gold/30 flex flex-col items-start justify-center cursor-pointer hover:border-bible-gold hover:bg-bible-gold/10 transition-all min-h-[200px] group"
-            >
-              <div className="w-12 h-12 bg-bible-gold/20 rounded-xl flex items-center justify-center mb-4 text-bible-gold group-hover:scale-110 transition-transform">
-                <Plus size={24} />
-              </div>
-              <h3 className="font-bold text-gray-900 dark:text-white text-base">Nova Trilha de Estudo</h3>
-              <p className="text-xs text-gray-500 mt-2 line-clamp-2">
-                Crie uma trilha com base em aulas e conteúdos organizados.
-              </p>
-            </div>
-
-            {displayedTracks.map(track => (
-              <div key={track.id} className="bg-white dark:bg-bible-darkPaper p-5 rounded-[1.5rem] border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col justify-between min-h-[200px] hover:shadow-md transition-shadow">
-                <div>
-                  <div className="flex justify-between items-start mb-3 relative">
-                    <div className="flex flex-col gap-1">
-                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider w-fit ${track.isPublic ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
-                        {track.isPublic ? 'Público' : 'Rascunho'}
-                      </span>
-                      {track.createdAt && <span className="text-[9px] text-gray-400 font-bold ml-1">Criação: {formatDate(track.createdAt)}</span>}
-                    </div>
-                    <button onClick={() => setActiveMenuId(activeMenuId === track.id ? null : track.id)} className="text-gray-400 hover:text-gray-600 p-1 bg-gray-50 dark:bg-gray-800 rounded-lg"><MoreVertical size={16} /></button>
-                    {activeMenuId === track.id && <ActionMenu id={track.id} type="track" />}
-                  </div>
-
-                  <h3 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-2 leading-tight mb-2">
-                    {track.title}
-                  </h3>
-
-                  <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-3">
-                    {track.description}
-                  </p>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-gray-50 dark:border-gray-800/50 flex justify-between items-center">
-                  <button
-                    onClick={() => navigate(`/trilhas/gerenciar?id=${track.id}`)}
-                    className="bg-gray-50 dark:bg-gray-800 hover:bg-bible-gold hover:text-white text-gray-700 dark:text-gray-300 font-bold px-3 py-1.5 text-xs rounded-lg flex items-center transition-colors w-full justify-center group"
-                  >
-                    Gerenciar Trilha <ArrowRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-      */}
 
       {/* Orações Guiadas */}
       <section className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-800">

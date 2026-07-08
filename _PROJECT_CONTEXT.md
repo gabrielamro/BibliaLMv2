@@ -1,7 +1,7 @@
 # 📖 BíbliaLM - Product Context & Business Rules
 
 > **AI INSTRUCTION:** This file contains the "Soul" of the application. Refer to this for logic, gamification rules, and terminology.
-> **VERSION:** v2.2.0 (Culto+ MVP)
+> **VERSION:** v2.3.0 (Mana, niveis e rankings)
 
 ## 1. Product Vision
 A deep Bible study platform powered by AI, designed to look like a "Sanctuary" (Clean, Serene, Gold/Leather aesthetic). The AI is a "Counselor" or "Worker," not a generic bot.
@@ -47,6 +47,11 @@ A deep Bible study platform powered by AI, designed to look like a "Sanctuary" (
 *   **Currency:** "Maná" (XP). Not spendable, prestige only.
 *   **Streaks:** Daily consecutive usage.
 *   **Badges:** Awarded based on XP thresholds or specific actions (e.g., "First Share").
+
+*   **Rules:** `utils/activityRules.ts` centralizes ActionTypes, XP defaults, limits, cooldowns and anti-duplication metadata.
+*   **Competition:** `/competicao` surfaces personal progress, daily Mana checklist, public rules and global user ranking.
+*   **Audit:** `mana_events` and the Admin Mana audit tab support review/void flows after the Supabase migration is applied.
+*   **Campaigns:** `SystemSettings.gamificationCampaigns` controls active seasons/challenges without deploy.
 
 ## 5. Domain Glossary
 *   **Obreiro IA:** The AI persona.

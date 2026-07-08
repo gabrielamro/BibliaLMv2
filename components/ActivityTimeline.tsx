@@ -30,7 +30,22 @@ const ACTION_CONFIG: Record<string, { icon: React.ReactNode, label: string, colo
   'create_note': { icon: <PenTool size={16} />, label: 'Anotação', color: 'text-gray-600', bg: 'bg-gray-100 dark:bg-gray-800' },
   'social_like': { icon: <Heart size={16} />, label: 'Interação', color: 'text-pink-500', bg: 'bg-pink-100 dark:bg-pink-900/30' },
   'start_module': { icon: <Crown size={16} />, label: 'Início de Trilha', color: 'text-bible-gold', bg: 'bg-bible-gold/20' },
-  'join_plan': { icon: <Calendar size={16} />, label: 'Nova Jornada', color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900/30' }
+  'join_plan': { icon: <Calendar size={16} />, label: 'Nova Jornada', color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900/30' },
+  'create_study': { icon: <BookOpen size={16} />, label: 'Estudo Criado', color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/30' },
+  'create_evaluation': { icon: <CheckCircle2 size={16} />, label: 'Avaliacao', color: 'text-cyan-600', bg: 'bg-cyan-100 dark:bg-cyan-900/30' },
+  'finish_track': { icon: <Trophy size={16} />, label: 'Trilha Concluida', color: 'text-emerald-600', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+  'collect_artifact': { icon: <Zap size={16} />, label: 'Material Salvo', color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30' },
+  'social_post': { icon: <MessageCircle size={16} />, label: 'Publicacao', color: 'text-purple-600', bg: 'bg-purple-100 dark:bg-purple-900/30' },
+  'social_interaction': { icon: <Users size={16} />, label: 'Comunidade', color: 'text-violet-600', bg: 'bg-violet-100 dark:bg-violet-900/30' },
+  'invite_sent': { icon: <Users size={16} />, label: 'Convite Enviado', color: 'text-sky-600', bg: 'bg-sky-100 dark:bg-sky-900/30' },
+  'invite_accepted': { icon: <CheckCircle2 size={16} />, label: 'Convite Aceito', color: 'text-emerald-600', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+  'social_comment': { icon: <MessageCircle size={16} />, label: 'Comentario', color: 'text-indigo-600', bg: 'bg-indigo-100 dark:bg-indigo-900/30' },
+  'social_mention': { icon: <Users size={16} />, label: 'Mencao', color: 'text-cyan-600', bg: 'bg-cyan-100 dark:bg-cyan-900/30' },
+  'group_comment': { icon: <MessageCircle size={16} />, label: 'Comentario no Grupo', color: 'text-teal-600', bg: 'bg-teal-100 dark:bg-teal-900/30' },
+  'church_comment': { icon: <MessageCircle size={16} />, label: 'Comentario na Igreja', color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/30' },
+  'content_share': { icon: <Share2 size={16} />, label: 'Conteudo Compartilhado', color: 'text-gray-600', bg: 'bg-gray-100 dark:bg-gray-800' },
+  'plan_comment': { icon: <MessageCircle size={16} />, label: 'Comentario na Jornada', color: 'text-emerald-600', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+  'culto_checkin': { icon: <CheckCircle2 size={16} />, label: 'Check-in Culto+', color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30' }
 };
 
 const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ activities }) => {

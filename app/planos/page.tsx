@@ -1,12 +1,7 @@
 "use client";
-import { useEffect } from 'react';
-import { useNavigate } from '../../utils/router';
+
+import SubscriptionPage from '../../views/SubscriptionPage';
 
 export default function Page() {
-  const navigate = useNavigate();
-  useEffect(() => {
-    navigate('/');
-  }, [navigate]);
-  
-  return null;
+  return <SubscriptionPage />;
 }

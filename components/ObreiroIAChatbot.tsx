@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
     MessageCircle, X, Send, Loader2, Sparkles, User,
     BookOpenCheck, Minimize2, Maximize2, ShieldAlert,
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { sendMessageToGeminiStream } from '../services/pastorAgent';
+import { buildAppHelpAnswer, detectAppHelpIntent, recordHelpQuestion } from '../services/appHelpService';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useLocation, useNavigate } from '../utils/router';
@@ -19,14 +20,15 @@ const WELCOME_MESSAGE: ChatMessage = {
 };
 
 const SUGGESTIONS = [
+    'Onde vejo meu histórico?',
+    'Como criar um post?',
+    'Onde vejo meu plano?',
+    'Como vejo meus cultos?',
     'Explique João 3:16',
-    'Contexto histórico do Êxodo',
-    'Diferença entre graça e misericórdia',
-    'Versículos sobre fé',
 ];
 
 const ObreiroIAChatbot: React.FC = () => {
-    const { currentUser, checkFeatureAccess, incrementUsage, recordActivity, openLogin, openSubscription } = useAuth();
+    const { currentUser, userProfile, checkFeatureAccess, incrementUsage, recordActivity, openLogin, openSubscription } = useAuth();
     const { isFocusMode } = useSettings();
     const location = useLocation();
     const navigate = useNavigate();
@@ -39,10 +41,21 @@ const ObreiroIAChatbot: React.FC = () => {
     const [showLimitModal, setShowLimitModal] = useState(false);
     const [hasNewMessage, setHasNewMessage] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
+    const [showFloatingHint, setShowFloatingHint] = useState(true);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const chatRef = useRef<HTMLDivElement>(null);
+    const shouldShowContentBuilderHint = useMemo(() => {
+        const pathname = location.pathname || '';
+        return [
+            '/criar-conteudo',
+            '/criar-sala',
+            '/planos',
+            '/plano/',
+            '/workspace-pastoral',
+        ].some((route) => pathname === route || pathname.startsWith(route));
+    }, [location.pathname]);
 
     // Entrance animation
     useEffect(() => {
@@ -83,6 +96,22 @@ const ObreiroIAChatbot: React.FC = () => {
     const handleSend = async (textOverride?: string) => {
         const textToSend = textOverride || inputText;
         if (!textToSend.trim() || isLoading) return;
+
+        const appHelpIntent = detectAppHelpIntent(textToSend, userProfile?.subscriptionTier);
+        const helpArticle = appHelpIntent.articles[0];
+        if (appHelpIntent.isAppSupport && helpArticle) {
+            const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', content: textToSend };
+            const aiMsg: ChatMessage = {
+                id: (Date.now() + 1).toString(),
+                role: 'model',
+                content: buildAppHelpAnswer(helpArticle),
+            };
+
+            setMessages(prev => [...prev, userMsg, aiMsg]);
+            setInputText('');
+            recordHelpQuestion({ message: textToSend, articleId: helpArticle.id, confidence: appHelpIntent.confidence });
+            return;
+        }
 
         const canChat = checkFeatureAccess('aiChatAccess');
         if (!canChat) {
@@ -134,7 +163,7 @@ const ObreiroIAChatbot: React.FC = () => {
 
     const handleAction = (type: 'note' | 'image' | 'podcast' | 'quiz', content: string) => {
         if (type === 'note') {
-            navigate('/notes', { state: { initialContent: content } });
+            navigate('/estudos', { state: { initialContent: content } });
         } else if (type === 'image') {
             navigate('/estudio-criativo', { state: { tool: 'image', initialPrompt: content } });
         } else if (type === 'podcast') {
@@ -146,6 +175,7 @@ const ObreiroIAChatbot: React.FC = () => {
     };
 
     const renderMessageContent = (msg: ChatMessage, isLast: boolean) => {
+        const isAppHelpResponse = msg.role === 'model' && msg.content.startsWith('Posso te guiar nisso.');
         // Simple markdown-like rendering
         const formatted = msg.content
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -167,13 +197,13 @@ const ObreiroIAChatbot: React.FC = () => {
                     {isLoading && isLast && msg.role === 'model' && (
                         <span className="inline-block w-1.5 h-4 ml-1 bg-amber-500 animate-pulse align-middle rounded-sm" />
                     )}
-                    {msg.role === 'model' && msg.content.length > 0 && !isLoading && (
+                    {msg.role === 'model' && msg.content.length > 0 && !isLoading && !isAppHelpResponse && (
                         <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700 flex items-start gap-1.5 opacity-50">
                             <ShieldAlert size={10} className="mt-0.5 shrink-0" />
                             <p className="text-[9px] leading-tight italic">Reflexão auxiliada por IA. Examine as Escrituras (At 17:11).</p>
                         </div>
                     )}
-                    {msg.role === 'model' && msg.content.length > 0 && !isLoading && isLast && msg.id !== 'welcome' && (
+                    {msg.role === 'model' && msg.content.length > 0 && !isLoading && isLast && msg.id !== 'welcome' && !isAppHelpResponse && (
                         <div className="mt-4 flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
                             <button
                                 onClick={() => handleAction('note', msg.content)}
@@ -218,7 +248,7 @@ const ObreiroIAChatbot: React.FC = () => {
         <>
             {/* Floating Button */}
             <div
-                className={`fixed ${isFocusMode ? 'bottom-4' : 'bottom-[90px]'} md:bottom-6 right-4 md:right-6 z-[200] flex flex-col items-end gap-3 transition-all duration-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+                className={`fixed ${isFocusMode ? 'bottom-4' : 'bottom-[90px]'} md:bottom-6 right-4 md:right-6 z-[200] flex flex-col items-end gap-2 transition-all duration-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
                     }`}
             >
                 {/* Chat Popup */}
@@ -334,6 +364,28 @@ const ObreiroIAChatbot: React.FC = () => {
                                 Enter para enviar • Shift+Enter para nova linha
                             </p>
                         </div>
+                    </div>
+                )}
+
+                {!isOpen && showFloatingHint && shouldShowContentBuilderHint && (
+                    <div className="group relative max-w-[150px] rounded-[1.35rem] border border-amber-200/80 bg-gradient-to-br from-white via-amber-50 to-orange-50 px-3.5 py-2.5 pr-8 text-left text-[10px] font-bold leading-snug text-amber-950 shadow-[0_14px_34px_-18px_rgba(146,64,14,0.75)] backdrop-blur dark:border-amber-700/40 dark:from-gray-900 dark:via-amber-950/40 dark:to-gray-900 dark:text-amber-100 md:max-w-[230px] md:pr-9 md:text-[11px]">
+                        <button
+                            type="button"
+                            onClick={() => setShowFloatingHint(false)}
+                            className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-amber-700 transition-colors hover:bg-amber-200/70 hover:text-amber-950 dark:text-amber-200 dark:hover:bg-amber-800/60"
+                            aria-label="Fechar dica do Obreiro IA"
+                            title="Fechar"
+                        >
+                            <X size={13} />
+                        </button>
+                        <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-amber-500/12 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-200">
+                            <Sparkles size={10} />
+                            Obreiro IA
+                        </div>
+                        <p>
+                            Posso te ajudar a construir seu conteúdo bíblico.
+                        </p>
+                        <div className="absolute -bottom-1.5 right-5 h-3 w-3 rotate-45 border-b border-r border-amber-200/80 bg-orange-50 dark:border-amber-700/40 dark:bg-gray-900" />
                     </div>
                 )}
 

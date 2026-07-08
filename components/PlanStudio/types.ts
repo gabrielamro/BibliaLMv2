@@ -15,6 +15,8 @@ export interface RoomDetailsPanelProps extends PlanStudioCommonProps {
   onAttachCover: (file: File) => void;
   isGeneratingCover: boolean;
   isUploadingCover: boolean;
+  validationError?: string | null;
+  forceOpenSignal?: number;
 }
 
 export interface LessonStructurePanelProps extends PlanStudioCommonProps {

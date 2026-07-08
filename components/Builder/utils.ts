@@ -97,6 +97,7 @@ export const buildBaseBlocks = (types: (BlockType | { type: BlockType; layoutWid
     const block = createBlock(type);
     if (layoutWidth) {
       block.layoutWidth = layoutWidth;
+      block.data = { ...block.data, layoutWidth };
     }
     return block;
   });
@@ -137,6 +138,71 @@ const escapeHtml = (value: string) =>
 const hasHtmlTags = (value: string) => /<\/?[a-z][\s\S]*>/i.test(value);
 
 const stripHtml = (value: string) => value.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+
+const normalizeInlineMarkdown = (value: string) =>
+  escapeHtml(value)
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+const textValue = (value: any, fallback: string) =>
+  typeof value === 'string' && value.trim() ? value.trim() : fallback;
+
+export const revelacaoPlenaOutlineItems = [
+  'O Despertar',
+  'As Raízes da Verdade',
+  'O Caminho Prático',
+  'Passo Prático',
+  'Oração de Encerramento',
+];
+
+export const buildRevelacaoPlenaRichTextHtml = (data: any = {}) => {
+  const source = data.templateData || data.editorial || data;
+  const title = textValue(source.title || data.title, 'A Revelação Plena');
+  const subtitle = textValue(source.subtitle, 'Estudo Bíblico Pastoral');
+  const awakeningTitle = textValue(source.awakeningTitle, '1. O Despertar');
+  const awakeningText = textValue(
+    source.awakeningText,
+    'Apresente o tema com autoridade. Situe o leitor na jornada que ele está prestes a trilhar e ancore a mensagem na urgência espiritual do momento.'
+  );
+  const quote = textValue(source.quote, 'A tua palavra é lâmpada para os meus pés e luz para o meu caminho.');
+  const quoteReference = textValue(source.quoteReference, 'Salmos 119:105');
+  const rootsTitle = textValue(source.rootsTitle, '2. As Raízes da Verdade');
+  const rootsText = textValue(
+    source.rootsText,
+    'Explore o porquê por trás dos versículos. Traga à luz os significados ocultos pelo tempo e as conexões entre o Antigo e o Novo Testamento.'
+  );
+  const practicalTitle = textValue(source.practicalTitle, '3. O Caminho Prático');
+  const practicalText = textValue(
+    source.practicalText,
+    'Como essa verdade altera sua rotina? Seja incisivo, prático e pastoral ao traduzir o céu para a terra.'
+  );
+  const practicalStepTitle = textValue(source.practicalStepTitle, 'Passo Prático');
+  const practicalStepText = textValue(
+    source.practicalStepText,
+    'Como posso aplicar esta verdade bíblica na minha rotina hoje?'
+  );
+  const prayerTitle = textValue(source.prayerTitle, 'Oração de Encerramento');
+  const prayerText = textValue(
+    source.prayerText,
+    'Pai, que esta Palavra transforme nosso coração e nos capacite a vivê-la. Em nome de Jesus, Amém.'
+  );
+
+  return `
+<h1 style="text-align:center;font-family:'Playfair Display',Georgia,serif;color:#b45309;font-size:2.25rem;font-weight:800;margin:0 0 6px 0;line-height:1.2">${escapeHtml(title)}</h1>
+<p class="bible-subtitle" style="text-align:center;color:#a8a29e;font-size:0.875rem;letter-spacing:0.15em;text-transform:uppercase;margin:0 0 20px 0">${escapeHtml(subtitle)}</p>
+<hr style="border:none;border-top:2px solid #fde68a;width:60%;margin:0 auto 24px auto">
+<h2 style="color:#92400e;font-size:1.25rem;font-weight:700;margin:0 0 10px 0;border-left:4px solid #c5a059;padding-left:12px">${escapeHtml(awakeningTitle)}</h2>
+<p style="margin:0 0 14px 0">${normalizeInlineMarkdown(awakeningText)}</p>
+<blockquote style="border-left:4px solid #c5a059;background:rgba(197,160,89,0.08);padding:14px 20px;margin:16px 0;border-radius:0 10px 10px 0;font-style:italic;color:#57534e">"${normalizeInlineMarkdown(quote)}" <cite style="display:block;margin-top:6px;font-size:0.85em;color:#c5a059;font-style:normal">- ${escapeHtml(quoteReference)}</cite></blockquote>
+<h2 style="color:#92400e;font-size:1.25rem;font-weight:700;margin:20px 0 10px 0;border-left:4px solid #c5a059;padding-left:12px">${escapeHtml(rootsTitle)}</h2>
+<p style="margin:0 0 14px 0">${normalizeInlineMarkdown(rootsText)}</p>
+<h2 style="color:#92400e;font-size:1.25rem;font-weight:700;margin:20px 0 10px 0;border-left:4px solid #c5a059;padding-left:12px">${escapeHtml(practicalTitle)}</h2>
+<p style="margin:0 0 14px 0">${normalizeInlineMarkdown(practicalText)}</p>
+<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:16px 20px;margin:16px 0"><h3 style="color:#d97706;margin:0 0 8px 0;font-size:1rem">Passo Prático</h3><p style="margin:0;color:#374151;font-size:0.9375rem"><strong>${escapeHtml(practicalStepTitle)}:</strong> ${normalizeInlineMarkdown(practicalStepText)}</p></div>
+<h2 style="color:#7c3aed;font-size:1.25rem;font-weight:700;margin:20px 0 10px 0;text-align:center">${escapeHtml(prayerTitle)}</h2>
+<p style="text-align:center;font-style:italic;color:#57534e;margin:0">"${normalizeInlineMarkdown(prayerText)}"</p>
+`.trim();
+};
 
 const isLikelyHeadingText = (value: string) => {
   const text = stripHtml(value);
@@ -181,14 +247,43 @@ const normalizePlainTextRichContent = (content: string, fallbackTitle: string) =
     return `<h2>${escapeHtml(fallbackTitle)}</h2>\n<p>Desenvolva aqui o paragrafo principal do estudo.</p>`;
   }
 
-  return lines
-    .map((line, index) => {
-      if (index === 0 || isLikelyHeadingText(line)) {
-        return `<h2>${escapeHtml(stripHtml(line))}</h2>`;
-      }
-      return `<p>${escapeHtml(line)}</p>`;
-    })
-    .join('\n');
+  const html: string[] = [];
+  let listItems: string[] = [];
+
+  const flushList = () => {
+    if (listItems.length === 0) return;
+    html.push(`<ul>${listItems.map((item) => `<li>${normalizeInlineMarkdown(item)}</li>`).join('')}</ul>`);
+    listItems = [];
+  };
+
+  lines.forEach((line, index) => {
+    const bulletMatch = line.match(/^[-*•]\s+(.+)$/);
+    const numberedMatch = line.match(/^\d+[.)]\s+(.+)$/);
+
+    if (bulletMatch || numberedMatch) {
+      listItems.push((bulletMatch?.[1] || numberedMatch?.[1] || '').trim());
+      return;
+    }
+
+    flushList();
+
+    if (index === 0 || isLikelyHeadingText(line)) {
+      html.push(`<h2 style="text-align:left">${escapeHtml(stripHtml(line))}</h2>`);
+      return;
+    }
+
+    if (/^>\s*/.test(line)) {
+      html.push(`<blockquote>${normalizeInlineMarkdown(line.replace(/^>\s*/, ''))}</blockquote>`);
+      return;
+    }
+
+    const isClosingLine = /ora[cç][aã]o|conclus[aã]o|chamado|resposta/i.test(line);
+    html.push(`<p${isClosingLine ? ' style="text-align:center"' : ''}>${normalizeInlineMarkdown(line)}</p>`);
+  });
+
+  flushList();
+
+  return html.join('\n');
 };
 
 const normalizeHtmlRichHeadings = (content: string, fallbackTitle: string) => {
@@ -203,10 +298,23 @@ const normalizeHtmlRichHeadings = (content: string, fallbackTitle: string) => {
     normalized = `<h2>${escapeHtml(fallbackTitle)}</h2>\n${normalized}`;
   }
 
+  if (!/<(?:ul|ol)[\s>]/i.test(normalized) && /<p[\s\S]*?<\/p>/i.test(normalized)) {
+    normalized += '\n<h2 style="text-align:left">Topicos para praticar</h2><ul><li>Ore sobre a verdade estudada.</li><li>Identifique uma atitude concreta de obediencia.</li><li>Compartilhe a aplicacao com alguem da sua caminhada.</li></ul>';
+  }
+
   return normalized;
 };
 
 export const ensureRichTextH2Title = (data: any = {}) => {
+  if (data.visualTemplate === 'revelacao-plena' || data.template === 'revelacao-plena' || data.templateData || data.editorial) {
+    return {
+      ...data,
+      title: data.title || data.templateData?.title || data.editorial?.title || 'A Revelação Plena',
+      content: buildRevelacaoPlenaRichTextHtml(data),
+      outlineItems: revelacaoPlenaOutlineItems,
+    };
+  }
+
   const content = typeof data.content === 'string' ? data.content.trim() : '';
   const title = data.title || data.heading || 'Desenvolvimento da Mensagem';
   const body = content || data.body || data.text || '<p>Desenvolva aqui o paragrafo principal do estudo.</p>';
@@ -222,22 +330,94 @@ export const ensureRichTextH2Title = (data: any = {}) => {
 export const normalizeAIBuildBlock = (block: any, index: number): Block => {
   const type = block.type as BlockType;
   const data = type === 'rich-text' ? ensureRichTextH2Title(block.data || {}) : block.data;
+  const layoutWidth = aiBuildLayoutSequence[index] || aiBuildLayoutWidths[type] || block.layoutWidth || '1/1';
 
   return {
     id: block.id || `${type}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     type,
-    layoutWidth: aiBuildLayoutSequence[index] || aiBuildLayoutWidths[type] || block.layoutWidth || '1/1',
-    data,
+    layoutWidth,
+    data: { ...data, layoutWidth },
   };
 };
 
 const getAIBuildBlockData = (block: any) => block?.data || block || {};
 
+const aiBuildTypeAliases: Record<string, BlockType> = {
+  heroSplit: 'hero-split',
+  hero_split: 'hero-split',
+  studyOutline: 'study-outline',
+  study_outline: 'study-outline',
+  richText: 'rich-text',
+  rich_text: 'rich-text',
+  studyContent: 'rich-text',
+  study_content: 'rich-text',
+  relatedVerses: 'related-verses',
+  related_verses: 'related-verses',
+  reflectionQuestion: 'reflection-question',
+  reflection_question: 'reflection-question',
+  reflection: 'reflection-question',
+};
+
+const aiBuildTypeOrder: BlockType[] = [
+  'hero-split',
+  'biblical',
+  'study-outline',
+  'rich-text',
+  'slide',
+  'related-verses',
+  'authority',
+  'footer',
+  'reflection-question',
+];
+
+const normalizeAIBuildType = (type: any): BlockType | null => {
+  if (typeof type !== 'string') return null;
+  return (aiBuildTypeAliases[type] || type) as BlockType;
+};
+
+const orderAIBuildArray = (blocks: any[]) => {
+  const byType = new Map<BlockType, any>();
+  const extras: any[] = [];
+
+  blocks.forEach((block) => {
+    const type = normalizeAIBuildType(block?.type);
+    if (!type) return;
+    const normalizedBlock = { ...block, type };
+    if (aiBuildTypeOrder.includes(type) && !byType.has(type)) {
+      byType.set(type, normalizedBlock);
+      return;
+    }
+    extras.push(normalizedBlock);
+  });
+
+  return [
+    ...aiBuildTypeOrder.map((type) => byType.get(type)).filter(Boolean),
+    ...extras,
+  ];
+};
+
+const syncAIBuildOutlineWithRichText = (blocks: Block[]) => {
+  const richText = blocks.find((block) => block.type === 'rich-text');
+  const outline = blocks.find((block) => block.type === 'study-outline');
+  const items = richText?.data?.outlineItems;
+
+  if (outline && Array.isArray(items) && items.length > 0) {
+    outline.data = {
+      ...outline.data,
+      title: outline.data?.title || 'Roteiro do Estudo',
+      description: outline.data?.description || 'Navegue pelas seções do estudo',
+      items,
+    };
+  }
+
+  return blocks;
+};
+
 export const normalizeAIBuildBlocks = (rawBlocks: any): Block[] => {
   if (Array.isArray(rawBlocks)) {
-    return rawBlocks
+    return syncAIBuildOutlineWithRichText(orderAIBuildArray(rawBlocks)
       .filter((block) => block?.type)
-      .map((block, index) => normalizeAIBuildBlock(block, index));
+      .map((block, index) => normalizeAIBuildBlock(block, index)));
   }
 
   if (!rawBlocks || typeof rawBlocks !== 'object') return [];
@@ -281,7 +461,7 @@ export const normalizeAIBuildBlocks = (rawBlocks: any): Block[] => {
     },
   ];
 
-  return orderedBlocks
+  return syncAIBuildOutlineWithRichText(orderedBlocks
     .filter((item) => item.source)
     .map((item, index) =>
       normalizeAIBuildBlock(
@@ -293,7 +473,7 @@ export const normalizeAIBuildBlocks = (rawBlocks: any): Block[] => {
         },
         index
       )
-    );
+    ));
 };
 
 export const ESTUDO_PASTORAL_LAYOUT = [

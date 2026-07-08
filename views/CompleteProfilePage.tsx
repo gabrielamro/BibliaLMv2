@@ -7,9 +7,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { dbService, uploadProfileImage } from '../services/supabase';
 import { Loader2, Camera, Check, AlertCircle, Church, X, Instagram, PenLine, Crown, Users, Search, Plus, MapPin, Shield, Palette, CreditCard, LogOut, Bell, Sun, Moon } from 'lucide-react';
-import { SubscriptionTier, Church as ChurchType, UserProfile } from '../types';
+import { SubscriptionTier, Church as ChurchType, UserProfile, GeneralProfileType } from '../types';
 import { generateSlug } from '../utils/textUtils';
 import { buildEditableProfileDraft } from '../utils/profileSettings';
+import { getGeneralProfileType } from '../utils/profileAccess';
 
 const BRAZIL_STATES = [
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -30,7 +31,7 @@ const CompleteProfilePage: React.FC = () => {
     const [slogan, setSlogan] = useState(userProfile?.slogan || '');
     const [isProfilePublic, setIsProfilePublic] = useState(userProfile?.isProfilePublic ?? true);
     const [theme, setTheme] = useState<'light' | 'dark'>(userProfile?.theme || 'dark');
-    const [selectedTier, setSelectedTier] = useState<SubscriptionTier>(userProfile?.subscriptionTier || 'free');
+    const [profileType, setProfileType] = useState<GeneralProfileType>(getGeneralProfileType(userProfile));
 
     const [city, setCity] = useState(userProfile?.city || '');
     const [state, setState] = useState(userProfile?.state || '');
@@ -68,10 +69,10 @@ const CompleteProfilePage: React.FC = () => {
             setState(draft.state);
             setIsProfilePublic(draft.isProfilePublic);
             setTheme(draft.theme);
+            setProfileType(getGeneralProfileType(userProfile));
             setPhoneNumber(userProfile.phoneNumber || '');
             setCpf(userProfile.cpf || '');
             setPhotoPreview(userProfile.photoURL || null);
-            setSelectedTier(userProfile.subscriptionTier);
             if (userProfile.churchData) {
                 setSelectedChurch({ id: userProfile.churchData.churchId, name: userProfile.churchData.churchName });
             }
@@ -217,9 +218,9 @@ const CompleteProfilePage: React.FC = () => {
                 phoneNumber: phoneNumber.replace(/\D/g, ''),
                 cpf: cpf.replace(/\D/g, ''),
                 photoURL: finalPhotoURL,
-                subscriptionTier: selectedTier,
                 isProfilePublic,
                 theme,
+                profileType,
             };
 
             // Atualizar Igreja se selecionada
@@ -269,6 +270,32 @@ const CompleteProfilePage: React.FC = () => {
         'Novos seguidores e interacoes',
     ];
 
+    const profileTypeOptions: Array<{
+        value: GeneralProfileType;
+        title: string;
+        description: string;
+        icon: React.ReactNode;
+    }> = [
+        {
+            value: 'user',
+            title: 'Usuario',
+            description: 'Perfil comum para leitura, comunidade, devocionais e participacao.',
+            icon: <Users size={18} />,
+        },
+        {
+            value: 'pastor',
+            title: 'Pastor',
+            description: 'Habilita ferramentas pastorais pessoais sem exigir vinculo com igreja.',
+            icon: <Church size={18} />,
+        },
+        {
+            value: 'manager',
+            title: 'Gestor',
+            description: 'Identidade voltada a operacao; gerir igreja ainda exige permissao.',
+            icon: <Shield size={18} />,
+        },
+    ];
+
     return (
         <div className="h-full bg-gray-50 dark:bg-black/20 overflow-y-auto">
             <div className="min-h-full flex flex-col items-center justify-center p-4 md:p-8">
@@ -294,28 +321,49 @@ const CompleteProfilePage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Seletor de Perfil */}
-                        <div className="space-y-4">
-                            <label className="text-xs font-black uppercase text-gray-400 tracking-widest ml-1 block">Tipo de Perfil</label>
-                            <div className="p-1 bg-gray-100 dark:bg-black/40 rounded-2xl border border-gray-200 dark:border-gray-800 flex gap-1">
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedTier('free')}
-                                    className={`flex-1 py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex flex-col items-center gap-2 ${selectedTier !== 'pastor' ? 'bg-white dark:bg-gray-800 text-bible-gold shadow-md' : 'text-gray-400'}`}
-                                >
-                                    <Users size={20} />
-                                    <span>Membro</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedTier('pastor')}
-                                    className={`flex-1 py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex flex-col items-center gap-2 ${selectedTier === 'pastor' ? 'bg-bible-gold text-white shadow-lg' : 'text-gray-400'}`}
-                                >
-                                    <Crown size={20} />
-                                    <span>Pastor</span>
-                                </button>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs font-black uppercase text-gray-400 tracking-widest ml-1 block">Tipo Geral do Perfil</label>
+                                <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                                    Essa escolha define sua experiencia no BibliaLM. Permissoes de igreja continuam sendo concedidas por vinculo, convite ou aprovacao.
+                                </p>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                {profileTypeOptions.map(option => {
+                                    const active = profileType === option.value;
+                                    return (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            onClick={() => setProfileType(option.value)}
+                                            className={`min-h-32 rounded-2xl border p-4 text-left transition-all ${active ? 'border-bible-gold bg-bible-gold/10 shadow-sm' : 'border-gray-100 bg-gray-50 hover:border-bible-gold/40 dark:border-gray-800 dark:bg-gray-900/50'}`}
+                                        >
+                                            <span className={`mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl ${active ? 'bg-bible-gold text-black' : 'bg-white text-gray-400 dark:bg-gray-800'}`}>
+                                                {option.icon}
+                                            </span>
+                                            <span className="block text-sm font-black text-gray-900 dark:text-white">{option.title}</span>
+                                            <span className="mt-1 block text-[11px] leading-relaxed text-gray-500">{option.description}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
+
+                        {/* Area de Papel da Igreja em Desenvolvimento */}
+                        {selectedChurch && (
+                            <div className="space-y-4">
+                                <label className="text-xs font-black uppercase text-gray-400 tracking-widest ml-1 block">Meu Papel na Igreja</label>
+                                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 rounded-2xl flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-gray-500">Permissões e papéis</span>
+                                        <span className="text-[10px] text-gray-400">Atribuídos via Gestão da Igreja</span>
+                                    </div>
+                                    <button type="button" onClick={() => navigate('/gestao-igreja')} className="text-[10px] bg-bible-gold/10 text-bible-gold px-3 py-2 rounded-lg font-bold uppercase tracking-widest">
+                                        Ver Acompanhamento
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-5">
@@ -443,10 +491,10 @@ const CompleteProfilePage: React.FC = () => {
                                             {tiers[userProfile?.subscriptionTier || 'free']?.name || 'Gratuito'}
                                         </p>
                                         <div className="mt-4 grid gap-2">
-                                            <button type="button" onClick={openSubscription} className="w-full py-3 bg-bible-gold text-black font-black uppercase tracking-widest text-[10px] rounded-xl shadow-md">
+                                            <button type="button" onClick={() => openSubscription()} className="w-full py-3 bg-bible-gold text-black font-black uppercase tracking-widest text-[10px] rounded-xl shadow-md">
                                                 {userProfile?.subscriptionTier === 'free' ? 'Fazer Upgrade' : 'Mudar de Plano'}
                                             </button>
-                                            <button type="button" onClick={openSubscription} className="w-full py-3 bg-white/60 dark:bg-white/10 text-gray-500 font-black uppercase tracking-widest text-[10px] rounded-xl">
+                                            <button type="button" onClick={() => openSubscription()} className="w-full py-3 bg-white/60 dark:bg-white/10 text-gray-500 font-black uppercase tracking-widest text-[10px] rounded-xl">
                                                 Gerenciar Fatura
                                             </button>
                                         </div>

@@ -30,16 +30,16 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
   };
 
   const textStyles: Record<string, string> = {
-    classic: "text-lg sm:text-2xl md:text-3xl font-serif italic text-bible-ink dark:text-gray-100",
-    modern: "text-xl sm:text-3xl md:text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-bible-gold to-amber-700",
-    royal: "text-lg sm:text-2xl md:text-4xl font-serif italic text-white drop-shadow-md",
+    classic: "text-base sm:text-xl md:text-2xl font-serif italic text-bible-ink dark:text-gray-100",
+    modern: "text-lg sm:text-2xl md:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-bible-gold to-amber-700",
+    royal: "text-base sm:text-xl md:text-3xl font-serif italic text-white drop-shadow-md",
     minimal: "text-base sm:text-xl md:text-3xl font-medium text-gray-700 dark:text-gray-200",
-    card: "text-lg sm:text-2xl md:text-4xl font-serif text-bible-ink dark:text-white leading-tight"
+    card: "text-base sm:text-xl md:text-3xl font-serif text-bible-ink dark:text-white leading-tight"
   };
 
   return (
-    <div className="w-full py-6 md:py-12 lg:py-16 px-2 sm:px-4 flex justify-center">
-      <div className={`w-full text-center relative transition-all duration-500 ${styles[containerStyle] || styles.classic}`}>
+    <div className="flex h-full min-h-[420px] w-full justify-center px-2 py-0 sm:px-4">
+      <div className={`flex h-full min-h-full w-full flex-col justify-center text-center relative transition-all duration-500 ${styles[containerStyle] || styles.classic}`}>
         
         {/* Style Selection Toolbar (Visible when editing) */}
         {isEditing && (
@@ -92,7 +92,7 @@ export const BiblicalBlock: React.FC<BiblicalBlockProps> = ({ data, onUpdate, is
         {data.showImage && (
           <div className="w-full aspect-[21/9] rounded-xl md:rounded-2xl overflow-hidden mb-6 md:mb-10 shadow-xl md:shadow-2xl border-2 md:border-4 border-white dark:border-gray-800 md:rotate-1 relative group">
             <img 
-              src={data.imageUrl || 'https://images.unsplash.com/photo-1504052434139-44b419d2826e?q=80&w=1000'} 
+              src={data.imageUrl || 'https://images.unsplash.com/photo-1490730141103-6cac27aaab94?q=80&w=1000'} 
               alt="Biblical"
               className="w-full h-full object-cover"
             />

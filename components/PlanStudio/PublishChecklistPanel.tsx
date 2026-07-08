@@ -1,9 +1,9 @@
 "use client";
 
-import React from 'react';
-import { Check, GraduationCap, ImageIcon, Sparkles, Upload, Users } from 'lucide-react';
+import React, { useState } from 'react';
+import { Check, ChevronDown, GraduationCap, ImageIcon, Sparkles, Upload, Users } from 'lucide-react';
 import type { CustomPlan } from '../../types';
-import { getPlanLessonCount, getPlanStudioChecklist, getPlanStudioCompletion } from './planStudioProgress';
+import { getPlanLessonCount, getPlanStudioChecklist } from './planStudioProgress';
 
 interface PublishChecklistPanelProps {
   plan: Partial<CustomPlan>;
@@ -20,53 +20,70 @@ const PublishChecklistPanel: React.FC<PublishChecklistPanelProps> = ({
   onImportLessons,
   showEvaluationAction = true,
 }) => {
+  const [isChecklistOpen, setIsChecklistOpen] = useState(false);
   const checklist = getPlanStudioChecklist(plan);
-  const completion = getPlanStudioCompletion(plan);
+  const completedItems = checklist.filter((item) => item.complete).length;
+  const totalItems = checklist.length;
+  const completion = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
   const lessons = getPlanLessonCount(plan);
 
   return (
     <aside className="space-y-4">
       <section className="rounded-[22px] border border-purple-100 bg-white p-5 shadow-sm dark:border-purple-900/40 dark:bg-[#0f0f0f]">
-        <p className="mb-4 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Pronto para publicar</p>
-        <h2 className="text-xl font-black text-gray-950 dark:text-white">Checklist da sala</h2>
-        <p className="mt-2 text-sm text-gray-500">Acompanhe o preparo da sala sem passar por um wizard linear.</p>
-
-        <div className="mt-5">
-          <div className="h-2.5 overflow-hidden rounded-full bg-purple-100 dark:bg-gray-800">
-            <div className="h-full rounded-full bg-purple-700 transition-all dark:bg-violet-500" style={{ width: `${completion}%` }} />
+        <button
+          type="button"
+          onClick={() => setIsChecklistOpen((current) => !current)}
+          className="flex w-full items-start justify-between gap-4 text-left"
+          aria-expanded={isChecklistOpen}
+        >
+          <div className="min-w-0">
+            <p className="mb-4 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Pronto para publicar</p>
+            <h2 className="text-xl font-black text-gray-950 dark:text-white">Checklist da sala</h2>
+            <p className="mt-2 text-sm text-gray-500">Acompanhe o preparo da sala sem passar por um wizard linear.</p>
+            <p className="mt-3 text-sm font-black text-purple-700 dark:text-violet-300">{completedItems}/{totalItems} concluídos</p>
           </div>
-          <p className="mt-3 text-sm font-black text-purple-700 dark:text-violet-300">{completion}% completo</p>
-        </div>
+          <ChevronDown className={`mt-1 flex-none text-purple-700 transition-transform dark:text-violet-300 ${isChecklistOpen ? 'rotate-180' : ''}`} size={18} />
+        </button>
 
-        <div className="mt-5 space-y-3">
-          {checklist.map((item) => (
-            <div key={item.id} className="flex gap-3">
-              <div
-                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-                  item.complete
-                    ? 'border-purple-700 bg-purple-700 text-white dark:border-violet-500 dark:bg-violet-500'
-                    : 'border-purple-100 bg-purple-50 text-transparent dark:border-gray-700 dark:bg-gray-900'
-                }`}
-              >
-                <Check size={14} />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-gray-900 dark:text-white">{item.label}</p>
-                <p className="text-xs text-gray-500">{item.helper}</p>
+        {isChecklistOpen && (
+          <>
+            <div className="mt-5">
+              <div className="h-2.5 overflow-hidden rounded-full bg-purple-100 dark:bg-gray-800">
+                <div className="h-full rounded-full bg-purple-700 transition-all dark:bg-violet-500" style={{ width: `${completion}%` }} />
               </div>
             </div>
-          ))}
-        </div>
 
-        {showEvaluationAction && (
-          <button
-            type="button"
-            onClick={onOpenEvaluation}
-            className="mt-5 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-purple-100 bg-purple-50 text-sm font-black text-purple-700 transition-colors hover:bg-purple-100 dark:border-purple-900/40 dark:bg-gray-900 dark:text-violet-200"
-          >
-            <GraduationCap size={16} />
-            {plan.hasEvaluation ? 'Editar avaliacao' : 'Criar avaliacao'}
-          </button>
+            <div className="mt-5 space-y-3">
+              {checklist.map((item) => (
+                <div key={item.id} className="flex gap-3">
+                  <div
+                    className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                      item.complete
+                        ? 'border-purple-700 bg-purple-700 text-white dark:border-violet-500 dark:bg-violet-500'
+                        : 'border-purple-100 bg-purple-50 text-transparent dark:border-gray-700 dark:bg-gray-900'
+                    }`}
+                  >
+                    <Check size={14} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">{item.label}</p>
+                    <p className="text-xs text-gray-500">{item.helper}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {showEvaluationAction && (
+              <button
+                type="button"
+                onClick={onOpenEvaluation}
+                className="mt-5 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-purple-100 bg-purple-50 text-sm font-black text-purple-700 transition-colors hover:bg-purple-100 dark:border-purple-900/40 dark:bg-gray-900 dark:text-violet-200"
+              >
+                <GraduationCap size={16} />
+                {plan.hasEvaluation ? 'Editar avaliacao' : 'Criar avaliacao'}
+              </button>
+            )}
+          </>
         )}
       </section>
 

@@ -7,9 +7,20 @@ interface ErrorBoundaryProps {
 
 interface ErrorBoundaryState {
   hasError: boolean;
-  error: Error | null;
+  error: unknown;
   errorInfo: ErrorInfo | null;
 }
+
+const stringifyUnknownError = (error: unknown) => {
+  if (error instanceof Error) return error.message || error.toString();
+  if (typeof error === 'string') return error;
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+};
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
@@ -21,11 +32,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     };
   }
 
-  public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  public static getDerivedStateFromError(error: unknown): ErrorBoundaryState {
     return { hasError: true, error, errorInfo: null };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
     console.error("🔥 CRASH DETECTADO:", error, errorInfo);
     this.setState({ error, errorInfo });
   }
@@ -74,10 +85,10 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
                 </button>
             </div>
             
-            {this.state.error && (
+            {Boolean(this.state.error) && (
                 <div className="mt-6 p-4 bg-gray-50 dark:bg-black rounded-xl text-left overflow-hidden">
                     <p className="text-[10px] font-mono text-gray-500 break-words line-clamp-3">
-                        {this.state.error.toString()}
+                        {stringifyUnknownError(this.state.error)}
                     </p>
                 </div>
             )}

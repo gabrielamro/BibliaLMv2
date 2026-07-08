@@ -10,11 +10,11 @@ import {
     BarChart3, Coins, Ban, FileEdit, Trash2,
     MessageSquareHeart, Calendar, RefreshCw, Crown,
     AlertTriangle, ExternalLink, Activity, Mail, Megaphone, Layout, Image as ImageIcon, BellRing, Plus, Edit2, Menu,
-    Globe, Database, Share2
+    Globe, Database, Share2, Church
 } from 'lucide-react';
 
 import { useAuth } from '../contexts/AuthContext';
-import { SystemSettings, PlanFeatures, SubscriptionTier, UserProfile, SystemLog, ReportTicket, AIUsageStats, Devotional, FeatureFlag, Church as ChurchType, SupportTicket, Banner, SEOSettings } from '../types';
+import { SystemSettings, PlanFeatures, SubscriptionTier, UserProfile, SystemLog, ReportTicket, AIUsageStats, Devotional, FeatureFlag, Church as ChurchType, SupportTicket, Banner, SEOSettings, AdminChurchManager } from '../types';
 import { DAILY_BREAD } from '../constants';
 import ConfirmationModal from './ConfirmationModal';
 
@@ -73,6 +73,7 @@ const MENU_GROUPS = [
         title: 'Comunidade',
         items: [
             { id: 'users', label: 'Membros', icon: Users },
+            { id: 'church_management', label: 'Gestores de Igreja', icon: Church },
             { id: 'moderation', label: 'Moderação', icon: ShieldCheck },
             { id: 'support', label: 'Suporte', icon: MessageSquareHeart }
         ]
@@ -89,7 +90,7 @@ const AdminPage: React.FC = () => {
     const { currentUser, userProfile, showNotification } = useAuth();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const activeTab = searchParams.get('tab') || 'dashboard';
+    const activeTab = searchParams.get('view') || searchParams.get('tab') || 'dashboard';
 
     // --- STATE ---
     const [loading, setLoading] = useState(false);
@@ -100,6 +101,7 @@ const AdminPage: React.FC = () => {
     // Data States
     const [stats, setStats] = useState({ users: 0, churches: 0, paidUsers: 0 });
     const [users, setUsers] = useState<UserProfile[]>([]);
+    const [churchManagers, setChurchManagers] = useState<AdminChurchManager[]>([]);
     const [logs, setLogs] = useState<SystemLog[]>([]);
     const [aiStats, setAiStats] = useState<AIUsageStats | null>(null);
     const [reports, setReports] = useState<ReportTicket[]>([]);
@@ -155,6 +157,10 @@ const AdminPage: React.FC = () => {
                     break;
                 case 'users':
                     if (users.length === 0) await handleUserSearch('');
+                    break;
+                case 'church_management':
+                    const managers = await dbService.getChurchManagersForAdmin();
+                    setChurchManagers(managers);
                     break;
                 case 'cms':
                     const today = new Date().toLocaleDateString('pt-BR');
@@ -404,7 +410,7 @@ const AdminPage: React.FC = () => {
                                 <button
                                     key={item.id}
                                     onClick={() => {
-                                        setSearchParams({ tab: item.id });
+                                        setSearchParams({ view: item.id });
                                         setIsMobileMenuOpen(false);
                                     }}
                                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === item.id ? 'bg-bible-gold text-white shadow-md' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
@@ -418,6 +424,18 @@ const AdminPage: React.FC = () => {
             </div>
         </aside>
     );
+
+    const getAccountTypeLabel = (profile: UserProfile) => {
+        const tier = profile.subscriptionTier || 'free';
+        const status = profile.subscriptionStatus === 'active' ? 'ativa' : 'inativa';
+        return `${tier.toUpperCase()} (${status})`;
+    };
+
+    const managerSourceLabels: Record<AdminChurchManager['source'], string> = {
+        operational_role: 'Role operacional',
+        approved_request: 'Solicitacao aprovada',
+        legacy_admin: 'Admin legado',
+    };
 
     const renderDashboard = () => (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in">
@@ -629,18 +647,32 @@ const AdminPage: React.FC = () => {
                         <tr>
                             <th className="px-6 py-4">Usuário</th>
                             <th className="px-6 py-4 hidden md:table-cell">Email</th>
-                            <th className="px-6 py-4">Plano</th>
+                            <th className="px-6 py-4 hidden lg:table-cell">Igreja vinculada</th>
+                            <th className="px-6 py-4">Tipo de conta</th>
                             <th className="px-6 py-4 text-right">Ações</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {users.map(u => (
                             <tr key={u.uid} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                <td className="px-6 py-4 font-bold">{u.displayName}</td>
+                                <td className="px-6 py-4">
+                                    <p className="font-bold">{u.displayName || 'Usuario'}</p>
+                                    {u.username && <p className="text-[11px] text-gray-400">@{u.username}</p>}
+                                </td>
                                 <td className="px-6 py-4 text-gray-500 hidden md:table-cell">{u.email}</td>
-                                <td className="px-6 py-4 uppercase text-xs">
-                                    <span className={`px-2 py-1 rounded-full ${u.subscriptionTier === 'gold' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
-                                        {u.subscriptionTier}
+                                <td className="px-6 py-4 hidden lg:table-cell">
+                                    {u.churchData?.churchName ? (
+                                        <div>
+                                            <p className="font-bold text-gray-800 dark:text-gray-100">{u.churchData.churchName}</p>
+                                            {u.churchData.groupName && <p className="text-[11px] text-gray-400">{u.churchData.groupName}</p>}
+                                        </div>
+                                    ) : (
+                                        <span className="text-xs text-gray-400">Sem igreja</span>
+                                    )}
+                                </td>
+                                <td className="px-6 py-4 text-xs">
+                                    <span className={`px-2 py-1 rounded-full font-black uppercase ${u.subscriptionTier === 'gold' ? 'bg-yellow-100 text-yellow-700' : u.subscriptionTier === 'admin' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
+                                        {getAccountTypeLabel(u)}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-right">
@@ -668,6 +700,71 @@ const AdminPage: React.FC = () => {
                 >
                     <Trash2 size={16} /> Limpar Base de Dados (Wipe)
                 </button>
+            </div>
+        </div>
+    );
+
+    const renderChurchManagement = () => (
+        <div className="space-y-6 animate-in fade-in">
+            <div className="flex items-center justify-between gap-4">
+                <div>
+                    <h3 className="text-lg font-black text-gray-900 dark:text-white">Gestores de igreja</h3>
+                    <p className="text-sm text-gray-500">Usuarios com gestao aprovada, role operacional de gestor ou admin legado na igreja.</p>
+                </div>
+                <button onClick={loadTabData} disabled={loading} className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-black uppercase text-gray-600 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-900">
+                    {loading ? <Loader2 className="animate-spin" size={14} /> : <RefreshCw size={14} />} Atualizar
+                </button>
+            </div>
+
+            <div className="bg-white dark:bg-bible-darkPaper rounded-3xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 dark:bg-gray-900 text-gray-500 uppercase text-[10px] font-black tracking-widest">
+                        <tr>
+                            <th className="px-6 py-4">Gestor</th>
+                            <th className="px-6 py-4">Igreja</th>
+                            <th className="px-6 py-4 hidden md:table-cell">Tipo</th>
+                            <th className="px-6 py-4 hidden lg:table-cell">Origem</th>
+                            <th className="px-6 py-4 text-right">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {churchManagers.map(manager => (
+                            <tr key={manager.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                        {manager.userPhotoURL ? (
+                                            <img src={manager.userPhotoURL} alt="" className="h-9 w-9 rounded-full object-cover" />
+                                        ) : (
+                                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-bible-gold/10 text-bible-gold">
+                                                <Users size={16} />
+                                            </div>
+                                        )}
+                                        <div>
+                                            <p className="font-bold text-gray-900 dark:text-white">{manager.userDisplayName}</p>
+                                            {manager.userUsername && <p className="text-[11px] text-gray-400">@{manager.userUsername}</p>}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <p className="font-bold text-gray-800 dark:text-gray-100">{manager.churchName}</p>
+                                    {manager.churchLocation && <p className="text-[11px] text-gray-400">{manager.churchLocation}</p>}
+                                </td>
+                                <td className="px-6 py-4 hidden md:table-cell">
+                                    <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-black uppercase text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                        {manager.userTier ?? 'free'}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 hidden lg:table-cell text-xs text-gray-500">{managerSourceLabels[manager.source]}</td>
+                                <td className="px-6 py-4 text-right">
+                                    <span className="rounded-full bg-green-100 px-2 py-1 text-[10px] font-black uppercase text-green-700">
+                                        {manager.status === 'active' ? 'Ativo' : 'Aprovado'}
+                                    </span>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                {churchManagers.length === 0 && !loading && <div className="p-8 text-center text-gray-500">Nenhum gestor de igreja encontrado.</div>}
             </div>
         </div>
     );
@@ -898,6 +995,7 @@ const AdminPage: React.FC = () => {
                     {/* Content Area */}
                     {activeTab === 'dashboard' && renderDashboard()}
                     {activeTab === 'users' && renderUsers()}
+                    {activeTab === 'church_management' && renderChurchManagement()}
                     {activeTab === 'cms' && renderCMS()}
                     {activeTab === 'megafone' && renderMegafone()}
                     {activeTab === 'billboard' && renderBillboard()}

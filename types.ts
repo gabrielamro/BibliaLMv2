@@ -1,11 +1,29 @@
 
 export type SubscriptionTier = 'free' | 'bronze' | 'silver' | 'gold' | 'pastor' | 'admin';
+export type GeneralProfileType = 'user' | 'pastor' | 'manager';
+export type AppHelpModule = 'inicio' | 'biblia' | 'reino' | 'culto-plus' | 'historico' | 'planos' | 'perfil' | 'ia';
+
+export interface AppHelpArticle {
+  id: string;
+  title: string;
+  intentKeywords: string[];
+  module: AppHelpModule;
+  audience?: SubscriptionTier[];
+  route?: string;
+  steps: string[];
+  relatedQuestions: string[];
+  unavailableFallback?: string;
+  updatedAt: string;
+}
+
 export type MoodType = 'feliz' | 'grato' | 'paz' | 'cansado' | 'ansioso' | 'triste' | 'blessed' | 'thoughtful' | 'help' | 'fire';
 export type ContentStatus = 'draft' | 'published' | 'archived';
 export type ContentType = 'study' | 'quiz' | 'plan' | 'room' | 'article' | 'track' | 'note';
 export type BibleCategory = 'Pentateuco' | 'Históricos' | 'Poéticos' | 'Proféticos' | 'Evangelhos' | 'Epístolas' | 'Revelação' | 'Geral';
 export type StudySource = 'leitura' | 'devocional' | 'chat' | 'podcast' | 'sermon' | 'geral' | 'plano' | 'modulo' | 'trilha';
-export type ActionType = 'reading_chapter' | 'daily_goal' | 'devotional' | 'deep_study' | 'create_image' | 'share_content' | 'mark_verse' | 'create_sermon' | 'use_chat' | 'quiz_completion' | 'social_follow' | 'prayer_wall' | 'create_note' | 'social_like' | 'social_post' | 'start_module' | 'create_study' | 'join_plan' | 'create_evaluation' | 'finish_track' | 'collect_artifact' | 'social_interaction';
+export type ActionType = 'reading_chapter' | 'daily_goal' | 'reading_presence' | 'devotional' | 'deep_study' | 'create_image' | 'share_content' | 'mark_verse' | 'create_sermon' | 'use_chat' | 'quiz_completion' | 'social_follow' | 'prayer_wall' | 'create_note' | 'social_like' | 'social_post' | 'start_module' | 'create_study' | 'join_plan' | 'create_evaluation' | 'finish_track' | 'collect_artifact' | 'social_interaction' | 'invite_sent' | 'invite_accepted' | 'social_comment' | 'social_mention' | 'group_comment' | 'church_comment' | 'content_share' | 'plan_comment' | 'culto_checkin';
+export type PostVisibility = 'public' | 'followers' | 'church' | 'group' | 'private';
+export type PostFeedReason = 'own_post' | 'following' | 'same_church' | 'same_group' | 'public_discovery' | 'global_public';
 export type PlanScope = 'all' | 'new_testament' | 'old_testament';
 export type PlanDuration = '7' | '30' | '90' | '180' | '365' | string;
 export type PlanningFrequency = 'daily' | 'weekly' | 'monthly';
@@ -346,6 +364,8 @@ export interface Post {
   urgency?: 'low' | 'medium' | 'high';
   mood?: MoodType;
   destination?: 'global' | 'cell' | 'church';
+  visibility?: PostVisibility;
+  feedReason?: PostFeedReason;
   cellId?: string;
   cellName?: string;
   churchId?: string;
@@ -359,6 +379,10 @@ export interface Post {
   alsoShowOnChurch?: boolean;
   serviceId?: string;
   serviceTitle?: string;
+  authorProfilePublic?: boolean;
+  authorChurchId?: string;
+  authorCity?: string;
+  authorState?: string;
 }
 
 export interface PostComment { id: string; postId: string; userId: string; userDisplayName: string; userPhotoURL?: string | null; content: string; createdAt: string; }
@@ -374,7 +398,11 @@ export type ChurchServiceType =
   | 'communion'
   | 'other';
 
-export type ChurchServiceStatus = 'draft' | 'published' | 'live' | 'finished' | 'archived';
+export type ChurchServiceStatus = 'draft' | 'published' | 'checkin_open' | 'live' | 'in_progress' | 'finished' | 'archived';
+
+export type ServiceStreamStatus = 'not_configured' | 'upcoming' | 'live' | 'ended' | 'unavailable';
+
+export type ServiceLiturgyMomentStatus = 'pending' | 'current' | 'completed' | 'skipped';
 
 export type ServiceLiturgyKind =
   | 'entrance'
@@ -398,6 +426,12 @@ export interface ServiceLiturgyItem {
   notes?: string;
   verseRef?: string;
   verseText?: string;
+  scriptureReadingRef?: string;
+  scriptureReadingText?: string;
+  leaderScript?: string;
+  prayerGuide?: string;
+  transitionText?: string;
+  sermonPoints?: string[];
   songList?: string;
   pixKeyType?: 'cpf' | 'phone' | 'email' | 'random';
   pixKey?: string;
@@ -504,6 +538,25 @@ export interface ServiceMinistryMember {
 }
 
 export type ServiceScheduleStatus = 'pending' | 'confirmed' | 'declined' | 'replaced';
+
+export type ServicePublicInviteStatus = 'created' | 'opened' | 'accepted' | 'cancelled';
+
+export interface ServicePublicInvite {
+  id: string;
+  serviceId: string;
+  churchId: string;
+  invitedByUserId?: string | null;
+  invitedByName?: string | null;
+  invitedUserId?: string | null;
+  invitedName?: string | null;
+  token: string;
+  status: ServicePublicInviteStatus;
+  source: 'copy' | 'share' | 'qr' | 'manual';
+  openedAt?: string | null;
+  acceptedAt?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
 
 export interface ServiceScheduleAssignment {
   id: string;
@@ -654,6 +707,7 @@ export interface PersonalServiceJournal {
 export interface UserProfile {
   uid: string; email: string; displayName: string; photoURL: string | null; username: string;
   lifetimeXp: number; credits: number; badges: string[]; subscriptionTier: SubscriptionTier;
+  profileType?: GeneralProfileType;
   subscriptionStatus: 'active' | 'inactive'; subscriptionExpiresAt?: string | null;
   activityLog: UserActivity[]; stats: UserStats; lastReadingPosition?: ReadingPosition;
   usageToday?: UserUsage; city?: string; state?: string; phoneNumber?: string;
@@ -680,7 +734,8 @@ export interface UserStats { totalChaptersRead: number; daysStreak: number; stud
 export interface UserActivity { id: string; type: ActionType; description: string; timestamp: string; meta?: any; }
 export interface ReadingPosition { bookId: string; chapter: number; verse: number; }
 export interface UserUsage { date: string; imagesCount: number; podcastsCount: number; analysisCount: number; chatCount: number; }
-export interface PlanProgress { isActive: boolean; planType: PlanDuration; planScope: PlanScope; completedDays: number[]; completedSections: { [key: number]: number[] }; lastChapterInSection: { [key: number]: { [key: number]: number } }; lastReadingDate: string; streak: number; startDate: string; notificationsEnabled: boolean; notificationTime: string; studyRoutine?: StudyTask[]; dailyRoutines?: { [key: number]: StudyTask[] }; }
+export interface ReadingPlanTimeEntry { activeSeconds: number; awardedPresenceMana?: boolean; sessions?: number; lastTrackedAt: string; }
+export interface PlanProgress { isActive: boolean; planType: PlanDuration; planScope: PlanScope; completedDays: number[]; completedSections: { [key: number]: number[] }; lastChapterInSection: { [key: number]: { [key: number]: number } }; lastReadingDate: string; streak: number; startDate: string; notificationsEnabled: boolean; notificationTime: string; studyRoutine?: StudyTask[]; dailyRoutines?: { [key: number]: StudyTask[] }; reflectionLog?: { [key: number]: { mood?: MoodType | null; note?: string; updatedAt: string } }; timeLog?: { [key: number]: ReadingPlanTimeEntry }; }
 export interface StudyTask { id: string; label: string; isCompleted: boolean; }
 export interface GlobalProgress { readChapters: Record<string, number[]>; lastActiveBookId?: string; lastActiveChapter?: number; }
 
@@ -700,7 +755,18 @@ export interface PlanTeam {
 
 // --- PLANS & ROOMS ---
 // --- SUBSCRIPTIONS ---
-export interface SubscriptionPlan { id: SubscriptionTier; name: string; price: number; priceAnnual: number; limits: { images: number; podcasts: number; analysis: number; chat: number; }; benefits: string[]; recommended?: boolean; }
+export interface SubscriptionPlan {
+  id: SubscriptionTier;
+  name: string;
+  description?: string;
+  price: number;
+  priceAnnual: number;
+  limits: { images: number; podcasts: number; analysis: number; chat: number; };
+  benefits: string[];
+  credits?: number;
+  active?: boolean;
+  recommended?: boolean;
+}
 
 export interface PlanWeek { id: string; title: string; days: PlanDayContent[]; }
 export interface PlanDayContent {
@@ -834,6 +900,7 @@ export interface SystemSettings {
   gamification: {
     xpReadingChapter: number;
     xpDailyGoal: number;
+    xpReadingPresence?: number;
     xpDevotional: number;
     xpCreateStudy: number;
     xpShare: number;
@@ -841,17 +908,292 @@ export interface SystemSettings {
     xpCreateImage: number;
     xpUseChat: number;
     xpCreateSermon: number;
+    xpDeepStudy?: number;
+    xpQuizCompletion?: number;
+    xpSocialFollow?: number;
+    xpPrayerWall?: number;
+    xpCreateNote?: number;
+    xpSocialLike?: number;
+    xpSocialPost?: number;
+    xpStartModule?: number;
+    xpJoinPlan?: number;
+    xpCreateEvaluation?: number;
+    xpFinishTrack?: number;
+    xpCollectArtifact?: number;
+    xpSocialInteraction?: number;
+    xpInviteSent?: number;
+    xpInviteAccepted?: number;
+    xpSocialComment?: number;
+    xpSocialMention?: number;
+    xpGroupComment?: number;
+    xpChurchComment?: number;
+    xpContentShare?: number;
+    xpPlanComment?: number;
+    xpCultoCheckin?: number;
   };
   links: { pixKey: string; supportUrl: string };
   costs: { imageGen: number; podcastGen: number; deepAnalysis: number; captionGen: number; sermonGen: number };
   limits: { freeImages: number; freePodcasts: number; dailyFreeChat: number };
-  subscription: { prices: { bronzeMonthly: number; bronzeAnnual: number; silverMonthly: number; silverAnnual: number; goldMonthly: number; goldAnnual: number; }; promo: { active: boolean; title: string; description: string; color: string }; };
+  subscription: {
+    prices: { bronzeMonthly: number; bronzeAnnual: number; silverMonthly: number; silverAnnual: number; goldMonthly: number; goldAnnual: number; };
+    promo: { active: boolean; title: string; description: string; color: string };
+    plans?: SubscriptionPlan[];
+  };
+  gamificationCampaigns?: GamificationCampaign[];
   featuresMatrix?: Record<SubscriptionTier, PlanFeatures>;
   featureFlags?: FeatureFlag[];
+}
+export interface GamificationCampaign {
+  id: string;
+  title: string;
+  description: string;
+  startsAt: string;
+  endsAt: string;
+  rewardLabel: string;
+  targetActions: ActionType[];
+  isActive: boolean;
 }
 export interface FeatureFlag { id: string; key: string; label: string; description: string; isEnabled: boolean; rolloutPercentage: number; }
 export interface PlanFeatures { aiChatAccess: boolean; aiImageGen: boolean; aiPodcastGen: boolean; aiDeepAnalysis: boolean; aiSermonBuilder: boolean; aiNoteImprovement: boolean; aiSocialCaptions: boolean; churchFoundation: boolean; churchAdminPanel: boolean; cellCreation: boolean; muralPosting: boolean; teamCompetition: boolean; socialFeedRead: boolean; socialFeedPost: boolean; globalHighlight: boolean; followingSystem: boolean; profileCustomization: boolean; readingPlans: boolean; audioNarration: boolean; unlimitedNotes: boolean; achievementBadges: boolean; advancedSearch: boolean; focusMode: boolean; customThemes: boolean; noAds: boolean; }
 export interface Church { id: string; name: string; acronym: string; slug: string; denomination: string; location: { city: string; state: string; address: string }; stats: { memberCount: number; totalMana: number; totalChaptersRead: number; totalStudiesCreated: number; followersCount?: number }; teams: string[]; teamScores: Record<string, number>; admins: string[]; logoUrl?: string; pastorName?: string; churchSlug?: string; externalProvider?: string; externalPlaceId?: string; sourceAttribution?: string; verificationStatus?: 'external' | 'unclaimed' | 'claimed' | 'verified'; lat?: number | null; lng?: number | null; isExternal?: boolean; }
+export type ChurchOperationalRole = 'church_manager' | 'pastor' | 'leader' | 'volunteer';
+export type ChurchRoleScopeType = 'church' | 'team' | 'group' | 'service' | 'event';
+export type ChurchManagementStatus = 'active' | 'paused' | 'archived';
+export type ChurchAssignmentStatus = 'draft' | 'pending' | 'accepted' | 'declined' | 'paused' | 'expired' | 'removed';
+export type ChurchQrFormType = 'prayer' | 'volunteer' | 'visitor' | 'pastor_care' | 'group' | 'custom';
+export type ChurchQrFormStatus = 'draft' | 'active' | 'paused' | 'expired' | 'archived';
+export type ChurchSubmissionStatus = 'received' | 'assigned' | 'in_progress' | 'waiting_member' | 'answered' | 'closed' | 'archived';
+export type ChurchSubmissionPriority = 'low' | 'normal' | 'high' | 'urgent';
+export type ChurchNotificationSeverity = 'info' | 'action' | 'urgent';
+export type ChurchNotificationChannel = 'dashboard' | 'member' | 'both';
+
+export interface ChurchMemberRole {
+  id: string;
+  churchId: string;
+  userId: string;
+  role: ChurchOperationalRole;
+  scopeType: ChurchRoleScopeType;
+  scopeId?: string | null;
+  status: 'active' | 'paused' | 'revoked';
+  grantedBy?: string | null;
+  grantedAt: string;
+  revokedAt?: string | null;
+  meta?: any;
+}
+
+export interface ChurchServiceTeam {
+  id: string;
+  churchId: string;
+  name: string;
+  slug: string;
+  area: string;
+  description: string;
+  leaderId?: string | null;
+  status: ChurchManagementStatus;
+  capacity?: number | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChurchAssignment {
+  id: string;
+  churchId: string;
+  teamId?: string | null;
+  title: string;
+  description: string;
+  assigneeUserId?: string | null;
+  leaderUserId?: string | null;
+  scopeType: ChurchRoleScopeType;
+  scopeId?: string | null;
+  status: ChurchAssignmentStatus;
+  requiresAcceptance: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  publicFeedback: string;
+  createdBy?: string | null;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  acceptedAt?: string | null;
+  declinedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ChurchTeamFunctionStatus = 'active' | 'paused' | 'archived';
+export type ChurchScaleSlotStatus = 'open' | 'filled' | 'cancelled';
+export type ChurchServiceInviteStatus = 'not_sent' | 'pending' | 'confirmed' | 'declined' | 'expired' | 'cancelled' | 'conflict';
+export type ChurchParticipationStatus = 'participated' | 'missed' | 'justified_absence' | 'replaced' | 'cancelled';
+
+export interface ChurchTeamFunction {
+  id: string;
+  churchId: string;
+  teamId: string;
+  name: string;
+  description: string;
+  requiredCount: number;
+  profileHint: string;
+  status: ChurchTeamFunctionStatus;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChurchServiceScaleSlot {
+  id: string;
+  churchId: string;
+  serviceId: string;
+  teamId: string;
+  functionId?: string | null;
+  functionName: string;
+  requiredCount: number;
+  assignedCount: number;
+  status: ChurchScaleSlotStatus;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChurchServiceInvite {
+  id: string;
+  churchId: string;
+  serviceId: string;
+  teamId?: string | null;
+  slotId?: string | null;
+  assignmentId?: string | null;
+  userId: string;
+  role: string;
+  status: ChurchServiceInviteStatus;
+  responseNote: string;
+  sentAt?: string | null;
+  respondedAt?: string | null;
+  expiresAt?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChurchParticipationLog {
+  id: string;
+  churchId: string;
+  serviceId?: string | null;
+  teamId?: string | null;
+  assignmentId?: string | null;
+  inviteId?: string | null;
+  userId: string;
+  status: ChurchParticipationStatus;
+  role: string;
+  notes: string;
+  recordedBy?: string | null;
+  recordedAt: string;
+  createdAt: string;
+}
+
+export interface ChurchQrFormField {
+  label: string;
+  type: 'text' | 'tel' | 'email' | 'textarea' | 'select';
+  required?: boolean;
+  options?: string[];
+}
+
+export interface ChurchQrForm {
+  id: string;
+  churchId: string;
+  token: string;
+  title: string;
+  formType: ChurchQrFormType;
+  description: string;
+  fields: ChurchQrFormField[];
+  destination: string;
+  privacyText: string;
+  confirmationText: string;
+  allowAnonymous: boolean;
+  status: ChurchQrFormStatus;
+  scansCount: number;
+  submissionsCount: number;
+  expiresAt?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChurchFormSubmission {
+  id: string;
+  churchId: string;
+  formId?: string | null;
+  formType: ChurchQrFormType | string;
+  submitterUserId?: string | null;
+  submitterName?: string | null;
+  submitterContact?: string | null;
+  payload: Record<string, any>;
+  status: ChurchSubmissionStatus;
+  publicStatus: string;
+  priority: ChurchSubmissionPriority;
+  assignedTo?: string | null;
+  isSensitive: boolean;
+  publicFeedback: string;
+  internalSummary: string;
+  nextAction: string;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  closedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChurchManagementNotification {
+  id: string;
+  churchId: string;
+  userId?: string | null;
+  audienceRole?: string | null;
+  title: string;
+  message: string;
+  eventType: string;
+  severity: ChurchNotificationSeverity;
+  channel: ChurchNotificationChannel;
+  link?: string | null;
+  dedupeKey?: string | null;
+  readAt?: string | null;
+  dismissedAt?: string | null;
+  createdAt: string;
+}
+
+export interface ChurchVolunteerBadge {
+  id: string;
+  churchId: string;
+  userId: string;
+  badgeKey: string;
+  title: string;
+  description: string;
+  manaAmount: number;
+  visibility: 'private' | 'team' | 'church';
+  sourceType: string;
+  sourceId?: string | null;
+  awardedBy?: string | null;
+  awardedAt: string;
+  meta?: any;
+}
+
+export interface ChurchManagementSettings {
+  churchId: string;
+  qrDefaultValidityDays: number;
+  defaultPrivacyText: string;
+  defaultConfirmationText: string;
+  notifyPastorsOnSensitiveRequests: boolean;
+  notifyLeadersOnVolunteerRequests: boolean;
+  memberFeedbackEnabled: boolean;
+  updatedBy?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ChurchManagementSummary {
+  openSubmissions: number;
+  pendingAssignments: number;
+  activeTeams: number;
+  activeQrForms: number;
+  unreadNotifications: number;
+  badgesAwarded: number;
+}
 export interface ChurchRoleRequest {
   id: string;
   churchId: string;
@@ -868,12 +1210,61 @@ export interface ChurchRoleRequest {
   userPhotoURL?: string;
   userTier?: SubscriptionTier;
 }
+export interface AdminChurchManager {
+  id: string;
+  userId: string;
+  userDisplayName: string;
+  userUsername?: string;
+  userPhotoURL?: string | null;
+  userTier?: SubscriptionTier;
+  churchId: string;
+  churchName: string;
+  churchSlug?: string;
+  churchLocation?: string;
+  role: 'church_manager' | 'admin';
+  source: 'operational_role' | 'approved_request' | 'legacy_admin';
+  status: 'active' | 'approved';
+  grantedAt?: string | null;
+}
 export interface ChurchGroup { id: string; churchId: string; parentGroupId?: string; name: string; slug: string; privacy?: GroupPrivacy; stats: { memberCount: number; totalMana: number }; leaderName?: string; leaderUid?: string; createdBy: string; createdAt: string; }
 export interface DailyReading { day: number; dateDisplay: string; readings: ReadingSection[]; }
 export interface ReadingSection { section: string; bookId: string; name: string; ref: string; startChapter: number; endChapter: number; }
 export interface SystemLog { id: string; type: 'error' | 'user_report' | 'admin_action'; message?: string; description?: string; stack?: string; timestamp: string; url: string; userAgent: string; userId?: string; severity?: 'low' | 'medium' | 'high'; action?: string; target?: string; details?: string; }
 export interface SupportTicket { id: string; userId: string; userEmail: string; userName: string; subject: string; message: string; status: 'open' | 'closed' | 'pending'; createdAt: string; response?: string; }
 export interface ReportTicket { id: string; type: 'post' | 'comment' | 'user'; targetId: string; reporterId: string; reason: string; status: 'pending' | 'resolved' | 'dismissed'; createdAt: string; contentSnapshot?: string; }
+export interface ManaEvent {
+  id: string;
+  userId: string;
+  churchId?: string | null;
+  groupId?: string | null;
+  actorRole: 'user' | 'pastor' | 'admin' | 'church';
+  actionType: ActionType;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  eventKey: string;
+  xpAmount: number;
+  occurredAt: string;
+  periodKey: string;
+  status: 'valid' | 'review' | 'void';
+  voidReason?: string | null;
+  meta?: any;
+  userName?: string;
+  churchName?: string;
+}
+export interface ChurchGamificationSnapshot {
+  churchId: string;
+  churchName?: string;
+  periodKey: string;
+  totalXp: number;
+  activeMembers: number;
+  xpPerActiveMember: number;
+  chaptersRead: number;
+  devotionalsCompleted: number;
+  prayersCount: number;
+  quizCompleted: number;
+  rankGlobalTotal?: number | null;
+  rankGlobalNormalized?: number | null;
+}
 export interface AIUsageStats { date: string; totalTokens: number; costEstimate: number; requests: { chat: number; images: number; podcasts: number; analysis: number; }; }
 export interface AnalyticsMetric { label: string; value: number; change: number; trend: 'up' | 'down' | 'neutral'; }
 export interface FunnelStep { step: string; count: number; dropOff: number; }

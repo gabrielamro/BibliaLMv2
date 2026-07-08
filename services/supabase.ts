@@ -8,18 +8,20 @@
  */
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
-    UserProfile, Church, ChurchRoleRequest, ChurchGroup, Post, PrayerRequest, SavedStudy,
+    UserProfile, Church, ChurchRoleRequest, AdminChurchManager, ChurchGroup, Post, PrayerRequest, SavedStudy,
     CustomPlan, PlanTeam, CustomQuiz, GuidedPrayer, StudyEvaluation,
     StudyModule, Banner, SystemSettings, AppNotification, SupportTicket,
     ReportTicket, SystemLog, AIUsageStats, HomeConfig, LandingPageConfig, Track,
     SacredArtImage,
-    PlanParticipant, PlanComment, PostComment, GroupAccessInvite, GroupAccessInviteSource
+    PlanParticipant, PlanComment, PostComment, GroupAccessInvite, GroupAccessInviteSource,
+    ManaEvent, ChurchGamificationSnapshot, ActionType
 } from '../types';
 import { generateSlug } from '../utils/textUtils';
 import { mergeChurchSearchResults, type ChurchSearchResult } from '../utils/churchSearch';
 import { formatSupabaseError, getMissingColumnNameFromError, isMissingColumnError } from '../utils/supabaseErrors';
 import { buildPostInsertPayloads, dropPostInsertColumn } from '../utils/kingdomPostPayload';
 import { shouldRetryFeedWithoutDestination } from '../utils/kingdomFeedFallback';
+import { buildKingdomPersonalizedFeed, normalizePostVisibility } from '../utils/kingdomFeedRules';
 import { parseStudyShareContent } from '../utils/studySharePost';
 import { decodeMoodContent } from '../utils/socialPostMood';
 
@@ -95,6 +97,11 @@ const normalizeStandaloneStudyType = (type: any) => {
 const isMissingBibleVersionColumnError = (error: any) =>
     error?.code === 'PGRST204' ||
     String(error?.message || error?.details || '').toLowerCase().includes('bible_version');
+
+const isMissingProfileTypeColumnError = (error: any) =>
+    isMissingColumnError(error, 'profile_type') ||
+    getMissingColumnName(error) === 'profile_type' ||
+    String(error?.message || error?.details || '').toLowerCase().includes('profile_type');
 
 const isBrowser = () => typeof window !== 'undefined';
 
@@ -363,6 +370,7 @@ export const dbService = {
             lifetime_xp: data.lifetimeXp ?? 0,
             badges: data.badges ?? [],
             subscription_tier: data.subscriptionTier ?? 'free',
+            profile_type: data.profileType ?? (data.subscriptionTier === 'pastor' ? 'pastor' : 'user'),
             subscription_status: data.subscriptionStatus ?? 'active',
             subscription_expires_at: data.subscriptionExpiresAt ?? null,
             theme: data.theme ?? 'light',
@@ -382,6 +390,12 @@ export const dbService = {
         };
         const { error } = await supabase.from('profiles').upsert(mapped);
         if (error) {
+            if (isMissingProfileTypeColumnError(error)) {
+                const { profile_type: _profileType, ...fallbackMapped } = mapped;
+                const { error: fallbackError } = await supabase.from('profiles').upsert(fallbackMapped);
+                if (fallbackError) throw new Error(`Erro ao salvar perfil. ${formatSupabaseError(fallbackError)}`);
+                return;
+            }
             if (isMissingBibleVersionColumnError(error)) {
                 const { bible_version: _bibleVersion, ...fallbackMapped } = mapped;
                 const { error: fallbackError } = await supabase.from('profiles').upsert(fallbackMapped);
@@ -392,7 +406,7 @@ export const dbService = {
         }
     },
 
-    updateUserProfile: async (uid: string, data: any) => {
+    updateUserProfile: async (uid: string, data: any): Promise<UserProfile | null> => {
         // Mapeia nomes camelCase → snake_case do Supabase
         const mapped: any = {};
         const fieldMap: Record<string, string> = {
@@ -412,6 +426,7 @@ export const dbService = {
             lifetimeXp: 'lifetime_xp',
             badges: 'badges',
             subscriptionTier: 'subscription_tier',
+            profileType: 'profile_type',
             subscriptionStatus: 'subscription_status',
             subscriptionExpiresAt: 'subscription_expires_at',
             theme: 'theme',
@@ -436,18 +451,111 @@ export const dbService = {
         }
 
         if (Object.keys(mapped).length > 0) {
-            const { error } = await supabase.from('profiles').update(mapped).eq('id', uid);
+            const { data: updatedProfile, error } = await supabase
+                .from('profiles')
+                .update(mapped)
+                .eq('id', uid)
+                .select('*')
+                .maybeSingle();
             if (error) {
+                if (isMissingProfileTypeColumnError(error) && mapped.profile_type !== undefined) {
+                    const { profile_type: _profileType, ...fallbackMapped } = mapped;
+                    if (Object.keys(fallbackMapped).length === 0) return null;
+                    const { data: fallbackUpdatedProfile, error: fallbackError } = await supabase
+                        .from('profiles')
+                        .update(fallbackMapped)
+                        .eq('id', uid)
+                        .select('*')
+                        .maybeSingle();
+                    if (fallbackError) throw new Error(`Erro ao atualizar perfil. ${formatSupabaseError(fallbackError)}`);
+                    return fallbackUpdatedProfile ? mapProfileToUserProfile(fallbackUpdatedProfile) : null;
+                }
                 if (isMissingBibleVersionColumnError(error) && mapped.bible_version !== undefined) {
                     const { bible_version: _bibleVersion, ...fallbackMapped } = mapped;
-                    if (Object.keys(fallbackMapped).length === 0) return;
-                    const { error: fallbackError } = await supabase.from('profiles').update(fallbackMapped).eq('id', uid);
+                    if (Object.keys(fallbackMapped).length === 0) return null;
+                    const { data: fallbackUpdatedProfile, error: fallbackError } = await supabase
+                        .from('profiles')
+                        .update(fallbackMapped)
+                        .eq('id', uid)
+                        .select('*')
+                        .maybeSingle();
                     if (fallbackError) throw new Error(`Erro ao atualizar perfil. ${formatSupabaseError(fallbackError)}`);
-                    return;
+                    return fallbackUpdatedProfile ? mapProfileToUserProfile(fallbackUpdatedProfile) : null;
                 }
                 throw new Error(`Erro ao atualizar perfil. ${formatSupabaseError(error)}`);
             }
+            if (updatedProfile) return mapProfileToUserProfile(updatedProfile);
+
+            const fallbackInsert = {
+                id: uid,
+                email: mapped.email ?? data.email ?? null,
+                display_name: mapped.display_name ?? data.displayName ?? data.username ?? 'Membro',
+                photo_url: mapped.photo_url ?? data.photoURL ?? null,
+                username: mapped.username ?? data.username ?? `user_${uid.slice(0, 8)}`,
+                city: mapped.city ?? data.city ?? null,
+                state: mapped.state ?? data.state ?? null,
+                phone_number: mapped.phone_number ?? data.phoneNumber ?? null,
+                cpf: mapped.cpf ?? data.cpf ?? null,
+                instagram: mapped.instagram ?? data.instagram ?? null,
+                facebook: mapped.facebook ?? data.facebook ?? null,
+                slogan: mapped.slogan ?? data.slogan ?? null,
+                is_profile_public: mapped.is_profile_public ?? data.isProfilePublic ?? true,
+                credits: mapped.credits ?? data.credits ?? 0,
+                lifetime_xp: mapped.lifetime_xp ?? data.lifetimeXp ?? 0,
+                badges: mapped.badges ?? data.badges ?? [],
+                subscription_tier: mapped.subscription_tier ?? data.subscriptionTier ?? 'free',
+                profile_type: mapped.profile_type ?? data.profileType ?? (data.subscriptionTier === 'pastor' ? 'pastor' : 'user'),
+                subscription_status: mapped.subscription_status ?? data.subscriptionStatus ?? 'active',
+                subscription_expires_at: mapped.subscription_expires_at ?? data.subscriptionExpiresAt ?? null,
+                theme: mapped.theme ?? data.theme ?? 'light',
+                bible_version: mapped.bible_version ?? data.bibleVersion ?? 'ara',
+                activity_log: mapped.activity_log ?? data.activityLog ?? [],
+                stats: mapped.stats ?? data.stats ?? {},
+                last_reading_position: mapped.last_reading_position ?? data.lastReadingPosition ?? {},
+                usage_today: mapped.usage_today ?? data.usageToday ?? {},
+                reading_plan: mapped.reading_plan ?? data.readingPlan ?? {},
+                progress: mapped.progress ?? data.progress ?? {},
+                enrolled_plans: mapped.enrolled_plans ?? data.enrolledPlans ?? [],
+                church_data: mapped.church_data ?? data.churchData ?? {},
+                followers_count: mapped.followers_count ?? data.followersCount ?? 0,
+                following_count: mapped.following_count ?? data.followingCount ?? 0,
+                bio: mapped.bio ?? data.bio ?? null,
+                created_at: now(),
+            };
+
+            const { data: insertedProfile, error: insertError } = await supabase
+                .from('profiles')
+                .upsert(fallbackInsert, { onConflict: 'id' })
+                .select('*')
+                .maybeSingle();
+
+            if (insertError) {
+                if (isMissingProfileTypeColumnError(insertError)) {
+                    const { profile_type: _profileType, ...fallbackWithoutProfileType } = fallbackInsert;
+                    const { data: fallbackProfile, error: fallbackError } = await supabase
+                        .from('profiles')
+                        .upsert(fallbackWithoutProfileType, { onConflict: 'id' })
+                        .select('*')
+                        .maybeSingle();
+                    if (fallbackError) throw new Error(`Erro ao recriar perfil. ${formatSupabaseError(fallbackError)}`);
+                    return fallbackProfile ? mapProfileToUserProfile(fallbackProfile) : null;
+                }
+                if (isMissingBibleVersionColumnError(insertError)) {
+                    const { bible_version: _bibleVersion, ...fallbackWithoutBibleVersion } = fallbackInsert;
+                    const { data: fallbackProfile, error: fallbackError } = await supabase
+                        .from('profiles')
+                        .upsert(fallbackWithoutBibleVersion, { onConflict: 'id' })
+                        .select('*')
+                        .maybeSingle();
+                    if (fallbackError) throw new Error(`Erro ao recriar perfil. ${formatSupabaseError(fallbackError)}`);
+                    return fallbackProfile ? mapProfileToUserProfile(fallbackProfile) : null;
+                }
+                throw new Error(`Erro ao recriar perfil. ${formatSupabaseError(insertError)}`);
+            }
+
+            return insertedProfile ? mapProfileToUserProfile(insertedProfile) : null;
         }
+        return null;
     },
 
     getUserProfile: async (uid: string): Promise<UserProfile | null> => {
@@ -779,6 +887,18 @@ export const dbService = {
         });
         return resolvedChurch;
     },
+    leaveChurch: async (uid: string, churchId: string): Promise<void> => {
+        if (!uid) throw new Error('Usuario autenticado sem id valido para desvincular igreja.');
+        const { error } = await supabase
+            .from('memberships')
+            .delete()
+            .eq('user_id', uid)
+            .eq('church_id', churchId);
+        if (error) throw new Error(`Erro ao desvincular igreja. ${formatSupabaseError(error)}`);
+        await dbService.updateUserProfile(uid, {
+            churchData: null
+        });
+    },
     getChurchRoleRequest: async (uid: string, churchId: string, role: 'pastor' | 'admin' = 'pastor') => {
         const { data, error } = await supabase
             .from('church_role_requests')
@@ -789,6 +909,20 @@ export const dbService = {
             .maybeSingle();
         if (error) throw error;
         return data;
+    },
+    getApprovedChurchResponsibility: async (uid: string): Promise<Church | null> => {
+        const { data: request, error } = await supabase
+            .from('church_role_requests')
+            .select('church_id, reviewed_at, requested_at')
+            .eq('user_id', uid)
+            .eq('status', 'approved')
+            .order('reviewed_at', { ascending: false, nullsFirst: false })
+            .order('requested_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        if (error) throw toError('Erro ao carregar aprovacao de gestao da igreja', error);
+        if (!request?.church_id) return null;
+        return dbService.getChurchById(request.church_id);
     },
     requestChurchResponsibility: async (uid: string, churchId: string, role: 'pastor' | 'admin' = 'pastor') => {
         const { error } = await supabase.from('church_role_requests').upsert(
@@ -844,6 +978,151 @@ export const dbService = {
             } as ChurchRoleRequest;
         });
     },
+    isUserChurchManager: async (uid: string, churchId: string): Promise<boolean> => {
+        if (!uid || !churchId) return false;
+
+        try {
+            const { data: operationalRole, error: roleError } = await supabase
+                .from('church_member_roles')
+                .select('id, role')
+                .eq('church_id', churchId)
+                .eq('user_id', uid)
+                .in('role', ['church_manager', 'pastor'])
+                .eq('status', 'active')
+                .limit(1);
+
+            if (roleError && !(roleError?.code === 'PGRST205' || /church_member_roles|schema cache/i.test(formatSupabaseError(roleError)))) {
+                throw roleError;
+            }
+            if (operationalRole?.length) return true;
+
+            const { data: approvedRequest, error: requestError } = await supabase
+                .from('church_role_requests')
+                .select('id, requested_role')
+                .eq('church_id', churchId)
+                .eq('user_id', uid)
+                .in('requested_role', ['admin', 'manager', 'pastor'])
+                .eq('status', 'approved')
+                .limit(1);
+
+            if (requestError && !(requestError?.code === 'PGRST205' || /church_role_requests|schema cache/i.test(formatSupabaseError(requestError)))) {
+                throw requestError;
+            }
+            if (approvedRequest?.length) return true;
+
+            const { data: church, error: churchError } = await supabase
+                .from('churches')
+                .select('admins')
+                .eq('id', churchId)
+                .maybeSingle();
+
+            if (churchError) throw churchError;
+            return Array.isArray(church?.admins) && church.admins.includes(uid);
+        } catch (error) {
+            console.warn('Nao foi possivel verificar gestor da igreja.', error);
+            return false;
+        }
+    },
+    getChurchManagersForAdmin: async (): Promise<AdminChurchManager[]> => {
+        const [{ data: approvedRequests, error: requestsError }, { data: operationalRoles, error: rolesError }, { data: churches, error: churchesError }] = await Promise.all([
+            supabase
+                .from('church_role_requests')
+                .select('id, church_id, user_id, requested_role, status, requested_at, reviewed_at')
+                .eq('status', 'approved')
+                .eq('requested_role', 'admin')
+                .order('reviewed_at', { ascending: false, nullsFirst: false }),
+            supabase
+                .from('church_member_roles')
+                .select('id, church_id, user_id, role, status, granted_at')
+                .eq('role', 'church_manager')
+                .eq('status', 'active')
+                .order('granted_at', { ascending: false }),
+            supabase
+                .from('churches')
+                .select('id, name, slug, location_city, location_state, admins'),
+        ]);
+        if (requestsError) throw toError('Erro ao carregar gestores aprovados', requestsError);
+        if (rolesError && !(rolesError?.code === 'PGRST205' || /church_member_roles|schema cache/i.test(formatSupabaseError(rolesError)))) {
+            throw toError('Erro ao carregar roles operacionais de gestores', rolesError);
+        }
+        if (churchesError) throw toError('Erro ao carregar igrejas dos gestores', churchesError);
+
+        const rows: Array<{
+            id: string;
+            church_id: string;
+            user_id: string;
+            role: 'church_manager' | 'admin';
+            source: 'operational_role' | 'approved_request' | 'legacy_admin';
+            status: 'active' | 'approved';
+            granted_at?: string | null;
+        }> = [];
+
+        (operationalRoles ?? []).forEach((row: any) => rows.push({
+            id: row.id,
+            church_id: row.church_id,
+            user_id: row.user_id,
+            role: 'church_manager',
+            source: 'operational_role',
+            status: 'active',
+            granted_at: row.granted_at,
+        }));
+
+        (approvedRequests ?? []).forEach((row: any) => rows.push({
+            id: row.id,
+            church_id: row.church_id,
+            user_id: row.user_id,
+            role: 'admin',
+            source: 'approved_request',
+            status: 'approved',
+            granted_at: row.reviewed_at ?? row.requested_at,
+        }));
+
+        (churches ?? []).forEach((church: any) => {
+            const admins = Array.isArray(church.admins) ? church.admins : [];
+            admins.forEach((userId: string) => rows.push({
+                id: `${church.id}:${userId}:legacy_admin`,
+                church_id: church.id,
+                user_id: userId,
+                role: 'admin',
+                source: 'legacy_admin',
+                status: 'approved',
+                granted_at: null,
+            }));
+        });
+
+        const deduped = Array.from(new Map(rows.map((row) => [`${row.church_id}:${row.user_id}:${row.role}`, row])).values());
+        if (!deduped.length) return [];
+
+        const userIds = [...new Set(deduped.map((row) => row.user_id))];
+        const churchIds = [...new Set(deduped.map((row) => row.church_id))];
+        const [{ data: profiles }, { data: managerChurches }] = await Promise.all([
+            supabase.from('profiles').select('id, display_name, username, photo_url, subscription_tier').in('id', userIds),
+            supabase.from('churches').select('id, name, slug, location_city, location_state').in('id', churchIds),
+        ]);
+        const profileMap = new Map((profiles ?? []).map((profile: any) => [profile.id, profile]));
+        const churchMap = new Map((managerChurches ?? churches ?? []).map((church: any) => [church.id, church]));
+
+        return deduped.map((row) => {
+            const profile: any = profileMap.get(row.user_id);
+            const church: any = churchMap.get(row.church_id);
+            return {
+                id: row.id,
+                userId: row.user_id,
+                userDisplayName: profile?.display_name ?? 'Usuario',
+                userUsername: profile?.username ?? undefined,
+                userPhotoURL: profile?.photo_url ?? null,
+                userTier: profile?.subscription_tier ?? undefined,
+                churchId: row.church_id,
+                churchName: church?.name ?? 'Igreja',
+                churchSlug: church?.slug ?? undefined,
+                churchLocation: [church?.location_city, church?.location_state].filter(Boolean).join(', ') || undefined,
+                role: row.role,
+                source: row.source,
+                status: row.status,
+                grantedAt: row.granted_at ?? null,
+            };
+        }).sort((a, b) => (b.grantedAt ?? '').localeCompare(a.grantedAt ?? ''));
+    },
     reviewChurchRoleRequest: async (
         requestId: string,
         action: 'approved' | 'rejected',
@@ -870,7 +1149,7 @@ export const dbService = {
 
         const { data: church, error: churchError } = await supabase
             .from('churches')
-            .select('admins, verification_status')
+            .select('id, name, slug, admins, verification_status')
             .eq('id', request.church_id)
             .single();
         if (churchError) throw toError('Erro ao carregar igreja da solicitacao', churchError);
@@ -901,6 +1180,15 @@ export const dbService = {
         if (membershipError && !(membershipError?.code === 'PGRST204' || /column|schema cache/i.test(formatSupabaseError(membershipError)))) {
             throw toError('Erro ao atualizar vinculo do responsavel', membershipError);
         }
+
+        await dbService.updateUserProfile(request.user_id, {
+            churchData: {
+                churchId: church.id,
+                churchName: church.name,
+                churchSlug: church.slug,
+                isAnonymous: false,
+            }
+        });
     },
     getChurchBySlug: async (slug: string): Promise<Church | null> => {
         const { data, error } = await supabase.from('churches').select('*').eq('slug', slug).single();
@@ -1251,34 +1539,58 @@ export const dbService = {
         return data;
     },
 
-    getGlobalFeed: async (limitCount = 50, _viewerProfile?: UserProfile | null): Promise<Post[]> => {
+    getGlobalFeed: async (limitCount = 50, viewerProfile?: UserProfile | null): Promise<Post[]> => {
         let { data, error } = await supabase.from('posts').select('*')
-            .eq('destination', 'global').order('created_at', { ascending: false }).limit(limitCount);
+            .order('created_at', { ascending: false }).limit(Math.max(limitCount * 4, 120));
         if (error && shouldRetryFeedWithoutDestination(error)) {
             const retry = await supabase.from('posts').select('*')
-                .order('created_at', { ascending: false }).limit(limitCount);
+                .order('created_at', { ascending: false }).limit(Math.max(limitCount * 4, 120));
             data = retry.data;
             error = retry.error;
         }
         if (error) throw toError('Erro ao carregar feed do Reino', error);
         const enrichedPosts = await enrichPostRowsWithProfiles(data ?? []);
-        return enrichedPosts.map(mapPost);
+        const [followingIds, groupIds] = await Promise.all([
+            getFollowingIdsForFeed(viewerProfile?.uid),
+            getViewerGroupIdsForFeed(viewerProfile),
+        ]);
+        return buildKingdomPersonalizedFeed(enrichedPosts.map(mapPost), {
+            viewer: viewerProfile,
+            followingIds,
+            groupIds,
+        }, limitCount);
     },
-    getKingdomHomePosts: async (limitCount = 60, _viewerProfile?: UserProfile | null): Promise<Post[]> => {
+    getKingdomHomePosts: async (limitCount = 60, viewerProfile?: UserProfile | null): Promise<Post[]> => {
         const { data, error } = await supabase.from('posts').select('*')
-            .order('created_at', { ascending: false }).limit(limitCount);
+            .order('created_at', { ascending: false }).limit(Math.max(limitCount * 4, 120));
         if (error) throw toError('Erro ao carregar posts da Home Reino', error);
         const enrichedPosts = await enrichPostRowsWithProfiles(data ?? []);
-        return enrichedPosts.map(mapPost);
+        const [followingIds, groupIds] = await Promise.all([
+            getFollowingIdsForFeed(viewerProfile?.uid),
+            getViewerGroupIdsForFeed(viewerProfile),
+        ]);
+        return buildKingdomPersonalizedFeed(enrichedPosts.map(mapPost), {
+            viewer: viewerProfile,
+            followingIds,
+            groupIds,
+        }, limitCount);
     },
-    getUserFeedPosts: async (uid: string, limitCount = 50): Promise<Post[]> => {
+    getUserFeedPosts: async (uid: string, limitCount = 50, viewerProfile?: UserProfile | null): Promise<Post[]> => {
         const { data, error } = await supabase.from('posts').select('*')
             .eq('user_id', uid)
             .order('created_at', { ascending: false })
             .limit(limitCount);
         if (error) throw toError('Erro ao carregar postagens do perfil', error);
         const enrichedPosts = await enrichPostRowsWithProfiles(data ?? []);
-        return enrichedPosts.map(mapPost);
+        const [followingIds, groupIds] = await Promise.all([
+            getFollowingIdsForFeed(viewerProfile?.uid),
+            getViewerGroupIdsForFeed(viewerProfile),
+        ]);
+        return buildKingdomPersonalizedFeed(enrichedPosts.map(mapPost), {
+            viewer: viewerProfile,
+            followingIds,
+            groupIds,
+        }, limitCount);
     },
     getServiceFeedPosts: async (serviceId: string, limitCount = 30): Promise<Post[]> => {
         const { data, error } = await supabase.from('posts').select('*')
@@ -1302,7 +1614,7 @@ export const dbService = {
             error = retry.error;
         }
 
-        if (error && (error?.code === 'PGRST204' || /column|schema cache|destination|cell_id|liked_by|user_username|user_photo_url|shares_count|mood/i.test(formatSupabaseError(error)))) {
+        if (error && (error?.code === 'PGRST204' || /column|schema cache|destination|visibility|cell_id|liked_by|user_username|user_photo_url|shares_count|mood/i.test(formatSupabaseError(error)))) {
             const retry = await supabase.from('posts').insert(legacyPayload);
             error = retry.error;
         }
@@ -1314,11 +1626,21 @@ export const dbService = {
     deletePost: async (id: string) => {
         await supabase.from('posts').delete().eq('id', id);
     },
-    getPost: async (id: string): Promise<Post | null> => {
+    getPost: async (id: string, viewerProfile?: UserProfile | null): Promise<Post | null> => {
         const { data, error } = await supabase.from('posts').select('*').eq('id', id).single();
         if (error) throw toError('Erro ao carregar publicacao do Reino', error);
         const [enrichedPost] = await enrichPostRowsWithProfiles(data ? [data] : []);
-        return enrichedPost ? mapPost(enrichedPost) : null;
+        if (!enrichedPost) return null;
+
+        const [followingIds, groupIds] = await Promise.all([
+            getFollowingIdsForFeed(viewerProfile?.uid),
+            getViewerGroupIdsForFeed(viewerProfile),
+        ]);
+        return buildKingdomPersonalizedFeed([mapPost(enrichedPost)], {
+            viewer: viewerProfile,
+            followingIds,
+            groupIds,
+        }, 1)[0] || null;
     },
     togglePostLike: async (postId: string, uid: string, isLiked: boolean) => {
         // #region agent log
@@ -1440,6 +1762,20 @@ export const dbService = {
     // ── PLANOS (JORNADAS) ────────────────────────────────────────────────────
     getUserCustomPlans: async (uid: string): Promise<CustomPlan[]> => {
         const { data } = await supabase.from('custom_plans').select('*').eq('author_id', uid);
+        return (data ?? []).map(mapPlan);
+    },
+    getUserParticipatingPlans: async (uid: string): Promise<CustomPlan[]> => {
+        const { data: participants } = await supabase
+            .from('plan_participants')
+            .select('plan_id')
+            .eq('uid', uid)
+            .or('status.is.null,status.neq.blocked')
+            .limit(24);
+
+        const planIds = Array.from(new Set((participants ?? []).map((participant) => participant.plan_id).filter(Boolean)));
+        if (!planIds.length) return [];
+
+        const { data } = await supabase.from('custom_plans').select('*').in('id', planIds);
         return (data ?? []).map(mapPlan);
     },
     getPublicUserPlans: async (uid: string): Promise<CustomPlan[]> => {
@@ -1754,6 +2090,68 @@ export const dbService = {
     getGlobalRanking: async (): Promise<UserProfile[]> => {
         const { data } = await supabase.from('profiles').select('*').order('lifetime_xp', { ascending: false }).limit(10);
         return (data ?? []).map(mapProfileToUserProfile);
+    },
+    recordManaEvent: async (event: Omit<ManaEvent, 'id'>): Promise<ManaEvent | null> => {
+        const payload = {
+            user_id: event.userId,
+            church_id: event.churchId ?? null,
+            group_id: event.groupId ?? null,
+            actor_role: event.actorRole,
+            action_type: event.actionType,
+            source_type: event.sourceType ?? null,
+            source_id: event.sourceId ?? null,
+            event_key: event.eventKey,
+            xp_amount: event.xpAmount,
+            occurred_at: event.occurredAt,
+            period_key: event.periodKey,
+            status: event.status,
+            void_reason: event.voidReason ?? null,
+            meta: event.meta ?? {},
+        };
+        const { data, error } = await supabase.from('mana_events').insert(payload).select('*').single();
+        if (error) {
+            if (isMissingTableError(error, 'mana_events') || error.code === '23505') return null;
+            throw new Error(`Erro ao registrar evento de Mana. ${formatSupabaseError(error)}`);
+        }
+        return data ? mapManaEvent(data) : null;
+    },
+    getManaEvents: async (status: ManaEvent['status'] | 'all' = 'review', limit = 50): Promise<ManaEvent[]> => {
+        let query = supabase
+            .from('mana_events')
+            .select('*')
+            .order('occurred_at', { ascending: false })
+            .limit(limit);
+        if (status !== 'all') query = query.eq('status', status);
+        const { data, error } = await query;
+        if (error) {
+            if (isMissingTableError(error, 'mana_events')) return [];
+            throw new Error(`Erro ao carregar eventos de Mana. ${formatSupabaseError(error)}`);
+        }
+        return (data ?? []).map(mapManaEvent);
+    },
+    voidManaEvent: async (eventId: string, reason: string): Promise<void> => {
+        const { error } = await supabase
+            .from('mana_events')
+            .update({ status: 'void', void_reason: reason || 'Anulado pelo admin' })
+            .eq('id', eventId);
+        if (error) {
+            if (isMissingTableError(error, 'mana_events')) return;
+            throw new Error(`Erro ao anular evento de Mana. ${formatSupabaseError(error)}`);
+        }
+    },
+    getChurchGamificationRanking: async (periodKey?: string, mode: 'total' | 'normalized' = 'total', limit = 10): Promise<ChurchGamificationSnapshot[]> => {
+        let query = supabase
+            .from('church_gamification_snapshots')
+            .select('*')
+            .order(mode === 'normalized' ? 'xp_per_active_member' : 'total_xp', { ascending: false })
+            .limit(limit);
+        if (periodKey) query = query.eq('period_key', periodKey);
+        const { data, error } = await query;
+        if (error) {
+            if (isMissingTableError(error, 'church_gamification_snapshots')) return [];
+            throw new Error(`Erro ao carregar ranking de igrejas. ${formatSupabaseError(error)}`);
+        }
+        return (data ?? []).map(mapChurchGamificationSnapshot);
     },
     getPublicStudy: async (id: string): Promise<SavedStudy | null> => {
         const { data } = await supabase.from('public_studies').select('*').eq('id', id).single();
@@ -2089,6 +2487,7 @@ function mapProfileToUserProfile(d: any): UserProfile {
         credits: d.credits ?? 0,
         badges: safeJson(d.badges, []),
         subscriptionTier: d.subscription_tier ?? 'free',
+        profileType: d.profile_type ?? (d.subscription_tier === 'pastor' ? 'pastor' : 'user'),
         subscriptionStatus: d.subscription_status ?? 'active',
         subscriptionExpiresAt: d.subscription_expires_at ?? null,
         activityLog: safeJson(d.activity_log, []),
@@ -2112,6 +2511,45 @@ function mapProfileToUserProfile(d: any): UserProfile {
         bibleVersion: d.bible_version ?? 'ara',
         followersCount: d.followers_count ?? 0,
         followingCount: d.following_count ?? 0,
+    };
+}
+
+function mapManaEvent(d: any): ManaEvent {
+    return {
+        id: d.id,
+        userId: d.user_id,
+        churchId: d.church_id ?? null,
+        groupId: d.group_id ?? null,
+        actorRole: d.actor_role ?? 'user',
+        actionType: d.action_type as ActionType,
+        sourceType: d.source_type ?? null,
+        sourceId: d.source_id ?? null,
+        eventKey: d.event_key,
+        xpAmount: d.xp_amount ?? 0,
+        occurredAt: d.occurred_at,
+        periodKey: d.period_key,
+        status: d.status ?? 'valid',
+        voidReason: d.void_reason ?? null,
+        meta: safeJson(d.meta, {}),
+        userName: d.user_name ?? undefined,
+        churchName: d.church_name ?? undefined,
+    };
+}
+
+function mapChurchGamificationSnapshot(d: any): ChurchGamificationSnapshot {
+    return {
+        churchId: d.church_id,
+        churchName: d.church_name ?? undefined,
+        periodKey: d.period_key,
+        totalXp: d.total_xp ?? 0,
+        activeMembers: d.active_members ?? 0,
+        xpPerActiveMember: Number(d.xp_per_active_member ?? 0),
+        chaptersRead: d.chapters_read ?? 0,
+        devotionalsCompleted: d.devotionals_completed ?? 0,
+        prayersCount: d.prayers_count ?? 0,
+        quizCompleted: d.quiz_completed ?? 0,
+        rankGlobalTotal: d.rank_global_total ?? null,
+        rankGlobalNormalized: d.rank_global_normalized ?? null,
     };
 }
 
@@ -2199,13 +2637,12 @@ function mapParticipant(d: any): PlanParticipant {
 }
 
 async function enrichPostRowsWithProfiles(rows: any[]): Promise<any[]> {
-    const missingProfileRows = rows.filter((row) => row.user_id && !row.user_photo_url);
-    const userIds = Array.from(new Set(missingProfileRows.map((row) => row.user_id)));
+    const userIds = Array.from(new Set(rows.filter((row) => row.user_id).map((row) => row.user_id)));
     if (userIds.length === 0) return rows;
 
     const { data, error } = await supabase
         .from('profiles')
-        .select('id, display_name, username, photo_url')
+        .select('id, display_name, username, photo_url, is_profile_public, church_data, city, state')
         .in('id', userIds);
 
     if (error) {
@@ -2218,6 +2655,38 @@ async function enrichPostRowsWithProfiles(rows: any[]): Promise<any[]> {
         ...row,
         __profile: profilesById.get(row.user_id),
     }));
+}
+
+async function getFollowingIdsForFeed(uid?: string | null): Promise<string[]> {
+    if (!uid) return [];
+
+    const { data, error } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', uid);
+
+    if (error) {
+        console.warn('[dbService] Nao foi possivel carregar seguindo para o feed:', formatSupabaseError(error));
+        return [];
+    }
+
+    return (data ?? []).map((row: any) => row.following_id).filter(Boolean);
+}
+
+async function getViewerGroupIdsForFeed(viewerProfile?: UserProfile | null): Promise<string[]> {
+    const groupIds = new Set<string>();
+    if (viewerProfile?.churchData?.groupId) groupIds.add(viewerProfile.churchData.groupId);
+
+    if (!viewerProfile?.uid) return Array.from(groupIds);
+
+    try {
+        const groups = await dbService.getUserGroups(viewerProfile.uid, viewerProfile.churchData?.churchId);
+        groups.forEach((group) => groupIds.add(group.id));
+    } catch {
+        // O feed principal nao deve quebrar quando grupos ainda nao estao configurados.
+    }
+
+    return Array.from(groupIds);
 }
 
 function mapPost(d: any): Post {
@@ -2246,6 +2715,8 @@ function mapPost(d: any): Post {
         imageUrl: d.image_url ?? studyShare?.studyCoverUrl ?? undefined,
         image: d.image_url ?? studyShare?.studyCoverUrl ?? undefined,
         destination: d.destination ?? 'global',
+        visibility: normalizePostVisibility({ visibility: d.visibility, destination: d.destination ?? 'global' }),
+        feedReason: d.feed_reason ?? undefined,
         churchId: d.church_id ?? undefined,
         cellId: d.cell_id ?? undefined,
         mood: moodContent?.mood ?? d.mood ?? undefined,
@@ -2257,6 +2728,10 @@ function mapPost(d: any): Post {
         alsoShowOnChurch: d.also_show_on_church ?? false,
         serviceId: d.service_id ?? undefined,
         serviceTitle: d.service_title ?? undefined,
+        authorProfilePublic: d.__profile ? d.__profile.is_profile_public ?? true : false,
+        authorChurchId: safeJson(d.__profile?.church_data)?.churchId ?? undefined,
+        authorCity: d.__profile?.city ?? undefined,
+        authorState: d.__profile?.state ?? undefined,
     };
 }
 

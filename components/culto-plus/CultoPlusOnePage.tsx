@@ -2,18 +2,41 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { BookOpen, Bookmark, CalendarDays, CheckCircle2, Clock, Copy, Download, Eye, Gift, HandHeart, Heart, Loader2, MessageSquarePlus, NotebookPen, PlayCircle, QrCode, Radio, Save, Send, Share2, Sparkles, UserPlus, Users, X } from 'lucide-react';
+import { ArrowRight, BookOpen, Bookmark, CalendarDays, CheckCircle2, Clock, Copy, Download, Edit3, Eye, Gift, HandHeart, Heart, Loader2, MessageSquarePlus, NotebookPen, PlayCircle, QrCode, Radio, Save, Send, Share2, Sparkles, UserPlus, Users, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHeader } from '../../contexts/HeaderContext';
 import { cultoPlusService } from '../../services/cultoPlusService';
-import { dbService } from '../../services/supabase';
+import { dbService, supabase } from '../../services/supabase';
 import { FeedPostCard } from '../social/FeedPostCard';
 import CultoPlusTopActions from './CultoPlusTopActions';
-import { ChurchService, Post, ServiceLiveState, ServiceNote, ServicePrayerRequest, ServiceReactionSummary, ServiceReactionType } from '../../types';
+import { ChurchService, Post, ServiceAdvancedAnalytics, ServiceAiContent, ServiceAiContentKind, ServiceLiveState, ServiceNote, ServicePrayerRequest, ServiceReactionSummary, ServiceReactionType, ServiceScheduleAssignment, ServiceScheduleStatus } from '../../types';
 import { buildServiceCalendarEvent, getLiveStatusLabel, getOfferingItem, getServiceCounterParts } from '../../utils/cultoPlusOnePage';
+import { getCurrentLiturgyMoment, getExperienceMoments, getNextLiturgyMoment, resolveServiceStreamStatus, resolveWorshipExperienceMode } from '../../utils/cultoPlusExperience';
 
 type CultoPlusOnePageProps = {
   serviceSlug: string;
+};
+
+type QuickAction = {
+  label: string;
+  hint: string;
+  title: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+};
+
+const SCHEDULE_STATUS_LABELS: Record<ServiceScheduleStatus, string> = {
+  pending: 'Aguardando resposta',
+  confirmed: 'Confirmado',
+  declined: 'Recusado',
+  replaced: 'Substituido',
+};
+
+const SCHEDULE_STATUS_STYLES: Record<ServiceScheduleStatus, string> = {
+  pending: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:ring-amber-900/60',
+  confirmed: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-200 dark:ring-emerald-900/60',
+  declined: 'bg-red-50 text-red-700 ring-1 ring-red-200 dark:bg-red-950/30 dark:text-red-200 dark:ring-red-900/60',
+  replaced: 'bg-gray-100 text-gray-500 ring-1 ring-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:ring-gray-800',
 };
 
 const formatFullDate = (value: string) => {
@@ -58,25 +81,57 @@ const formatWeekdayDate = (value: string) => {
 const buildServiceShareText = (service: ChurchService) =>
   `Participei do culto "${service.title}" na ${service.churchName}. Tema: ${service.theme}`;
 
-const getServiceStatus = (service: ChurchService, nowDate: Date) => {
-  const startsAt = new Date(service.startsAt);
-  const endsAt = new Date(service.endsAt);
-  if (nowDate < startsAt) {
-    const minutes = Math.max(1, Math.ceil((startsAt.getTime() - nowDate.getTime()) / 60000));
-    if (minutes < 60) return `Comeca em ${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return `Comeca em ${hours}h${remainingMinutes ? ` ${remainingMinutes}min` : ''}`;
-  }
-  if (nowDate <= endsAt || service.status === 'live') return 'Ao vivo agora';
-  return 'Encerrado';
+const buildServiceRecapText = ({
+  service,
+  moments,
+  notes,
+  posts,
+  prayersCount,
+  verseSavesCount,
+}: {
+  service: ChurchService;
+  moments: ReturnType<typeof getExperienceMoments>;
+  notes: ServiceNote[];
+  posts: Post[];
+  prayersCount: number;
+  verseSavesCount: number;
+}) => {
+  const keyMoments = moments.slice(0, 8).map((item) => `- ${item.startsAt} ${item.title}`).join('\n');
+  const testimonies = posts.slice(0, 3).map((post) => `- ${post.content.replace(/\s+/g, ' ').trim().slice(0, 180)}`).join('\n');
+  const privateNotes = notes.slice(0, 3).map((note) => `- ${note.content.replace(/\s+/g, ' ').trim().slice(0, 180)}`).join('\n');
+
+  return [
+    `Recapitulacao do culto: ${service.title}`,
+    `Igreja: ${service.churchName}`,
+    `Tema: ${service.theme}`,
+    service.keyVerseRef ? `Versiculo-chave: ${service.keyVerseRef}` : null,
+    service.keyVerseText ? `"${service.keyVerseText}"` : null,
+    '',
+    'Linha do culto:',
+    keyMoments || '- Nenhum momento registrado.',
+    '',
+    'Participacao:',
+    `- Check-ins: ${service.checkinsCount ?? 0}`,
+    `- Posts/testemunhos: ${posts.length}`,
+    `- Pedidos publicos de oracao: ${prayersCount}`,
+    `- Versiculos salvos: ${verseSavesCount}`,
+    '',
+    testimonies ? `Destaques do feed:\n${testimonies}` : null,
+    privateNotes ? `Minhas anotacoes:\n${privateNotes}` : null,
+  ].filter((line) => line !== null).join('\n');
 };
 
-const getLiturgyItemDate = (service: ChurchService, startsAt: string) => {
-  const [hours, minutes] = startsAt.split(':').map(Number);
-  const date = new Date(service.startsAt);
-  date.setHours(hours ?? 0, minutes ?? 0, 0, 0);
-  return date;
+const getPublicPreacherName = (value?: string) => {
+  const preacherName = value?.trim() ?? '';
+  if (!preacherName || /^membro\s*\d+$/i.test(preacherName)) return '';
+  return preacherName;
+};
+
+const getPublicMomentNotes = (value?: string | null) => {
+  const notes = value?.trim() ?? '';
+  if (!notes) return '';
+  if (/preencha este momento com conteudo/i.test(notes)) return '';
+  return notes;
 };
 
 const REACTION_OPTIONS: { type: ServiceReactionType; label: string }[] = [
@@ -93,8 +148,14 @@ const premiumIconClass = 'text-emerald-700 dark:text-emerald-300';
 const premiumButtonClass = 'inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#073b35] via-[#0f5d51] to-[#d8b15f] px-5 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-950/10 ring-1 ring-emerald-200/60 transition hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60';
 const champagneButtonClass = 'inline-flex items-center justify-center gap-2 rounded-2xl bg-[#f3d28a] px-5 py-3 text-xs font-black uppercase tracking-widest text-[#073b35] shadow-sm transition hover:bg-white disabled:opacity-60';
 
+const POST_CULT_AI_ACTIONS: { kind: ServiceAiContentKind; label: string; description: string }[] = [
+  { kind: 'pastor_post_summary', label: 'Resumo IA', description: 'Sintese pastoral para memoria e comunicacao.' },
+  { kind: 'member_devotional', label: 'Devocional', description: 'Devocional para a igreja continuar na Palavra.' },
+  { kind: 'member_weekly_plan', label: 'Plano semanal', description: 'Acompanhamento simples para celulas e grupos.' },
+];
+
 const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
-  const { currentUser, userProfile, openLogin, showNotification, recordActivity } = useAuth();
+  const { currentUser, userProfile, openLogin, showNotification, recordActivity, checkFeatureAccess, incrementUsage } = useAuth();
   const { setIsHeaderHidden, resetHeader } = useHeader();
   const [service, setService] = useState<ChurchService | null>(null);
   const [loading, setLoading] = useState(true);
@@ -110,22 +171,38 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
   const [isOfferingModalOpen, setIsOfferingModalOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isPrayerModalOpen, setIsPrayerModalOpen] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [postContent, setPostContent] = useState('');
   const [posting, setPosting] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [reactions, setReactions] = useState<ServiceReactionSummary>(emptyReactions);
   const [publicPrayers, setPublicPrayers] = useState<ServicePrayerRequest[]>([]);
+  const [scheduleAssignments, setScheduleAssignments] = useState<ServiceScheduleAssignment[]>([]);
+  const [nextService, setNextService] = useState<ChurchService | null>(null);
+  const [pastoralAnalytics, setPastoralAnalytics] = useState<ServiceAdvancedAnalytics | null>(null);
+  const [postCultAiContents, setPostCultAiContents] = useState<Partial<Record<ServiceAiContentKind, ServiceAiContent>>>({});
+  const [postCultAiLoadingKind, setPostCultAiLoadingKind] = useState<ServiceAiContentKind | null>(null);
+  const [canManageService, setCanManageService] = useState(false);
+  const [canViewServiceSchedule, setCanViewServiceSchedule] = useState(false);
+  const [savingScheduleStatusId, setSavingScheduleStatusId] = useState<string | null>(null);
   const [prayerContent, setPrayerContent] = useState('');
   const [isPrayerPrivate, setIsPrayerPrivate] = useState(false);
   const [savingPrayer, setSavingPrayer] = useState(false);
   const [savingVerse, setSavingVerse] = useState(false);
   const [verseSavesCount, setVerseSavesCount] = useState(0);
   const [checkinUrl, setCheckinUrl] = useState('');
+  const [inviteUrl, setInviteUrl] = useState('');
+  const [inviteToken, setInviteToken] = useState('');
+  const [creatingInvite, setCreatingInvite] = useState(false);
+  const [exportingPastoralReport, setExportingPastoralReport] = useState(false);
   const [checkinIntentHandled, setCheckinIntentHandled] = useState(false);
+  const [inviteIntentHandled, setInviteIntentHandled] = useState(false);
+  const [inviteAcceptedHandled, setInviteAcceptedHandled] = useState(false);
   const [liveState, setLiveState] = useState<ServiceLiveState | null>(null);
   const [nowDate, setNowDate] = useState(() => new Date());
   const currentSectionRef = useRef<HTMLDivElement>(null);
+  const postComposerRef = useRef<HTMLTextAreaElement>(null);
 
   const userId = currentUser?.uid ?? currentUser?.id;
 
@@ -141,37 +218,125 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
     const loadService = async () => {
       setLoading(true);
       try {
-        const loaded = await cultoPlusService.getServiceBySlug(serviceSlug);
-        setService(loaded);
-        if (loaded) {
-          setCheckinsCount(loaded.checkinsCount ?? 0);
-          const [visitors, alreadyChecked, savedNotes] = await Promise.all([
-            cultoPlusService.recordVisit(loaded, currentUser),
-            userId ? cultoPlusService.hasCheckedIn(loaded.id, userId) : Promise.resolve(false),
-            userId ? cultoPlusService.getMyNotes(loaded.id, userId) : Promise.resolve([]),
-          ]);
+        const experience = await cultoPlusService.getServiceExperienceBySlug(serviceSlug, userId);
+        setService(experience?.service ?? null);
+
+        if (experience) {
+          const visitors = await cultoPlusService.recordVisit(experience.service, currentUser);
           setVisitorsCount(visitors);
-          setCheckedIn(alreadyChecked);
-          setNoteComments(savedNotes);
-          cultoPlusService.getServicePosts(loaded.id).then(setPosts).catch(() => setPosts([]));
-          cultoPlusService.getReactionSummary(loaded.id).then(setReactions).catch(() => setReactions(emptyReactions()));
-          cultoPlusService.getPublicPrayerRequests(loaded.id).then(setPublicPrayers).catch(() => setPublicPrayers([]));
-          cultoPlusService.getKeyVerseSaveCount(loaded.id).then(setVerseSavesCount).catch(() => setVerseSavesCount(0));
-          if (loaded.status === 'live') {
-            cultoPlusService.getLiveState(loaded.id).then(setLiveState).catch(() => setLiveState(null));
-          }
+          setCheckinsCount(experience.participation.checkinsCount);
+          setCheckedIn(experience.viewer.checkedIn);
+          setNoteComments(experience.viewer.notes);
+          setPosts(experience.content.posts);
+          setReactions(experience.participation.reactions);
+          setPublicPrayers(experience.content.publicPrayers);
+          setScheduleAssignments(experience.content.scheduleAssignments);
+          setNextService(experience.content.nextService ?? null);
+          setVerseSavesCount(experience.participation.verseSavesCount);
+          setLiveState(experience.liveState);
+          setCanManageService(experience.viewer.canManageService);
+          setCanViewServiceSchedule(experience.viewer.canViewServiceSchedule);
         }
-      } catch {
+      } catch (error) {
+        console.error('Erro ao carregar experiencia do culto:', error);
         showNotification('Nao foi possivel carregar o culto.', 'error');
       } finally {
         setLoading(false);
       }
     };
     loadService();
-  }, [serviceSlug, showNotification, userId]);
+  }, [currentUser, serviceSlug, showNotification, userId]);
 
   useEffect(() => {
-    if (!service || service.status !== 'live') return;
+    if (!service) return;
+    let isMounted = true;
+
+    const refreshStats = async () => {
+      try {
+        const stats = await cultoPlusService.getServiceStats(service.id);
+        if (!isMounted) return;
+        setVisitorsCount(stats.visitorsCount);
+        setCheckinsCount(stats.checkinsCount);
+        setVerseSavesCount(stats.verseSavesCount);
+      } catch {
+        // Realtime is progressive enhancement; the regular UI actions still update local state.
+      }
+    };
+
+    const refreshServiceExperience = async () => {
+      try {
+        const experience = await cultoPlusService.getServiceExperienceBySlug(serviceSlug, userId);
+        if (!isMounted || !experience) return;
+        setService(experience.service);
+        setCheckedIn(experience.viewer.checkedIn);
+        setNoteComments(experience.viewer.notes);
+        setScheduleAssignments(experience.content.scheduleAssignments);
+        setNextService(experience.content.nextService ?? null);
+        setLiveState(experience.liveState);
+        setCheckinsCount(experience.participation.checkinsCount);
+        setVerseSavesCount(experience.participation.verseSavesCount);
+        setCanManageService(experience.viewer.canManageService);
+        setCanViewServiceSchedule(experience.viewer.canViewServiceSchedule);
+      } catch {
+        // Avoid surfacing transient Realtime refresh errors to members during worship.
+      }
+    };
+
+    const channel = supabase
+      .channel(`culto_plus_service_${service.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'church_services', filter: `id=eq.${service.id}` }, () => {
+        refreshServiceExperience();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_live_states', filter: `service_id=eq.${service.id}` }, () => {
+        cultoPlusService.getLiveState(service.id).then((next) => {
+          if (isMounted) setLiveState(next);
+        }).catch(() => {});
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_reactions', filter: `service_id=eq.${service.id}` }, () => {
+        cultoPlusService.getReactionSummary(service.id).then((next) => {
+          if (isMounted) setReactions(next);
+        }).catch(() => {});
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_prayer_requests', filter: `service_id=eq.${service.id}` }, () => {
+        Promise.all([
+          cultoPlusService.getPublicPrayerRequests(service.id),
+          refreshStats(),
+        ]).then(([nextPrayers]) => {
+          if (isMounted) setPublicPrayers(nextPrayers);
+        }).catch(() => {});
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts', filter: `service_id=eq.${service.id}` }, () => {
+        Promise.all([
+          cultoPlusService.getServicePosts(service.id),
+          refreshStats(),
+        ]).then(([nextPosts]) => {
+          if (isMounted) setPosts(nextPosts);
+        }).catch(() => {});
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_checkins', filter: `service_id=eq.${service.id}` }, () => {
+        refreshStats();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_visits', filter: `service_id=eq.${service.id}` }, () => {
+        refreshStats();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_verse_saves', filter: `service_id=eq.${service.id}` }, () => {
+        refreshStats();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_schedule_assignments', filter: `service_id=eq.${service.id}` }, () => {
+        cultoPlusService.getScheduleAssignments(service.id).then((next) => {
+          if (isMounted) setScheduleAssignments(next);
+        }).catch(() => {});
+      })
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [service, serviceSlug, userId]);
+
+  useEffect(() => {
+    if (!service || (service.status !== 'live' && service.status !== 'in_progress')) return;
     const timer = window.setInterval(() => {
       cultoPlusService.getLiveState(service.id).then(setLiveState).catch(() => {});
     }, LIVE_POLL_INTERVAL_MS);
@@ -181,27 +346,82 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
   useEffect(() => {
     const url = `${window.location.origin}${window.location.pathname}`;
     setCheckinUrl(`${url}?checkin=1`);
+    setInviteUrl(url);
     const timer = window.setInterval(() => setNowDate(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
 
   const currentStep = useMemo(() => {
     if (!service) return null;
-    if (liveState?.currentItemId) {
-      return service.liturgyItems.find((item) => item.id === liveState.currentItemId) ?? null;
-    }
-    return service.liturgyItems.find((item, index) => {
-      const start = getLiturgyItemDate(service, item.startsAt);
-      const nextItem = service.liturgyItems[index + 1];
-      if (!nextItem) return nowDate >= start;
-      const end = getLiturgyItemDate(service, nextItem.startsAt);
-      return nowDate >= start && nowDate < end;
-    }) ?? service.liturgyItems[0] ?? null;
+    return getCurrentLiturgyMoment(service, nowDate, liveState?.currentItemId);
   }, [service, liveState, nowDate]);
 
+  const nextStep = useMemo(() => service ? getNextLiturgyMoment(service, currentStep) : null, [service, currentStep]);
+  const experienceMoments = useMemo(() => service ? getExperienceMoments(service, currentStep, nowDate) : [], [currentStep, service, nowDate]);
   const offeringItem = useMemo(() => service ? getOfferingItem(service.liturgyItems) : undefined, [service]);
   const counterParts = useMemo(() => service ? getServiceCounterParts(service, nowDate) : null, [service, nowDate]);
-  const liveStatusLabel = useMemo(() => service ? getLiveStatusLabel(service, nowDate) : '', [service, nowDate]);
+  const streamStatus = useMemo(() => service ? resolveServiceStreamStatus(service, nowDate) : 'not_configured', [service, nowDate]);
+  const experienceMode = useMemo(
+    () => service ? resolveWorshipExperienceMode({ serviceStatus: service.status, streamStatus }) : 'before',
+    [service, streamStatus],
+  );
+  const liveStatusLabel = useMemo(() => {
+    if (!service) return '';
+    if (experienceMode === 'during_without_live') return 'Culto em andamento';
+    if (experienceMode === 'after') return 'Culto encerrado';
+    if (experienceMode === 'archived') return 'Culto arquivado';
+    return getLiveStatusLabel(service, nowDate);
+  }, [experienceMode, service, nowDate]);
+  const scheduleGroups = useMemo(() => scheduleAssignments.reduce<Record<string, ServiceScheduleAssignment[]>>((groups, assignment) => {
+    const key = assignment.ministryName || 'Equipe sem nome';
+    groups[key] = [...(groups[key] ?? []), assignment];
+    return groups;
+  }, {}), [scheduleAssignments]);
+  const myAssignments = useMemo(
+    () => userId ? scheduleAssignments.filter((assignment) => assignment.userId === userId || assignment.replacementUserId === userId) : [],
+    [scheduleAssignments, userId],
+  );
+  const canOpenSchedule = canViewServiceSchedule || myAssignments.length > 0;
+  const publicPreacherName = service ? getPublicPreacherName(service.preacherName) : '';
+  const currentStepNotes = getPublicMomentNotes(liveState?.currentExplanation || currentStep?.notes);
+  const isAfterCult = experienceMode === 'after' || experienceMode === 'archived';
+  const afterCultTitle = experienceMode === 'archived' ? 'Culto arquivado' : 'Culto encerrado';
+  const completedMomentsCount = experienceMoments.filter((item) => item.momentStatus === 'completed').length;
+  const recapStats = [
+    { label: 'Momentos', value: `${completedMomentsCount}/${experienceMoments.length || service?.liturgyItems.length || 0}`, icon: <CheckCircle2 size={16} /> },
+    { label: 'Anotacoes', value: `${noteComments.length}`, icon: <NotebookPen size={16} /> },
+    { label: 'Pedidos', value: `${publicPrayers.length}`, icon: <HandHeart size={16} /> },
+    { label: 'Posts', value: `${posts.length}`, icon: <MessageSquarePlus size={16} /> },
+    { label: 'Versiculos', value: `${verseSavesCount}`, icon: <BookOpen size={16} /> },
+  ];
+  const recapText = useMemo(() => service ? buildServiceRecapText({
+    service: { ...service, checkinsCount },
+    moments: experienceMoments,
+    notes: noteComments,
+    posts,
+    prayersCount: publicPrayers.length,
+    verseSavesCount,
+  }) : '', [checkinsCount, experienceMoments, noteComments, posts, publicPrayers.length, service, verseSavesCount]);
+
+  useEffect(() => {
+    if (!service || !isAfterCult) {
+      setPastoralAnalytics(null);
+      return;
+    }
+
+    let isMounted = true;
+    cultoPlusService.getAdvancedAnalytics(service.id)
+      .then((analytics) => {
+        if (isMounted) setPastoralAnalytics(analytics);
+      })
+      .catch(() => {
+        if (isMounted) setPastoralAnalytics(null);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAfterCult, service]);
 
   const requireLogin = () => {
     openLogin(window.location.pathname);
@@ -275,20 +495,132 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
     }
   };
 
+  const handlePrepareTestimonyPost = () => {
+    if (!service) return;
+    if (!postContent.trim()) {
+      setPostContent(`Testemunho do culto "${service.title}": `);
+    }
+    window.setTimeout(() => {
+      postComposerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      postComposerRef.current?.focus();
+    }, 0);
+  };
+
   const handleShare = async () => {
     if (!service) return;
-    const url = window.location.href;
-    if (navigator.share) {
-      await navigator.share({ title: service.title, text: service.theme, url });
-      return;
+    try {
+      const url = window.location.href;
+      if (navigator.share) {
+        await navigator.share({ title: service.title, text: service.theme, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      showNotification('Link do culto copiado.', 'success');
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return;
+      console.error('Erro ao compartilhar culto:', error);
+      showNotification('Nao foi possivel compartilhar o culto.', 'error');
     }
-    await navigator.clipboard.writeText(url);
-    showNotification('Link do culto copiado.', 'success');
+  };
+
+  const getOrCreateInviteUrl = async (source: 'copy' | 'share' = 'share') => {
+    if (!service) return window.location.href.split('?')[0];
+    if (inviteUrl.includes('?invite=')) return inviteUrl;
+    if (!currentUser || !userProfile) return window.location.href.split('?')[0];
+
+    setCreatingInvite(true);
+    try {
+      const invite = await cultoPlusService.createPublicInvite(service, {
+        uid: userId,
+        id: userId,
+        displayName: userProfile.displayName,
+      }, source);
+      const url = `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(invite.token)}`;
+      setInviteToken(invite.token);
+      setInviteUrl(url);
+      await recordActivity('invite_sent', `Convidou alguem para o culto: ${service.title}`, { serviceId: service.id, inviteId: invite.id });
+      return url;
+    } catch (error: any) {
+      showNotification(error?.message || 'Nao foi possivel registrar o convite.', 'error');
+      return window.location.href.split('?')[0];
+    } finally {
+      setCreatingInvite(false);
+    }
   };
 
   const copyToClipboard = async (value: string, message = 'Copiado.') => {
-    await navigator.clipboard.writeText(value);
-    showNotification(message, 'success');
+    try {
+      await navigator.clipboard.writeText(value);
+      showNotification(message, 'success');
+    } catch (error) {
+      console.error('Erro ao copiar texto:', error);
+      showNotification('Nao foi possivel copiar o texto.', 'error');
+    }
+  };
+
+  const handleCopyRecap = () => {
+    if (!recapText) return;
+    copyToClipboard(recapText, 'Recapitulacao copiada.');
+  };
+
+  const handleDownloadRecap = () => {
+    if (!service || !recapText) return;
+    const blob = new Blob([recapText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `recap-${service.slug}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadPastoralReport = async () => {
+    if (!service) return;
+    setExportingPastoralReport(true);
+    try {
+      const csv = await cultoPlusService.exportServiceReport(service);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `relatorio-pastoral-${service.slug}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showNotification('Relatorio pastoral exportado.', 'success');
+    } catch (error: any) {
+      showNotification(error?.message || 'Nao foi possivel exportar o relatorio pastoral.', 'error');
+    } finally {
+      setExportingPastoralReport(false);
+    }
+  };
+
+  const handleGeneratePostCultAi = async (kind: ServiceAiContentKind) => {
+    if (!service) return;
+    if (!currentUser) {
+      requireLogin();
+      return;
+    }
+    if (!checkFeatureAccess('aiSermonBuilder')) {
+      showNotification('IA pos-culto e recurso premium do Culto+.', 'warning');
+      return;
+    }
+
+    setPostCultAiLoadingKind(kind);
+    try {
+      const result = await cultoPlusService.generateAiContent(kind, service, userId, recapText);
+      setPostCultAiContents((items) => ({ ...items, [kind]: result }));
+      await incrementUsage('analysis');
+      await recordActivity('social_interaction', `Gerou apoio pos-culto com IA: ${service.title}`, { serviceId: service.id, kind });
+      showNotification('Apoio pos-culto gerado com IA.', 'success');
+    } catch (error: any) {
+      showNotification(error?.message || 'Nao foi possivel gerar apoio pos-culto.', 'error');
+    } finally {
+      setPostCultAiLoadingKind(null);
+    }
   };
 
   const handleAddToCalendar = () => {
@@ -343,6 +675,24 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
     }
   }, [service, checkinIntentHandled, currentUser, userProfile, checkedIn]);
 
+  useEffect(() => {
+    if (!service) return;
+    const token = new URLSearchParams(window.location.search).get('invite') ?? '';
+    if (!token) return;
+    setInviteToken(token);
+    setInviteUrl(`${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(token)}`);
+    if (!inviteIntentHandled) {
+      setInviteIntentHandled(true);
+      cultoPlusService.markPublicInviteOpened(token).catch(() => {});
+    }
+    if (currentUser && userProfile && !inviteAcceptedHandled) {
+      setInviteAcceptedHandled(true);
+      cultoPlusService.acceptPublicInvite(token, currentUser, userProfile)
+        .then(() => recordActivity('invite_accepted', `Aceitou convite para o culto: ${service.title}`, { serviceId: service.id, inviteToken: token }))
+        .catch(() => {});
+    }
+  }, [currentUser, inviteAcceptedHandled, inviteIntentHandled, recordActivity, service, userProfile]);
+
   const handleCreatePrayer = async () => {
     if (!service) return;
     if (!currentUser || !userProfile) {
@@ -385,6 +735,29 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
     }
   };
 
+  const handleScheduleStatus = async (assignment: ServiceScheduleAssignment, status: ServiceScheduleStatus) => {
+    if (!currentUser || !userProfile) {
+      requireLogin();
+      return;
+    }
+    setSavingScheduleStatusId(assignment.id);
+    try {
+      await cultoPlusService.updateScheduleAssignmentStatus(assignment.id, status);
+      const updatedAt = new Date().toISOString();
+      setScheduleAssignments((items) => items.map((item) => item.id === assignment.id ? { ...item, status, updatedAt } : item));
+      await recordActivity('social_interaction', `${status === 'confirmed' ? 'Confirmou' : 'Respondeu'} escala no culto: ${service?.title ?? 'Culto+'}`, {
+        serviceId: assignment.serviceId,
+        assignmentId: assignment.id,
+        status,
+      });
+      showNotification(status === 'confirmed' ? 'Escala confirmada.' : 'Resposta da escala registrada.', 'success');
+    } catch (error: any) {
+      showNotification(error?.message || 'Nao foi possivel responder a escala.', 'error');
+    } finally {
+      setSavingScheduleStatusId(null);
+    }
+  };
+
   const handleSaveKeyVerse = async () => {
     if (!service) return;
     if (!currentUser || !userProfile) {
@@ -403,6 +776,50 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       setSavingVerse(false);
     }
   };
+
+  const quickActions: QuickAction[] = [
+    ...(!isAfterCult ? [{
+      label: checkedIn ? 'Acompanhar' : 'Check-in',
+      hint: checkedIn ? 'Culto' : 'Registrar presenca',
+      title: checkedIn ? 'Ir para o momento atual e acompanhar a liturgia.' : 'Registrar sua presenca neste culto.',
+      icon: <Radio size={20} />,
+      onClick: handleFollowAction,
+    }] : []),
+    {
+      label: 'Anotacoes',
+      hint: isAfterCult ? 'Rever suas notas' : 'Faca suas notas',
+      title: 'Abrir o painel para escrever suas anotacoes pessoais do culto.',
+      icon: <NotebookPen size={20} />,
+      onClick: () => setIsNotePanelOpen(true),
+    },
+    ...(!isAfterCult ? [{
+      label: 'Oracao',
+      hint: 'Escreva seu pedido',
+      title: 'Abrir popup para enviar um pedido de oracao deste culto.',
+      icon: <HandHeart size={20} />,
+      onClick: () => setIsPrayerModalOpen(true),
+    }, {
+      label: 'Ofertar',
+      hint: offeringItem ? 'Dizimos e ofertas' : 'Indisponivel',
+      title: offeringItem ? 'Abrir a chave PIX cadastrada para dizimos e ofertas.' : 'Este culto ainda nao possui chave PIX de oferta cadastrada.',
+      icon: <Gift size={20} />,
+      onClick: () => setIsOfferingModalOpen(true),
+    }] : []),
+    {
+      label: 'Convidar',
+      hint: isAfterCult ? 'Compartilhe memoria' : 'Chame alguem',
+      title: isAfterCult ? 'Compartilhar a pagina deste culto com outra pessoa.' : 'Abrir convite pronto para enviar este culto a outra pessoa.',
+      icon: <UserPlus size={20} />,
+      onClick: isAfterCult ? handleShare : () => setIsInviteModalOpen(true),
+    },
+    {
+      label: 'Compartilhar',
+      hint: 'Divulgue o culto',
+      title: 'Compartilhar ou copiar o link publico deste culto.',
+      icon: <Share2 size={20} />,
+      onClick: handleShare,
+    },
+  ];
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center bg-[#f4fbf8] dark:bg-black"><Loader2 className="animate-spin text-emerald-700 dark:text-emerald-300" size={40} /></div>;
@@ -441,6 +858,30 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
               <h1 className="mt-4 max-w-4xl text-4xl font-medium leading-tight text-white md:text-6xl">{service.title}</h1>
               <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/82 md:text-xl">{service.theme}</p>
 
+              {(canOpenSchedule || canManageService) && (
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                  {canOpenSchedule && (
+                    <button
+                      type="button"
+                      onClick={() => setIsScheduleModalOpen(true)}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/12 px-4 text-[10px] font-black uppercase tracking-widest text-white backdrop-blur transition hover:bg-white/18"
+                    >
+                      <Users size={16} />
+                      Ver escala
+                    </button>
+                  )}
+                  {canManageService && (
+                    <Link
+                      href={`/workspace-pastoral/cultos?serviceId=${encodeURIComponent(service.id)}&edit=1`}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#f3d28a] px-4 text-[10px] font-black uppercase tracking-widest text-[#073b35] shadow-sm transition hover:bg-white"
+                    >
+                      <Edit3 size={16} />
+                      Editar culto
+                    </Link>
+                  )}
+                </div>
+              )}
+
               <div className="mt-7 max-w-3xl rounded-2xl border border-white/18 bg-white/8 p-4 shadow-2xl shadow-black/10 backdrop-blur-md md:p-5">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[#f3d28a]/35 bg-[#f3d28a]/10 text-[#f3d28a]">
@@ -451,7 +892,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                       Seja bem-vindo ao culto das {formatServiceTime(service.startsAt)}.
                     </p>
                     <p className="mt-2 text-sm leading-relaxed text-white/75">
-                      Voce esta no Culto da {service.churchName}{service.preacherName ? `, com ${service.preacherName}.` : '.'}
+                      Voce esta no Culto da {service.churchName}{publicPreacherName ? `, com ${publicPreacherName}.` : '.'}
                       {service.liveUrl ? ' Voce tambem pode participar pela live na web.' : ''}
                     </p>
                   </div>
@@ -464,54 +905,71 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                 <Radio size={13} />
                 {liveStatusLabel}
               </span>
-              <p className="mt-6 text-sm text-white/78">{counterParts?.label}</p>
-              <div className="mt-2 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-end gap-2">
-                <div>
-                  <p className="text-4xl font-medium leading-none md:text-5xl">{counterParts?.hours ?? '00'}</p>
-                  <p className="mt-2 text-[10px] uppercase tracking-widest text-white/58">Hora</p>
+              {isAfterCult ? (
+                <div className="mt-6 rounded-xl border border-white/12 bg-white/8 p-4">
+                  <p className="text-lg font-medium text-white">{experienceMode === 'archived' ? 'Registro historico' : 'Obrigado por participar'}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-white/70">
+                    As anotacoes, pedidos e publicacoes continuam disponiveis para memoria do culto.
+                  </p>
                 </div>
-                <span className="pb-6 text-3xl text-white/75">:</span>
-                <div>
-                  <p className="text-4xl font-medium leading-none md:text-5xl">{counterParts?.minutes ?? '00'}</p>
-                  <p className="mt-2 text-[10px] uppercase tracking-widest text-white/58">Min</p>
-                </div>
-                <span className="pb-6 text-3xl text-white/75">:</span>
-                <div>
-                  <p className="text-4xl font-medium leading-none md:text-5xl">{counterParts?.seconds ?? '00'}</p>
-                  <p className="mt-2 text-[10px] uppercase tracking-widest text-white/58">Seg</p>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <p className="mt-6 text-sm text-white/78">{counterParts?.label}</p>
+                  <div className="mt-2 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-end gap-2">
+                    <div>
+                      <p className="text-4xl font-medium leading-none md:text-5xl">{counterParts?.hours ?? '00'}</p>
+                      <p className="mt-2 text-[10px] uppercase tracking-widest text-white/58">Hora</p>
+                    </div>
+                    <span className="pb-6 text-3xl text-white/75">:</span>
+                    <div>
+                      <p className="text-4xl font-medium leading-none md:text-5xl">{counterParts?.minutes ?? '00'}</p>
+                      <p className="mt-2 text-[10px] uppercase tracking-widest text-white/58">Min</p>
+                    </div>
+                    <span className="pb-6 text-3xl text-white/75">:</span>
+                    <div>
+                      <p className="text-4xl font-medium leading-none md:text-5xl">{counterParts?.seconds ?? '00'}</p>
+                      <p className="mt-2 text-[10px] uppercase tracking-widest text-white/58">Seg</p>
+                    </div>
+                  </div>
+                </>
+              )}
               {service.liveUrl ? (
                 <a
                   href={service.liveUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  title="Abrir a transmissao ao vivo deste culto em uma nova aba."
+                  title={isAfterCult ? 'Abrir a gravacao ou transmissao vinculada a este culto.' : 'Abrir a transmissao ao vivo deste culto em uma nova aba.'}
                   className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e4b457] px-4 text-[10px] font-medium uppercase tracking-widest text-white shadow-lg shadow-black/10 transition hover:bg-[#f3d28a] hover:text-[#073b35]"
                 >
                   <PlayCircle size={16} />
-                  Entrar na live
+                  {isAfterCult ? 'Assistir novamente' : 'Entrar na live'}
                 </a>
+              ) : experienceMode === 'during_without_live' ? (
+                <div className="mt-6 rounded-xl border border-white/12 bg-white/8 p-4">
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#f3d28a]">
+                    <Radio size={14} />
+                    Culto presencial
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed text-white/70">
+                    Sem transmissao ativa. Acompanhe a liturgia, ore, anote e participe pelo app.
+                  </p>
+                </div>
               ) : (
+                <p className="mt-6 rounded-xl border border-white/10 bg-white/6 p-4 text-sm leading-relaxed text-white/62">
+                  Transmissao nao configurada. O culto pode ser acompanhado pela programacao, check-in, oracao e anotacoes.
+                </p>
+              )}
+              {!isAfterCult && (
                 <button
                   type="button"
-                  disabled
-                  title="Este culto ainda nao possui link de transmissao ao vivo cadastrado."
-                  className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-[10px] font-medium uppercase tracking-widest text-white/45"
+                  onClick={handleAddToCalendar}
+                  title="Baixar um arquivo de calendario com data, horario e link deste culto."
+                  className="mt-4 inline-flex min-h-10 items-center gap-2 text-[10px] font-medium uppercase tracking-widest text-white/80 transition hover:text-white"
                 >
-                  <PlayCircle size={16} />
-                  Live indisponivel
+                  <CalendarDays size={16} />
+                  Adicionar ao calendario
                 </button>
               )}
-              <button
-                type="button"
-                onClick={handleAddToCalendar}
-                title="Baixar um arquivo de calendario com data, horario e link deste culto."
-                className="mt-4 inline-flex min-h-10 items-center gap-2 text-[10px] font-medium uppercase tracking-widest text-white/80 transition hover:text-white"
-              >
-                <CalendarDays size={16} />
-                Adicionar ao calendario
-              </button>
             </aside>
           </div>
 
@@ -519,7 +977,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
             {[
               { icon: <CalendarDays size={19} />, label: formatWeekdayDate(service.startsAt), value: 'Data do culto' },
               { icon: <Clock size={19} />, label: formatServiceTime(service.startsAt), value: 'Horario de inicio' },
-              { icon: <BookOpen size={19} />, label: service.keyVerseRef || 'Palavra', value: 'Versiculo-chave' },
+              { icon: <BookOpen size={19} />, label: service.keyVerseRef || 'Nao definido', value: 'Versiculo-chave' },
               { icon: <Eye size={19} />, label: `${visitorsCount}`, value: visitorsCount === 1 ? 'Visita' : 'Visitas' },
               { icon: <Users size={19} />, label: `${checkinsCount}`, value: checkinsCount === 1 ? 'Check-in' : 'Check-ins' },
             ].map((item) => (
@@ -534,14 +992,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-            {[
-              { label: checkedIn ? 'Acompanhar' : 'Check-in', hint: checkedIn ? 'Culto' : 'Registrar presenca', title: checkedIn ? 'Ir para o momento atual e acompanhar a liturgia.' : 'Registrar sua presenca neste culto.', icon: <Radio size={20} />, onClick: handleFollowAction },
-              { label: 'Anotacoes', hint: 'Faca suas notas', title: 'Abrir o painel para escrever suas anotacoes pessoais do culto.', icon: <NotebookPen size={20} />, onClick: () => setIsNotePanelOpen(true) },
-              { label: 'Oracao', hint: 'Escreva seu pedido', title: 'Abrir popup para enviar um pedido de oracao deste culto.', icon: <HandHeart size={20} />, onClick: () => setIsPrayerModalOpen(true) },
-              { label: 'Ofertar', hint: offeringItem ? 'Dizimos e ofertas' : 'Indisponivel', title: offeringItem ? 'Abrir a chave PIX cadastrada para dizimos e ofertas.' : 'Este culto ainda nao possui chave PIX de oferta cadastrada.', icon: <Gift size={20} />, onClick: () => setIsOfferingModalOpen(true) },
-              { label: 'Convidar', hint: 'Chame alguem', title: 'Abrir convite pronto para enviar este culto a outra pessoa.', icon: <UserPlus size={20} />, onClick: () => setIsInviteModalOpen(true) },
-              { label: 'Compartilhar', hint: 'Divulgue o culto', title: 'Compartilhar ou copiar o link publico deste culto.', icon: <Share2 size={20} />, onClick: handleShare },
-            ].map((action) => (
+            {quickActions.map((action) => (
               <button
                 key={action.label}
                 type="button"
@@ -566,26 +1017,347 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Momento atual</p>
-                <h2 className="mt-1 text-2xl font-black text-gray-900 dark:text-white">{liveState?.currentTitle || currentStep?.title || 'Culto publicado'}</h2>
-                {(liveState?.currentExplanation || currentStep?.notes) && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{liveState?.currentExplanation || currentStep?.notes}</p>}
+                <h2 className="mt-1 text-2xl font-black text-gray-900 dark:text-white">{isAfterCult ? afterCultTitle : liveState?.currentTitle || currentStep?.title || 'Culto publicado'}</h2>
+                {isAfterCult ? (
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    A recapitulacao do culto permanece disponivel com timeline, anotacoes, pedidos e publicacoes.
+                  </p>
+                ) : currentStepNotes && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{currentStepNotes}</p>}
               </div>
-              <button onClick={handleCheckin} disabled={checkingIn || checkedIn} title={checkedIn ? 'Voce ja registrou check-in neste culto.' : 'Registrar sua presenca neste culto.'} className={champagneButtonClass}>
-                {checkingIn ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                {checkedIn ? 'Check-in feito' : 'Fazer check-in'}
-              </button>
+              {isAfterCult ? (
+                <button onClick={handleShare} title="Compartilhar ou copiar o link publico deste culto." className={champagneButtonClass}>
+                  <Share2 size={16} />
+                  Compartilhar culto
+                </button>
+              ) : (
+                <button onClick={handleCheckin} disabled={checkingIn || checkedIn} title={checkedIn ? 'Voce ja registrou check-in neste culto.' : 'Registrar sua presenca neste culto.'} className={champagneButtonClass}>
+                  {checkingIn ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                  {checkedIn ? 'Check-in feito' : 'Fazer check-in'}
+                </button>
+              )}
             </div>
           </div>
 
-          {(service.status === 'live' || liveState) && (
+          {myAssignments.length > 0 && (
+            <div className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-sm dark:border-emerald-900/40 dark:bg-bible-darkPaper">
+              <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Minha escala</p>
+                  <h2 className="mt-1 text-xl font-black text-gray-900 dark:text-white">Voce esta escalado neste culto</h2>
+                </div>
+                {canOpenSchedule && (
+                  <button
+                    type="button"
+                    onClick={() => setIsScheduleModalOpen(true)}
+                    title="Abrir a escala completa deste culto."
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-4 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-300"
+                  >
+                    <Users size={14} />
+                    Ver escala
+                  </button>
+                )}
+              </div>
+
+              <div className="grid gap-3">
+                {myAssignments.map((assignment) => {
+                  const isSavingThisSchedule = savingScheduleStatusId === assignment.id;
+                  const isActionDisabled = isAfterCult || assignment.status === 'replaced' || isSavingThisSchedule;
+                  return (
+                    <div key={assignment.id} className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/10">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-black text-gray-900 dark:text-white">{assignment.ministryName || 'Equipe'}</span>
+                            <span className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${SCHEDULE_STATUS_STYLES[assignment.status]}`}>
+                              {SCHEDULE_STATUS_LABELS[assignment.status]}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{assignment.role || 'Funcao nao informada'}</p>
+                          {assignment.replacementUserDisplayName && (
+                            <p className="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-200">Substituto: {assignment.replacementUserDisplayName}</p>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <button
+                            type="button"
+                            onClick={() => handleScheduleStatus(assignment, 'confirmed')}
+                            disabled={isActionDisabled || assignment.status === 'confirmed'}
+                            title="Confirmar sua presenca nesta escala."
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isSavingThisSchedule ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                            Confirmar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleScheduleStatus(assignment, 'declined')}
+                            disabled={isActionDisabled || assignment.status === 'declined'}
+                            title="Informar que voce nao podera servir nesta escala."
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-red-50 px-4 text-[10px] font-black uppercase tracking-widest text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-950/20 dark:text-red-200"
+                          >
+                            <X size={13} />
+                            Recusar
+                          </button>
+                        </div>
+                      </div>
+                      {isAfterCult && (
+                        <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-gray-500 dark:bg-black/20 dark:text-gray-400">
+                          Este culto ja foi encerrado. A escala fica disponivel apenas como historico.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {isAfterCult && (
+            <div className="rounded-[2rem] border border-[#f3d28a]/40 bg-gradient-to-br from-[#fff8e8] via-white to-emerald-50 p-6 shadow-sm dark:border-amber-900/40 dark:from-amber-950/20 dark:via-bible-darkPaper dark:to-emerald-950/10">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#a87d22] dark:text-amber-200">Recapitulacao do culto</p>
+                  <h2 className="mt-2 text-2xl font-black text-gray-900 dark:text-white">{service.title}</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                    Reviva a ordem do culto, continue suas anotacoes e compartilhe o que Deus falou com a igreja.
+                  </p>
+                </div>
+                {service.liveUrl && (
+                  <a
+                    href={service.liveUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Abrir a gravacao ou transmissao vinculada a este culto."
+                    className={champagneButtonClass}
+                  >
+                    <PlayCircle size={16} />
+                    Assistir novamente
+                  </a>
+                )}
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                {recapStats.map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-emerald-100 bg-white/75 p-4 shadow-sm dark:border-emerald-900/40 dark:bg-black/18">
+                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200">
+                      {item.icon}
+                    </div>
+                    <p className="text-xl font-black text-gray-900 dark:text-white">{item.value}</p>
+                    <p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-gray-400">{item.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {pastoralAnalytics && (
+                <div className="mt-5 rounded-2xl border border-emerald-100 bg-white/75 p-4 dark:border-emerald-900/40 dark:bg-black/18">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Indicadores pastorais</p>
+                      <h3 className="mt-1 text-sm font-black text-gray-900 dark:text-white">Participacao, engajamento e escala deste culto</h3>
+                    </div>
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                      Baseado nos registros digitais do Culto+
+                    </p>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      { label: 'Engajamento', value: `${pastoralAnalytics.engagementRate}%`, helper: 'acoes digitais por visita' },
+                      { label: 'Reacoes', value: `${pastoralAnalytics.reactionsCount}`, helper: 'amen, gloria e aleluia' },
+                      { label: 'Escalados', value: `${pastoralAnalytics.schedulesCount}`, helper: `${pastoralAnalytics.pendingSchedulesCount} pendente(s)` },
+                      { label: 'Participacao', value: `${pastoralAnalytics.checkinsCount}/${pastoralAnalytics.visitorsCount}`, helper: 'check-ins / visitas' },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-2xl bg-[#f8fcfa] p-4 dark:bg-black/20">
+                        <p className="text-2xl font-black text-gray-900 dark:text-white">{item.value}</p>
+                        <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">{item.label}</p>
+                        <p className="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">{item.helper}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-5 grid gap-3 md:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={() => setIsNotePanelOpen(true)}
+                  title="Abrir painel para rever ou criar anotacoes deste culto."
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-emerald-900/40 dark:bg-black/18 dark:text-emerald-200"
+                >
+                  <NotebookPen size={15} />
+                  Rever anotacoes
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrepareTestimonyPost}
+                  title="Preparar um testemunho ou frase deste culto no feed da igreja."
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-emerald-900/40 dark:bg-black/18 dark:text-emerald-200"
+                >
+                  <MessageSquarePlus size={15} />
+                  Escrever testemunho
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  title="Compartilhar ou copiar o link publico deste culto."
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-emerald-900/40 dark:bg-black/18 dark:text-emerald-200"
+                >
+                  <Share2 size={15} />
+                  Compartilhar
+                </button>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-emerald-100 bg-white/75 p-4 dark:border-emerald-900/40 dark:bg-black/18">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Resumo pastoral</p>
+                    <h3 className="mt-1 text-sm font-black text-gray-900 dark:text-white">Texto pronto para memoria, ata ou compartilhamento</h3>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={handleCopyRecap}
+                      title="Copiar a recapitulacao textual deste culto."
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-50 px-3 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-200"
+                    >
+                      <Copy size={13} />
+                      Copiar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadRecap}
+                      title="Baixar a recapitulacao textual deste culto."
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-50 px-3 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-200"
+                    >
+                      <Download size={13} />
+                      Baixar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadPastoralReport}
+                      disabled={exportingPastoralReport}
+                      title="Exportar relatorio pastoral em CSV com metricas de participacao deste culto."
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#fff8e8] px-3 text-[10px] font-black uppercase tracking-widest text-[#8a6418] transition hover:bg-[#f3d28a]/30 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-amber-950/20 dark:text-amber-200"
+                    >
+                      {exportingPastoralReport ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                      Relatorio CSV
+                    </button>
+                  </div>
+                </div>
+                <pre className="mt-4 max-h-56 overflow-auto whitespace-pre-wrap rounded-2xl bg-[#f8fcfa] p-4 text-xs leading-relaxed text-gray-600 dark:bg-black/20 dark:text-gray-300">
+                  {recapText}
+                </pre>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-[#f3d28a]/40 bg-white/75 p-4 dark:border-amber-900/40 dark:bg-black/18">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-[#a87d22] dark:text-amber-200">Apoio pos-culto com IA</p>
+                    <h3 className="mt-1 text-sm font-black text-gray-900 dark:text-white">Resumo, devocional e acompanhamento para a semana</h3>
+                    <p className="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+                      Use como rascunho pastoral. Revise antes de publicar, ensinar ou enviar para grupos.
+                    </p>
+                  </div>
+                  <Sparkles className="hidden text-[#a87d22] dark:text-amber-200 sm:block" size={20} />
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  {POST_CULT_AI_ACTIONS.map((action) => {
+                    const isLoadingAi = postCultAiLoadingKind === action.kind;
+                    return (
+                      <button
+                        key={action.kind}
+                        type="button"
+                        onClick={() => handleGeneratePostCultAi(action.kind)}
+                        disabled={postCultAiLoadingKind !== null}
+                        title={`Gerar ${action.label.toLowerCase()} com IA.`}
+                        className="flex min-h-24 flex-col items-start justify-center rounded-2xl border border-[#f3d28a]/40 bg-[#fff8e8] p-4 text-left transition hover:border-[#d8b15f] hover:bg-[#fdf2d3] disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-900/40 dark:bg-amber-950/20 dark:hover:bg-amber-950/30"
+                      >
+                        <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#8a6418] dark:text-amber-200">
+                          {isLoadingAi ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                          {action.label}
+                        </span>
+                        <span className="mt-2 text-xs font-medium leading-relaxed text-gray-600 dark:text-gray-300">{action.description}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {Object.keys(postCultAiContents).length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    {POST_CULT_AI_ACTIONS.map((action) => {
+                      const item = postCultAiContents[action.kind];
+                      if (!item) return null;
+                      return (
+                        <article key={action.kind} className="rounded-2xl bg-[#f8fcfa] p-4 dark:bg-black/20">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-[#a87d22] dark:text-amber-200">{action.label}</p>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(item.content, `${action.label} copiado.`)}
+                              title={`Copiar ${action.label.toLowerCase()} gerado pela IA.`}
+                              className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl bg-white px-3 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:bg-emerald-50 dark:bg-bible-darkPaper dark:text-emerald-200"
+                            >
+                              <Copy size={13} />
+                              Copiar
+                            </button>
+                          </div>
+                          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-200">{item.content}</p>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {posts.length > 0 && (
+                <div className="mt-5 rounded-2xl border border-emerald-100 bg-white/75 p-4 dark:border-emerald-900/40 dark:bg-black/18">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Testemunhos e destaques</p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-3">
+                    {posts.slice(0, 3).map((post) => (
+                      <article key={post.id} className="rounded-2xl bg-[#f8fcfa] p-4 dark:bg-black/20">
+                        <p className="line-clamp-4 text-sm leading-relaxed text-gray-700 dark:text-gray-200">{post.content}</p>
+                        <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-gray-400">{post.userDisplayName}</p>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {nextService && (
+                <Link
+                  href={`/culto/${nextService.slug}`}
+                  className="mt-5 flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-white/75 p-4 transition hover:border-[#f3d28a] hover:bg-white dark:border-emerald-900/40 dark:bg-black/18 dark:hover:bg-black/25 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span>
+                    <span className="block text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Proximo culto</span>
+                    <span className="mt-1 block text-sm font-black text-gray-900 dark:text-white">{nextService.title}</span>
+                    <span className="mt-1 block text-xs font-medium text-gray-500 dark:text-gray-400">{formatFullDate(nextService.startsAt)}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#a87d22] dark:text-amber-200">
+                    Abrir <ArrowRight size={14} />
+                  </span>
+                </Link>
+              )}
+            </div>
+          )}
+
+          {(experienceMode === 'during_with_live' || experienceMode === 'during_without_live' || liveState) && (
             <div className="rounded-[2rem] border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-[#fff8e8] p-6 shadow-sm dark:border-emerald-900/40 dark:from-emerald-950/20 dark:via-bible-darkPaper dark:to-amber-950/10">
               <div className="flex items-center gap-2">
                 <Radio className="text-red-500" size={18} />
-                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300">Modo Culto Ao Vivo</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300">
+                  {experienceMode === 'during_with_live' ? 'Modo Culto Ao Vivo' : 'Culto presencial em andamento'}
+                </p>
               </div>
               <h2 className="mt-2 text-xl font-black text-gray-900 dark:text-white">{liveState?.currentTitle || currentStep?.title || 'Acompanhando a liturgia'}</h2>
               {liveState?.currentVerseRef && <p className="mt-4 text-sm font-black text-gray-900 dark:text-white">{liveState.currentVerseRef}</p>}
               {liveState?.currentVerseText && <p className="mt-2 text-sm leading-relaxed text-gray-700 dark:text-gray-200">{liveState.currentVerseText}</p>}
-              {liveState?.currentExplanation && <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{liveState.currentExplanation}</p>}
+              {currentStepNotes && <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{currentStepNotes}</p>}
+              {nextStep && (
+                <p className="mt-4 rounded-2xl bg-white/70 px-4 py-3 text-xs font-black uppercase tracking-widest text-emerald-800 dark:bg-black/20 dark:text-emerald-200">
+                  Proximo momento: {nextStep.title}
+                </p>
+              )}
             </div>
           )}
 
@@ -609,18 +1381,34 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           <div className={premiumCardClass}>
             <h2 className="mb-5 flex items-center gap-2 text-xl font-black text-gray-900 dark:text-white"><Clock className={premiumIconClass} /> Timeline liturgica</h2>
             <div className="space-y-3">
-              {service.liturgyItems.map((item, index) => {
-                const nextItem = service.liturgyItems[index + 1];
-                const itemEnd = nextItem ? getLiturgyItemDate(service, nextItem.startsAt) : new Date(service.endsAt);
-                const isPastItem = currentStep?.id !== item.id && nowDate > itemEnd;
+              {experienceMoments.map((item) => {
+                const isPastItem = item.momentStatus === 'completed';
                 return (
-                <div key={item.id} className={`rounded-2xl border p-4 transition-all duration-700 ${isPastItem ? 'opacity-45 saturate-50' : 'opacity-100'} ${currentStep?.id === item.id ? 'border-emerald-300 bg-emerald-50 shadow-lg shadow-emerald-950/5 dark:border-emerald-800 dark:bg-emerald-950/20' : 'border-emerald-100 bg-[#f8fcfa] dark:border-emerald-900/40 dark:bg-emerald-950/10'}`}>
+                <div key={item.id} className={`rounded-2xl border p-4 transition-all duration-700 ${isPastItem ? 'opacity-45 saturate-50' : 'opacity-100'} ${item.momentStatus === 'current' ? 'border-emerald-300 bg-emerald-50 shadow-lg shadow-emerald-950/5 dark:border-emerald-800 dark:bg-emerald-950/20' : 'border-emerald-100 bg-[#f8fcfa] dark:border-emerald-900/40 dark:bg-emerald-950/10'}`}>
                   <div className="flex items-start gap-4">
                     <span className={`rounded-xl bg-white px-3 py-2 text-xs font-black shadow-sm transition-all duration-700 dark:bg-bible-darkPaper ${isPastItem ? 'text-gray-300 line-through dark:text-gray-600' : 'text-emerald-700 dark:text-emerald-300'}`}>{item.startsAt}</span>
                     <div>
                       <h3 className="font-black text-gray-900 dark:text-white">{item.title}</h3>
                       {item.responsible && <p className="text-xs font-bold text-gray-400">Responsavel: {item.responsible}</p>}
-                      {item.notes && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{item.notes}</p>}
+                      {getPublicMomentNotes(item.notes) && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{getPublicMomentNotes(item.notes)}</p>}
+                      {(item.leaderScript || item.prayerGuide || item.transitionText || item.scriptureReadingRef || item.scriptureReadingText || item.sermonPoints?.length) && (
+                        <div className="mt-3 space-y-2 rounded-2xl border border-[#f3d28a]/40 bg-white/70 p-3 text-sm text-gray-600 dark:border-amber-900/30 dark:bg-bible-darkPaper/70 dark:text-gray-300">
+                          {item.leaderScript && <p><span className="font-black text-[#8a6a2f] dark:text-[#f3d28a]">Fala:</span> {item.leaderScript}</p>}
+                          {(item.scriptureReadingRef || item.scriptureReadingText) && (
+                            <div>
+                              {item.scriptureReadingRef && <p className="font-black text-emerald-800 dark:text-emerald-300">{item.scriptureReadingRef}</p>}
+                              {item.scriptureReadingText && <p className="mt-1 font-serif italic leading-relaxed">"{item.scriptureReadingText}"</p>}
+                            </div>
+                          )}
+                          {item.sermonPoints?.length ? (
+                            <ul className="list-disc space-y-1 pl-5">
+                              {item.sermonPoints.map((point, index) => <li key={`${item.id}_point_${index}`}>{point}</li>)}
+                            </ul>
+                          ) : null}
+                          {item.prayerGuide && <p><span className="font-black text-[#8a6a2f] dark:text-[#f3d28a]">Oração:</span> {item.prayerGuide}</p>}
+                          {item.transitionText && <p><span className="font-black text-[#8a6a2f] dark:text-[#f3d28a]">Transição:</span> {item.transitionText}</p>}
+                        </div>
+                      )}
                       {item.songList && (
                         <ul className="mt-2 space-y-1 text-sm font-medium text-gray-500 dark:text-gray-400">
                           {item.songList.split('\n').filter(Boolean).map((song, index) => <li key={`${item.id}_song_${index}`}>- {song}</li>)}
@@ -743,7 +1531,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
         <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
           <div className={premiumCardClass}>
             <h2 className="mb-4 flex items-center gap-2 text-lg font-black text-gray-900 dark:text-white"><MessageSquarePlus className={premiumIconClass} /> Postar no feed</h2>
-            <textarea value={postContent} onChange={(event) => setPostContent(event.target.value)} title="Escreva uma mensagem para publicar no feed da igreja vinculada a este culto." placeholder="Compartilhe uma frase da pregacao, testemunho ou foto depois pelo feed..." className="min-h-32 w-full resize-none rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 text-sm leading-relaxed outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-emerald-900/40 dark:bg-emerald-950/10" />
+            <textarea ref={postComposerRef} value={postContent} onChange={(event) => setPostContent(event.target.value)} title="Escreva uma mensagem para publicar no feed da igreja vinculada a este culto." placeholder="Compartilhe uma frase da pregacao, testemunho ou foto depois pelo feed..." className="min-h-32 w-full resize-none rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 text-sm leading-relaxed outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-emerald-900/40 dark:bg-emerald-950/10" />
             <button onClick={handleCreatePost} disabled={posting} title="Publicar esta mensagem no feed da igreja." className={`mt-3 w-full ${champagneButtonClass}`}>
               {posting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
               Publicar com a igreja
@@ -875,28 +1663,103 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
               <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-200">
                 Venha participar do culto "{service.title}" na {service.churchName}. Tema: {service.theme}
               </p>
-              <p className="mt-3 break-all text-xs font-medium text-emerald-700 dark:text-emerald-300">{typeof window !== 'undefined' ? window.location.href.split('?')[0] : ''}</p>
+              <p className="mt-3 break-all text-xs font-medium text-emerald-700 dark:text-emerald-300">{inviteUrl || (typeof window !== 'undefined' ? window.location.href.split('?')[0] : '')}</p>
+              {inviteToken && (
+                <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  Convite rastreavel criado
+                </p>
+              )}
             </div>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={() => copyToClipboard(`Venha participar do culto "${service.title}" na ${service.churchName}. ${window.location.href.split('?')[0]}`, 'Convite copiado.')}
-                title="Copiar texto de convite com o link deste culto."
+                onClick={async () => {
+                  const url = await getOrCreateInviteUrl('copy');
+                  await copyToClipboard(`Venha participar do culto "${service.title}" na ${service.churchName}. ${url}`, 'Convite copiado.');
+                }}
+                disabled={creatingInvite}
+                title="Copiar texto de convite com link rastreavel deste culto."
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-4 text-[10px] font-medium uppercase tracking-widest text-emerald-800 transition hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-200"
               >
-                <Copy size={14} />
+                {creatingInvite ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
                 Copiar
               </button>
               <button
                 type="button"
-                onClick={handleShare}
+                onClick={async () => {
+                  const url = await getOrCreateInviteUrl('share');
+                  try {
+                    if (navigator.share) {
+                      await navigator.share({ title: service.title, text: service.theme, url });
+                      return;
+                    }
+                    await copyToClipboard(url, 'Link do convite copiado.');
+                  } catch (error: any) {
+                    if (error?.name !== 'AbortError') showNotification('Nao foi possivel compartilhar o convite.', 'error');
+                  }
+                }}
+                disabled={creatingInvite}
                 title="Compartilhar este culto usando as opcoes do dispositivo."
                 className={champagneButtonClass}
               >
-                <Share2 size={14} />
+                {creatingInvite ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
                 Compartilhar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isScheduleModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-3 backdrop-blur-sm md:items-center" role="dialog" aria-modal="true" aria-labelledby="service-schedule-title" onClick={() => setIsScheduleModalOpen(false)}>
+          <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-2xl dark:border-emerald-900/40 dark:bg-bible-darkPaper" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 id="service-schedule-title" className="flex items-center gap-2 text-lg font-medium text-gray-900 dark:text-white"><Users className={premiumIconClass} /> Escala do culto</h2>
+                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">Equipes e pessoas escaladas para servir neste culto.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsScheduleModalOpen(false)}
+                title="Fechar escala do culto."
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-800 transition hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-200"
+                aria-label="Fechar escala do culto"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {Object.keys(scheduleGroups).length > 0 ? (
+              <div className="space-y-4">
+                {Object.entries(scheduleGroups).map(([teamName, assignments]) => (
+                  <div key={teamName} className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/10">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <h3 className="text-sm font-black text-gray-900 dark:text-white">{teamName}</h3>
+                      <span className="w-fit rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:bg-bible-darkPaper dark:text-emerald-200">{assignments.length} pessoa(s)</span>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {assignments.map((assignment) => (
+                        <div key={assignment.id} className="flex flex-col gap-1 rounded-xl bg-white p-3 text-sm dark:bg-bible-darkPaper sm:flex-row sm:items-center sm:justify-between">
+                          <span className="min-w-0">
+                            <span className="block font-black text-gray-900 dark:text-white">{assignment.userDisplayName}</span>
+                            <span className="mt-0.5 block text-xs font-semibold text-gray-500 dark:text-gray-400">{assignment.role || 'Funcao nao informada'}</span>
+                          </span>
+                          <span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${SCHEDULE_STATUS_STYLES[assignment.status]}`}>
+                            {SCHEDULE_STATUS_LABELS[assignment.status]}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-center dark:border-gray-700">
+                <Users className="mx-auto text-gray-300" size={30} />
+                <h3 className="mt-3 text-base font-black text-gray-900 dark:text-white">Nenhuma escala publicada</h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">Quando a equipe for escalada no Culto+, os nomes aparecerao aqui.</p>
+              </div>
+            )}
           </div>
         </div>
       )}

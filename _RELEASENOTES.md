@@ -4,6 +4,60 @@
 > **VERSION SYNC:** Lembre-se de atualizar `constants.ts`, `_ARCHITECTURE.md` e `_PROJECT_CONTEXT.md` ao mudar a versão aqui.
 > **GIT SYNC:** Após atualizar este arquivo, o Arquiteto deve executar `git commit` com a mensagem do release.
 
+## [Unreleased] - 2026-06-23 (Gestao da Igreja independente)
+### Tipo: Feature / Security / MVP
+- **Resumo:** Avanco do roadmap de Gestao da Igreja para reduzir dependencia de previews e fechar fluxos reais do MVP.
+- **Novidades:**
+  - **Perfis gerais separados de permissoes:** Perfis agora suportam `Usuario`, `Pastor` e `Gestor` via `profileType`, mantendo permissoes reais da igreja em roles operacionais.
+  - **Pastor/Gestor sem igreja:** `/complete-profile` permite escolher Pastor ou Gestor sem solicitar permissao da igreja; a Gestao da Igreja mostra CTA de vinculo/solicitacao sem conceder acesso automatico.
+  - **Compatibilidade Supabase:** `profiles.profile_type` foi adicionado com backfill para contas `subscription_tier = pastor`, mantendo fallback para ambientes ainda nao migrados.
+  - **QR publico real:** `/qr/[token]` agora busca o formulario ativo via `churchManagementService.getQrFormByToken`, registra scan por sessao e usa preview apenas como fallback quando o schema ainda nao estiver disponivel.
+  - **Envio para inbox:** O formulario publico aceita `ChurchQrForm` real e envia respostas para `church_form_submissions`, preservando mensagem de fallback para ambientes demonstrativos.
+  - **Gate operacional:** Novo `ChurchManagementAccessGate` protege todo o segmento `/gestao-igreja` por igreja vinculada e papel operacional ativo (`church_manager`, `pastor` ou `leader`), mantendo admin como excecao tecnica.
+  - **Minha Igreja com dados reais:** A home de `/minha-igreja` passa a exibir submissions, designacoes e insignias reais do membro quando disponiveis, mantendo previews apenas como estado demonstrativo.
+  - **Contadores de QR:** O SQL do modulo agora inclui `increment_church_qr_counter`, usado para scans e envios sem depender de RPC generica externa ao roadmap.
+  - **Admin legado da igreja:** O gate operacional tambem reconhece admins/fundadores registrados em `churches.admins`, preservando compatibilidade com igrejas criadas antes dos novos roles.
+  - **Inbox operacional:** A inbox ganhou atribuicao de responsavel, prioridade e botao "atribuir a mim", conectados a `updateSubmissionStatus`.
+  - **Notificacoes dedicadas:** Criado `churchNotificationService` com matriz inicial de eventos, canais e severidades padrao para os fluxos essenciais.
+  - **Eventos de notificacao:** SQL e service agora registram `church_notification_events` com origem, dedupe, status e payload minimo antes da notificacao visivel.
+  - **Central de alertas operacional:** `/gestao-igreja/notificacoes` ganhou filtros por estado, refresh, leitura em lote, links acionaveis e RLS para operadores atualizarem alertas do dashboard.
+  - **Diretorio operacional real:** `/gestao-igreja/pessoas` deixou de preencher cards ficticios quando nao ha papeis reais, usa metadados dos roles quando existem e mostra estado vazio com atalho para nova permissao.
+  - **QR anonimo com alerta seguro:** SQL adiciona `notify_church_form_submission`, uma RPC `security definer` para criar eventos/notificacoes de submissions publicas sem depender de permissao client-side.
+  - **Listagens sem operacao ficticia:** Designacoes, QR Codes, Equipes e Notificacoes deixam de usar cards demonstrativos quando a base real esta vazia e passam a exibir estados vazios acionaveis.
+  - **Detalhes e hubs sem preview:** Detalhes, Inbox, Grupos/Celulas e Culto+ deixam de preencher registros ficticios e passam a mostrar estados vazios reais com atalhos para a acao correta.
+  - **Services sem fallback ficticio:** `churchManagementService` passa a retornar listas vazias/contadores zerados quando o schema do modulo ainda nao foi aplicado, mantendo previews apenas em catalogos intencionais da UI.
+  - **Jornadas guiadas:** Novas paginas `/gestao-igreja/jornada` e `/minha-igreja/jornada-obreiro` explicam os fluxos de gestor, lider, pastor, voluntario e obreiro.
+  - **Pipeline de voluntariado:** Nova rota `/gestao-igreja/voluntariado` organiza interesses reais de QR/formulario `volunteer` por etapa, com atribuicao, acompanhamento e encerramento.
+  - **Categorias de voluntariado:** Pipeline e QR de voluntarios agora usam cargos padronizados por ministerio, com filtro por categoria, contagem e inferencia para envios antigos.
+  - **Admin de gestao de igrejas:** `/admin?view=church_management` lista gestores aprovados/ativos por igreja, e `/admin?view=users` mostra igreja vinculada e tipo de conta de cada usuario.
+  - **Impressao premium de QR Codes:** Cada QR Code da Gestao ganhou pagina A4 para mural, com dados da igreja, lider, criador, vaga/formulario, QR central e link publico.
+  - **Culto+ operacional:** `/gestao-igreja/cultos` agora usa resumo da Gestao para mostrar check-ins, pedidos de oracao, escalas e pendencias por culto sem duplicar o CRUD do Culto+.
+  - **Status das fases:** Novo documento `docs/roadmaps/gestao-igreja-independente-status.md` consolida fases implementadas, parciais e pendentes do MVP.
+  - **Reconhecimento de voluntario:** Aceite de designacao passa a tentar registrar insignia privada de disponibilidade, evento de Mana auditavel e notificacao ao membro, sem bloquear o aceite se o schema ainda nao estiver aplicado.
+  - **RLS de reconhecimento:** SQL atualizado para permitir que o proprio assignee registre apenas a badge de designacao aceita vinculada a uma designacao real aceita.
+  - **Snapshots leves:** SQL, service e tela de relatorios agora suportam `church_analytics_snapshots`, com criacao/listagem de snapshots diarios para indicadores historicos de baixo custo.
+  - **Grupos com convites reais:** `/gestao-igreja/grupos` passou a consumir `churchManagementService.getGroupOperationalItems`, exibindo grupos/celulas reais e convites pendentes sem acesso direto da UI ao banco.
+  - **Infra SQL/RLS validavel:** Novos comandos `church:sql:apply`, `church:sql:validate` e `church:rls:validate` aplicam/auditam o SQL principal no Postgres do Supabase quando a conexao real esta correta.
+  - **Testes ESM organizados:** `test:church-management` agora usa um runner local com esbuild e `node --test`, evitando falha do loader `ts-node/esm` no Node 24.
+  - **Sincronizacao Culto+ -> Gestao:** `syncCultoPlusOperationalItems` importa escalas como designacoes e pedidos publicos de oracao como inbox, usando `source_type/source_id` para evitar duplicidade.
+  - **Acompanhamento de grupos:** Grupos/celulas agora podem gerar alertas operacionais deduplicados para convites pendentes.
+  - **RLS por perfil real:** Novo comando `church:rls:profiles` prepara testes com UUIDs reais de gestor, pastor, lider, voluntario, membro comum e admin.
+  - **Regras testaveis do modulo:** Nova camada `utils/churchManagementRules.ts` cobre gate, QR publico, inbox, notificacoes e categorias de voluntariado com testes locais; `test:church-management` agora executa 28 casos.
+
+## [v2.3.0] - 2026-06-12 (Mana, Niveis e Rankings)
+### Tipo: Feature / Architecture / Database
+- **Resumo:** Implementacao inicial do roadmap de expansao de Mana, niveis e rankings.
+- **Novidades:**
+  - **Fonte unica de regras:** Matriz completa de `ActionType` com XP, limites diarios, cooldowns, estrategia anti-duplicidade, publico e status.
+  - **Progresso e badges:** `recordActivity` agora atualiza `stats` e libera conquistas baseadas em estatisticas, alem dos niveis por XP.
+  - **Anti-abuso inicial:** Leitura de capitulo so concede Mana quando o capitulo ainda nao estava concluido e eventos repetidos por fonte/dia passam a ser ignorados.
+  - **Competicao:** Nova rota protegida `/competicao` com progresso pessoal, checklist diario, regras de Mana e ranking global de usuarios.
+  - **Eventos sociais:** Comentarios no Reino, comentarios em jornadas, convites e mencoes passam a usar ActionTypes explicitos.
+  - **Banco preparado:** Novo script `scripts/create_mana_gamification.sql` para `mana_events`, regras, niveis, badges configuraveis e snapshots de igreja.
+  - **Auditoria Admin:** Nova aba `Auditoria Mana` para revisar e anular eventos quando `mana_events` estiver disponivel.
+  - **Campanhas:** Temporadas/desafios de Mana configuraveis em `SystemSettings.gamificationCampaigns`.
+  - **Estimulos:** `ManaNudge` contextual na Home e Mapa Vivo atualizado com a Central de Competicao.
+
 ## [v2.2.0] - 2026-05-18 (Culto+ MVP)
 ### Tipo: Feature / Architecture / Database
 - **Resumo:** Primeira entrega do Culto+, criando a base de acompanhamento digital de cultos no BibliaLM.

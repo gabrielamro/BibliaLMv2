@@ -1,4 +1,5 @@
 import { generateDailyDevotional } from './pastorAgent';
+import { DAILY_BREAD } from '../constants';
 import { dbService } from './supabase';
 import {
   normalizeVerseReference,
@@ -62,6 +63,16 @@ const createGeneratedCandidate = (raw: any, date: string): ResolvedDevotionalCan
   };
 };
 
+const createDailyBreadCandidate = (date: string): ResolvedDevotionalCandidate => {
+  const candidate = normalizeDevotionalCandidate(DAILY_BREAD, date);
+  return {
+    ...candidate!,
+    id: buildGeneratedAltId(date, DAILY_BREAD.verseReference),
+    date,
+    source: 'generated',
+  };
+};
+
 const collectSeenVerseReferences = async (userId: string) => {
   const history = await dbService.getUserDevotionalHistory(userId, 240);
   const windowStart = getSixMonthWindowStart();
@@ -120,22 +131,28 @@ const generateUniqueFallback = async (date: string, seenVerseReferences: string[
 
 export const resolveUserDailyDevotional = async ({ userId, forceNew }: ResolveUserDailyDevotionalInput) => {
   const todayDate = toDateId(new Date().toISOString());
+  const safeDailyBread = () => createDailyBreadCandidate(todayDate);
 
   // Se o usuário pediu para atualizar, gera um exclusivo para ele
   if (forceNew && userId) {
+    try {
       const seenVerseReferences = await collectSeenVerseReferences(userId);
       const fallback = await generateUniqueFallback(todayDate, seenVerseReferences);
-      
+
       let candidate = fallback;
       if (!candidate) {
-          const generated = await generateDailyDevotional(true);
-          candidate = createGeneratedCandidate(generated, todayDate);
+        const generated = await generateDailyDevotional(true);
+        candidate = createGeneratedCandidate(generated, todayDate);
       }
-      
+
       if (candidate) {
-          await persistUserResolution(userId, candidate);
-          return candidate;
+        await persistUserResolution(userId, candidate);
+        return candidate;
       }
+    } catch (error) {
+      console.warn('Devotional refresh fell back to DAILY_BREAD:', error);
+      return safeDailyBread();
+    }
   }
 
   // Verificar se O USUÁRIO já tem um devocional (oficial gerado localmente ou um personalizado que foi gerado em sessões anteriores) para hoje! 
@@ -152,6 +169,7 @@ export const resolveUserDailyDevotional = async ({ userId, forceNew }: ResolveUs
      }
      
      // 2. Se não tem no localStorage, tenta do DB (pode falhar se a tabela não existir)
+     try {
      const persisted = normalizeDevotionalCandidate(
         await dbService.getUserScopedSetting(settingsKey),
         todayDate
@@ -160,14 +178,23 @@ export const resolveUserDailyDevotional = async ({ userId, forceNew }: ResolveUs
          if (typeof window !== 'undefined') localStorage.setItem(settingsKey, JSON.stringify(persisted));
          return persisted; // Se tem, usa ele e nem tenta gerar um oficial novo!
      }
+     } catch (error) {
+       console.warn('Devotional user setting lookup failed:', error);
+     }
   }
 
   // Tenta puxar o oficial do banco
-  let officialRaw = await dbService.getDailyDevotional();
+  let officialRaw: any = null;
+  try {
+    officialRaw = await dbService.getDailyDevotional();
+  } catch (error) {
+    console.warn('Daily devotional lookup failed:', error);
+  }
   const isFromToday = officialRaw?.date === todayDate;
 
   // Se o banco está atrasado, a IA gera um pra hoje
   if (!officialRaw || !isFromToday) {
+    try {
     // Busca devocionais do último ano para não repetir referências
     const pastYearDevotionals = await dbService.getRecentDailyDevotionals(365);
     const seenReferences = pickSeenVerseReferencesFromDevotionals(pastYearDevotionals);
@@ -185,6 +212,10 @@ export const resolveUserDailyDevotional = async ({ userId, forceNew }: ResolveUs
       // Tenta salvar no banco como "oficial do dia"
       await dbService.saveAdminDevotional(officialRaw);
     }
+    } catch (error) {
+      console.warn('Daily devotional generation fell back to DAILY_BREAD:', error);
+      officialRaw = DAILY_BREAD;
+    }
   }
 
   const official = normalizeDevotionalCandidate(officialRaw);
@@ -194,7 +225,12 @@ export const resolveUserDailyDevotional = async ({ userId, forceNew }: ResolveUs
   }
 
   if (userId) {
-     const seenVerseReferences = await collectSeenVerseReferences(userId);
+     let seenVerseReferences: string[] = [];
+     try {
+       seenVerseReferences = await collectSeenVerseReferences(userId);
+     } catch (error) {
+       console.warn('Daily devotional history lookup failed:', error);
+     }
      let picked = pickResolvedDevotional({
        official: { ...official, source: 'official' },
        persistedForToday: null,
@@ -203,15 +239,20 @@ export const resolveUserDailyDevotional = async ({ userId, forceNew }: ResolveUs
      }) as ResolvedDevotionalCandidate | null;
 
      if (!picked) {
-       const fallbackPool = (await dbService.getRecentDailyDevotionals(240))
-         .map((item: any) => normalizeDevotionalCandidate(item))
-         .filter((item: ResolvedDevotionalCandidate | null): item is ResolvedDevotionalCandidate => Boolean(item))
-         .map((item: ResolvedDevotionalCandidate) => ({
-           ...item,
-           id: buildGeneratedAltId(todayDate, item.verseReference),
-           date: todayDate,
-           source: 'catalog' as const,
-         }));
+       let fallbackPool: ResolvedDevotionalCandidate[] = [];
+       try {
+         fallbackPool = (await dbService.getRecentDailyDevotionals(240))
+           .map((item: any) => normalizeDevotionalCandidate(item))
+           .filter((item: ResolvedDevotionalCandidate | null): item is ResolvedDevotionalCandidate => Boolean(item))
+           .map((item: ResolvedDevotionalCandidate) => ({
+             ...item,
+             id: buildGeneratedAltId(todayDate, item.verseReference),
+             date: todayDate,
+             source: 'catalog' as const,
+           }));
+       } catch (error) {
+         console.warn('Daily devotional fallback pool lookup failed:', error);
+       }
 
        picked = pickResolvedDevotional({
          official: null,
@@ -222,12 +263,20 @@ export const resolveUserDailyDevotional = async ({ userId, forceNew }: ResolveUs
      }
 
      if (!picked) {
-       picked = await generateUniqueFallback(todayDate, seenVerseReferences);
+       try {
+         picked = await generateUniqueFallback(todayDate, seenVerseReferences);
+       } catch (error) {
+         console.warn('Daily devotional unique fallback generation failed:', error);
+       }
      }
 
      // Se nao houver alternativa unica disponivel, preserva o Pao Diario oficial.
      picked = picked ?? ({ ...official, source: 'official' } as ResolvedDevotionalCandidate);
-     await persistUserResolution(userId, picked);
+     try {
+       await persistUserResolution(userId, picked);
+     } catch (error) {
+       console.warn('Daily devotional persistence failed:', error);
+     }
      
      // Força no cache local para blindar contra falha silenciosa de DB (RLS ou tabela inexistente)
      if (typeof window !== 'undefined') {

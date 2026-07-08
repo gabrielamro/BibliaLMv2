@@ -1,0 +1,93 @@
+import type { ChurchService, ChurchServiceStatus, ServiceLiturgyItem, ServiceLiturgyMomentStatus, ServiceStreamStatus } from '../types';
+
+export type WorshipExperienceMode = 'before' | 'during_with_live' | 'during_without_live' | 'after' | 'archived';
+
+type ResolveWorshipExperienceInput = {
+  serviceStatus: ChurchServiceStatus;
+  streamStatus: ServiceStreamStatus;
+};
+
+export type ServiceExperienceMoment = ServiceLiturgyItem & {
+  momentStatus: ServiceLiturgyMomentStatus;
+};
+
+const getLiturgyItemDate = (service: Pick<ChurchService, 'startsAt'>, startsAt: string) => {
+  const [hours, minutes] = startsAt.split(':').map(Number);
+  const date = new Date(service.startsAt);
+  date.setHours(hours ?? 0, minutes ?? 0, 0, 0);
+  return date;
+};
+
+export const resolveServiceStreamStatus = (
+  service: Pick<ChurchService, 'startsAt' | 'endsAt' | 'liveUrl' | 'status'>,
+  nowDate = new Date(),
+): ServiceStreamStatus => {
+  const hasLiveUrl = Boolean(service.liveUrl?.trim());
+  const startsAt = new Date(service.startsAt);
+  const endsAt = new Date(service.endsAt);
+
+  if (!hasLiveUrl) return 'not_configured';
+  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) return 'unavailable';
+  if (service.status === 'finished' || service.status === 'archived' || nowDate > endsAt) return 'ended';
+  if (service.status === 'live' || service.status === 'in_progress' || (nowDate >= startsAt && nowDate <= endsAt)) return 'live';
+  return 'upcoming';
+};
+
+export const resolveWorshipExperienceMode = ({
+  serviceStatus,
+  streamStatus,
+}: ResolveWorshipExperienceInput): WorshipExperienceMode => {
+  if (serviceStatus === 'archived') return 'archived';
+  if (serviceStatus === 'finished') return 'after';
+
+  if (serviceStatus === 'live' || serviceStatus === 'in_progress') {
+    return streamStatus === 'live' ? 'during_with_live' : 'during_without_live';
+  }
+
+  return 'before';
+};
+
+export const getCurrentLiturgyMoment = (
+  service: Pick<ChurchService, 'startsAt' | 'endsAt' | 'liturgyItems'>,
+  nowDate = new Date(),
+  currentItemId?: string | null,
+) => {
+  if (currentItemId) {
+    const liveMoment = service.liturgyItems.find((item) => item.id === currentItemId);
+    if (liveMoment) return liveMoment;
+  }
+
+  return service.liturgyItems.find((item, index) => {
+    const startsAt = getLiturgyItemDate(service, item.startsAt);
+    const nextItem = service.liturgyItems[index + 1];
+    const endsAt = nextItem ? getLiturgyItemDate(service, nextItem.startsAt) : new Date(service.endsAt);
+    return nowDate >= startsAt && nowDate < endsAt;
+  }) ?? service.liturgyItems[0] ?? null;
+};
+
+export const getNextLiturgyMoment = (
+  service: Pick<ChurchService, 'startsAt' | 'endsAt' | 'liturgyItems'>,
+  currentMoment?: ServiceLiturgyItem | null,
+) => {
+  if (!currentMoment) return service.liturgyItems[0] ?? null;
+  const currentIndex = service.liturgyItems.findIndex((item) => item.id === currentMoment.id);
+  return currentIndex >= 0 ? service.liturgyItems[currentIndex + 1] ?? null : null;
+};
+
+export const getExperienceMoments = (
+  service: Pick<ChurchService, 'startsAt' | 'endsAt' | 'liturgyItems'>,
+  currentMoment?: ServiceLiturgyItem | null,
+  nowDate = new Date(),
+): ServiceExperienceMoment[] =>
+  service.liturgyItems.map((item) => {
+    if (currentMoment?.id === item.id) return { ...item, momentStatus: 'current' };
+
+    const itemIndex = service.liturgyItems.findIndex((candidate) => candidate.id === item.id);
+    const nextItem = service.liturgyItems[itemIndex + 1];
+    const itemEnd = nextItem ? getLiturgyItemDate(service, nextItem.startsAt) : new Date(service.endsAt);
+
+    return {
+      ...item,
+      momentStatus: nowDate > itemEnd ? 'completed' : 'pending',
+    };
+  });

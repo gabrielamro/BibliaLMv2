@@ -93,13 +93,14 @@ export interface EmbeddedContext {
   onSave: (content: any, status: ContentStatus) => void;
   onClose: () => void;
   isEmbedded: boolean;
+  displayTitle?: string;
 }
 
 const CreateContentV3Page: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ embeddedContext }) => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser, earnMana, showNotification } = useAuth();
+  const { currentUser, earnMana, showNotification, checkFeatureAccess, openSubscription } = useAuth();
   const { setTitle, setBreadcrumbs, resetHeader, setIsHeaderHidden } = useHeader();
 
   const [currentStep, setCurrentStep] = useState<'create' | 'preview' | 'publish'>('create');
@@ -172,6 +173,28 @@ const CreateContentV3Page: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ 
   const searchTimeoutRef = useRef<any>(null);
 
   const handleMainScroll = (e: React.UIEvent<HTMLDivElement>) => {};
+
+  const applyEmbeddedDisplayTitle = useCallback((data: ContentData): ContentData => {
+    if (!embeddedContext?.displayTitle) return data;
+
+    return {
+      ...data,
+      meta: {
+        ...data.meta,
+        title: embeddedContext.displayTitle,
+      },
+      blocks: (data.blocks || []).map((block: any, index: number) => {
+        if (index > 0 || !['hero', 'hero-split'].includes(block.type)) return block;
+        return {
+          ...block,
+          data: {
+            ...block.data,
+            title: embeddedContext.displayTitle,
+          },
+        };
+      }),
+    };
+  }, [embeddedContext?.displayTitle]);
 
   useEffect(() => {
     if (showSettingsOverlay && settingsTab === 'access' && content.id) {
@@ -258,15 +281,15 @@ const CreateContentV3Page: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ 
         if (cached) {
           try {
             const parsed = JSON.parse(cached);
-            setContent(prev => ({ ...prev, ...parsed }));
+            setContent(prev => applyEmbeddedDisplayTitle({ ...prev, ...parsed }));
             setIsModified(true);
             showNotification('Rascunho restaurado do cache local', 'info');
           } catch (e) {
             console.error('Erro ao restaurar cache:', e);
-            setContent({ ...data, blocks: parsedBlocks, meta: parsedMeta });
+            setContent(applyEmbeddedDisplayTitle({ ...data, blocks: parsedBlocks, meta: parsedMeta }));
           }
         } else {
-          setContent({ ...data, blocks: parsedBlocks, meta: parsedMeta });
+          setContent(applyEmbeddedDisplayTitle({ ...data, blocks: parsedBlocks, meta: parsedMeta }));
         }
         setContentType(data.type || 'article');
         setCurrentStep('create');
@@ -318,7 +341,7 @@ const CreateContentV3Page: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ 
       setIsLoading(false);
     };
     loadContent();
-  }, [location.state, location.search]);
+  }, [location.state, location.search, applyEmbeddedDisplayTitle]);
 
   useEffect(() => {
     const ref = mainVerse.trim();
@@ -599,6 +622,11 @@ const CreateContentV3Page: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ 
   };
 
   const handleAIAutoBuilder = async () => {
+    if (!checkFeatureAccess('aiDeepAnalysis')) {
+      openSubscription('Este recurso usa IA avancada para montar uma pagina de estudo completa com estrutura, conteudo e aplicacao.');
+      return;
+    }
+
     const userPrompt = aiBuilderPrompt.trim();
     if (!userPrompt && !verseRef) {
       showNotification('Escreva o que a IA deve criar ou adicione uma referência bíblica', 'warning');
@@ -1065,7 +1093,7 @@ const CreateContentV3Page: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ 
                         : canvasWidth === 'full' ? 'w-full max-w-full'
                           : 'w-full max-w-7xl'
                     }`}>
-                    <div className="w-full h-full p-4 md:p-6 lg:p-8">
+                    <div className={`w-full h-full ${embeddedContext ? 'p-0' : 'p-4 md:p-6 lg:p-8'}`}>
                       <UnifiedEditor
                         ref={editorRef}
                         content={content.blocks || ''}
@@ -1078,6 +1106,7 @@ const CreateContentV3Page: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ 
                         canvasWidth={canvasWidth}
                         studyId={content.id || content.slug}
                         studyTitle={content.meta.title}
+                        compactTopSpacing={Boolean(embeddedContext)}
                       />
                     </div>
                   </div>

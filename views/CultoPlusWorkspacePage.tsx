@@ -11,9 +11,11 @@ import { useAuth } from '../contexts/AuthContext';
 type CultoPlusWorkspacePageProps = {
   initialMode?: 'list' | 'create';
   initialView?: 'list' | 'calendar';
+  initialServiceId?: string | null;
+  initialEdit?: boolean;
 };
 
-const CultoPlusWorkspacePage: React.FC<CultoPlusWorkspacePageProps> = ({ initialMode = 'list', initialView = 'list' }) => {
+const CultoPlusWorkspacePage: React.FC<CultoPlusWorkspacePageProps> = ({ initialMode = 'list', initialView = 'list', initialServiceId = null, initialEdit = false }) => {
   const { setIsHeaderHidden, resetHeader } = useHeader();
   const { showNotification } = useAuth();
 
@@ -42,6 +44,8 @@ const CultoPlusWorkspacePage: React.FC<CultoPlusWorkspacePageProps> = ({ initial
         <CultoPlusManager
           initialMode={initialMode}
           initialView={initialView}
+          initialServiceId={initialServiceId}
+          initialEdit={initialEdit}
           pageTitle="Gestao do Culto+"
           pageDescription="Organize a liturgia, publique a OnePage e acompanhe check-ins, escalas, posts e engajamento em uma pagina dedicada."
         />

@@ -21,8 +21,7 @@ import { getProfileFeedPosts } from '../../utils/profileFeed';
 import { FeedPostCard } from '../../components/social/FeedPostCard';
 import { generateShareLink } from '../../utils/shareUtils';
 import { getPublicProfileTabs } from '../../utils/profileTabs';
-
-type Tab = 'overview' | 'studies' | 'plans' | 'followers' | 'settings';
+type Tab = 'overview' | 'studies' | 'plans' | 'followers' | 'settings' | 'church';
 type SettingsTab = 'profile' | 'notifications' | 'appearance' | 'privacy' | 'subscription';
 
 const PublicUserProfilePage: React.FC = () => {
@@ -149,7 +148,7 @@ const PublicUserProfilePage: React.FC = () => {
             }
             setUserPlans(plansData);
 
-            const postsData = await dbService.getUserFeedPosts(uid, 50);
+            const postsData = await dbService.getUserFeedPosts(uid, 50, myProfile);
             setUserPosts(getProfileFeedPosts(postsData, uid));
         } catch (e) {
             setUserPosts([]);
@@ -283,7 +282,7 @@ const PublicUserProfilePage: React.FC = () => {
                           <div className="flex min-w-0 flex-col items-center space-y-2 text-center md:items-start md:text-left">
                                <div className="flex w-full flex-wrap items-center justify-center gap-2 md:justify-start">
                                   <h1 className="max-w-full truncate text-2xl font-black leading-tight text-gray-950 dark:text-white md:text-3xl">{profile.displayName || `@${profile.username}`}</h1>
-                                  {profile.subscriptionTier && profile.subscriptionTier !== 'free' && (
+                                  {profile.subscriptionTier && profile.subscriptionTier !== 'free' && profile.subscriptionTier !== 'pastor' && profile.subscriptionTier !== 'admin' && (
                                       <div className="inline-flex min-h-6 items-center gap-1 rounded-full border border-bible-gold/20 bg-bible-gold/10 px-2.5">
                                           <Crown size={11} className={tiers[profile.subscriptionTier]?.color || 'text-bible-gold'} />
                                           <span className={`text-[9px] font-black uppercase tracking-widest ${tiers[profile.subscriptionTier]?.color || 'text-bible-gold'}`}>
@@ -383,6 +382,7 @@ const PublicUserProfilePage: React.FC = () => {
                       { id: 'overview', label: 'Início', icon: <LayoutGrid size={14} /> },
                       { id: 'studies', label: `Estudos`, icon: <BookOpen size={14} /> },
                       { id: 'plans', label: `Jornadas`, icon: <Layout size={14} /> },
+                      ...(profile.churchData ? [{ id: 'church', label: 'Igreja', icon: <Church size={14} /> }] : [])
                   ].map(tab => (
                       <button 
                         key={tab.id}
@@ -526,13 +526,13 @@ const PublicUserProfilePage: React.FC = () => {
                                               
                                               <div className="mt-6 flex flex-col gap-2">
                                                   <button 
-                                                    onClick={openSubscription}
+                                                    onClick={() => openSubscription()}
                                                     className="w-full py-3 bg-bible-gold text-black font-black uppercase tracking-widest text-[10px] rounded-xl shadow-md"
                                                   >
                                                       {profile!.subscriptionTier === 'free' ? 'Fazer Upgrade' : 'Mudar de Plano'}
                                                   </button>
                                                   <button 
-                                                    onClick={openSubscription}
+                                                    onClick={() => openSubscription()}
                                                     className="w-full py-3 bg-white/10 text-gray-500 font-black uppercase tracking-widest text-[10px] rounded-xl"
                                                   >
                                                       Gerenciar Fatura
@@ -662,6 +662,29 @@ const PublicUserProfilePage: React.FC = () => {
                                   </button>
                               ))
                           )}
+                      </div>
+                  )}
+
+                  {activeTab === 'church' && profile.churchData && (
+                      <div className="animate-in fade-in space-y-4">
+                          <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800">
+                              <h4 className="font-black text-gray-900 dark:text-white mb-4 text-[10px] uppercase tracking-[0.2em] flex items-center gap-2"><Church size={14} /> Minha Igreja</h4>
+                              <div className="flex flex-col md:flex-row items-center gap-6">
+                                  <div className="w-20 h-20 bg-bible-gold/10 text-bible-gold rounded-full flex items-center justify-center border-4 border-white dark:border-gray-800 shadow-lg">
+                                      <Church size={32} />
+                                  </div>
+                                  <div className="text-center md:text-left">
+                                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">{profile.churchData.churchName}</h3>
+                                      <p className="text-sm text-gray-500 mt-1">Conectado e Servindo</p>
+                                      <button 
+                                          onClick={() => navigate(`/social/igreja/${profile.churchData?.churchSlug}`)}
+                                          className="mt-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-xl text-xs font-bold shadow-sm"
+                                      >
+                                          Visitar Página da Igreja
+                                      </button>
+                                  </div>
+                              </div>
+                          </div>
                       </div>
                   )}
 

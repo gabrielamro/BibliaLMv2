@@ -8,12 +8,14 @@ import { useSettings } from '../contexts/SettingsContext';
 import { dbService, uploadBlob } from '../services/supabase';
 import type { CustomPlan, PlanDayContent, PlanWeek, PlanningFrequency, StudyEvaluation } from '../types';
 import SEO from '../components/SEO';
-import EvaluationBuilderModal from '../components/EvaluationBuilderModal';
+import EvaluationBuilderModal, { EvaluationSourceLesson } from '../components/EvaluationBuilderModal';
 import PlanStudioShell from '../components/PlanStudio/PlanStudioShell';
 import type { StudioTab } from '../components/PlanStudio/types';
 import CreateContentV3Page from './CreateContentV3Page';
 import { buildBaseBlocks } from '../components/Builder/utils';
+import { ArrowLeft, BookOpen, CheckCircle2, Copy, Edit3, Eye, GraduationCap, Lock, Plus, Share2, ShieldCheck, Users } from 'lucide-react';
 import { getContentDefaultsFromSearchParams, toLegacyPlanPrivacyType } from '../utils/contentPrivacy';
+import { getPlanSharePath, getPlanShareUrl } from '../utils/planSharing';
 
 const getUnitLabel = (frequency: PlanningFrequency, index: number) => {
   if (frequency === 'daily') return `Dia ${index}`;
@@ -57,6 +59,352 @@ const createLessonTemplateBlocks = () => buildBaseBlocks([
   { type: 'reflection-question', layoutWidth: '1/1' },
 ]);
 
+const getRoomLessons = (plan: Partial<CustomPlan>) => (
+  (plan.weeks ?? []).flatMap((unit, unitIndex) =>
+    unit.days.map((lesson, lessonIndex) => ({
+      unitTitle: unit.title || getUnitLabel(plan.planningFrequency ?? 'weekly', unitIndex + 1),
+      lesson,
+      index: lessonIndex + 1,
+    })),
+  )
+);
+
+const canSharePublishedRoom = (plan: Partial<CustomPlan>) => (
+  (plan.privacyLevel || plan.privacyType) === 'public' || plan.privacyType === 'public'
+);
+
+const getRoomPrivacySummary = (plan: Partial<CustomPlan>) => {
+  const visibility = plan.privacyLevel || plan.privacyType || 'public';
+  const groupCount = plan.allowedGroupIds?.length || (plan.groupId ? 1 : 0);
+  const inviteCount = plan.allowedUserIds?.length || 0;
+
+  if (visibility === 'public' || plan.privacyType === 'public') {
+    return {
+      label: 'Publica',
+      audience: 'Qualquer pessoa com o link pode acessar as aulas.',
+      detail: 'Compartilhamento habilitado.',
+      tone: 'text-green-700 dark:text-green-300',
+      bg: 'bg-green-50 dark:bg-green-950/20',
+    };
+  }
+
+  if (visibility === 'church' || plan.privacyType === 'church') {
+    return {
+      label: 'Membros da igreja',
+      audience: 'Apenas membros vinculados a esta igreja podem acessar as aulas.',
+      detail: plan.churchId ? 'Contexto de igreja aplicado.' : 'Defina a igreja no contexto para liberar o acesso correto.',
+      tone: 'text-purple-700 dark:text-violet-300',
+      bg: 'bg-purple-50 dark:bg-purple-950/20',
+    };
+  }
+
+  if (visibility === 'group' || visibility === 'church_groups' || plan.privacyType === 'group') {
+    return {
+      label: visibility === 'church_groups' ? 'Grupos especificos' : 'Membros do grupo',
+      audience: 'Apenas os grupos selecionados podem acessar as aulas.',
+      detail: groupCount > 0 ? `${groupCount} grupo${groupCount === 1 ? '' : 's'} autorizado${groupCount === 1 ? '' : 's'}.` : 'Nenhum grupo autorizado definido.',
+      tone: 'text-purple-700 dark:text-violet-300',
+      bg: 'bg-purple-50 dark:bg-purple-950/20',
+    };
+  }
+
+  if (visibility === 'invite_only' || plan.inviteRequired) {
+    return {
+      label: 'Privada com convite',
+      audience: 'Somente pessoas convidadas podem acessar as aulas.',
+      detail: inviteCount > 0 ? `${inviteCount} pessoa${inviteCount === 1 ? '' : 's'} autorizada${inviteCount === 1 ? '' : 's'}.` : 'Envie convites para liberar acesso.',
+      tone: 'text-amber-700 dark:text-amber-300',
+      bg: 'bg-amber-50 dark:bg-amber-950/20',
+    };
+  }
+
+  return {
+    label: 'Privada',
+    audience: 'Apenas voce e pessoas autorizadas podem acessar as aulas.',
+    detail: 'Compartilhamento publico desativado.',
+    tone: 'text-gray-700 dark:text-gray-300',
+    bg: 'bg-gray-50 dark:bg-gray-900',
+  };
+};
+
+const stripHtml = (value: string) =>
+  value
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const collectBlockText = (block: any): string => {
+  const data = block?.data ?? {};
+  const parts: string[] = [];
+  const add = (value: unknown) => {
+    if (typeof value === 'string' && value.trim()) parts.push(stripHtml(value));
+  };
+
+  [
+    data.title,
+    data.heading,
+    data.subtitle,
+    data.verse,
+    data.reference,
+    data.text,
+    data.content,
+    data.body,
+    data.description,
+    data.question,
+    data.support,
+    data.headline,
+    data.subheadline,
+  ].forEach(add);
+
+  if (Array.isArray(data.items)) data.items.forEach((item: any) => [item.title, item.text, item.description].forEach(add));
+  if (Array.isArray(data.slides)) data.slides.forEach((slide: any) => [slide.title, slide.content, slide.description].forEach(add));
+  if (Array.isArray(data.verses)) data.verses.forEach((verse: any) => [verse.reference, verse.text, verse.summary].forEach(add));
+
+  return parts.filter(Boolean).join('\n');
+};
+
+interface PublishedRoomSuccessProps {
+  plan: Partial<CustomPlan>;
+  planId: string;
+  onBackToWorkspace: () => void;
+  onContinueEditing: () => void;
+  onViewPublished: () => void;
+  onShare: () => void;
+  onAddLesson: () => void;
+  onOpenEvaluation: () => void;
+}
+
+const PublishedRoomSuccess: React.FC<PublishedRoomSuccessProps> = ({
+  plan,
+  planId,
+  onBackToWorkspace,
+  onContinueEditing,
+  onViewPublished,
+  onShare,
+  onAddLesson,
+  onOpenEvaluation,
+}) => {
+  const lessons = getRoomLessons(plan);
+  const shareEnabled = canSharePublishedRoom(plan);
+  const privacySummary = getRoomPrivacySummary(plan);
+  const shareUrl = typeof window !== 'undefined'
+    ? getPlanShareUrl(planId, plan.shareSlug, window.location.origin)
+    : getPlanSharePath(planId, plan.shareSlug);
+
+  return (
+    <div className="min-h-[100dvh] overflow-y-auto bg-purple-50/70 text-gray-950 dark:bg-black dark:text-white">
+      <header className="border-b border-purple-100 bg-white/90 px-4 py-4 shadow-sm backdrop-blur-md dark:border-purple-900/40 dark:bg-[#0a0a0a]/90 lg:px-8">
+        <div className="mx-auto flex max-w-[1500px] flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <button
+              type="button"
+              onClick={onBackToWorkspace}
+              aria-label="Voltar"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-purple-100 text-gray-500 transition-colors hover:border-purple-300 hover:text-purple-700 dark:border-purple-900/40 dark:text-gray-400 dark:hover:text-violet-300"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-purple-700 dark:text-violet-300">
+                <CheckCircle2 size={13} />
+                Sala publicada
+              </p>
+              <h1 className="truncate text-2xl font-black tracking-tight text-gray-950 dark:text-white md:text-3xl">
+                {plan.title || 'Sala publicada'}
+              </h1>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <button
+              type="button"
+              onClick={onViewPublished}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-purple-700 px-4 text-sm font-black text-white shadow-lg shadow-purple-900/15 transition-transform hover:bg-purple-800 active:scale-[0.98] dark:bg-violet-500"
+            >
+              <Eye size={16} />
+              Visualizar
+            </button>
+            {shareEnabled && (
+              <button
+                type="button"
+                onClick={onShare}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-purple-100 bg-white px-4 text-sm font-black text-purple-700 transition-colors hover:border-purple-300 hover:bg-purple-50 dark:border-purple-900/40 dark:bg-gray-900 dark:text-violet-200"
+              >
+                <Share2 size={16} />
+                Compartilhar
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onContinueEditing}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-purple-100 bg-white px-4 text-sm font-black text-purple-700 transition-colors hover:border-purple-300 hover:bg-purple-50 dark:border-purple-900/40 dark:bg-gray-900 dark:text-violet-200"
+            >
+              <Edit3 size={16} />
+              Editar
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto grid w-full max-w-[1500px] gap-6 p-4 pb-24 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-8">
+        <section className="space-y-6">
+          <div className="rounded-[28px] border border-purple-100 bg-white p-6 shadow-sm dark:border-purple-900/40 dark:bg-[#0f0f0f] md:p-8">
+            <div className="flex flex-col gap-6 md:flex-row md:items-center">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-violet-200">
+                <CheckCircle2 size={38} />
+              </div>
+              <div className="min-w-0">
+                <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">Obrigado por criar esta sala</p>
+                <h2 className="text-2xl font-black tracking-tight text-gray-950 dark:text-white md:text-4xl">
+                  Sua jornada esta pronta para receber alunos.
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-500">
+                  Voce publicou {lessons.length} aula{lessons.length === 1 ? '' : 's'} em {(plan.weeks ?? []).length} unidade{(plan.weeks ?? []).length === 1 ? '' : 's'}.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-purple-100 bg-white p-5 shadow-sm dark:border-purple-900/40 dark:bg-[#0f0f0f]">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="mb-1 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Aulas publicadas</p>
+                <h3 className="text-xl font-black text-gray-950 dark:text-white">Conteudo da sala</h3>
+              </div>
+              <button
+                type="button"
+                onClick={onAddLesson}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-purple-100 px-4 text-sm font-black text-purple-800 transition-colors hover:bg-purple-200 dark:bg-purple-950/40 dark:text-violet-200"
+              >
+                <Plus size={16} />
+                Nova aula
+              </button>
+            </div>
+
+            {lessons.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-purple-200 bg-purple-50 p-8 text-center dark:border-purple-900/40 dark:bg-gray-900">
+                <BookOpen className="mx-auto mb-3 text-purple-700 dark:text-violet-300" size={34} />
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-200">Nenhuma aula criada ainda.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {lessons.map(({ lesson, unitTitle, index }) => (
+                  <div
+                    key={lesson.id}
+                    className="flex items-center gap-4 rounded-2xl border border-purple-100 bg-purple-50/60 p-4 dark:border-purple-900/40 dark:bg-gray-900"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-sm font-black text-purple-700 shadow-sm dark:bg-black dark:text-violet-200">
+                      {index}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-black text-gray-950 dark:text-white">{lesson.title || 'Aula sem titulo'}</p>
+                      <p className="mt-0.5 truncate text-xs font-bold text-gray-400">{unitTitle}</p>
+                    </div>
+                    <CheckCircle2 className="shrink-0 text-purple-700 dark:text-violet-300" size={18} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <aside className="space-y-4">
+          <section className="rounded-[22px] border border-purple-100 bg-white p-5 shadow-sm dark:border-purple-900/40 dark:bg-[#0f0f0f]">
+            <p className="mb-4 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Privacidade das aulas</p>
+            <div className={`rounded-2xl p-4 ${privacySummary.bg}`}>
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-purple-700 shadow-sm dark:bg-black dark:text-violet-200">
+                  {shareEnabled ? <ShieldCheck size={18} /> : <Lock size={18} />}
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-sm font-black ${privacySummary.tone}`}>{privacySummary.label}</p>
+                  <p className="mt-1 text-xs font-bold leading-5 text-gray-600 dark:text-gray-300">{privacySummary.audience}</p>
+                  <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">{privacySummary.detail}</p>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onContinueEditing}
+              className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-purple-100 bg-white px-4 text-xs font-black text-purple-700 transition-colors hover:border-purple-300 hover:bg-purple-50 dark:border-purple-900/40 dark:bg-gray-900 dark:text-violet-200"
+            >
+              <Edit3 size={14} />
+              Alterar privacidade
+            </button>
+          </section>
+
+          <section className="rounded-[22px] border border-purple-100 bg-white p-5 shadow-sm dark:border-purple-900/40 dark:bg-[#0f0f0f]">
+            <p className="mb-4 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Proximos passos</p>
+            <div className="grid gap-2">
+              <button
+                type="button"
+                onClick={onViewPublished}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-purple-700 px-4 text-sm font-black text-white shadow-lg shadow-purple-900/15 transition-transform hover:bg-purple-800 active:scale-[0.98] dark:bg-violet-500"
+              >
+                <Eye size={16} />
+                Visualizar sala publicada
+              </button>
+              {shareEnabled ? (
+                <button
+                  type="button"
+                  onClick={onShare}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-purple-100 bg-white px-4 text-sm font-black text-purple-700 transition-colors hover:border-purple-300 hover:bg-purple-50 dark:border-purple-900/40 dark:bg-gray-900 dark:text-violet-200"
+                >
+                  <Share2 size={16} />
+                  Compartilhar link
+                </button>
+              ) : (
+                <div className="rounded-xl bg-purple-50 px-4 py-3 text-xs font-bold leading-5 text-gray-500 dark:bg-gray-900">
+                  Compartilhamento publico indisponivel para a privacidade atual.
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={onOpenEvaluation}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-purple-100 bg-white px-4 text-sm font-black text-purple-700 transition-colors hover:border-purple-300 hover:bg-purple-50 dark:border-purple-900/40 dark:bg-gray-900 dark:text-violet-200"
+              >
+                <GraduationCap size={16} />
+                {plan.hasEvaluation ? 'Editar avaliacao' : 'Criar avaliacao'}
+              </button>
+            </div>
+          </section>
+
+          <section className="rounded-[22px] border border-purple-100 bg-white p-5 shadow-sm dark:border-purple-900/40 dark:bg-[#0f0f0f]">
+            <p className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Link da sala</p>
+            <div className="flex items-center gap-2 rounded-xl bg-purple-50 p-2 dark:bg-gray-900">
+              <p className="min-w-0 flex-1 truncate px-2 text-xs font-bold text-gray-500">{shareUrl}</p>
+              <button
+                type="button"
+                onClick={onShare}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-purple-700 shadow-sm dark:bg-black dark:text-violet-200"
+                aria-label="Copiar link"
+              >
+                <Copy size={15} />
+              </button>
+            </div>
+          </section>
+
+          <section className="rounded-[22px] border border-purple-100 bg-white p-5 shadow-sm dark:border-purple-900/40 dark:bg-[#0f0f0f]">
+            <p className="mb-4 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Gestao</p>
+            <div className="flex items-center gap-3 rounded-2xl bg-purple-50 p-4 dark:bg-gray-900">
+              <Users className="text-purple-700 dark:text-violet-300" size={20} />
+              <p className="text-sm font-bold text-gray-600 dark:text-gray-300">
+                Acompanhe inscritos, progresso e comentarios pela propria sala publicada.
+              </p>
+            </div>
+          </section>
+        </aside>
+      </main>
+    </div>
+  );
+};
+
 const CreateRoomStudioPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -75,6 +423,9 @@ const CreateRoomStudioPage: React.FC = () => {
   const [evaluationData, setEvaluationData] = useState<StudyEvaluation | null>(null);
   const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
   const [editingLessonId, setEditingLessonId] = useState<string | null>(searchParams.get('lesson'));
+  const [detailsValidationError, setDetailsValidationError] = useState<string | null>(null);
+  const [detailsForceOpenSignal, setDetailsForceOpenSignal] = useState(0);
+  const [publishedSuccessPlanId, setPublishedSuccessPlanId] = useState<string | null>(null);
 
   const planIdFromUrl = searchParams.get('id');
   const contentDefaults = useMemo(() => getContentDefaultsFromSearchParams(searchParams), [searchParams]);
@@ -136,10 +487,33 @@ const CreateRoomStudioPage: React.FC = () => {
     if (target) {
       setActiveUnitId(target.unitId);
       setEditingLessonId(target.lesson.id);
+      return;
+    }
+
+    if (searchParams.get('type')?.startsWith('nova-aula')) {
+      const firstUnit = plan.weeks[0];
+      const lessonIndex = firstUnit.days.length + 1;
+      const restoredLesson: PlanDayContent = {
+        ...createLesson(lessonIndex),
+        id: lessonId,
+        title: `Nova aula ${lessonIndex}`,
+      };
+
+      setPlan((current) => ({
+        ...current,
+        weeks: (current.weeks ?? []).map((unit, index) =>
+          index === 0 ? { ...unit, days: [...unit.days, restoredLesson] } : unit,
+        ),
+      }));
+      setActiveUnitId(firstUnit.id);
+      setEditingLessonId(lessonId);
     }
   }, [activeUnitId, plan.weeks, searchParams]);
 
   const updatePlan = (patch: Partial<CustomPlan>) => {
+    if (patch.title !== undefined && patch.title.trim()) {
+      setDetailsValidationError(null);
+    }
     setPlan((current) => ({ ...current, ...patch }));
   };
 
@@ -251,6 +625,23 @@ const CreateRoomStudioPage: React.FC = () => {
     return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 675'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%236b7c93'/%3E%3Cstop offset='.55' stop-color='%23c5a059'/%3E%3Cstop offset='1' stop-color='%235d4037'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1200' height='675' fill='url(%23g)'/%3E%3Ccircle cx='940' cy='188' r='170' fill='%23ffffff' opacity='.12'/%3E%3Ctext x='80' y='360' fill='white' font-family='Arial' font-size='72' font-weight='800'%3E${title}%3C/text%3E%3C/svg%3E`;
   }, [plan.title]);
 
+  const evaluationLessons = useMemo<EvaluationSourceLesson[]>(() => (
+    (plan.weeks ?? []).flatMap((unit) =>
+      unit.days.map((lesson) => {
+        const blockContent = (lesson.blocksConfig ?? []).map(collectBlockText).filter(Boolean).join('\n\n');
+        const htmlContent = stripHtml(lesson.htmlContent || '');
+        const content = [lesson.description, blockContent, htmlContent].filter(Boolean).join('\n\n').slice(0, 12000);
+
+        return {
+          id: lesson.id,
+          title: lesson.title || 'Aula sem titulo',
+          description: lesson.description,
+          content,
+        };
+      }),
+    )
+  ), [plan.weeks]);
+
   const generateCover = () => {
     setIsGeneratingCover(true);
     window.setTimeout(() => {
@@ -306,28 +697,36 @@ const CreateRoomStudioPage: React.FC = () => {
   };
 
   const savePlan = async (targetStatus: 'draft' | 'published') => {
-    if (!currentUser) {
-      openLogin();
+    if (!plan.title?.trim()) {
+      setActiveTab('overview');
+      setDetailsValidationError('Informe o nome da sala antes de salvar.');
+      setDetailsForceOpenSignal((current) => current + 1);
+      showNotification('Informe o nome da sala antes de salvar.', 'error');
       return;
     }
 
-    if (!plan.title?.trim()) {
-      showNotification('Informe o nome da sala antes de salvar.', 'error');
+    if (!currentUser) {
+      openLogin();
       return;
     }
 
     targetStatus === 'published' ? setIsPublishing(true) : setIsSaving(true);
     try {
       const payload = buildPayload(targetStatus);
+      let nextPlanId = savedPlanId;
       if (savedPlanId) {
         await dbService.updateCustomPlan(savedPlanId, payload);
       } else {
         const created = await dbService.createCustomPlan(payload);
+        nextPlanId = created.id;
         setSavedPlanId(created.id);
         window.history.replaceState({}, '', `/criar-sala?id=${created.id}`);
       }
       setPlan((current) => ({ ...current, status: targetStatus, isPublic: targetStatus === 'published' }));
       showNotification(targetStatus === 'published' ? 'Sala publicada.' : 'Rascunho salvo.', 'success');
+      if (targetStatus === 'published' && nextPlanId) {
+        setPublishedSuccessPlanId(nextPlanId);
+      }
     } catch {
       showNotification('Nao foi possivel salvar a sala.', 'error');
     } finally {
@@ -341,11 +740,7 @@ const CreateRoomStudioPage: React.FC = () => {
   };
 
   const previewPlan = () => {
-    if (!savedPlanId) {
-      showNotification('Salve a sala para visualizar a experiencia do aluno.', 'warning');
-      return;
-    }
-    navigate(`/jornada/${savedPlanId}`, { state: { fromEditor: true } });
+    viewPublishedRoom();
   };
 
   const saveEvaluation = async (data: any) => {
@@ -377,6 +772,45 @@ const CreateRoomStudioPage: React.FC = () => {
       return;
     }
     setIsEvaluationOpen(true);
+  };
+
+  const viewPublishedRoom = (planId = savedPlanId) => {
+    if (!planId) {
+      showNotification('Salve a sala para visualizar a experiencia do aluno.', 'warning');
+      return;
+    }
+    navigate(`/jornada/${planId}`, { state: { fromEditor: true } });
+  };
+
+  const sharePublishedRoom = async (planId = savedPlanId) => {
+    if (!planId) {
+      showNotification('Salve a sala antes de compartilhar.', 'warning');
+      return;
+    }
+
+    const shareUrl = getPlanShareUrl(planId, plan.shareSlug, window.location.origin);
+    try {
+      if (canSharePublishedRoom(plan) && navigator.share) {
+        await navigator.share({ title: plan.title || 'Sala BibliaLM', url: shareUrl });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+      }
+      showNotification('Link da sala copiado.', 'success');
+    } catch {
+      showNotification('Nao foi possivel compartilhar agora.', 'error');
+    }
+  };
+
+  const addLessonAfterPublish = () => {
+    const firstUnit = (plan.weeks ?? [])[0];
+    if (firstUnit) {
+      setPublishedSuccessPlanId(null);
+      addLesson(firstUnit.id);
+      return;
+    }
+    setPublishedSuccessPlanId(null);
+    addUnit();
+    setActiveTab('lessons');
   };
 
   const activeLesson = activeUnitId && editingLessonId
@@ -415,7 +849,7 @@ const CreateRoomStudioPage: React.FC = () => {
     return (
       <>
         <SEO title={activeLesson.title || 'Nova Aula'} />
-        <div className="h-[100dvh] overflow-hidden bg-bible-paper dark:bg-black">
+        <div className="h-[100dvh] overflow-y-auto overscroll-contain bg-bible-paper dark:bg-black">
           <CreateContentV3Page
             embeddedContext={{
               initialContent: {
@@ -437,6 +871,31 @@ const CreateRoomStudioPage: React.FC = () => {
             }}
           />
         </div>
+      </>
+    );
+  }
+
+  if (publishedSuccessPlanId) {
+    return (
+      <>
+        <SEO title="Sala publicada" />
+        <PublishedRoomSuccess
+          plan={{ ...plan, status: 'published', isPublic: true }}
+          planId={publishedSuccessPlanId}
+          onBackToWorkspace={() => navigate('/workspace-pastoral')}
+          onContinueEditing={() => setPublishedSuccessPlanId(null)}
+          onViewPublished={() => viewPublishedRoom(publishedSuccessPlanId)}
+          onShare={() => sharePublishedRoom(publishedSuccessPlanId)}
+          onAddLesson={addLessonAfterPublish}
+          onOpenEvaluation={openEvaluation}
+        />
+        <EvaluationBuilderModal
+          isOpen={isEvaluationOpen}
+          onClose={() => setIsEvaluationOpen(false)}
+          onSave={saveEvaluation}
+          initialData={evaluationData || undefined}
+          lessons={evaluationLessons}
+        />
       </>
     );
   }
@@ -473,12 +932,15 @@ const CreateRoomStudioPage: React.FC = () => {
         onOpenEvaluation={openEvaluation}
         onGenerateWithAI={() => showNotification('A geracao assistida sera conectada depois da validacao do layout.', 'info')}
         onImportLessons={() => showNotification('Importacao de aulas esta planejada para uma proxima etapa.', 'info')}
+        detailsValidationError={detailsValidationError}
+        detailsForceOpenSignal={detailsForceOpenSignal}
       />
       <EvaluationBuilderModal
         isOpen={isEvaluationOpen}
         onClose={() => setIsEvaluationOpen(false)}
         onSave={saveEvaluation}
         initialData={evaluationData || undefined}
+        lessons={evaluationLessons}
       />
     </>
   );

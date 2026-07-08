@@ -24,6 +24,36 @@ const TTS_MODEL = "models/gemini-2.5-flash";
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
+const extractJsonObject = (value: string) => {
+    let cleaned = value.trim();
+    if (cleaned.includes('```')) {
+        cleaned = cleaned.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    }
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+        cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    }
+    return cleaned;
+};
+
+const parseJsonWithRepair = async (raw: string, repairContext: string) => {
+    const cleaned = extractJsonObject(raw);
+    try {
+        return JSON.parse(cleaned);
+    } catch (initialError: any) {
+        const repaired = await callAi(
+            `Corrija APENAS a sintaxe JSON abaixo. Nao reescreva o conteudo, nao resuma e nao adicione markdown. Retorne somente JSON valido.\n\nCONTEXTO: ${repairContext}\n\nJSON COM ERRO:\n${cleaned}`,
+            'Voce e um reparador de JSON. Preserve todos os campos e textos, corrigindo apenas aspas, virgulas, barras invertidas e quebras de linha invalidas.',
+            'json'
+        );
+        try {
+            return JSON.parse(extractJsonObject(repaired));
+        } catch {
+            throw initialError;
+        }
+    }
+};
 
 // Generic AI Call with Fallbacks (Order: Groq → OpenRouter → Gemini)
 export const callAi = async (prompt: string, systemInstruction?: string, responseFormat?: "json" | "text"): Promise<string> => {
@@ -94,7 +124,7 @@ export const callAi = async (prompt: string, systemInstruction?: string, respons
         });
         if (response.text) return response.text;
     } catch (e: any) {
-        console.error("Gemini failed in callAi:", e.message || e);
+        console.warn("Gemini unavailable in callAi:", e.message || e);
     }
 
     throw new Error("Não foi possível processar sua solicitação com nenhum provedor de IA no momento.");
@@ -230,10 +260,10 @@ export const generateChurchServicePlanning = async (
         - Horarios devem estar no formato HH:mm.
         - Use categorias liturgicas validas: entrance, opening, worship, word, offering, prayer, response, closing, other.
         - Para worship, preencha "songs" com titulos de musicas sugeridas.
-        - Para word, preencha "verseRef", "verseText" e "notes" com o resumo final da Palavra para os membros.
+        - Para word, preencha "verseRef", "verseText", "scriptureReadingRef", "scriptureReadingText", "sermonPoints", "leaderScript" e "notes" com resumo final da Palavra para os membros.
         - Para offering, preencha "notes" com a mensagem final de dizimos/ofertas e deixe pixKeyType/pixKey vazios se nao houver chave informada.
-        - Para prayer, use "notes" como uma chamada final para oracao congregacional.
-        - Para closing, use "notes" como mensagem final de encerramento.
+        - Para prayer, use "prayerGuide" e "notes" como chamada final para oracao congregacional.
+        - Para opening/response/closing, use "leaderScript" e "transitionText" como falas prontas, curtas e publicaveis.
 
         Retorne somente JSON neste formato:
         {
@@ -242,13 +272,13 @@ export const generateChurchServicePlanning = async (
           "serviceType": "sunday",
           "pastoralFocus": "Resumo pastoral em uma frase",
           "liturgyItems": [
-            { "kind": "entrance", "title": "Liturgia de Entrada", "startsAt": "18:45", "responsible": "", "notes": "..." },
-            { "kind": "opening", "title": "Abertura", "startsAt": "19:00", "responsible": "", "notes": "..." },
-            { "kind": "worship", "title": "Adoracao e Louvor", "startsAt": "19:15", "responsible": "", "songs": ["..."], "notes": "..." },
-            { "kind": "word", "title": "Liturgia da Palavra", "startsAt": "19:50", "responsible": "", "verseRef": "${verseReference}", "verseText": "${verseText}", "notes": "..." },
+            { "kind": "entrance", "title": "Liturgia de Entrada", "startsAt": "18:45", "responsible": "", "leaderScript": "...", "transitionText": "...", "notes": "..." },
+            { "kind": "opening", "title": "Abertura", "startsAt": "19:00", "responsible": "", "leaderScript": "...", "prayerGuide": "...", "notes": "..." },
+            { "kind": "worship", "title": "Adoracao e Louvor", "startsAt": "19:15", "responsible": "", "songs": ["..."], "leaderScript": "...", "transitionText": "...", "notes": "..." },
+            { "kind": "word", "title": "Liturgia da Palavra", "startsAt": "19:50", "responsible": "", "verseRef": "${verseReference}", "verseText": "${verseText}", "scriptureReadingRef": "${verseReference}", "scriptureReadingText": "${verseText}", "sermonPoints": ["...", "...", "..."], "leaderScript": "...", "notes": "..." },
             { "kind": "offering", "title": "Dizimos e Ofertas", "startsAt": "20:35", "responsible": "", "notes": "...", "pixKeyType": "", "pixKey": "" },
-            { "kind": "prayer", "title": "Momento de Oracao", "startsAt": "20:45", "responsible": "", "notes": "..." },
-            { "kind": "closing", "title": "Encerramento", "startsAt": "20:55", "responsible": "", "notes": "..." }
+            { "kind": "prayer", "title": "Momento de Oracao", "startsAt": "20:45", "responsible": "", "prayerGuide": "...", "notes": "..." },
+            { "kind": "closing", "title": "Encerramento", "startsAt": "20:55", "responsible": "", "leaderScript": "...", "transitionText": "...", "notes": "..." }
           ]
         }`;
         const text = await callAi(prompt, "Atue como um pastor auxiliar que ajuda a planejar cultos com prudencia biblica.", "json");
@@ -609,18 +639,20 @@ Crie conteúdo bíblico de alta densidade intelectual, elegância literária e v
 DIRETRIZES DE DIAGRAMAÇÃO (ROADMAP V2):
 Você deve organizar o conteúdo em 6 sessões editoriais dinâmicas:
 Sessão 1: Impacto & Gancho Visual (Hero Split 1/1)
-Sessão 2: Contextualização (Biblical 1/2 + Study Outline 1/3)
+Sessão 2: Contextualização (Biblical 1/2 visual 70% + Study Outline 1/3 visual 30%)
 Sessão 3: Mergulho Profundo (Rich Text 1/1 - Conteúdo denso 600+ palavras)
 Sessão 4: Multimídia & Apoio (Slide 1/1 + Related Verses dinâmico)
 Sessão 5: Conclusão & Autoria (Authority 1/1 + Footer 1/1)
 Sessão 6: Desafio Final (Reflection Question 1/1)
 
 DIRETRIZES TÉCNICAS:
-1. Use HTML rico para textos: <h2>, <h3>, <p>, <strong>, blockquote.
+1. Use dados estruturados no rich-text para o app aplicar o template visual "A Revelação Plena".
 2. NotebookLM Depth: Realize uma síntese profunda ligando o versículo a conceitos históricos e aplicações reais.
 3. Responda APENAS com JSON válido.
 4. Respeite as larguras (layoutWidth) para cada bloco conforme o roadmap.
-5. No bloco rich-text, todo titulo de secao deve ser HTML <h2>. Nunca escreva titulos como texto solto ou paragrafos comuns. Use pelo menos 4 titulos <h2> para alimentar o sumario automaticamente.`;
+5. No bloco rich-text, não invente HTML visual próprio. Retorne visualTemplate="revelacao-plena" e templateData com os campos pedidos.
+6. O app vai montar cores, caixas, bordas, blockquote, box de passo prático e oração final. Sua responsabilidade é escrever conteúdo pastoral profundo para cada campo.
+7. O study-outline deve usar exatamente os marcos do template: O Despertar, As Raízes da Verdade, O Caminho Prático, Passo Prático, Oração de Encerramento.`;
 
     const prompt = `PEDIDO: "${userPrompt}"
 AUTOR: "${authorName || 'Pr. Gabriel'}"
@@ -638,22 +670,31 @@ blocks[6]:  type="authority",            layoutWidth="1/1"
 blocks[7]:  type="footer",               layoutWidth="1/1"
 blocks[8]:  type="reflection-question",  layoutWidth="1/1"
 
-⚠️ REGRA ABSOLUTA: Copie os valores de layoutWidth LITERALMENTE. NÃO mude "1/2" para "1/1". NÃO mude "1/3" para "1/1". Se fizer isso, o layout quebra.
+⚠️ REGRA ABSOLUTA: Copie os valores de layoutWidth LITERALMENTE. NÃO mude "1/2" para "1/1". Se fizer isso, o layout quebra.
 
 IMAGENS (obrigatório para hero-split e slide):
-- Imagem 1: https://images.unsplash.com/photo-1504052434139-44b419d2826e?q=80&w=2000
-- Imagem 2: https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000
+REGRA ATUALIZADA DE LAYOUT: o bloco biblical deve ser "1/2" e o study-outline deve ser "1/3". Nunca converta esses blocos para "1/1".
+
+FORMATAÇÃO OBRIGATÓRIA DO rich-text:
+- Use o template visual "revelacao-plena".
+- Retorne visualTemplate: "revelacao-plena".
+- Retorne templateData com estes campos: title, subtitle, awakeningTitle, awakeningText, quote, quoteReference, rootsTitle, rootsText, practicalTitle, practicalText, practicalStepTitle, practicalStepText, prayerTitle, prayerText.
+- Não retorne content HTML para o rich-text neste modo. O app vai gerar o HTML final com a identidade visual do template.
+- Escreva textos ricos, pastorais e específicos ao pedido. awakeningText, rootsText e practicalText devem ter densidade real, não placeholders.
+
+- Imagem 1: https://images.unsplash.com/photo-1490730141103-6cac27aaab94?q=80&w=2000
+- Imagem 2: https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=2000
 
 JSON EXATO (preencha "..." com conteúdo real):
 {
   "meta": { "title": "...", "description": "..." },
   "slug": "...",
   "blocks": [
-    { "type": "hero-split", "layoutWidth": "1/1", "data": { "title": "...", "eyebrow": "Hero split", "imageUrl": "https://images.unsplash.com/photo-1504052434139-44b419d2826e?q=80&w=2000" } },
-    { "type": "biblical", "layoutWidth": "1/2", "data": { "verse": "...", "text": "...", "reference": "...", "style": "elegant" } },
-    { "type": "study-outline", "layoutWidth": "1/3", "data": { "title": "Roteiro do Estudo", "description": "...", "items": ["Introducao", "...", "...", "Aplicacao Pratica", "Pergunta ao Coracao"] } },
-    { "type": "rich-text", "layoutWidth": "1/1", "data": { "title": "...", "content": "<h2>A Profundeza da Mensagem</h2><p>Escreva a abertura pastoral profunda aqui...</p><h2>Autoridade e Fundamento Biblico</h2><p>Explique o fundamento textual e teologico aqui...</p><h2>Aplicacao Pratica</h2><p>Mostre como viver essa verdade hoje...</p><h2>Conclusao</h2><p>Feche com chamado, consolo e direcao espiritual.</p>" } },
-    { "type": "slide", "layoutWidth": "1/1", "data": { "slides": [{ "id": "slide-1", "title": "...", "description": "...", "backgroundImage": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000", "mediaUrl": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000" }] } },
+    { "type": "hero-split", "layoutWidth": "1/1", "data": { "title": "...", "imageUrl": "https://images.unsplash.com/photo-1490730141103-6cac27aaab94?q=80&w=2000" } },
+    { "type": "biblical", "layoutWidth": "1/2", "data": { "verse": "...", "text": "...", "reference": "...", "style": "classic" } },
+    { "type": "study-outline", "layoutWidth": "1/3", "data": { "title": "Roteiro do Estudo", "description": "Navegue pelas seções do estudo", "items": ["O Despertar", "As Raízes da Verdade", "O Caminho Prático", "Passo Prático", "Oração de Encerramento"] } },
+    { "type": "rich-text", "layoutWidth": "1/1", "data": { "title": "...", "visualTemplate": "revelacao-plena", "templateData": { "title": "...", "subtitle": "Estudo Bíblico Pastoral", "awakeningTitle": "1. O Despertar", "awakeningText": "...", "quote": "...", "quoteReference": "...", "rootsTitle": "2. As Raízes da Verdade", "rootsText": "...", "practicalTitle": "3. O Caminho Prático", "practicalText": "...", "practicalStepTitle": "Passo Prático", "practicalStepText": "...", "prayerTitle": "Oração de Encerramento", "prayerText": "..." } } },
+    { "type": "slide", "layoutWidth": "1/1", "data": { "slides": [{ "id": "slide-1", "title": "...", "description": "...", "backgroundImage": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=2000", "mediaUrl": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=2000" }] } },
     { "type": "related-verses", "layoutWidth": "1/1", "data": { "title": "Versículos Relacionados", "verses": [{ "reference": "...", "summary": "..." }] } },
     { "type": "authority", "layoutWidth": "1/1", "data": { "name": "${authorName || 'Pr. Gabriel'}", "bio": "...", "avatarUrl": "" } },
     { "type": "footer", "layoutWidth": "1/1", "data": { "tagline": "...", "showSocial": true } },
@@ -664,17 +705,9 @@ JSON EXATO (preencha "..." com conteúdo real):
 
     try {
         const raw = await callAi(prompt, systemInstruction, "json");
-        let cleaned = raw;
-        if (cleaned.includes('```')) {
-            cleaned = cleaned.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        }
-        const firstBrace = cleaned.indexOf('{');
-        const lastBrace = cleaned.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1) {
-            cleaned = cleaned.substring(firstBrace, lastBrace + 1);
-        }
-        return JSON.parse(cleaned);
+        return await parseJsonWithRepair(raw, 'one-page pastoral BibliaLM');
     } catch (e: any) {
         throw new Error(`Falha ao gerar one-page: ${e.message}`);
     }
 };
+

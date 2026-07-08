@@ -19,12 +19,12 @@ import { useFeatures } from '../contexts/FeatureContext';
 import {
     SystemSettings, PlanFeatures, SubscriptionTier, UserProfile, SystemLog,
     ReportTicket, AIUsageStats, Devotional, Banner, LandingPageConfig, HomeConfig, SupportTicket,
-    ChurchRoleRequest
+    ChurchRoleRequest, ManaEvent
 } from '../types';
-import { DAILY_BREAD } from '../constants';
+import { DAILY_BREAD, SUBSCRIPTION_PLANS } from '../constants';
 
 // --- CONSTANTS ---
-const TIERS: SubscriptionTier[] = ['free', 'bronze', 'silver', 'gold', 'pastor'];
+const TIERS: SubscriptionTier[] = ['free', 'bronze', 'silver', 'gold', 'pastor', 'admin'];
 const FEATURE_LABELS: Record<keyof PlanFeatures, string> = {
     aiChatAccess: "Chat IA",
     aiImageGen: "Gerar Imagens",
@@ -55,6 +55,8 @@ const FEATURE_LABELS: Record<keyof PlanFeatures, string> = {
 
 const APPS = [
     { id: 'roadmap', label: 'Roadmap', icon: ToggleRight, color: 'text-pink-600', bgColor: 'bg-pink-50', desc: 'Feature Flags & Rollout' },
+    { id: 'monetization', label: 'Monetizacao', icon: Coins, color: 'text-emerald-600', bgColor: 'bg-emerald-50', desc: 'Planos, Mana e limites' },
+    { id: 'mana_audit', label: 'Auditoria Mana', icon: ShieldCheck, color: 'text-orange-600', bgColor: 'bg-orange-50', desc: 'Eventos, revisao e anulacao' },
     { id: 'cms', label: 'Pão Diário', icon: FileEdit, color: 'text-yellow-600', bgColor: 'bg-yellow-50', desc: 'Devocional Diário' },
     { id: 'home_cms', label: 'Editor Início', icon: Home, color: 'text-purple-600', bgColor: 'bg-purple-50', desc: 'CMS da Home (App)' },
     { id: 'landing_cms', label: 'Landing Page', icon: Globe, color: 'text-cyan-600', bgColor: 'bg-cyan-50', desc: 'CMS da Web (Site)' },
@@ -117,6 +119,7 @@ const AdminPage: React.FC = () => {
     const [aiStats, setAiStats] = useState<AIUsageStats | null>(null);
     const [reports, setReports] = useState<ReportTicket[]>([]);
     const [tickets, setTickets] = useState<SupportTicket[]>([]);
+    const [manaEvents, setManaEvents] = useState<ManaEvent[]>([]);
     const [settings, setSettings] = useState<SystemSettings | null>(null);
 
     // CMS State
@@ -187,9 +190,13 @@ const AdminPage: React.FC = () => {
                 const bns = await dbService.getBanners(false);
                 setBanners(bns);
             }
-            else if (activeView === 'matrix') {
+            else if (activeView === 'matrix' || activeView === 'monetization') {
                 const sett = await dbService.getSystemSettings();
                 setSettings(sett);
+            }
+            else if (activeView === 'mana_audit') {
+                const events = await dbService.getManaEvents('review', 80);
+                setManaEvents(events);
             }
             else if (activeView === 'moderation') {
                 const reps = await dbService.getReportTickets();
@@ -257,6 +264,30 @@ const AdminPage: React.FC = () => {
             showNotification(`Plano de ${editingUser.displayName} atualizado para ${tier.toUpperCase()}`, "success");
         } catch (e) {
             showNotification("Erro ao atualizar plano", "error");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveUserAdminEdits = async () => {
+        if (!editingUser) return;
+        setSaving(true);
+        try {
+            const updates: Partial<UserProfile> = {
+                subscriptionTier: editingUser.subscriptionTier,
+                subscriptionStatus: editingUser.subscriptionStatus,
+                subscriptionExpiresAt: editingUser.subscriptionTier === 'free' ? null : editingUser.subscriptionExpiresAt,
+                credits: Number(editingUser.credits || 0),
+                lifetimeXp: Number(editingUser.lifetimeXp || 0),
+                badges: editingUser.badges || [],
+            };
+
+            await dbService.updateUserProfile(editingUser.uid, updates);
+            setUsers(prev => prev.map(u => u.uid === editingUser.uid ? { ...u, ...updates } : u));
+            setEditingUser(null);
+            showNotification(`Perfil de ${editingUser.displayName} atualizado`, "success");
+        } catch (e) {
+            showNotification("Erro ao atualizar perfil", "error");
         } finally {
             setSaving(false);
         }
@@ -371,6 +402,18 @@ const AdminPage: React.FC = () => {
             showNotification(`Denúncia resolvida: ${action}`, "success");
         } catch (e) {
             showNotification("Erro ao resolver denúncia", "error");
+        }
+    };
+
+    const handleVoidManaEvent = async (eventId: string) => {
+        const reason = window.prompt('Motivo da anulacao do evento de Mana:') || '';
+        if (!reason.trim()) return;
+        try {
+            await dbService.voidManaEvent(eventId, reason.trim());
+            setManaEvents(prev => prev.filter(event => event.id !== eventId));
+            showNotification('Evento de Mana anulado.', 'success');
+        } catch {
+            showNotification('Erro ao anular evento de Mana.', 'error');
         }
     };
 
@@ -1049,6 +1092,251 @@ const AdminPage: React.FC = () => {
         </div>
     );
 
+    const renderMonetization = () => {
+        if (!settings) {
+            return (
+                <div className="flex justify-center py-20">
+                    <Loader2 className="animate-spin text-bible-gold" size={32} />
+                </div>
+            );
+        }
+
+        const updatePrice = (key: keyof SystemSettings['subscription']['prices'], value: string) => {
+            setSettings({
+                ...settings,
+                subscription: {
+                    ...settings.subscription,
+                    prices: { ...settings.subscription.prices, [key]: Number(value) || 0 }
+                }
+            });
+        };
+
+        const updateLimit = (key: keyof SystemSettings['limits'], value: string) => {
+            setSettings({ ...settings, limits: { ...settings.limits, [key]: Number(value) || 0 } });
+        };
+
+        const updateCost = (key: keyof SystemSettings['costs'], value: string) => {
+            setSettings({ ...settings, costs: { ...settings.costs, [key]: Number(value) || 0 } });
+        };
+
+        const updateMana = (key: keyof SystemSettings['gamification'], value: string) => {
+            setSettings({ ...settings, gamification: { ...settings.gamification, [key]: Number(value) || 0 } });
+        };
+
+        const updateCampaigns = (value: string) => {
+            try {
+                const parsed = JSON.parse(value);
+                if (Array.isArray(parsed)) setSettings({ ...settings, gamificationCampaigns: parsed });
+            } catch {
+                // Mantem o ultimo JSON valido enquanto o admin edita.
+            }
+        };
+
+        const planConfigs = SUBSCRIPTION_PLANS.map((fallback) => {
+            const configured = settings.subscription.plans?.find((plan) => plan.id === fallback.id);
+            return { ...fallback, ...configured };
+        });
+
+        const updatePlanConfig = (planId: SubscriptionTier, patch: Partial<typeof planConfigs[number]>) => {
+            const nextPlans = planConfigs.map((plan) => plan.id === planId ? { ...plan, ...patch } : plan);
+            setSettings({ ...settings, subscription: { ...settings.subscription, plans: nextPlans } });
+        };
+
+        return (
+            <div className="space-y-6 animate-in fade-in max-w-6xl mx-auto">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 className="text-2xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <Coins className="text-emerald-600" /> Monetizacao, Mana e Limites
+                        </h2>
+                        <p className="text-xs text-gray-500 mt-1">Controle operacional de planos, custos de IA, limites gratuitos e pontuacao.</p>
+                    </div>
+                    <button onClick={handleSaveSettings} disabled={saving} className="bg-emerald-600 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md disabled:opacity-50">
+                        {saving ? 'Salvando...' : 'Salvar Monetizacao'}
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <section className="bg-white dark:bg-bible-darkPaper rounded-3xl border border-gray-100 dark:border-gray-800 p-6 shadow-sm">
+                        <h3 className="font-bold text-gray-900 dark:text-white mb-4">Precos dos planos</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {(Object.keys(settings.subscription.prices) as Array<keyof SystemSettings['subscription']['prices']>).map((key) => (
+                                <label key={key} className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{key}</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={settings.subscription.prices[key]}
+                                        onChange={(e) => updatePrice(key, e.target.value)}
+                                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-sm"
+                                    />
+                                </label>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section className="bg-white dark:bg-bible-darkPaper rounded-3xl border border-gray-100 dark:border-gray-800 p-6 shadow-sm">
+                        <h3 className="font-bold text-gray-900 dark:text-white mb-4">Promocao</h3>
+                        <div className="space-y-3">
+                            <label className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                                <input
+                                    type="checkbox"
+                                    checked={settings.subscription.promo.active}
+                                    onChange={(e) => setSettings({ ...settings, subscription: { ...settings.subscription, promo: { ...settings.subscription.promo, active: e.target.checked } } })}
+                                    className="w-5 h-5 accent-emerald-600"
+                                />
+                                Promocao ativa
+                            </label>
+                            <input
+                                value={settings.subscription.promo.title}
+                                onChange={(e) => setSettings({ ...settings, subscription: { ...settings.subscription, promo: { ...settings.subscription.promo, title: e.target.value } } })}
+                                placeholder="Titulo da promocao"
+                                className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-sm"
+                            />
+                            <textarea
+                                value={settings.subscription.promo.description}
+                                onChange={(e) => setSettings({ ...settings, subscription: { ...settings.subscription, promo: { ...settings.subscription.promo, description: e.target.value } } })}
+                                placeholder="Descricao da promocao"
+                                className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-sm h-24"
+                            />
+                        </div>
+                    </section>
+
+                    <section className="bg-white dark:bg-bible-darkPaper rounded-3xl border border-gray-100 dark:border-gray-800 p-6 shadow-sm">
+                        <h3 className="font-bold text-gray-900 dark:text-white mb-4">Limites gratuitos</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {(Object.keys(settings.limits) as Array<keyof SystemSettings['limits']>).map((key) => (
+                                <label key={key} className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{key}</span>
+                                    <input
+                                        type="number"
+                                        value={settings.limits[key]}
+                                        onChange={(e) => updateLimit(key, e.target.value)}
+                                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-sm"
+                                    />
+                                </label>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section className="bg-white dark:bg-bible-darkPaper rounded-3xl border border-gray-100 dark:border-gray-800 p-6 shadow-sm">
+                        <h3 className="font-bold text-gray-900 dark:text-white mb-4">Custos / creditos por IA</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {(Object.keys(settings.costs) as Array<keyof SystemSettings['costs']>).map((key) => (
+                                <label key={key} className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{key}</span>
+                                    <input
+                                        type="number"
+                                        value={settings.costs[key]}
+                                        onChange={(e) => updateCost(key, e.target.value)}
+                                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-sm"
+                                    />
+                                </label>
+                            ))}
+                        </div>
+                    </section>
+                </div>
+
+                <section className="bg-white dark:bg-bible-darkPaper rounded-3xl border border-gray-100 dark:border-gray-800 p-6 shadow-sm">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-4">
+                        <h3 className="font-bold text-gray-900 dark:text-white">Planos exibidos no paywall</h3>
+                        <p className="text-xs text-gray-500">Beneficios e textos usados pelo modal de assinatura.</p>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {planConfigs.filter(plan => plan.id !== 'admin').map((plan) => (
+                            <div key={plan.id} className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-black/20 p-4 space-y-3">
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{plan.id}</span>
+                                    <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                        <label className="flex items-center gap-1">
+                                            <input
+                                                type="checkbox"
+                                                checked={plan.active !== false}
+                                                onChange={(e) => updatePlanConfig(plan.id, { active: e.target.checked })}
+                                                className="accent-emerald-600"
+                                            />
+                                            Ativo
+                                        </label>
+                                        <label className="flex items-center gap-1">
+                                            <input
+                                                type="checkbox"
+                                                checked={Boolean(plan.recommended)}
+                                                onChange={(e) => updatePlanConfig(plan.id, { recommended: e.target.checked })}
+                                                className="accent-bible-gold"
+                                            />
+                                            Destaque
+                                        </label>
+                                    </div>
+                                </div>
+                                <input
+                                    value={plan.name}
+                                    onChange={(e) => updatePlanConfig(plan.id, { name: e.target.value })}
+                                    className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-bold"
+                                    placeholder="Nome do plano"
+                                />
+                                <textarea
+                                    value={plan.description || ''}
+                                    onChange={(e) => updatePlanConfig(plan.id, { description: e.target.value })}
+                                    className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm h-20"
+                                    placeholder="Descricao curta para o paywall"
+                                />
+                                <label className="block space-y-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Creditos inclusos</span>
+                                    <input
+                                        type="number"
+                                        value={plan.credits || 0}
+                                        onChange={(e) => updatePlanConfig(plan.id, { credits: Number(e.target.value) || 0 })}
+                                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm"
+                                    />
+                                </label>
+                                <label className="block space-y-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Beneficios (um por linha)</span>
+                                    <textarea
+                                        value={(plan.benefits || []).join('\n')}
+                                        onChange={(e) => updatePlanConfig(plan.id, { benefits: e.target.value.split('\n').map(item => item.trim()).filter(Boolean) })}
+                                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm h-28"
+                                    />
+                                </label>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
+                <section className="bg-white dark:bg-bible-darkPaper rounded-3xl border border-gray-100 dark:border-gray-800 p-6 shadow-sm">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-4">
+                        <h3 className="font-bold text-gray-900 dark:text-white">Mana por acao</h3>
+                        <p className="text-xs text-gray-500">Mana mede constancia. Creditos pagam capacidade tecnica.</p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {(Object.keys(settings.gamification) as Array<keyof SystemSettings['gamification']>).map((key) => (
+                            <label key={key} className="space-y-1">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{key}</span>
+                                <input
+                                    type="number"
+                                    value={settings.gamification[key]}
+                                    onChange={(e) => updateMana(key, e.target.value)}
+                                    className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-sm"
+                                />
+                            </label>
+                        ))}
+                    </div>
+                </section>
+
+                <section className="bg-white dark:bg-bible-darkPaper rounded-3xl border border-gray-100 dark:border-gray-800 p-6 shadow-sm">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-4">
+                        <h3 className="font-bold text-gray-900 dark:text-white">Campanhas e temporadas de Mana</h3>
+                        <p className="text-xs text-gray-500">JSON operacional para desafios ativos sem deploy.</p>
+                    </div>
+                    <textarea
+                        value={JSON.stringify(settings.gamificationCampaigns ?? [], null, 2)}
+                        onChange={(e) => updateCampaigns(e.target.value)}
+                        className="h-72 w-full rounded-xl border border-gray-200 bg-gray-50 p-4 font-mono text-xs text-gray-900 outline-none focus:border-bible-gold dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100"
+                    />
+                </section>
+            </div>
+        );
+    };
+
     const renderMatrix = () => (
         <div className="bg-white dark:bg-bible-darkPaper rounded-[2.5rem] shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden animate-in fade-in max-w-5xl mx-auto">
             <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
@@ -1196,6 +1484,48 @@ const AdminPage: React.FC = () => {
         </div>
     );
 
+    const renderManaAudit = () => (
+        <div className="space-y-6 animate-in fade-in max-w-5xl mx-auto">
+            <div className="bg-orange-50 dark:bg-orange-900/10 p-4 rounded-2xl border border-orange-100 dark:border-orange-900/30 flex items-center gap-3">
+                <ShieldCheck className="text-orange-600" size={24} />
+                <div>
+                    <h3 className="font-bold text-orange-800 dark:text-orange-300">Auditoria de Mana</h3>
+                    <p className="text-xs text-orange-700/70 dark:text-orange-300/70">Eventos em revisao e anulacao administrativa.</p>
+                </div>
+            </div>
+
+            <div className="bg-white dark:bg-bible-darkPaper rounded-3xl border border-gray-100 dark:border-gray-800 overflow-hidden shadow-sm">
+                {manaEvents.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">
+                        Nenhum evento de Mana em revisao. Se a tabela ainda nao foi aplicada, esta lista fica vazia com seguranca.
+                    </div>
+                ) : (
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {manaEvents.map(event => (
+                            <div key={event.id} className="p-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-[10px] font-black uppercase tracking-widest rounded-full bg-orange-100 px-2 py-1 text-orange-700">{event.status}</span>
+                                        <span className="text-xs text-gray-400">{new Date(event.occurredAt).toLocaleString('pt-BR')}</span>
+                                    </div>
+                                    <h4 className="mt-2 font-bold text-gray-900 dark:text-white">{event.actionType} | +{event.xpAmount} Mana</h4>
+                                    <p className="mt-1 text-xs text-gray-500 break-all">Usuario: {event.userId} | Fonte: {event.sourceId || event.eventKey}</p>
+                                    {event.voidReason && <p className="mt-1 text-xs text-red-500">{event.voidReason}</p>}
+                                </div>
+                                <button
+                                    onClick={() => handleVoidManaEvent(event.id)}
+                                    className="min-h-10 rounded-xl bg-red-600 px-4 text-xs font-black uppercase tracking-widest text-white transition-colors hover:bg-red-700"
+                                >
+                                    Anular
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
     const renderLogs = () => (
         <div className="bg-gray-900 text-green-400 p-6 rounded-3xl font-mono text-xs overflow-hidden shadow-2xl animate-in fade-in max-w-5xl mx-auto">
             <div className="flex justify-between items-center mb-4 border-b border-gray-800 pb-2">
@@ -1250,6 +1580,8 @@ const AdminPage: React.FC = () => {
                 {/* Content Area */}
                 {activeView === 'dashboard' && renderDashboard()}
                 {activeView === 'roadmap' && renderRoadmap()}
+                {activeView === 'monetization' && renderMonetization()}
+                {activeView === 'mana_audit' && renderManaAudit()}
                 {activeView === 'users' && renderUsers()}
                 {activeView === 'cms' && renderCMS()}
                 {activeView === 'landing_cms' && renderLandingCMS()}
@@ -1268,13 +1600,78 @@ const AdminPage: React.FC = () => {
             {/* Modal de Edição de Usuário */}
             {editingUser && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-white dark:bg-bible-darkPaper w-full max-w-md rounded-3xl p-8 shadow-2xl border border-gray-100 dark:border-gray-800">
+                    <div className="bg-white dark:bg-bible-darkPaper w-full max-w-2xl rounded-3xl p-8 shadow-2xl border border-gray-100 dark:border-gray-800 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-bold">Gerenciar: {editingUser.displayName}</h3>
                             <button onClick={() => setEditingUser(null)}><X size={20} /></button>
                         </div>
 
                         <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <label className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Plano</span>
+                                    <select
+                                        value={editingUser.subscriptionTier}
+                                        onChange={(e) => setEditingUser({ ...editingUser, subscriptionTier: e.target.value as SubscriptionTier })}
+                                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-sm"
+                                    >
+                                        {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                </label>
+
+                                <label className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Status</span>
+                                    <select
+                                        value={editingUser.subscriptionStatus}
+                                        onChange={(e) => setEditingUser({ ...editingUser, subscriptionStatus: e.target.value as UserProfile['subscriptionStatus'] })}
+                                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-sm"
+                                    >
+                                        <option value="active">active</option>
+                                        <option value="inactive">inactive</option>
+                                    </select>
+                                </label>
+
+                                <label className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Validade</span>
+                                    <input
+                                        type="date"
+                                        value={editingUser.subscriptionExpiresAt ? editingUser.subscriptionExpiresAt.slice(0, 10) : ''}
+                                        onChange={(e) => setEditingUser({ ...editingUser, subscriptionExpiresAt: e.target.value ? new Date(`${e.target.value}T23:59:59`).toISOString() : null })}
+                                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-sm"
+                                    />
+                                </label>
+
+                                <label className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Creditos</span>
+                                    <input
+                                        type="number"
+                                        value={editingUser.credits || 0}
+                                        onChange={(e) => setEditingUser({ ...editingUser, credits: Number(e.target.value) || 0 })}
+                                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-sm"
+                                    />
+                                </label>
+
+                                <label className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Mana total</span>
+                                    <input
+                                        type="number"
+                                        value={editingUser.lifetimeXp || 0}
+                                        onChange={(e) => setEditingUser({ ...editingUser, lifetimeXp: Number(e.target.value) || 0 })}
+                                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-sm"
+                                    />
+                                </label>
+
+                                <label className="space-y-1 md:col-span-2">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Badges</span>
+                                    <input
+                                        value={(editingUser.badges || []).join(', ')}
+                                        onChange={(e) => setEditingUser({ ...editingUser, badges: e.target.value.split(',').map(b => b.trim()).filter(Boolean) })}
+                                        placeholder="event_early, supporter_seed"
+                                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-sm"
+                                    />
+                                </label>
+                            </div>
+
                             <p className="text-sm text-gray-500">Alterar plano manualmente (sem cobrar):</p>
                             <div className="grid grid-cols-2 gap-3">
                                 {TIERS.map(t => (
@@ -1286,6 +1683,14 @@ const AdminPage: React.FC = () => {
                                         {t}
                                     </button>
                                 ))}
+                            </div>
+                            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                <button onClick={() => setEditingUser(null)} className="px-5 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-bold">
+                                    Cancelar
+                                </button>
+                                <button onClick={handleSaveUserAdminEdits} disabled={saving} className="px-5 py-3 rounded-xl bg-bible-gold text-white text-xs font-black uppercase tracking-widest disabled:opacity-50">
+                                    {saving ? 'Salvando...' : 'Salvar Perfil'}
+                                </button>
                             </div>
                             <div className="text-xs text-center text-gray-400 mt-4">
                                 Isso concederá 30 dias de acesso ao plano selecionado.

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useAuth } from './AuthContext';
 import { dbService, supabase } from '../services/supabase';
 import { CustomPlan, PlanTeam, CustomQuiz } from '../types';
+import { canAccessPastoralWorkspace } from '../utils/profileAccess';
 
 interface WorkspaceContextProps {
   plans: CustomPlan[];
@@ -32,7 +33,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [prayers, setPrayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const isPastor = userProfile?.subscriptionTier === 'pastor' || userProfile?.subscriptionTier === 'admin';
+  const isPastor = canAccessPastoralWorkspace(userProfile);
 
   const fetchData = async () => {
     if (!currentUser) return;

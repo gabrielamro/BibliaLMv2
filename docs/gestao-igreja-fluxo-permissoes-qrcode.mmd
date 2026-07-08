@@ -1,0 +1,234 @@
+%% Mermaid flowchart
+%% Uso sugerido:
+%% 1. Abra https://mermaid.live
+%% 2. Cole este arquivo inteiro
+%% 3. Exporte como PNG, SVG ou PDF
+%%
+%% Este fluxo representa o estado funcional observado + regras pendentes
+%% documentadas em docs/gestao-igreja-requisitos-permissoes-qrcode.md.
+
+flowchart TD
+  START([Inicio do fluxo de Gestao da Igreja])
+
+  %% ---------------------------------------------------------------------------
+  %% APROVACAO INICIAL DE RESPONSABILIDADE
+  %% ---------------------------------------------------------------------------
+  subgraph A["A. Aprovacao inicial para gerir igreja"]
+    A1["Usuario acessa pagina publica da igreja ou /social/igreja/[churchSlug]/gerir"]
+    A2{"Usuario esta autenticado?"}
+    A3["Abrir login e retornar ao fluxo"]
+    A4["Usuario solicita responsabilidade pela igreja"]
+    A5["Criar ou atualizar church_role_requests<br/>status = pending<br/>requested_role = pastor ou admin"]
+    A6["Admin da plataforma acessa /admin"]
+    A7{"Admin aprova solicitacao?"}
+    A8["Rejeitar solicitacao<br/>status = rejected<br/>sem acesso a gestao"]
+    A9["Aprovar solicitacao<br/>status = approved<br/>reviewed_by + reviewed_at"]
+    A10["Adicionar user em churches.admins<br/>upsert memberships<br/>atualizar userProfile.churchData"]
+    A11["Usuario passa no gate como church admin legado"]
+  end
+
+  START --> A1 --> A2
+  A2 -- "Nao" --> A3 --> A1
+  A2 -- "Sim" --> A4 --> A5 --> A6 --> A7
+  A7 -- "Nao" --> A8 --> END_DENIED([Fim: acesso nao concedido])
+  A7 -- "Sim" --> A9 --> A10 --> A11
+
+  %% ---------------------------------------------------------------------------
+  %% GATE DE ACESSO AO MODULO
+  %% ---------------------------------------------------------------------------
+  subgraph B["B. Gate de acesso a /gestao-igreja"]
+    B1["Usuario acessa /gestao-igreja"]
+    B2{"Usuario autenticado?"}
+    B3["Abrir login"]
+    B4{"Tem igreja ativa ou responsabilidade aprovada?"}
+    B5["Redirecionar para fluxo de gerir igreja ou completar perfil"]
+    B6["Carregar roles da igreja<br/>church_member_roles"]
+    B7{"Possui acesso valido?"}
+    B8["Acesso permitido<br/>admin plataforma, church admin legado,<br/>church_manager, pastor ou leader ativo"]
+    B9["Acesso negado<br/>ir para Minha Igreja ou solicitacao de gestao"]
+  end
+
+  A11 --> B1
+  START --> B1
+  B1 --> B2
+  B2 -- "Nao" --> B3 --> B1
+  B2 -- "Sim" --> B4
+  B4 -- "Nao" --> B5 --> END_DENIED
+  B4 -- "Sim" --> B6 --> B7
+  B7 -- "Sim" --> B8
+  B7 -- "Nao" --> B9 --> END_DENIED
+
+  %% ---------------------------------------------------------------------------
+  %% PERMISSOES OPERACIONAIS
+  %% ---------------------------------------------------------------------------
+  subgraph C["C. Permissoes operacionais por role e escopo"]
+    C1["Abrir /gestao-igreja/permissoes"]
+    C2["Listar church_member_roles da igreja"]
+    C3["Criar permissao em /gestao-igreja/permissoes/nova"]
+    C4["Informar usuario, role, scope_type e scope_id"]
+    C5{"Role valida?"}
+    C6["Roles validas:<br/>church_manager, pastor, leader, volunteer"]
+    C7["Upsert church_member_roles<br/>status = active"]
+    C8["Gerar notificacao role_granted"]
+    C9["Usuario passa a operar dentro do escopo"]
+    C10["Revogar permissao<br/>status = revoked<br/>revoked_at = agora"]
+  end
+
+  B8 --> C1 --> C2 --> C3 --> C4 --> C5
+  C5 -- "Nao" --> C6 --> C4
+  C5 -- "Sim" --> C7 --> C8 --> C9
+  C2 --> C10
+
+  %% ---------------------------------------------------------------------------
+  %% EQUIPES
+  %% ---------------------------------------------------------------------------
+  subgraph D["D. Equipes de servico"]
+    D1["Abrir /gestao-igreja/equipes"]
+    D2["Criar equipe em /gestao-igreja/equipes/nova"]
+    D3["Informar nome, area, descricao, capacidade e lider opcional"]
+    D4["Salvar church_service_teams<br/>status = active"]
+    D5["Gerar notificacao team_created"]
+    D6["Equipe fica disponivel para designacoes"]
+    D7{"Pausar ou arquivar equipe?"}
+    D8["Atualizar status da equipe<br/>paused ou archived"]
+  end
+
+  B8 --> D1 --> D2 --> D3 --> D4 --> D5 --> D6 --> D7
+  D7 -- "Sim" --> D8
+  D7 -- "Nao" --> D6
+
+  %% ---------------------------------------------------------------------------
+  %% DESIGNACOES COM VAGAS
+  %% ---------------------------------------------------------------------------
+  subgraph E["E. Designacoes e vagas"]
+    E1["Abrir /gestao-igreja/designacoes"]
+    E2["Criar designacao em /gestao-igreja/designacoes/nova"]
+    E3["Informar titulo, descricao, escopo, data, equipe opcional e feedback publico"]
+    E4{"Quantidade de vagas informada?"}
+    E5["Bloquear salvamento<br/>RN: designacao deve ter vagas"]
+    E6["Salvar designacao<br/>status inicial = pending ou draft"]
+    E7["Convidar ou atribuir pessoas ate limite de vagas"]
+    E8{"Ha vaga disponivel?"}
+    E9["Bloquear novo convite<br/>limite de vagas atingido"]
+    E10["Notificar membro<br/>assignment_created"]
+    E11["Membro acessa /minha-igreja/designacoes"]
+    E12{"Membro aceita?"}
+    E13["Aceitar designacao<br/>status = accepted<br/>accepted_at = agora<br/>vaga ocupada"]
+    E14["Recusar designacao<br/>status = declined<br/>declined_at = agora<br/>vaga liberada"]
+    E15["Notificar lideranca<br/>assignment_accepted"]
+    E16["Notificar lideranca<br/>assignment_declined"]
+    E17["Registrar insignia de servico se regra estiver ativa"]
+    E18["Exibir designacao ativa em Minha Igreja"]
+  end
+
+  B8 --> E1 --> E2 --> E3 --> E4
+  D6 --> E2
+  E4 -- "Nao" --> E5 --> E3
+  E4 -- "Sim" --> E6 --> E7 --> E8
+  E8 -- "Nao" --> E9
+  E8 -- "Sim" --> E10 --> E11 --> E12
+  E12 -- "Sim" --> E13 --> E15 --> E17 --> E18
+  E12 -- "Nao" --> E14 --> E16
+
+  %% ---------------------------------------------------------------------------
+  %% QR CODE E FORMULARIO PUBLICO
+  %% ---------------------------------------------------------------------------
+  subgraph F["F. QR Code, formulario publico e Inbox"]
+    F1["Abrir /gestao-igreja/qrcodes"]
+    F2["Criar QR em /gestao-igreja/qrcodes/novo"]
+    F3["Escolher tipo:<br/>prayer, volunteer, visitor,<br/>pastor_care, group ou custom"]
+    F4["Aplicar campos padrao do tipo<br/>e configuracoes da igreja"]
+    F5["Gerar token unico"]
+    F6["Salvar church_qr_forms<br/>status = active<br/>expires_at configurado"]
+    F7["Gerar URL publica /qr/[token]"]
+    F8["Copiar, baixar ou imprimir QR"]
+    F9["Pessoa escaneia QR"]
+    F10["Abrir /qr/[token]"]
+    F11{"Formulario ativo e nao expirado?"}
+    F12["Exibir formulario indisponivel"]
+    F13["Contar scan de forma nao bloqueante"]
+    F14["Exibir campos e texto de privacidade"]
+    F15{"Usuario autenticado?"}
+    F16["Guardar payload em sessionStorage<br/>abrir login<br/>retomar envio depois"]
+    F17["Enviar formulario"]
+    F18["Criar church_form_submissions<br/>status = received<br/>public_status = Recebido pela igreja"]
+    F19["Incrementar submissions_count<br/>nao bloquear se falhar"]
+    F20{"Tipo sensivel?<br/>prayer ou pastor_care"}
+    F21["Roteamento sensivel<br/>audience_role = pastor<br/>severity = urgent<br/>next_action = Atribuir responsavel"]
+    F22["Roteamento operacional<br/>audience_role = leader<br/>severity = action<br/>next_action conforme tipo"]
+    F23["Gerar notificacao submission_created"]
+    F24["Submissao aparece em /gestao-igreja/inbox"]
+  end
+
+  B8 --> F1 --> F2 --> F3 --> F4 --> F5 --> F6 --> F7 --> F8
+  F8 --> F9 --> F10 --> F11
+  F11 -- "Nao" --> F12 --> END_PUBLIC([Fim: formulario nao disponivel])
+  F11 -- "Sim" --> F13 --> F14 --> F15
+  F15 -- "Nao" --> F16 --> F17
+  F15 -- "Sim" --> F17
+  F17 --> F18 --> F19 --> F20
+  F20 -- "Sim" --> F21 --> F23
+  F20 -- "Nao" --> F22 --> F23
+  F23 --> F24
+
+  %% ---------------------------------------------------------------------------
+  %% INBOX E RETORNO AO MEMBRO
+  %% ---------------------------------------------------------------------------
+  subgraph G["G. Tratamento na Inbox e retorno em Minha Igreja"]
+    G1["Abrir /gestao-igreja/inbox"]
+    G2["Filtrar por status e prioridade"]
+    G3["Abrir detalhe protegido da submissao"]
+    G4{"Submissao sensivel?"}
+    G5["Permitir apenas pastor, responsavel atribuido ou submitter"]
+    G6["Permitir gestor autorizado para item nao sensivel"]
+    G7["Atribuir responsavel"]
+    G8["Atualizar prioridade e proxima acao"]
+    G9["Atualizar status interno e status publico"]
+    G10{"Submitter identificado?"}
+    G11["Gerar notificacao para o membro<br/>submission_status_updated"]
+    G12["Membro acessa /minha-igreja/acompanhamento"]
+    G13["Exibir status publico, feedback publico e proxima acao segura"]
+    G14["Nao exibir bastidores, resumo interno,<br/>notas pastorais ou dados de outros membros"]
+  end
+
+  F24 --> G1 --> G2 --> G3 --> G4
+  G4 -- "Sim" --> G5 --> G7
+  G4 -- "Nao" --> G6 --> G7
+  G7 --> G8 --> G9 --> G10
+  G10 -- "Sim" --> G11 --> G12 --> G13 --> G14
+  G10 -- "Nao" --> G13 --> G14
+
+  %% ---------------------------------------------------------------------------
+  %% LACUNAS E DECISOES PENDENTES
+  %% ---------------------------------------------------------------------------
+  subgraph H["H. Decisoes pendentes antes de fechar o fluxo"]
+    H1["Decidir se requested_role = admin<br/>cria role church_manager automaticamente"]
+    H2["Decidir se pastor aprovado<br/>cria role pastor automaticamente"]
+    H3["Definir regra unica para QR:<br/>login obrigatorio ou envio anonimo"]
+    H4["Modelar designacao com vagas:<br/>atividade pai + convites filhos<br/>ou um registro por vaga"]
+    H5["Definir conversao de voluntariado:<br/>submissao -> equipe/designacao/role"]
+    H6["Alinhar reconhecimento:<br/>insignia apenas ou tambem Mana/XP"]
+  end
+
+  A10 -. "lacuna de mapeamento" .-> H1
+  A10 -. "lacuna de mapeamento" .-> H2
+  F15 -. "divergencia UI x modelo" .-> H3
+  E4 -. "campo ainda nao modelado" .-> H4
+  F22 -. "voluntariado via QR" .-> H5
+  E17 -. "decisao pastoral/produto" .-> H6
+
+  %% ---------------------------------------------------------------------------
+  %% ESTILOS
+  %% ---------------------------------------------------------------------------
+  classDef startEnd fill:#0f172a,stroke:#0f172a,color:#ffffff,stroke-width:2px;
+  classDef process fill:#ffffff,stroke:#94a3b8,color:#0f172a,stroke-width:1px;
+  classDef decision fill:#fff7ed,stroke:#d97706,color:#0f172a,stroke-width:2px;
+  classDef blocked fill:#fee2e2,stroke:#dc2626,color:#7f1d1d,stroke-width:2px;
+  classDef success fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px;
+  classDef pending fill:#eff6ff,stroke:#2563eb,color:#172554,stroke-width:2px;
+
+  class START,END_DENIED,END_PUBLIC startEnd;
+  class A2,A7,B2,B4,B7,C5,D7,E4,E8,E12,F11,F15,F20,G4,G10 decision;
+  class A8,B5,B9,E5,E9,F12 blocked;
+  class A11,B8,C9,D6,E13,E18,F24,G13,G14 success;
+  class H1,H2,H3,H4,H5,H6 pending;

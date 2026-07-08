@@ -64,20 +64,20 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
   if (!isEditing) return null;
 
   return (
-    <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Seção de Visibilidade */}
-      <div className="bg-gray-50/50 dark:bg-gray-800/30 p-4 rounded-[2rem] border border-gray-100 dark:border-gray-800">
+      <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-3 dark:border-gray-800 dark:bg-gray-800/30">
         <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 block px-1">Exibição e Visibilidade</label>
         
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => handleChange('showOnDesktop', localData.showOnDesktop === false)}
-            className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${localData.showOnDesktop !== false ? 'bg-white dark:bg-gray-900 border-bible-gold/20 shadow-sm' : 'bg-gray-100/50 dark:bg-gray-800/20 border-transparent opacity-60'}`}
+            className={`flex min-h-14 items-center gap-2 rounded-2xl border p-2 text-left transition-all ${localData.showOnDesktop !== false ? 'bg-white dark:bg-gray-900 border-bible-gold/20 shadow-sm' : 'bg-gray-100/50 dark:bg-gray-800/20 border-transparent opacity-60'}`}
           >
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${localData.showOnDesktop !== false ? 'bg-bible-gold/10 text-bible-gold' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'}`}>
+            <div className={`flex h-8 w-8 flex-none items-center justify-center rounded-lg ${localData.showOnDesktop !== false ? 'bg-bible-gold/10 text-bible-gold' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'}`}>
               <Monitor size={16} />
             </div>
-            <div className="flex flex-col items-start">
+            <div className="flex min-w-0 flex-col items-start">
               <span className={`text-[9px] font-bold uppercase tracking-tight ${localData.showOnDesktop !== false ? 'text-bible-ink dark:text-white' : 'text-gray-400'}`}>Desktop</span>
               <span className="text-[8px] text-gray-400">{localData.showOnDesktop !== false ? 'Ativado' : 'Oculto'}</span>
             </div>
@@ -85,12 +85,12 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
 
           <button
             onClick={() => handleChange('showOnMobile', localData.showOnMobile === false)}
-            className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${localData.showOnMobile !== false ? 'bg-white dark:bg-gray-900 border-bible-gold/20 shadow-sm' : 'bg-gray-100/50 dark:bg-gray-800/20 border-transparent opacity-60'}`}
+            className={`flex min-h-14 items-center gap-2 rounded-2xl border p-2 text-left transition-all ${localData.showOnMobile !== false ? 'bg-white dark:bg-gray-900 border-bible-gold/20 shadow-sm' : 'bg-gray-100/50 dark:bg-gray-800/20 border-transparent opacity-60'}`}
           >
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${localData.showOnMobile !== false ? 'bg-bible-gold/10 text-bible-gold' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'}`}>
+            <div className={`flex h-8 w-8 flex-none items-center justify-center rounded-lg ${localData.showOnMobile !== false ? 'bg-bible-gold/10 text-bible-gold' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'}`}>
               <Smartphone size={16} />
             </div>
-            <div className="flex flex-col items-start">
+            <div className="flex min-w-0 flex-col items-start">
               <span className={`text-[9px] font-bold uppercase tracking-tight ${localData.showOnMobile !== false ? 'text-bible-ink dark:text-white' : 'text-gray-400'}`}>Mobile</span>
               <span className="text-[8px] text-gray-400">{localData.showOnMobile !== false ? 'Ativado' : 'Oculto'}</span>
             </div>
@@ -100,10 +100,10 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
 
       {/* Seção de Estilo Visual */}
       {(block.type === 'biblical') && (
-        <div className="bg-gray-50/50 dark:bg-gray-800/30 p-4 rounded-[2rem] border border-gray-100 dark:border-gray-800">
+        <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-3 dark:border-gray-800 dark:bg-gray-800/30">
           <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 block px-1">Estilo do Versículo</label>
           
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 min-[360px]:grid-cols-3">
             {[
               { id: 'classic', label: 'Classic', icon: Quote },
               { id: 'modern', label: 'Modern', icon: Palette },
@@ -114,9 +114,9 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
               <button
                 key={s.id}
                 onClick={() => handleChange('style', s.id)}
-                className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all ${localData.style === s.id || (!localData.style && s.id === 'classic') ? 'border-bible-gold bg-white dark:bg-gray-900 text-bible-gold shadow-lg shadow-bible-gold/10 scale-105' : 'border-transparent text-gray-400 opacity-60 hover:opacity-100'}`}
+                className={`flex min-h-20 flex-col items-center justify-center gap-2 rounded-2xl border-2 p-2 transition-all ${localData.style === s.id || (!localData.style && s.id === 'classic') ? 'border-bible-gold bg-white dark:bg-gray-900 text-bible-gold shadow-lg shadow-bible-gold/10' : 'border-transparent text-gray-400 opacity-60 hover:opacity-100'}`}
               >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${localData.style === s.id || (!localData.style && s.id === 'classic') ? 'bg-bible-gold/10' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${localData.style === s.id || (!localData.style && s.id === 'classic') ? 'bg-bible-gold/10' : 'bg-gray-100 dark:bg-gray-800'}`}>
                   <s.icon size={16} />
                 </div>
                 <span className="text-[9px] font-bold uppercase tracking-tight">{s.label}</span>
@@ -124,18 +124,18 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
             ))}
           </div>
 
-          <div className="mt-4 flex items-center justify-between bg-white dark:bg-gray-900 p-3 rounded-xl border border-gray-100 dark:border-gray-800">
-             <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-bible-gold/5 flex items-center justify-center text-bible-gold">
+          <div className="mt-4 flex min-h-14 items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
+             <div className="flex min-w-0 items-center gap-2">
+                <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-bible-gold/5 text-bible-gold">
                   <ImageIcon size={14} />
                 </div>
-                <span className="text-xs font-bold text-gray-600 dark:text-gray-300">Mostrar Imagem</span>
+                <span className="truncate text-xs font-bold text-gray-600 dark:text-gray-300">Mostrar Imagem</span>
              </div>
              <input 
                 type="checkbox" 
                 checked={localData.showImage !== false} 
                 onChange={(e) => handleChange('showImage', e.target.checked)} 
-                className="w-5 h-5 rounded-md border-gray-200 text-bible-gold focus:ring-bible-gold" 
+                className="h-5 w-5 flex-none rounded-md border-gray-200 text-bible-gold focus:ring-bible-gold" 
              />
           </div>
         </div>
@@ -143,7 +143,7 @@ export const BlockProperties: React.FC<BlockPropertiesProps> = ({ block, onUpdat
 
       {/* Hero e Sliders: Config específicas */}
       {(block.type === 'hero' || block.type === 'slide') && (
-        <div className="bg-gray-50/50 dark:bg-gray-800/30 p-4 rounded-[2rem] border border-gray-100 dark:border-gray-800 space-y-3">
+        <div className="space-y-3 rounded-2xl border border-gray-100 bg-gray-50/50 p-3 dark:border-gray-800 dark:bg-gray-800/30">
           <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 block px-1">Configurações</label>
           
           <div className="grid grid-cols-1 gap-2">

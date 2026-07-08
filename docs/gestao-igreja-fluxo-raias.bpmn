@@ -1,0 +1,448 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_GestaoIgreja_Raias"
+                  targetNamespace="https://biblialm.com.br/bpmn/gestao-igreja/raias">
+  <bpmn:process id="Process_GestaoIgreja_Raias" name="Gestao da Igreja - Fluxo por raias" isExecutable="true">
+    <bpmn:documentation>
+      Fluxo por raias do modulo Gestao da Igreja.
+      Raias: Usuario/Membro/Visitante, Admin da Plataforma, Gestor da Igreja, Sistema BibliaLM e Lideranca Pastoral/Responsavel.
+      Para execucao real em motor BPMN, configurar formularios, assignees, expressoes dos gateways e workers das service tasks.
+    </bpmn:documentation>
+
+    <bpmn:laneSet id="LaneSet_GestaoIgreja">
+      <bpmn:lane id="Lane_Usuario" name="Usuario / Membro / Visitante">
+        <bpmn:flowNodeRef>StartEvent_Inicio</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_SolicitarGestao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_UsuarioAutenticado</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_LoginGestao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_AcessarGestao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_MembroResponderDesignacao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_MembroAceita</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_EscanearQR</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_PreencherFormulario</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_SubmitterAutenticado</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_LoginSubmitter</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_VerMinhaIgreja</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_AdminPlataforma" name="Admin da Plataforma">
+        <bpmn:flowNodeRef>Task_RevisarSolicitacao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_AdminAprova</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_AcessoNegado</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_GestorIgreja" name="Gestor da Igreja">
+        <bpmn:flowNodeRef>Gateway_EscolherOperacao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_GerirPermissoes</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CriarEquipe</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CriarDesignacao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ConvidarPessoas</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CriarQR</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_DistribuirQR</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_Fim</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Sistema" name="Sistema BibliaLM">
+        <bpmn:flowNodeRef>Service_CriarRoleRequest</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_AprovarResponsabilidade</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_VerificarAcesso</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_AcessoValido</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_GateNegado</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_UpsertRole</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_NotificarRole</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_SalvarEquipe</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_TemVagas</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_SalvarDesignacao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_SemVagas</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_NotificarDesignacao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_AceitarDesignacao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_RecusarDesignacao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_NotificarLideranca</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_SalvarQR</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_CarregarFormulario</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_FormularioAtivo</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_FormIndisponivel</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_ContarScan</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_CriarSubmissao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_TipoSensivel</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_RotearPastor</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_RotearLideranca</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_NotificarSubmission</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_AtualizarStatusPublico</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Service_NotificarMembro</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Lideranca" name="Lideranca Pastoral / Responsavel">
+        <bpmn:flowNodeRef>Task_TratarInbox</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_DefinirResponsavelPrioridade</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+
+    <bpmn:startEvent id="StartEvent_Inicio" name="Inicio">
+      <bpmn:outgoing>Flow_01</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Task_SolicitarGestao" name="Solicitar gestao da igreja">
+      <bpmn:incoming>Flow_01</bpmn:incoming>
+      <bpmn:incoming>Flow_Login_Back</bpmn:incoming>
+      <bpmn:outgoing>Flow_02</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_UsuarioAutenticado" name="Autenticado?">
+      <bpmn:incoming>Flow_02</bpmn:incoming>
+      <bpmn:outgoing>Flow_03_Nao</bpmn:outgoing>
+      <bpmn:outgoing>Flow_03_Sim</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_LoginGestao" name="Fazer login">
+      <bpmn:incoming>Flow_03_Nao</bpmn:incoming>
+      <bpmn:outgoing>Flow_Login_Back</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Service_CriarRoleRequest" name="Criar church_role_requests pending">
+      <bpmn:incoming>Flow_03_Sim</bpmn:incoming>
+      <bpmn:outgoing>Flow_04</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_RevisarSolicitacao" name="Revisar solicitacao no Admin">
+      <bpmn:incoming>Flow_04</bpmn:incoming>
+      <bpmn:outgoing>Flow_05</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_AdminAprova" name="Aprovar?">
+      <bpmn:incoming>Flow_05</bpmn:incoming>
+      <bpmn:outgoing>Flow_06_Nao</bpmn:outgoing>
+      <bpmn:outgoing>Flow_06_Sim</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="EndEvent_AcessoNegado" name="Solicitacao rejeitada">
+      <bpmn:incoming>Flow_06_Nao</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="Service_AprovarResponsabilidade" name="Aprovar e vincular admin/membership/churchData">
+      <bpmn:incoming>Flow_06_Sim</bpmn:incoming>
+      <bpmn:outgoing>Flow_07</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_AcessarGestao" name="Acessar /gestao-igreja">
+      <bpmn:incoming>Flow_07</bpmn:incoming>
+      <bpmn:outgoing>Flow_08</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Service_VerificarAcesso" name="Validar igreja, admins e roles">
+      <bpmn:incoming>Flow_08</bpmn:incoming>
+      <bpmn:outgoing>Flow_09</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_AcessoValido" name="Acesso valido?">
+      <bpmn:incoming>Flow_09</bpmn:incoming>
+      <bpmn:outgoing>Flow_10_Nao</bpmn:outgoing>
+      <bpmn:outgoing>Flow_10_Sim</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="EndEvent_GateNegado" name="Gate negado">
+      <bpmn:incoming>Flow_10_Nao</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:exclusiveGateway id="Gateway_EscolherOperacao" name="Escolher operacao">
+      <bpmn:incoming>Flow_10_Sim</bpmn:incoming>
+      <bpmn:incoming>Flow_15</bpmn:incoming>
+      <bpmn:incoming>Flow_33</bpmn:incoming>
+      <bpmn:incoming>Flow_56</bpmn:incoming>
+      <bpmn:outgoing>Flow_11_Permissoes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_16_Designacoes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_34_QR</bpmn:outgoing>
+      <bpmn:outgoing>Flow_57_End</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:userTask id="Task_GerirPermissoes" name="Conceder ou revogar role operacional">
+      <bpmn:incoming>Flow_11_Permissoes</bpmn:incoming>
+      <bpmn:outgoing>Flow_12</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Service_UpsertRole" name="Upsert church_member_roles">
+      <bpmn:incoming>Flow_12</bpmn:incoming>
+      <bpmn:outgoing>Flow_13</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Service_NotificarRole" name="Notificar role_granted">
+      <bpmn:incoming>Flow_13</bpmn:incoming>
+      <bpmn:outgoing>Flow_15</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="Task_CriarEquipe" name="Criar equipe">
+      <bpmn:incoming>Flow_16_Designacoes</bpmn:incoming>
+      <bpmn:outgoing>Flow_17</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Service_SalvarEquipe" name="Salvar church_service_teams">
+      <bpmn:incoming>Flow_17</bpmn:incoming>
+      <bpmn:outgoing>Flow_18</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_CriarDesignacao" name="Criar designacao com vagas">
+      <bpmn:incoming>Flow_18</bpmn:incoming>
+      <bpmn:incoming>Flow_20_Nao</bpmn:incoming>
+      <bpmn:outgoing>Flow_19</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_TemVagas" name="Vagas informadas?">
+      <bpmn:incoming>Flow_19</bpmn:incoming>
+      <bpmn:outgoing>Flow_20_Nao</bpmn:outgoing>
+      <bpmn:outgoing>Flow_20_Sim</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Service_SalvarDesignacao" name="Salvar designacao e vagas">
+      <bpmn:incoming>Flow_20_Sim</bpmn:incoming>
+      <bpmn:outgoing>Flow_21</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="EndEvent_SemVagas" name="Bloqueado sem vagas">
+      <bpmn:incoming>Flow_20_Nao_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:userTask id="Task_ConvidarPessoas" name="Convidar pessoas ate limite de vagas">
+      <bpmn:incoming>Flow_21</bpmn:incoming>
+      <bpmn:outgoing>Flow_22</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Service_NotificarDesignacao" name="Notificar assignment_created">
+      <bpmn:incoming>Flow_22</bpmn:incoming>
+      <bpmn:outgoing>Flow_23</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_MembroResponderDesignacao" name="Aceitar ou recusar designacao">
+      <bpmn:incoming>Flow_23</bpmn:incoming>
+      <bpmn:outgoing>Flow_24</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_MembroAceita" name="Aceita?">
+      <bpmn:incoming>Flow_24</bpmn:incoming>
+      <bpmn:outgoing>Flow_25_Sim</bpmn:outgoing>
+      <bpmn:outgoing>Flow_25_Nao</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Service_AceitarDesignacao" name="Status accepted e vaga ocupada">
+      <bpmn:incoming>Flow_25_Sim</bpmn:incoming>
+      <bpmn:outgoing>Flow_26</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Service_RecusarDesignacao" name="Status declined e vaga liberada">
+      <bpmn:incoming>Flow_25_Nao</bpmn:incoming>
+      <bpmn:outgoing>Flow_27</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Service_NotificarLideranca" name="Notificar lideranca e registrar insignia se aplicavel">
+      <bpmn:incoming>Flow_26</bpmn:incoming>
+      <bpmn:incoming>Flow_27</bpmn:incoming>
+      <bpmn:outgoing>Flow_33</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="Task_CriarQR" name="Criar QR/formulario">
+      <bpmn:incoming>Flow_34_QR</bpmn:incoming>
+      <bpmn:outgoing>Flow_35</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Service_SalvarQR" name="Gerar token e salvar QR ativo">
+      <bpmn:incoming>Flow_35</bpmn:incoming>
+      <bpmn:outgoing>Flow_36</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_DistribuirQR" name="Copiar, baixar ou imprimir QR">
+      <bpmn:incoming>Flow_36</bpmn:incoming>
+      <bpmn:outgoing>Flow_37</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_EscanearQR" name="Escanear /qr/[token]">
+      <bpmn:incoming>Flow_37</bpmn:incoming>
+      <bpmn:outgoing>Flow_38</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Service_CarregarFormulario" name="Carregar formulario por token">
+      <bpmn:incoming>Flow_38</bpmn:incoming>
+      <bpmn:outgoing>Flow_39</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_FormularioAtivo" name="Formulario ativo?">
+      <bpmn:incoming>Flow_39</bpmn:incoming>
+      <bpmn:outgoing>Flow_40_Nao</bpmn:outgoing>
+      <bpmn:outgoing>Flow_40_Sim</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="EndEvent_FormIndisponivel" name="Formulario indisponivel">
+      <bpmn:incoming>Flow_40_Nao</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="Service_ContarScan" name="Contar scan">
+      <bpmn:incoming>Flow_40_Sim</bpmn:incoming>
+      <bpmn:outgoing>Flow_41</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_PreencherFormulario" name="Preencher formulario">
+      <bpmn:incoming>Flow_41</bpmn:incoming>
+      <bpmn:outgoing>Flow_42</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_SubmitterAutenticado" name="Autenticado?">
+      <bpmn:incoming>Flow_42</bpmn:incoming>
+      <bpmn:outgoing>Flow_43_Nao</bpmn:outgoing>
+      <bpmn:outgoing>Flow_43_Sim</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_LoginSubmitter" name="Login e retomar envio">
+      <bpmn:incoming>Flow_43_Nao</bpmn:incoming>
+      <bpmn:outgoing>Flow_44</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Service_CriarSubmissao" name="Criar submissao received">
+      <bpmn:incoming>Flow_43_Sim</bpmn:incoming>
+      <bpmn:incoming>Flow_44</bpmn:incoming>
+      <bpmn:outgoing>Flow_45</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_TipoSensivel" name="Tipo sensivel?">
+      <bpmn:incoming>Flow_45</bpmn:incoming>
+      <bpmn:outgoing>Flow_46_Sim</bpmn:outgoing>
+      <bpmn:outgoing>Flow_46_Nao</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Service_RotearPastor" name="Rotear para pastor urgente">
+      <bpmn:incoming>Flow_46_Sim</bpmn:incoming>
+      <bpmn:outgoing>Flow_47</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Service_RotearLideranca" name="Rotear para lideranca">
+      <bpmn:incoming>Flow_46_Nao</bpmn:incoming>
+      <bpmn:outgoing>Flow_48</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Service_NotificarSubmission" name="Notificar submission_created">
+      <bpmn:incoming>Flow_47</bpmn:incoming>
+      <bpmn:incoming>Flow_48</bpmn:incoming>
+      <bpmn:outgoing>Flow_49</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_TratarInbox" name="Tratar item na Inbox">
+      <bpmn:incoming>Flow_49</bpmn:incoming>
+      <bpmn:outgoing>Flow_50</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_DefinirResponsavelPrioridade" name="Definir responsavel, prioridade e proxima acao">
+      <bpmn:incoming>Flow_50</bpmn:incoming>
+      <bpmn:outgoing>Flow_51</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Service_AtualizarStatusPublico" name="Atualizar status interno e publico">
+      <bpmn:incoming>Flow_51</bpmn:incoming>
+      <bpmn:outgoing>Flow_52</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Service_NotificarMembro" name="Notificar membro identificado">
+      <bpmn:incoming>Flow_52</bpmn:incoming>
+      <bpmn:outgoing>Flow_53</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_VerMinhaIgreja" name="Ver retorno em Minha Igreja">
+      <bpmn:incoming>Flow_53</bpmn:incoming>
+      <bpmn:outgoing>Flow_56</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:endEvent id="EndEvent_Fim" name="Fim">
+      <bpmn:incoming>Flow_57_End</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:textAnnotation id="TextAnnotation_DecisoesPendentes">
+      <bpmn:text>Decisoes pendentes: mapear admin aprovado para church_manager; definir QR login vs anonimo; modelar vagas da designacao; converter voluntariado do QR; alinhar insignia vs Mana/XP.</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:association id="Association_Decisoes" sourceRef="Gateway_EscolherOperacao" targetRef="TextAnnotation_DecisoesPendentes"/>
+
+    <bpmn:sequenceFlow id="Flow_01" sourceRef="StartEvent_Inicio" targetRef="Task_SolicitarGestao"/>
+    <bpmn:sequenceFlow id="Flow_02" sourceRef="Task_SolicitarGestao" targetRef="Gateway_UsuarioAutenticado"/>
+    <bpmn:sequenceFlow id="Flow_03_Nao" name="Nao" sourceRef="Gateway_UsuarioAutenticado" targetRef="Task_LoginGestao"/>
+    <bpmn:sequenceFlow id="Flow_Login_Back" sourceRef="Task_LoginGestao" targetRef="Task_SolicitarGestao"/>
+    <bpmn:sequenceFlow id="Flow_03_Sim" name="Sim" sourceRef="Gateway_UsuarioAutenticado" targetRef="Service_CriarRoleRequest"/>
+    <bpmn:sequenceFlow id="Flow_04" sourceRef="Service_CriarRoleRequest" targetRef="Task_RevisarSolicitacao"/>
+    <bpmn:sequenceFlow id="Flow_05" sourceRef="Task_RevisarSolicitacao" targetRef="Gateway_AdminAprova"/>
+    <bpmn:sequenceFlow id="Flow_06_Nao" name="Nao" sourceRef="Gateway_AdminAprova" targetRef="EndEvent_AcessoNegado"/>
+    <bpmn:sequenceFlow id="Flow_06_Sim" name="Sim" sourceRef="Gateway_AdminAprova" targetRef="Service_AprovarResponsabilidade"/>
+    <bpmn:sequenceFlow id="Flow_07" sourceRef="Service_AprovarResponsabilidade" targetRef="Task_AcessarGestao"/>
+    <bpmn:sequenceFlow id="Flow_08" sourceRef="Task_AcessarGestao" targetRef="Service_VerificarAcesso"/>
+    <bpmn:sequenceFlow id="Flow_09" sourceRef="Service_VerificarAcesso" targetRef="Gateway_AcessoValido"/>
+    <bpmn:sequenceFlow id="Flow_10_Nao" name="Nao" sourceRef="Gateway_AcessoValido" targetRef="EndEvent_GateNegado"/>
+    <bpmn:sequenceFlow id="Flow_10_Sim" name="Sim" sourceRef="Gateway_AcessoValido" targetRef="Gateway_EscolherOperacao"/>
+    <bpmn:sequenceFlow id="Flow_11_Permissoes" name="Permissoes" sourceRef="Gateway_EscolherOperacao" targetRef="Task_GerirPermissoes"/>
+    <bpmn:sequenceFlow id="Flow_12" sourceRef="Task_GerirPermissoes" targetRef="Service_UpsertRole"/>
+    <bpmn:sequenceFlow id="Flow_13" sourceRef="Service_UpsertRole" targetRef="Service_NotificarRole"/>
+    <bpmn:sequenceFlow id="Flow_15" sourceRef="Service_NotificarRole" targetRef="Gateway_EscolherOperacao"/>
+    <bpmn:sequenceFlow id="Flow_16_Designacoes" name="Equipes e designacoes" sourceRef="Gateway_EscolherOperacao" targetRef="Task_CriarEquipe"/>
+    <bpmn:sequenceFlow id="Flow_17" sourceRef="Task_CriarEquipe" targetRef="Service_SalvarEquipe"/>
+    <bpmn:sequenceFlow id="Flow_18" sourceRef="Service_SalvarEquipe" targetRef="Task_CriarDesignacao"/>
+    <bpmn:sequenceFlow id="Flow_19" sourceRef="Task_CriarDesignacao" targetRef="Gateway_TemVagas"/>
+    <bpmn:sequenceFlow id="Flow_20_Nao" name="Nao" sourceRef="Gateway_TemVagas" targetRef="Task_CriarDesignacao"/>
+    <bpmn:sequenceFlow id="Flow_20_Nao_End" name="Bloquear" sourceRef="Gateway_TemVagas" targetRef="EndEvent_SemVagas"/>
+    <bpmn:sequenceFlow id="Flow_20_Sim" name="Sim" sourceRef="Gateway_TemVagas" targetRef="Service_SalvarDesignacao"/>
+    <bpmn:sequenceFlow id="Flow_21" sourceRef="Service_SalvarDesignacao" targetRef="Task_ConvidarPessoas"/>
+    <bpmn:sequenceFlow id="Flow_22" sourceRef="Task_ConvidarPessoas" targetRef="Service_NotificarDesignacao"/>
+    <bpmn:sequenceFlow id="Flow_23" sourceRef="Service_NotificarDesignacao" targetRef="Task_MembroResponderDesignacao"/>
+    <bpmn:sequenceFlow id="Flow_24" sourceRef="Task_MembroResponderDesignacao" targetRef="Gateway_MembroAceita"/>
+    <bpmn:sequenceFlow id="Flow_25_Sim" name="Sim" sourceRef="Gateway_MembroAceita" targetRef="Service_AceitarDesignacao"/>
+    <bpmn:sequenceFlow id="Flow_25_Nao" name="Nao" sourceRef="Gateway_MembroAceita" targetRef="Service_RecusarDesignacao"/>
+    <bpmn:sequenceFlow id="Flow_26" sourceRef="Service_AceitarDesignacao" targetRef="Service_NotificarLideranca"/>
+    <bpmn:sequenceFlow id="Flow_27" sourceRef="Service_RecusarDesignacao" targetRef="Service_NotificarLideranca"/>
+    <bpmn:sequenceFlow id="Flow_33" sourceRef="Service_NotificarLideranca" targetRef="Gateway_EscolherOperacao"/>
+    <bpmn:sequenceFlow id="Flow_34_QR" name="QR e Inbox" sourceRef="Gateway_EscolherOperacao" targetRef="Task_CriarQR"/>
+    <bpmn:sequenceFlow id="Flow_35" sourceRef="Task_CriarQR" targetRef="Service_SalvarQR"/>
+    <bpmn:sequenceFlow id="Flow_36" sourceRef="Service_SalvarQR" targetRef="Task_DistribuirQR"/>
+    <bpmn:sequenceFlow id="Flow_37" sourceRef="Task_DistribuirQR" targetRef="Task_EscanearQR"/>
+    <bpmn:sequenceFlow id="Flow_38" sourceRef="Task_EscanearQR" targetRef="Service_CarregarFormulario"/>
+    <bpmn:sequenceFlow id="Flow_39" sourceRef="Service_CarregarFormulario" targetRef="Gateway_FormularioAtivo"/>
+    <bpmn:sequenceFlow id="Flow_40_Nao" name="Nao" sourceRef="Gateway_FormularioAtivo" targetRef="EndEvent_FormIndisponivel"/>
+    <bpmn:sequenceFlow id="Flow_40_Sim" name="Sim" sourceRef="Gateway_FormularioAtivo" targetRef="Service_ContarScan"/>
+    <bpmn:sequenceFlow id="Flow_41" sourceRef="Service_ContarScan" targetRef="Task_PreencherFormulario"/>
+    <bpmn:sequenceFlow id="Flow_42" sourceRef="Task_PreencherFormulario" targetRef="Gateway_SubmitterAutenticado"/>
+    <bpmn:sequenceFlow id="Flow_43_Nao" name="Nao" sourceRef="Gateway_SubmitterAutenticado" targetRef="Task_LoginSubmitter"/>
+    <bpmn:sequenceFlow id="Flow_43_Sim" name="Sim" sourceRef="Gateway_SubmitterAutenticado" targetRef="Service_CriarSubmissao"/>
+    <bpmn:sequenceFlow id="Flow_44" sourceRef="Task_LoginSubmitter" targetRef="Service_CriarSubmissao"/>
+    <bpmn:sequenceFlow id="Flow_45" sourceRef="Service_CriarSubmissao" targetRef="Gateway_TipoSensivel"/>
+    <bpmn:sequenceFlow id="Flow_46_Sim" name="Sim" sourceRef="Gateway_TipoSensivel" targetRef="Service_RotearPastor"/>
+    <bpmn:sequenceFlow id="Flow_46_Nao" name="Nao" sourceRef="Gateway_TipoSensivel" targetRef="Service_RotearLideranca"/>
+    <bpmn:sequenceFlow id="Flow_47" sourceRef="Service_RotearPastor" targetRef="Service_NotificarSubmission"/>
+    <bpmn:sequenceFlow id="Flow_48" sourceRef="Service_RotearLideranca" targetRef="Service_NotificarSubmission"/>
+    <bpmn:sequenceFlow id="Flow_49" sourceRef="Service_NotificarSubmission" targetRef="Task_TratarInbox"/>
+    <bpmn:sequenceFlow id="Flow_50" sourceRef="Task_TratarInbox" targetRef="Task_DefinirResponsavelPrioridade"/>
+    <bpmn:sequenceFlow id="Flow_51" sourceRef="Task_DefinirResponsavelPrioridade" targetRef="Service_AtualizarStatusPublico"/>
+    <bpmn:sequenceFlow id="Flow_52" sourceRef="Service_AtualizarStatusPublico" targetRef="Service_NotificarMembro"/>
+    <bpmn:sequenceFlow id="Flow_53" sourceRef="Service_NotificarMembro" targetRef="Task_VerMinhaIgreja"/>
+    <bpmn:sequenceFlow id="Flow_56" sourceRef="Task_VerMinhaIgreja" targetRef="Gateway_EscolherOperacao"/>
+    <bpmn:sequenceFlow id="Flow_57_End" name="Encerrar" sourceRef="Gateway_EscolherOperacao" targetRef="EndEvent_Fim"/>
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_GestaoIgreja_Raias">
+    <bpmndi:BPMNPlane id="BPMNPlane_GestaoIgreja_Raias" bpmnElement="Process_GestaoIgreja_Raias">
+      <bpmndi:BPMNShape id="Shape_Lane_Usuario" bpmnElement="Lane_Usuario" isHorizontal="true">
+        <dc:Bounds x="100" y="80" width="3050" height="130"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Admin" bpmnElement="Lane_AdminPlataforma" isHorizontal="true">
+        <dc:Bounds x="100" y="210" width="3050" height="130"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Gestor" bpmnElement="Lane_GestorIgreja" isHorizontal="true">
+        <dc:Bounds x="100" y="340" width="3050" height="130"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Sistema" bpmnElement="Lane_Sistema" isHorizontal="true">
+        <dc:Bounds x="100" y="470" width="3050" height="130"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Lideranca" bpmnElement="Lane_Lideranca" isHorizontal="true">
+        <dc:Bounds x="100" y="600" width="3050" height="130"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_StartEvent_Inicio" bpmnElement="StartEvent_Inicio"><dc:Bounds x="150" y="127" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_SolicitarGestao" bpmnElement="Task_SolicitarGestao"><dc:Bounds x="230" y="110" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_UsuarioAutenticado" bpmnElement="Gateway_UsuarioAutenticado" isMarkerVisible="true"><dc:Bounds x="420" y="120" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_LoginGestao" bpmnElement="Task_LoginGestao"><dc:Bounds x="510" y="110" width="120" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_CriarRoleRequest" bpmnElement="Service_CriarRoleRequest"><dc:Bounds x="510" y="500" width="170" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_RevisarSolicitacao" bpmnElement="Task_RevisarSolicitacao"><dc:Bounds x="720" y="240" width="160" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_AdminAprova" bpmnElement="Gateway_AdminAprova" isMarkerVisible="true"><dc:Bounds x="920" y="250" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndEvent_AcessoNegado" bpmnElement="EndEvent_AcessoNegado"><dc:Bounds x="1015" y="257" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_AprovarResponsabilidade" bpmnElement="Service_AprovarResponsabilidade"><dc:Bounds x="1010" y="500" width="190" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_AcessarGestao" bpmnElement="Task_AcessarGestao"><dc:Bounds x="1240" y="110" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_VerificarAcesso" bpmnElement="Service_VerificarAcesso"><dc:Bounds x="1430" y="500" width="160" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_AcessoValido" bpmnElement="Gateway_AcessoValido" isMarkerVisible="true"><dc:Bounds x="1630" y="510" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndEvent_GateNegado" bpmnElement="EndEvent_GateNegado"><dc:Bounds x="1715" y="517" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_EscolherOperacao" bpmnElement="Gateway_EscolherOperacao" isMarkerVisible="true"><dc:Bounds x="1780" y="380" width="50" height="50"/></bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_Task_GerirPermissoes" bpmnElement="Task_GerirPermissoes"><dc:Bounds x="1900" y="365" width="160" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_UpsertRole" bpmnElement="Service_UpsertRole"><dc:Bounds x="2090" y="500" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_NotificarRole" bpmnElement="Service_NotificarRole"><dc:Bounds x="2270" y="500" width="150" height="70"/></bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_Task_CriarEquipe" bpmnElement="Task_CriarEquipe"><dc:Bounds x="1900" y="365" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_SalvarEquipe" bpmnElement="Service_SalvarEquipe"><dc:Bounds x="2090" y="500" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_CriarDesignacao" bpmnElement="Task_CriarDesignacao"><dc:Bounds x="2270" y="365" width="160" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_TemVagas" bpmnElement="Gateway_TemVagas" isMarkerVisible="true"><dc:Bounds x="2470" y="510" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndEvent_SemVagas" bpmnElement="EndEvent_SemVagas"><dc:Bounds x="2560" y="517" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_SalvarDesignacao" bpmnElement="Service_SalvarDesignacao"><dc:Bounds x="2560" y="500" width="160" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_ConvidarPessoas" bpmnElement="Task_ConvidarPessoas"><dc:Bounds x="2760" y="365" width="160" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_NotificarDesignacao" bpmnElement="Service_NotificarDesignacao"><dc:Bounds x="2960" y="500" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_MembroResponderDesignacao" bpmnElement="Task_MembroResponderDesignacao"><dc:Bounds x="2960" y="110" width="160" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_MembroAceita" bpmnElement="Gateway_MembroAceita" isMarkerVisible="true"><dc:Bounds x="3160" y="120" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_AceitarDesignacao" bpmnElement="Service_AceitarDesignacao"><dc:Bounds x="3250" y="500" width="160" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_RecusarDesignacao" bpmnElement="Service_RecusarDesignacao"><dc:Bounds x="3250" y="500" width="160" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_NotificarLideranca" bpmnElement="Service_NotificarLideranca"><dc:Bounds x="3450" y="500" width="190" height="70"/></bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_Task_CriarQR" bpmnElement="Task_CriarQR"><dc:Bounds x="1900" y="365" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_SalvarQR" bpmnElement="Service_SalvarQR"><dc:Bounds x="2090" y="500" width="160" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_DistribuirQR" bpmnElement="Task_DistribuirQR"><dc:Bounds x="2280" y="365" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_EscanearQR" bpmnElement="Task_EscanearQR"><dc:Bounds x="2470" y="110" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_CarregarFormulario" bpmnElement="Service_CarregarFormulario"><dc:Bounds x="2660" y="500" width="160" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_FormularioAtivo" bpmnElement="Gateway_FormularioAtivo" isMarkerVisible="true"><dc:Bounds x="2860" y="510" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndEvent_FormIndisponivel" bpmnElement="EndEvent_FormIndisponivel"><dc:Bounds x="2950" y="517" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_ContarScan" bpmnElement="Service_ContarScan"><dc:Bounds x="2950" y="500" width="130" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_PreencherFormulario" bpmnElement="Task_PreencherFormulario"><dc:Bounds x="3120" y="110" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_SubmitterAutenticado" bpmnElement="Gateway_SubmitterAutenticado" isMarkerVisible="true"><dc:Bounds x="3310" y="120" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_LoginSubmitter" bpmnElement="Task_LoginSubmitter"><dc:Bounds x="3400" y="110" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_CriarSubmissao" bpmnElement="Service_CriarSubmissao"><dc:Bounds x="3580" y="500" width="160" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_TipoSensivel" bpmnElement="Gateway_TipoSensivel" isMarkerVisible="true"><dc:Bounds x="3780" y="510" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_RotearPastor" bpmnElement="Service_RotearPastor"><dc:Bounds x="3870" y="500" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_RotearLideranca" bpmnElement="Service_RotearLideranca"><dc:Bounds x="3870" y="500" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_NotificarSubmission" bpmnElement="Service_NotificarSubmission"><dc:Bounds x="4050" y="500" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_TratarInbox" bpmnElement="Task_TratarInbox"><dc:Bounds x="4240" y="630" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_DefinirResponsavelPrioridade" bpmnElement="Task_DefinirResponsavelPrioridade"><dc:Bounds x="4420" y="630" width="190" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_AtualizarStatusPublico" bpmnElement="Service_AtualizarStatusPublico"><dc:Bounds x="4640" y="500" width="170" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Service_NotificarMembro" bpmnElement="Service_NotificarMembro"><dc:Bounds x="4840" y="500" width="150" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_VerMinhaIgreja" bpmnElement="Task_VerMinhaIgreja"><dc:Bounds x="5020" y="110" width="160" height="70"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndEvent_Fim" bpmnElement="EndEvent_Fim"><dc:Bounds x="1880" y="387" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_TextAnnotation_DecisoesPendentes" bpmnElement="TextAnnotation_DecisoesPendentes"><dc:Bounds x="1850" y="740" width="520" height="90"/></bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

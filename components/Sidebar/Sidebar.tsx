@@ -23,7 +23,6 @@ import {
   Rss,
   Compass,
   Layout as LayoutIcon,
-  Mic2,
   Plus,
   Bell,
   LogOut,
@@ -38,11 +37,25 @@ import {
   Users,
   Church,
   Radio,
+  Map,
+  MonitorPlay,
+  ClipboardList,
+  Inbox,
+  KeyRound,
+  Medal,
+  QrCode,
+  BarChart3,
+  SlidersHorizontal,
+  CalendarDays,
+  Network,
+  Settings,
 } from 'lucide-react';
 import { LogoIcon } from '../LogoIcon';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { SYSTEM_VERSION } from '../../constants';
+import { canAccessPastoralWorkspace } from '../../utils/profileAccess';
+import PaidAccountBadge, { isPaidAccountTier } from '../PaidAccountBadge';
 
 const STORAGE_KEY = 'blm_sidebar_collapsed';
 
@@ -52,6 +65,7 @@ interface NavItem {
   icon: React.ReactNode;
   protected?: boolean;
   featured?: boolean;
+  children?: NavItem[];
 }
 
 interface SidebarProps {
@@ -92,7 +106,8 @@ const NavItem: React.FC<{
   collapsed: boolean;
   isAuthenticated: boolean;
   onProtectedClick: (e: React.MouseEvent) => void;
-}> = ({ item, isActive, collapsed, isAuthenticated, onProtectedClick }) => {
+  isChild?: boolean;
+}> = ({ item, isActive, collapsed, isAuthenticated, onProtectedClick, isChild = false }) => {
   const baseClass = `
     relative flex items-center gap-3 rounded-xl transition-all duration-200 group
     ${isActive
@@ -101,7 +116,7 @@ const NavItem: React.FC<{
         ? 'bg-[#c5a059]/10 border border-[#c5a059]/20 text-[#5d4037] dark:text-[#c5a059] font-bold shadow-sm'
         : 'text-gray-600 dark:text-gray-400 hover:bg-[#c5a059]/8 hover:text-[#2d2a26] dark:hover:text-white'
     }
-    ${collapsed ? 'justify-center p-3 w-12 h-12 mx-auto' : 'px-3 py-2.5 w-full'}
+    ${collapsed ? 'justify-center p-3 w-12 h-12 mx-auto' : isChild ? 'px-3 py-2 w-full' : 'px-3 py-2.5 w-full'}
   `;
 
   const iconClass = `shrink-0 transition-colors ${
@@ -123,7 +138,7 @@ const NavItem: React.FC<{
     >
       <span className={iconClass}>{item.icon}</span>
       {!collapsed && (
-        <span className="text-sm truncate animate-in fade-in slide-in-from-left-2 duration-200">
+        <span className={`${isChild ? 'text-xs' : 'text-sm'} truncate animate-in fade-in slide-in-from-left-2 duration-200`}>
           {item.label}
         </span>
       )}
@@ -174,9 +189,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const createRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
 
   // Persistir colapso
   useEffect(() => {
@@ -195,12 +212,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
       if (createRef.current && !createRef.current.contains(e.target as Node)) setCreateMenuOpen(false);
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) setSettingsOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const isPastor = userProfile?.subscriptionTier === 'pastor';
+  const isPastor = canAccessPastoralWorkspace(userProfile);
 
   // ---------------------------------------------------------------------------
   // Estrutura de navegação flat (estilo Canva)
@@ -208,6 +226,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
   const mainNav: NavItem[] = [
     { label: 'Bíblia Sagrada', path: '/bibliasagrada', icon: <Book size={20} />, featured: true },
     { label: 'Início', path: '/', icon: <Home size={20} /> },
+    { label: 'Mapa Vivo', path: '/mapa-vivo', icon: <Map size={20} /> },
+    { label: 'Apresentação', path: '/apresentacao', icon: <MonitorPlay size={20} /> },
     { label: 'Meus Estudos', path: '/estudos', icon: <BookMarked size={20} />, protected: true },
     { label: 'Meus Cultos', path: '/meus-cultos', icon: <Radio size={20} />, protected: true },
     { label: 'Conselheiro IA', path: '/chat', icon: <MessageCircle size={20} /> },
@@ -217,13 +237,35 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
     { label: 'Quiz Bíblico', path: '/quiz', icon: <Brain size={20} /> },
     { label: 'Feed', path: '/social', icon: <Rss size={20} /> },
     { label: 'Igrejas', path: '/social/igrejas', icon: <Church size={20} /> },
+    {
+      label: 'Gestao da Igreja',
+      path: '/gestao-igreja',
+      icon: <Church size={20} />,
+      protected: true,
+      children: [
+        { label: 'Dashboard', path: '/gestao-igreja', icon: <Home size={16} />, protected: true },
+        { label: 'Pessoas', path: '/gestao-igreja/pessoas', icon: <Users size={16} />, protected: true },
+        { label: 'Permissoes', path: '/gestao-igreja/permissoes', icon: <KeyRound size={16} />, protected: true },
+        { label: 'Designacoes', path: '/gestao-igreja/designacoes', icon: <ClipboardList size={16} />, protected: true },
+        { label: 'Equipes', path: '/gestao-igreja/equipes', icon: <Users size={16} />, protected: true },
+        { label: 'Cultos/Eventos', path: '/gestao-igreja/cultos', icon: <CalendarDays size={16} />, protected: true },
+        { label: 'Grupos/Celulas', path: '/gestao-igreja/grupos', icon: <Network size={16} />, protected: true },
+        { label: 'QR Codes', path: '/gestao-igreja/qrcodes', icon: <QrCode size={16} />, protected: true },
+        { label: 'Inbox', path: '/gestao-igreja/inbox', icon: <Inbox size={16} />, protected: true },
+        { label: 'Notificacoes', path: '/gestao-igreja/notificacoes', icon: <Bell size={16} />, protected: true },
+        { label: 'Conquistas', path: '/gestao-igreja/insignias', icon: <Medal size={16} />, protected: true },
+        { label: 'Indicadores', path: '/gestao-igreja/indicadores', icon: <BarChart3 size={16} />, protected: true },
+        { label: 'Configuracoes', path: '/gestao-igreja/configuracoes', icon: <SlidersHorizontal size={16} />, protected: true },
+      ],
+    },
+    { label: 'Minha Igreja', path: '/minha-igreja', icon: <Users size={20} />, protected: true },
     { label: 'Explorar', path: '/social/explore', icon: <Compass size={20} /> },
+    { label: 'Planos', path: '/planos', icon: <Crown size={20} /> },
   ];
 
   const pastoralNav: NavItem[] = isPastor
     ? [
         { label: 'Workspace', path: '/workspace-pastoral', icon: <LayoutIcon size={20} />, protected: true },
-        { label: 'Púlpito Digital', path: '/pulpito', icon: <Mic2 size={20} />, protected: true },
       ]
     : [];
 
@@ -246,6 +288,92 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
     .slice(0, 2)
     .join('')
     .toUpperCase();
+
+  const renderSettingsSubmenu = (closeFn: () => void, inline = false) => {
+    const linkClass = inline
+      ? "flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-[#c5a059]/10 hover:text-[#2d2a26] dark:hover:text-white rounded-lg transition-colors w-full text-left"
+      : "flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-[#c5a059]/10 transition-colors w-full text-left";
+
+    const btnClass = inline
+      ? "flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-[#c5a059]/10 hover:text-[#2d2a26] dark:hover:text-white rounded-lg transition-colors w-full text-left"
+      : "flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-[#c5a059]/10 transition-colors w-full text-left";
+
+    const admin = userProfile?.username === 'gabrielamaro' || currentUser?.email === 'gabrielamaro@live.com';
+
+    return (
+      <div className={inline ? "space-y-0.5" : "py-1"}>
+        {currentUser && (
+          <Link href="/perfil" onClick={closeFn} className={linkClass}>
+            <Users size={14} className="text-[#c5a059]" /> Meu Perfil
+          </Link>
+        )}
+        <Link href="/planos" onClick={closeFn} className={linkClass}>
+          <Crown size={14} className="text-[#c5a059]" /> Planos
+        </Link>
+        <Link href="/apresentacao" onClick={closeFn} className={linkClass}>
+          <MonitorPlay size={14} className="text-[#c5a059]" /> Apresentação
+        </Link>
+        <Link href="/regras" onClick={closeFn} className={linkClass}>
+          <FileText size={14} className="text-[#c5a059]" /> Manual do Maná
+        </Link>
+        <button
+          type="button"
+          onClick={() => { toggleTheme(); if (!inline) closeFn(); }}
+          className={btnClass}
+        >
+          {settings.theme === 'dark'
+            ? <Sun size={14} className="text-orange-400" />
+            : <Moon size={14} className="text-indigo-400" />
+          }
+          {settings.theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+        </button>
+
+        {!inline && <div className="h-px bg-gray-100 dark:bg-gray-800 my-1" />}
+
+        <Link href="/suporte" onClick={closeFn} className={linkClass}>
+          <Coffee size={14} className="text-[#c5a059]" /> Suporte / Doar
+        </Link>
+        <Link href="/termos" onClick={closeFn} className={linkClass}>
+          <FileText size={14} className="text-[#c5a059]" /> Termos
+        </Link>
+        <Link href="/privacidade" onClick={closeFn} className={linkClass}>
+          <FileText size={14} className="text-[#c5a059]" /> Privacidade
+        </Link>
+
+        {admin && (
+          <>
+            {!inline && <div className="h-px bg-red-100 dark:bg-red-900/20 my-1" />}
+            <Link href="/admin" onClick={closeFn} className={`${linkClass} text-red-600 dark:text-red-400`}>
+              <SlidersHorizontal size={14} /> Painel Admin
+            </Link>
+            <Link href="/system-integrity" onClick={closeFn} className={`${linkClass} text-red-600 dark:text-red-400`}>
+              <SlidersHorizontal size={14} /> Integridade
+            </Link>
+          </>
+        )}
+
+        {!inline && <div className="h-px bg-gray-100 dark:bg-gray-800 my-1" />}
+
+        {currentUser ? (
+          <button
+            type="button"
+            onClick={() => { signOut(); closeFn(); }}
+            className={`${btnClass} text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20`}
+          >
+            <LogOut size={14} /> Sair
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => { onOpenLogin(); closeFn(); }}
+            className={`${btnClass} text-[#c5a059]`}
+          >
+            <Users size={14} /> Entrar na Conta
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <aside
@@ -360,16 +488,37 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
           collapsed ? 'px-1.5' : 'px-2'
         }`}
       >
-        {allNav.map((item) => (
-          <NavItem
-            key={item.path}
-            item={item}
-            isActive={isActive(item.path)}
-            collapsed={collapsed}
-            isAuthenticated={!!currentUser}
-            onProtectedClick={handleProtectedClick}
-          />
-        ))}
+        {allNav.map((item) => {
+          const active = isActive(item.path);
+          const showChildren = Boolean(item.children?.length && !collapsed && active);
+
+          return (
+            <div key={item.path} className="space-y-0.5">
+              <NavItem
+                item={item}
+                isActive={active}
+                collapsed={collapsed}
+                isAuthenticated={!!currentUser}
+                onProtectedClick={handleProtectedClick}
+              />
+              {showChildren && (
+                <div className="ml-4 border-l border-[#c5a059]/20 pl-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                  {item.children!.map((child) => (
+                    <NavItem
+                      key={child.path}
+                      item={child}
+                      isActive={location.pathname === child.path}
+                      collapsed={collapsed}
+                      isAuthenticated={!!currentUser}
+                      onProtectedClick={handleProtectedClick}
+                      isChild
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </nav>
 
       {/* ── Footer: Sino + Avatar ── */}
@@ -454,6 +603,63 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
           </div>
         )}
 
+        {/* Configurações */}
+        <div className="relative" ref={settingsRef}>
+          {collapsed ? (
+            <Tooltip label="Configurações">
+              <button
+                type="button"
+                onClick={() => setSettingsOpen((v) => !v)}
+                className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all relative ${
+                  settingsOpen
+                    ? 'bg-[#c5a059]/15 text-[#c5a059]'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-[#c5a059]/10 hover:text-[#c5a059]'
+                }`}
+              >
+                <Settings size={20} />
+              </button>
+            </Tooltip>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSettingsOpen((v) => !v)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all relative ${
+                settingsOpen
+                  ? 'bg-[#c5a059]/15 text-[#5d4037] dark:text-[#c5a059] font-semibold'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-[#c5a059]/10 hover:text-[#2d2a26] dark:hover:text-white'
+              }`}
+            >
+              <Settings size={20} className="shrink-0" />
+              <span className="text-sm font-medium">Configurações</span>
+              <span className="ml-auto text-gray-400 text-[10px] transform transition-transform duration-200">
+                {settingsOpen ? '▼' : '▶'}
+              </span>
+            </button>
+          )}
+
+          {/* Submenu de Configurações */}
+          {settingsOpen && (
+            collapsed ? (
+              // Modo colapsado: popover lateral
+              <div
+                className="
+                  absolute bottom-0 left-full ml-2 z-[200] w-56
+                  bg-white dark:bg-gray-900 rounded-2xl shadow-2xl
+                  border border-gray-100 dark:border-gray-800 overflow-hidden
+                  animate-in fade-in zoom-in-95 origin-bottom-left duration-200
+                "
+              >
+                {renderSettingsSubmenu(() => setSettingsOpen(false))}
+              </div>
+            ) : (
+              // Modo expandido: sanfona/accordion inline
+              <div className="mt-1 ml-4 border-l border-[#c5a059]/20 pl-2 space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                {renderSettingsSubmenu(() => setSettingsOpen(false), true)}
+              </div>
+            )
+          )}
+        </div>
+
         {/* Avatar do usuário / Entrar na conta */}
         <div className="relative" ref={profileRef}>
           {currentUser ? (
@@ -489,9 +695,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
                     <p className="text-sm font-bold text-[#2d2a26] dark:text-white truncate leading-tight">
                       {userProfile?.displayName || 'Usuário'}
                     </p>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-tight font-medium truncate">
-                      {userProfile?.subscriptionTier || 'free'}
-                    </p>
+                    {isPaidAccountTier(userProfile?.subscriptionTier) ? (
+                      <PaidAccountBadge tier={userProfile?.subscriptionTier} compact className="mt-1" />
+                    ) : (
+                      <p className="text-[10px] text-gray-400 uppercase tracking-tight font-medium truncate">
+                        {userProfile?.subscriptionTier || 'free'}
+                      </p>
+                    )}
                   </div>
                 </button>
               )}
@@ -513,6 +723,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
                     className="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     <Crown size={14} className="text-[#c5a059]" /> Meu Perfil
+                  </Link>
+                  <Link
+                    href="/planos"
+                    onClick={() => setProfileOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <Crown size={14} className="text-[#c5a059]" /> Planos
                   </Link>
                   <button
                     type="button"

@@ -5,6 +5,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Users, Search, Ban, Trash2, CheckCircle2, ShieldAlert, Trophy, ChevronDown, ChevronUp, User, UserPlus, Copy, Send, Loader2, Settings, Globe, Lock, Save } from 'lucide-react';
 import { dbService } from '../services/supabase';
 import { PlanParticipant, CustomPlan, PlanTeam, UserProfile } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface PlanManagementModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ const LEGACY_TEAMS: PlanTeam[] = [
 ];
 
 const PlanManagementModal: React.FC<PlanManagementModalProps> = ({ isOpen, onClose, plan: initialPlan }) => {
+  const { recordActivity } = useAuth();
   const [plan, setPlan] = useState<CustomPlan>(initialPlan);
   const [participants, setParticipants] = useState<PlanParticipant[]>([]);
   const [loading, setLoading] = useState(false);
@@ -113,6 +115,11 @@ const PlanManagementModal: React.FC<PlanManagementModalProps> = ({ isOpen, onClo
       setAddingUid(user.uid);
       try {
           await dbService.inviteUserToPlan(plan.id, user, selectedTeamForInvite || undefined);
+          await recordActivity('invite_sent', `Convidou ${user.displayName} para a jornada ${plan.title}`, {
+              sourceId: `${plan.id}-${user.uid}`,
+              planId: plan.id,
+              invitedUserId: user.uid,
+          });
           const newParticipant: PlanParticipant = { 
               uid: user.uid, 
               displayName: user.displayName, 

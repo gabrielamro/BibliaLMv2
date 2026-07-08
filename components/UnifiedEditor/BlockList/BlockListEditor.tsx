@@ -37,6 +37,14 @@ interface BlockListEditorProps {
 
 type GridItem = { type: 'block'; block: Block; id: string } | { type: 'ghost'; id: string; width: string };
 
+const getTemplateVisualFraction = (block: Block, width: string) => {
+  if (block.type === 'biblical' && width === '1/2') return 0.7;
+  if (block.type === 'study-outline' && width === '1/3') return 0.3;
+  if (width === '1/1') return 1;
+  if (width === '1/2') return 0.5;
+  return 1 / 3;
+};
+
 export const BlockListEditor: React.FC<BlockListEditorProps> = ({
   blocks,
   onChange,
@@ -47,6 +55,7 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
 }) => {
   const { currentUser } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [isNativeDraggingOver, setIsNativeDraggingOver] = useState(false);
 
   const sensors = useSensors(
@@ -136,6 +145,7 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
   };
 
   const handleSettings = (block: Block) => {
+    setSelectedBlockId(block.id);
     onBlockSelect?.(block);
     // Dispara evento para abrir o sheet mobile se necessário
     const event = new CustomEvent('open-mobile-properties', { detail: block });
@@ -144,7 +154,7 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
 
   const handleLayoutWidthChange = (id: string, width: string) => {
     const newBlocks = blocks.map(block => 
-      block.id === id ? { ...block, layoutWidth: width as '1/1' | '1/2' | '1/3' | '2/3', data: { ...block.data, layoutWidth: width } } : block
+      block.id === id ? { ...block, layoutWidth: width as '1/1' | '1/2' | '1/3', data: { ...block.data, layoutWidth: width } } : block
     );
     onChange(newBlocks);
   };
@@ -171,7 +181,7 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
 
     blocks.forEach((block) => {
       const widthStr = block.layoutWidth || block.data?.layoutWidth || '1/1';
-      const widthVal = widthStr === '1/1' ? 1 : widthStr === '1/2' ? 0.5 : widthStr === '2/3' ? 0.66 : 0.33;
+      const widthVal = getTemplateVisualFraction(block, widthStr);
 
       if (currentRowWidth + widthVal > 1.05) {
         fillRow(currentRowWidth, result, rowId++);
@@ -275,7 +285,7 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
           items={gridItems.map(item => item.id)}
           strategy={rectSortingStrategy}
         >
-          <div className="flex flex-wrap justify-center w-full -mx-1">
+          <div className="flex flex-wrap items-stretch justify-center w-full -mx-1">
             {gridItems.map((item) => {
               if (item.type === 'ghost') {
                 return (
@@ -285,7 +295,7 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
                     width={item.width} 
                     onAdd={(type, selectedWidth) => {
                         import('../../Builder').then(({ createBlock }) => {
-                            const nextWidth = (selectedWidth || item.width) as '1/1' | '1/2' | '1/3' | '2/3';
+                            const nextWidth = (selectedWidth || item.width) as '1/1' | '1/2' | '1/3';
                             const newBlock = createBlock(type as any);
                             newBlock.layoutWidth = nextWidth;
                             newBlock.data = { ...newBlock.data, layoutWidth: nextWidth };
@@ -309,26 +319,34 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
               }
 
               const { block } = item;
+              const blockLayoutWidth = block.layoutWidth || block.data?.layoutWidth || '1/1';
+              const layoutPercent = getTemplateVisualFraction(block, blockLayoutWidth) * 100;
               return (
                 <SortableBlock
                   key={block.id}
                   id={block.id}
-                  layoutWidth={block.layoutWidth || block.data?.layoutWidth || '1/1'}
+                  layoutWidth={blockLayoutWidth}
+                  layoutPercent={layoutPercent}
                   isEditing={isEditing}
                   onRemove={() => handleRemoveBlock(block.id)}
                   onDuplicate={() => handleDuplicateBlock(block.id)}
                   onSettings={() => handleSettings(block)}
                   onLayoutWidthChange={(w) => handleLayoutWidthChange(block.id, w)}
+                  onSelect={() => {
+                    setSelectedBlockId(block.id);
+                    onBlockSelect?.(block);
+                  }}
+                  isSelected={selectedBlockId === block.id}
                   canvasWidth={canvasWidth}
                 >
-                  <div data-sortable-id={block.id}>
+                  <div data-sortable-id={block.id} className="flex h-full w-full">
                       <BlockRenderer
                         block={block}
                         isEditing={isEditing}
                         onUpdate={handleUpdateBlock}
                         authorName={currentUser?.displayName || ''}
                         editor={editor}
-                        layoutWidth={block.data?.layoutWidth || '1/1'}
+                        layoutWidth={blockLayoutWidth}
                         canvasWidth={canvasWidth}
                       />
                   </div>

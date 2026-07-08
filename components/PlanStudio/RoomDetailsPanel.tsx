@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useRef } from 'react';
-import { Calendar, ImageIcon, Loader2, Sparkles, Upload } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Calendar, ChevronDown, ImageIcon, Loader2, Sparkles, Upload } from 'lucide-react';
 import type { PlanningFrequency } from '../../types';
 import type { RoomDetailsPanelProps } from './types';
 
@@ -19,13 +19,40 @@ const RoomDetailsPanel: React.FC<RoomDetailsPanelProps> = ({
   onAttachCover,
   isGeneratingCover,
   isUploadingCover,
+  validationError,
+  forceOpenSignal,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!forceOpenSignal) return;
+    setIsOpen(true);
+    window.setTimeout(() => titleInputRef.current?.focus(), 120);
+  }, [forceOpenSignal]);
+
+  const titleStatus = plan.title?.trim() ? plan.title.trim() : 'Nome da sala pendente';
+  const descriptionStatus = plan.description?.trim() ? 'Descrição preenchida' : 'Descrição opcional';
 
   return (
   <section className="rounded-[22px] border border-purple-100 bg-white p-5 shadow-sm dark:border-purple-900/40 dark:bg-[#0f0f0f]">
-    <p className="mb-4 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Dados essenciais</p>
+    <button
+      type="button"
+      onClick={() => setIsOpen((current) => !current)}
+      className="mb-4 flex w-full items-center justify-between gap-3 text-left md:pointer-events-none"
+      aria-expanded={isOpen}
+    >
+      <div className="min-w-0">
+        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Dados essenciais</p>
+        <p className={`mt-1 truncate text-xs font-bold md:hidden ${validationError ? 'text-red-600' : 'text-gray-500'}`}>
+          {validationError || `${titleStatus} • ${descriptionStatus}`}
+        </p>
+      </div>
+      <ChevronDown className={`flex-none text-purple-700 transition-transform md:hidden ${isOpen ? 'rotate-180' : ''}`} size={18} />
+    </button>
 
+    <div className={`${isOpen ? 'block' : 'hidden'} md:block`}>
     <div className="mb-6 overflow-hidden rounded-2xl border border-purple-100 bg-purple-50 dark:border-purple-900/40 dark:bg-gray-900">
       <div className="flex aspect-[16/9] items-center justify-center bg-gradient-to-br from-[#2b174f] via-purple-700 to-violet-500">
         {plan.coverUrl ? (
@@ -74,11 +101,16 @@ const RoomDetailsPanel: React.FC<RoomDetailsPanelProps> = ({
       <label className="block">
         <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Nome da sala</span>
         <input
+          ref={titleInputRef}
           value={plan.title ?? ''}
           onChange={(event) => onChange({ title: event.target.value })}
           placeholder="Ex: Vida de Oracao"
-          className="min-h-12 w-full rounded-xl border border-purple-100 bg-purple-50/60 px-4 text-sm font-black text-gray-950 outline-none ring-purple-500/30 transition focus:ring-2 dark:border-purple-900/40 dark:bg-gray-900 dark:text-white"
+          aria-invalid={!!validationError}
+          className={`min-h-12 w-full rounded-xl border bg-purple-50/60 px-4 text-sm font-black text-gray-950 outline-none ring-purple-500/30 transition focus:ring-2 dark:bg-gray-900 dark:text-white ${
+            validationError ? 'border-red-300 focus:ring-red-500/30 dark:border-red-800' : 'border-purple-100 dark:border-purple-900/40'
+          }`}
         />
+        {validationError && <span className="mt-2 block text-xs font-bold text-red-600">{validationError}</span>}
       </label>
 
       <label className="block">
@@ -170,6 +202,7 @@ const RoomDetailsPanel: React.FC<RoomDetailsPanelProps> = ({
           </p>
         )}
       </label>
+    </div>
     </div>
   </section>
   );

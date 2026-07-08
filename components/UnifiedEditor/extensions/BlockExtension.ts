@@ -46,7 +46,6 @@ export const BlockExtension = Node.create({
     let widthClass = 'w-full';
     if (width === '1/2') widthClass = 'w-1/2';
     else if (width === '1/3') widthClass = 'w-1/3';
-    else if (width === '2/3') widthClass = 'w-[66.666%]';
 
     return ['div', mergeAttributes(HTMLAttributes, { 
       'data-type': 'custom-block',
@@ -71,7 +70,6 @@ export const BlockExtension = Node.create({
       '1/1': '100%',
       '1/2': '50%',
       '1/3': '33.3333%',
-      '2/3': '66.6666%',
     };
 
     return [

@@ -261,7 +261,12 @@ const CellForumPage: React.FC = () => {
 
     const inviteUserToPrivateGroup = async (user: UserProfile, source: 'invite' | 'mention') => {
         if (!group || !userProfile || group.privacy !== 'private') return;
-        await dbService.createGroupAccessInvite(group, user, userProfile, source);
+        const invite = await dbService.createGroupAccessInvite(group, user, userProfile, source);
+        await recordActivity(source === 'mention' ? 'social_mention' : 'invite_sent', source === 'mention' ? `Mencionou ${user.displayName} no grupo ${group.name}` : `Convidou ${user.displayName} para o grupo ${group.name}`, {
+            sourceId: invite.id,
+            groupId: group.id,
+            invitedUserId: user.uid,
+        });
     };
 
     const notifyMentionedUsersForPrivateAccess = async (content: string) => {

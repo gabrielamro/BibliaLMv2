@@ -6,6 +6,7 @@ type KingdomPostInput = {
   content?: string | null;
   type?: string | null;
   destination?: string | null;
+  visibility?: string | null;
   churchId?: string | null;
   cellId?: string | null;
   image?: string | null;
@@ -39,6 +40,7 @@ export const buildPostInsertPayloads = (data: KingdomPostInput, createdAt = new 
     user_username: data.userUsername ?? null,
     user_photo_url: data.userPhotoURL ?? null,
     destination: data.destination ?? 'global',
+    visibility: data.visibility ?? 'public',
     cell_id: data.cellId ?? null,
     shares_count: 0,
     liked_by: [],

@@ -8,7 +8,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "npm run typecheck",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:church-management": "node scripts/run_church_management_tests.mjs",
+    "church:sql:apply": "node scripts/apply_church_management_sql.mjs",
+    "church:sql:validate": "node scripts/validate_church_management_sql.mjs",
+    "church:rls:validate": "node scripts/validate_church_management_rls.mjs",
+    "church:rls:profiles": "node scripts/test_church_management_rls_profiles.mjs",
+    "culto:sql:validate": "node scripts/validate_culto_plus_sql.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

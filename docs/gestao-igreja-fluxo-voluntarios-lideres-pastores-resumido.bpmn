@@ -1,0 +1,527 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_GestaoIgreja_VoluntariosLideresPastores_Resumido"
+                  targetNamespace="https://biblialm.com.br/bpmn/gestao-igreja/voluntarios-lideres-pastores">
+  <bpmn:process id="Process_GestaoIgreja_VoluntariosLideresPastores_Resumido"
+                name="Gestao da Igreja - Voluntarios, Lideres e Pastores - Resumido"
+                isExecutable="true">
+    <bpmn:documentation>
+      Fluxo resumido do modulo Gestao da Igreja focado em voluntarios, lideres e pastores.
+      Escopo: criacao de equipes, vinculo de voluntarios, atribuicao de lideranca, designacoes com vagas e acompanhamento pastoral.
+      Fora do escopo deste fluxo: aprovacao inicial da plataforma, QR Code, captacao externa, Inbox e Minha Igreja.
+      Para execucao real em motor BPMN, configurar formularios, assignees, expressoes dos gateways e workers das service tasks.
+    </bpmn:documentation>
+
+    <bpmn:laneSet id="LaneSet_GestaoIgreja_Resumo">
+      <bpmn:lane id="Lane_GestorIgreja" name="Gestor da Igreja">
+        <bpmn:flowNodeRef>StartEvent_Inicio</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_AcessarGestao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CriarEquipe</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ConvidarVoluntarios</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_DefinirLideranca</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_AjustarEquipeOuLideranca</bpmn:flowNodeRef>
+      </bpmn:lane>
+
+      <bpmn:lane id="Lane_Sistema" name="Sistema BibliaLM">
+        <bpmn:flowNodeRef>ServiceTask_ValidarPermissaoGestao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_TemPermissaoGestao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_AcessoNegado</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_SalvarEquipe</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_RegistrarConvites</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_AtivarVoluntario</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_SalvarLideranca</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_ValidarVagas</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_HaVagaDisponivel</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_ConfirmarDesignacao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_LiberarVaga</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_AtualizarIndicadores</bpmn:flowNodeRef>
+      </bpmn:lane>
+
+      <bpmn:lane id="Lane_LiderPastor" name="Lider / Pastor">
+        <bpmn:flowNodeRef>Task_ReceberEquipe</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CriarDesignacao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_EscolherOutroVoluntario</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_AcompanharEquipe</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_AcompanharVisaoPastoral</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_Fim</bpmn:flowNodeRef>
+      </bpmn:lane>
+
+      <bpmn:lane id="Lane_Voluntario" name="Voluntario">
+        <bpmn:flowNodeRef>Task_AceitarConvite</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_ConviteAceito</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_ConviteRecusado</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ReceberDesignacao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ResponderDesignacao</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_DesignacaoAceita</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+
+    <bpmn:startEvent id="StartEvent_Inicio" name="Inicio">
+      <bpmn:outgoing>Flow_01</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:userTask id="Task_AcessarGestao" name="Acessar Gestao da Igreja">
+      <bpmn:incoming>Flow_01</bpmn:incoming>
+      <bpmn:outgoing>Flow_02</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask id="ServiceTask_ValidarPermissaoGestao" name="Validar permissao de gestao">
+      <bpmn:incoming>Flow_02</bpmn:incoming>
+      <bpmn:outgoing>Flow_03</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway id="Gateway_TemPermissaoGestao" name="Tem permissao?">
+      <bpmn:incoming>Flow_03</bpmn:incoming>
+      <bpmn:outgoing>Flow_04_Sim</bpmn:outgoing>
+      <bpmn:outgoing>Flow_04_Nao</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:endEvent id="EndEvent_AcessoNegado" name="Acesso negado">
+      <bpmn:incoming>Flow_04_Nao</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:userTask id="Task_CriarEquipe" name="Criar equipe ou ministerio">
+      <bpmn:incoming>Flow_04_Sim</bpmn:incoming>
+      <bpmn:outgoing>Flow_05</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask id="ServiceTask_SalvarEquipe" name="Salvar equipe">
+      <bpmn:incoming>Flow_05</bpmn:incoming>
+      <bpmn:outgoing>Flow_06</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="Task_ConvidarVoluntarios" name="Convidar ou vincular voluntarios">
+      <bpmn:incoming>Flow_06</bpmn:incoming>
+      <bpmn:outgoing>Flow_07</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask id="ServiceTask_RegistrarConvites" name="Registrar vinculos pendentes">
+      <bpmn:incoming>Flow_07</bpmn:incoming>
+      <bpmn:outgoing>Flow_08</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="Task_AceitarConvite" name="Aceitar ou recusar convite">
+      <bpmn:incoming>Flow_08</bpmn:incoming>
+      <bpmn:outgoing>Flow_09</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:exclusiveGateway id="Gateway_ConviteAceito" name="Convite aceito?">
+      <bpmn:incoming>Flow_09</bpmn:incoming>
+      <bpmn:outgoing>Flow_10_Sim</bpmn:outgoing>
+      <bpmn:outgoing>Flow_10_Nao</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:endEvent id="EndEvent_ConviteRecusado" name="Convite recusado">
+      <bpmn:incoming>Flow_10_Nao</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:serviceTask id="ServiceTask_AtivarVoluntario" name="Ativar voluntario na equipe">
+      <bpmn:incoming>Flow_10_Sim</bpmn:incoming>
+      <bpmn:outgoing>Flow_11</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="Task_DefinirLideranca" name="Definir lider ou pastor responsavel">
+      <bpmn:incoming>Flow_11</bpmn:incoming>
+      <bpmn:outgoing>Flow_12</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask id="ServiceTask_SalvarLideranca" name="Salvar permissao de lideranca">
+      <bpmn:incoming>Flow_12</bpmn:incoming>
+      <bpmn:outgoing>Flow_13</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="Task_ReceberEquipe" name="Receber acesso a equipe">
+      <bpmn:incoming>Flow_13</bpmn:incoming>
+      <bpmn:outgoing>Flow_14</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:userTask id="Task_CriarDesignacao" name="Criar designacao com vagas">
+      <bpmn:incoming>Flow_14</bpmn:incoming>
+      <bpmn:incoming>Flow_23</bpmn:incoming>
+      <bpmn:outgoing>Flow_15</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask id="ServiceTask_ValidarVagas" name="Validar vagas disponiveis">
+      <bpmn:incoming>Flow_15</bpmn:incoming>
+      <bpmn:outgoing>Flow_16</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway id="Gateway_HaVagaDisponivel" name="Ha vaga?">
+      <bpmn:incoming>Flow_16</bpmn:incoming>
+      <bpmn:outgoing>Flow_17_Sim</bpmn:outgoing>
+      <bpmn:outgoing>Flow_17_Nao</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:userTask id="Task_AjustarEquipeOuLideranca" name="Ajustar equipe, vagas ou lideranca">
+      <bpmn:incoming>Flow_17_Nao</bpmn:incoming>
+      <bpmn:outgoing>Flow_23</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:userTask id="Task_ReceberDesignacao" name="Receber designacao">
+      <bpmn:incoming>Flow_17_Sim</bpmn:incoming>
+      <bpmn:incoming>Flow_24</bpmn:incoming>
+      <bpmn:outgoing>Flow_18</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:userTask id="Task_ResponderDesignacao" name="Aceitar ou recusar designacao">
+      <bpmn:incoming>Flow_18</bpmn:incoming>
+      <bpmn:outgoing>Flow_19</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:exclusiveGateway id="Gateway_DesignacaoAceita" name="Designacao aceita?">
+      <bpmn:incoming>Flow_19</bpmn:incoming>
+      <bpmn:outgoing>Flow_20_Sim</bpmn:outgoing>
+      <bpmn:outgoing>Flow_20_Nao</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:serviceTask id="ServiceTask_ConfirmarDesignacao" name="Confirmar vaga e agenda">
+      <bpmn:incoming>Flow_20_Sim</bpmn:incoming>
+      <bpmn:outgoing>Flow_21</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="ServiceTask_LiberarVaga" name="Liberar vaga recusada">
+      <bpmn:incoming>Flow_20_Nao</bpmn:incoming>
+      <bpmn:outgoing>Flow_22</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="Task_EscolherOutroVoluntario" name="Escolher outro voluntario">
+      <bpmn:incoming>Flow_22</bpmn:incoming>
+      <bpmn:outgoing>Flow_24</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:userTask id="Task_AcompanharEquipe" name="Acompanhar escala e presenca">
+      <bpmn:incoming>Flow_21</bpmn:incoming>
+      <bpmn:outgoing>Flow_25</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask id="ServiceTask_AtualizarIndicadores" name="Atualizar indicadores da equipe">
+      <bpmn:incoming>Flow_25</bpmn:incoming>
+      <bpmn:outgoing>Flow_26</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="Task_AcompanharVisaoPastoral" name="Acompanhar visao pastoral">
+      <bpmn:incoming>Flow_26</bpmn:incoming>
+      <bpmn:outgoing>Flow_27</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:endEvent id="EndEvent_Fim" name="Fluxo operacional acompanhado">
+      <bpmn:incoming>Flow_27</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:textAnnotation id="TextAnnotation_RegrasResumo">
+      <bpmn:text>Regras principais: gestor administra equipes e permissoes; lider atua somente nas equipes sob sua responsabilidade; pastor possui visao pastoral ampla; voluntario ve e responde apenas suas proprias designacoes; designacao deve respeitar quantidade de vagas.</bpmn:text>
+    </bpmn:textAnnotation>
+
+    <bpmn:association id="Association_RegrasResumo" sourceRef="Gateway_HaVagaDisponivel" targetRef="TextAnnotation_RegrasResumo" />
+
+    <bpmn:sequenceFlow id="Flow_01" sourceRef="StartEvent_Inicio" targetRef="Task_AcessarGestao" />
+    <bpmn:sequenceFlow id="Flow_02" sourceRef="Task_AcessarGestao" targetRef="ServiceTask_ValidarPermissaoGestao" />
+    <bpmn:sequenceFlow id="Flow_03" sourceRef="ServiceTask_ValidarPermissaoGestao" targetRef="Gateway_TemPermissaoGestao" />
+    <bpmn:sequenceFlow id="Flow_04_Sim" name="Sim" sourceRef="Gateway_TemPermissaoGestao" targetRef="Task_CriarEquipe" />
+    <bpmn:sequenceFlow id="Flow_04_Nao" name="Nao" sourceRef="Gateway_TemPermissaoGestao" targetRef="EndEvent_AcessoNegado" />
+    <bpmn:sequenceFlow id="Flow_05" sourceRef="Task_CriarEquipe" targetRef="ServiceTask_SalvarEquipe" />
+    <bpmn:sequenceFlow id="Flow_06" sourceRef="ServiceTask_SalvarEquipe" targetRef="Task_ConvidarVoluntarios" />
+    <bpmn:sequenceFlow id="Flow_07" sourceRef="Task_ConvidarVoluntarios" targetRef="ServiceTask_RegistrarConvites" />
+    <bpmn:sequenceFlow id="Flow_08" sourceRef="ServiceTask_RegistrarConvites" targetRef="Task_AceitarConvite" />
+    <bpmn:sequenceFlow id="Flow_09" sourceRef="Task_AceitarConvite" targetRef="Gateway_ConviteAceito" />
+    <bpmn:sequenceFlow id="Flow_10_Sim" name="Sim" sourceRef="Gateway_ConviteAceito" targetRef="ServiceTask_AtivarVoluntario" />
+    <bpmn:sequenceFlow id="Flow_10_Nao" name="Nao" sourceRef="Gateway_ConviteAceito" targetRef="EndEvent_ConviteRecusado" />
+    <bpmn:sequenceFlow id="Flow_11" sourceRef="ServiceTask_AtivarVoluntario" targetRef="Task_DefinirLideranca" />
+    <bpmn:sequenceFlow id="Flow_12" sourceRef="Task_DefinirLideranca" targetRef="ServiceTask_SalvarLideranca" />
+    <bpmn:sequenceFlow id="Flow_13" sourceRef="ServiceTask_SalvarLideranca" targetRef="Task_ReceberEquipe" />
+    <bpmn:sequenceFlow id="Flow_14" sourceRef="Task_ReceberEquipe" targetRef="Task_CriarDesignacao" />
+    <bpmn:sequenceFlow id="Flow_15" sourceRef="Task_CriarDesignacao" targetRef="ServiceTask_ValidarVagas" />
+    <bpmn:sequenceFlow id="Flow_16" sourceRef="ServiceTask_ValidarVagas" targetRef="Gateway_HaVagaDisponivel" />
+    <bpmn:sequenceFlow id="Flow_17_Sim" name="Sim" sourceRef="Gateway_HaVagaDisponivel" targetRef="Task_ReceberDesignacao" />
+    <bpmn:sequenceFlow id="Flow_17_Nao" name="Nao" sourceRef="Gateway_HaVagaDisponivel" targetRef="Task_AjustarEquipeOuLideranca" />
+    <bpmn:sequenceFlow id="Flow_18" sourceRef="Task_ReceberDesignacao" targetRef="Task_ResponderDesignacao" />
+    <bpmn:sequenceFlow id="Flow_19" sourceRef="Task_ResponderDesignacao" targetRef="Gateway_DesignacaoAceita" />
+    <bpmn:sequenceFlow id="Flow_20_Sim" name="Sim" sourceRef="Gateway_DesignacaoAceita" targetRef="ServiceTask_ConfirmarDesignacao" />
+    <bpmn:sequenceFlow id="Flow_20_Nao" name="Nao" sourceRef="Gateway_DesignacaoAceita" targetRef="ServiceTask_LiberarVaga" />
+    <bpmn:sequenceFlow id="Flow_21" sourceRef="ServiceTask_ConfirmarDesignacao" targetRef="Task_AcompanharEquipe" />
+    <bpmn:sequenceFlow id="Flow_22" sourceRef="ServiceTask_LiberarVaga" targetRef="Task_EscolherOutroVoluntario" />
+    <bpmn:sequenceFlow id="Flow_23" sourceRef="Task_AjustarEquipeOuLideranca" targetRef="Task_CriarDesignacao" />
+    <bpmn:sequenceFlow id="Flow_24" sourceRef="Task_EscolherOutroVoluntario" targetRef="Task_ReceberDesignacao" />
+    <bpmn:sequenceFlow id="Flow_25" sourceRef="Task_AcompanharEquipe" targetRef="ServiceTask_AtualizarIndicadores" />
+    <bpmn:sequenceFlow id="Flow_26" sourceRef="ServiceTask_AtualizarIndicadores" targetRef="Task_AcompanharVisaoPastoral" />
+    <bpmn:sequenceFlow id="Flow_27" sourceRef="Task_AcompanharVisaoPastoral" targetRef="EndEvent_Fim" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_GestaoIgreja_Resumo">
+    <bpmndi:BPMNPlane id="BPMNPlane_GestaoIgreja_Resumo" bpmnElement="Process_GestaoIgreja_VoluntariosLideresPastores_Resumido">
+      <bpmndi:BPMNShape id="Lane_GestorIgreja_di" bpmnElement="Lane_GestorIgreja" isHorizontal="true">
+        <dc:Bounds x="120" y="80" width="4600" height="150"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Sistema_di" bpmnElement="Lane_Sistema" isHorizontal="true">
+        <dc:Bounds x="120" y="230" width="4600" height="150"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_LiderPastor_di" bpmnElement="Lane_LiderPastor" isHorizontal="true">
+        <dc:Bounds x="120" y="380" width="4600" height="150"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Voluntario_di" bpmnElement="Lane_Voluntario" isHorizontal="true">
+        <dc:Bounds x="120" y="530" width="4600" height="150"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="StartEvent_Inicio_di" bpmnElement="StartEvent_Inicio">
+        <dc:Bounds x="180" y="137" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AcessarGestao_di" bpmnElement="Task_AcessarGestao">
+        <dc:Bounds x="250" y="115" width="150" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ServiceTask_ValidarPermissaoGestao_di" bpmnElement="ServiceTask_ValidarPermissaoGestao">
+        <dc:Bounds x="430" y="265" width="160" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_TemPermissaoGestao_di" bpmnElement="Gateway_TemPermissaoGestao" isMarkerVisible="true">
+        <dc:Bounds x="625" y="280" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_AcessoNegado_di" bpmnElement="EndEvent_AcessoNegado">
+        <dc:Bounds x="710" y="287" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CriarEquipe_di" bpmnElement="Task_CriarEquipe">
+        <dc:Bounds x="720" y="115" width="150" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ServiceTask_SalvarEquipe_di" bpmnElement="ServiceTask_SalvarEquipe">
+        <dc:Bounds x="900" y="265" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ConvidarVoluntarios_di" bpmnElement="Task_ConvidarVoluntarios">
+        <dc:Bounds x="1070" y="115" width="170" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ServiceTask_RegistrarConvites_di" bpmnElement="ServiceTask_RegistrarConvites">
+        <dc:Bounds x="1270" y="265" width="170" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AceitarConvite_di" bpmnElement="Task_AceitarConvite">
+        <dc:Bounds x="1470" y="565" width="160" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_ConviteAceito_di" bpmnElement="Gateway_ConviteAceito" isMarkerVisible="true">
+        <dc:Bounds x="1665" y="580" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_ConviteRecusado_di" bpmnElement="EndEvent_ConviteRecusado">
+        <dc:Bounds x="1760" y="587" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ServiceTask_AtivarVoluntario_di" bpmnElement="ServiceTask_AtivarVoluntario">
+        <dc:Bounds x="1760" y="265" width="170" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_DefinirLideranca_di" bpmnElement="Task_DefinirLideranca">
+        <dc:Bounds x="1960" y="115" width="170" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ServiceTask_SalvarLideranca_di" bpmnElement="ServiceTask_SalvarLideranca">
+        <dc:Bounds x="2160" y="265" width="170" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ReceberEquipe_di" bpmnElement="Task_ReceberEquipe">
+        <dc:Bounds x="2360" y="415" width="160" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CriarDesignacao_di" bpmnElement="Task_CriarDesignacao">
+        <dc:Bounds x="2550" y="415" width="170" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ServiceTask_ValidarVagas_di" bpmnElement="ServiceTask_ValidarVagas">
+        <dc:Bounds x="2750" y="265" width="160" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_HaVagaDisponivel_di" bpmnElement="Gateway_HaVagaDisponivel" isMarkerVisible="true">
+        <dc:Bounds x="2945" y="280" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AjustarEquipeOuLideranca_di" bpmnElement="Task_AjustarEquipeOuLideranca">
+        <dc:Bounds x="3030" y="115" width="180" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ReceberDesignacao_di" bpmnElement="Task_ReceberDesignacao">
+        <dc:Bounds x="3030" y="565" width="160" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ResponderDesignacao_di" bpmnElement="Task_ResponderDesignacao">
+        <dc:Bounds x="3220" y="565" width="170" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_DesignacaoAceita_di" bpmnElement="Gateway_DesignacaoAceita" isMarkerVisible="true">
+        <dc:Bounds x="3425" y="580" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ServiceTask_ConfirmarDesignacao_di" bpmnElement="ServiceTask_ConfirmarDesignacao">
+        <dc:Bounds x="3510" y="265" width="170" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ServiceTask_LiberarVaga_di" bpmnElement="ServiceTask_LiberarVaga">
+        <dc:Bounds x="3510" y="565" width="160" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_EscolherOutroVoluntario_di" bpmnElement="Task_EscolherOutroVoluntario">
+        <dc:Bounds x="3710" y="415" width="170" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AcompanharEquipe_di" bpmnElement="Task_AcompanharEquipe">
+        <dc:Bounds x="3910" y="415" width="170" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ServiceTask_AtualizarIndicadores_di" bpmnElement="ServiceTask_AtualizarIndicadores">
+        <dc:Bounds x="4110" y="265" width="170" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AcompanharVisaoPastoral_di" bpmnElement="Task_AcompanharVisaoPastoral">
+        <dc:Bounds x="4310" y="415" width="170" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Fim_di" bpmnElement="EndEvent_Fim">
+        <dc:Bounds x="4520" y="437" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="TextAnnotation_RegrasResumo_di" bpmnElement="TextAnnotation_RegrasResumo">
+        <dc:Bounds x="3030" y="240" width="300" height="90"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="Flow_01_di" bpmnElement="Flow_01">
+        <di:waypoint x="216" y="155"/>
+        <di:waypoint x="250" y="155"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_02_di" bpmnElement="Flow_02">
+        <di:waypoint x="400" y="155"/>
+        <di:waypoint x="415" y="155"/>
+        <di:waypoint x="415" y="305"/>
+        <di:waypoint x="430" y="305"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_03_di" bpmnElement="Flow_03">
+        <di:waypoint x="590" y="305"/>
+        <di:waypoint x="625" y="305"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_04_Sim_di" bpmnElement="Flow_04_Sim">
+        <di:waypoint x="650" y="280"/>
+        <di:waypoint x="650" y="155"/>
+        <di:waypoint x="720" y="155"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_04_Nao_di" bpmnElement="Flow_04_Nao">
+        <di:waypoint x="675" y="305"/>
+        <di:waypoint x="710" y="305"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_05_di" bpmnElement="Flow_05">
+        <di:waypoint x="870" y="155"/>
+        <di:waypoint x="885" y="155"/>
+        <di:waypoint x="885" y="305"/>
+        <di:waypoint x="900" y="305"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_06_di" bpmnElement="Flow_06">
+        <di:waypoint x="1040" y="305"/>
+        <di:waypoint x="1055" y="305"/>
+        <di:waypoint x="1055" y="155"/>
+        <di:waypoint x="1070" y="155"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_07_di" bpmnElement="Flow_07">
+        <di:waypoint x="1240" y="155"/>
+        <di:waypoint x="1255" y="155"/>
+        <di:waypoint x="1255" y="305"/>
+        <di:waypoint x="1270" y="305"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_08_di" bpmnElement="Flow_08">
+        <di:waypoint x="1440" y="305"/>
+        <di:waypoint x="1455" y="305"/>
+        <di:waypoint x="1455" y="605"/>
+        <di:waypoint x="1470" y="605"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_09_di" bpmnElement="Flow_09">
+        <di:waypoint x="1630" y="605"/>
+        <di:waypoint x="1665" y="605"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_10_Sim_di" bpmnElement="Flow_10_Sim">
+        <di:waypoint x="1690" y="580"/>
+        <di:waypoint x="1690" y="305"/>
+        <di:waypoint x="1760" y="305"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_10_Nao_di" bpmnElement="Flow_10_Nao">
+        <di:waypoint x="1715" y="605"/>
+        <di:waypoint x="1760" y="605"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_11_di" bpmnElement="Flow_11">
+        <di:waypoint x="1930" y="305"/>
+        <di:waypoint x="1945" y="305"/>
+        <di:waypoint x="1945" y="155"/>
+        <di:waypoint x="1960" y="155"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_12_di" bpmnElement="Flow_12">
+        <di:waypoint x="2130" y="155"/>
+        <di:waypoint x="2145" y="155"/>
+        <di:waypoint x="2145" y="305"/>
+        <di:waypoint x="2160" y="305"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_13_di" bpmnElement="Flow_13">
+        <di:waypoint x="2330" y="305"/>
+        <di:waypoint x="2345" y="305"/>
+        <di:waypoint x="2345" y="455"/>
+        <di:waypoint x="2360" y="455"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_14_di" bpmnElement="Flow_14">
+        <di:waypoint x="2520" y="455"/>
+        <di:waypoint x="2550" y="455"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_15_di" bpmnElement="Flow_15">
+        <di:waypoint x="2720" y="455"/>
+        <di:waypoint x="2735" y="455"/>
+        <di:waypoint x="2735" y="305"/>
+        <di:waypoint x="2750" y="305"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_16_di" bpmnElement="Flow_16">
+        <di:waypoint x="2910" y="305"/>
+        <di:waypoint x="2945" y="305"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_17_Sim_di" bpmnElement="Flow_17_Sim">
+        <di:waypoint x="2970" y="330"/>
+        <di:waypoint x="2970" y="605"/>
+        <di:waypoint x="3030" y="605"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_17_Nao_di" bpmnElement="Flow_17_Nao">
+        <di:waypoint x="2970" y="280"/>
+        <di:waypoint x="2970" y="155"/>
+        <di:waypoint x="3030" y="155"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_18_di" bpmnElement="Flow_18">
+        <di:waypoint x="3190" y="605"/>
+        <di:waypoint x="3220" y="605"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_19_di" bpmnElement="Flow_19">
+        <di:waypoint x="3390" y="605"/>
+        <di:waypoint x="3425" y="605"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_20_Sim_di" bpmnElement="Flow_20_Sim">
+        <di:waypoint x="3450" y="580"/>
+        <di:waypoint x="3450" y="305"/>
+        <di:waypoint x="3510" y="305"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_20_Nao_di" bpmnElement="Flow_20_Nao">
+        <di:waypoint x="3475" y="605"/>
+        <di:waypoint x="3510" y="605"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_21_di" bpmnElement="Flow_21">
+        <di:waypoint x="3680" y="305"/>
+        <di:waypoint x="3895" y="305"/>
+        <di:waypoint x="3895" y="455"/>
+        <di:waypoint x="3910" y="455"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_22_di" bpmnElement="Flow_22">
+        <di:waypoint x="3670" y="605"/>
+        <di:waypoint x="3690" y="605"/>
+        <di:waypoint x="3690" y="455"/>
+        <di:waypoint x="3710" y="455"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_23_di" bpmnElement="Flow_23">
+        <di:waypoint x="3120" y="115"/>
+        <di:waypoint x="3120" y="95"/>
+        <di:waypoint x="2635" y="95"/>
+        <di:waypoint x="2635" y="415"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_24_di" bpmnElement="Flow_24">
+        <di:waypoint x="3795" y="495"/>
+        <di:waypoint x="3795" y="705"/>
+        <di:waypoint x="3110" y="705"/>
+        <di:waypoint x="3110" y="645"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_25_di" bpmnElement="Flow_25">
+        <di:waypoint x="4080" y="455"/>
+        <di:waypoint x="4095" y="455"/>
+        <di:waypoint x="4095" y="305"/>
+        <di:waypoint x="4110" y="305"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_26_di" bpmnElement="Flow_26">
+        <di:waypoint x="4280" y="305"/>
+        <di:waypoint x="4295" y="305"/>
+        <di:waypoint x="4295" y="455"/>
+        <di:waypoint x="4310" y="455"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_27_di" bpmnElement="Flow_27">
+        <di:waypoint x="4480" y="455"/>
+        <di:waypoint x="4520" y="455"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Association_RegrasResumo_di" bpmnElement="Association_RegrasResumo">
+        <di:waypoint x="2995" y="305"/>
+        <di:waypoint x="3030" y="285"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

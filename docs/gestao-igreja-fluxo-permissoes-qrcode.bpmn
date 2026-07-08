@@ -1,0 +1,511 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_GestaoIgreja"
+                  targetNamespace="https://biblialm.com.br/bpmn/gestao-igreja">
+  <bpmn:process id="Process_GestaoIgreja_Permissoes_QR" name="Gestao da Igreja - Permissoes, Designacoes e QR Code" isExecutable="true">
+    <bpmn:documentation>
+      Fluxo BPMN baseado em docs/gestao-igreja-requisitos-permissoes-qrcode.md.
+      Observacao: tarefas humanas e servicos precisam de configuracao especifica no motor BPMN escolhido.
+    </bpmn:documentation>
+
+    <bpmn:startEvent id="StartEvent_Inicio" name="Inicio">
+      <bpmn:outgoing>Flow_Start_To_Request</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:subProcess id="SubProcess_AprovacaoInicial" name="Aprovacao inicial para gerir igreja">
+      <bpmn:incoming>Flow_Start_To_Request</bpmn:incoming>
+      <bpmn:outgoing>Flow_Request_To_Gate</bpmn:outgoing>
+      <bpmn:startEvent id="Start_Aprovacao" name="Usuario quer gerir igreja">
+        <bpmn:outgoing>Flow_A1_A2</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:userTask id="Task_AcessarPaginaIgreja" name="Acessar pagina da igreja ou rota de gerir">
+        <bpmn:incoming>Flow_A1_A2</bpmn:incoming>
+        <bpmn:outgoing>Flow_A2_G1</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="Gateway_UsuarioAutenticadoAprovacao" name="Usuario autenticado?">
+        <bpmn:incoming>Flow_A2_G1</bpmn:incoming>
+        <bpmn:outgoing>Flow_G1_Login</bpmn:outgoing>
+        <bpmn:outgoing>Flow_G1_Solicitar</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:userTask id="Task_LoginAprovacao" name="Fazer login">
+        <bpmn:incoming>Flow_G1_Login</bpmn:incoming>
+        <bpmn:outgoing>Flow_Login_Back_Acessar</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:userTask id="Task_SolicitarResponsabilidade" name="Solicitar responsabilidade pela igreja">
+        <bpmn:incoming>Flow_G1_Solicitar</bpmn:incoming>
+        <bpmn:outgoing>Flow_Solicitar_CriarRequest</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="Service_CriarRoleRequest" name="Criar church_role_requests pending">
+        <bpmn:incoming>Flow_Solicitar_CriarRequest</bpmn:incoming>
+        <bpmn:outgoing>Flow_CriarRequest_AdminReview</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:userTask id="Task_AdminRevisar" name="Admin da plataforma revisa solicitacao">
+        <bpmn:incoming>Flow_CriarRequest_AdminReview</bpmn:incoming>
+        <bpmn:outgoing>Flow_AdminReview_Gateway</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="Gateway_AdminAprova" name="Admin aprova?">
+        <bpmn:incoming>Flow_AdminReview_Gateway</bpmn:incoming>
+        <bpmn:outgoing>Flow_Admin_Rejeita</bpmn:outgoing>
+        <bpmn:outgoing>Flow_Admin_Aprova</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="Service_RejeitarRequest" name="Marcar solicitacao como rejected">
+        <bpmn:incoming>Flow_Admin_Rejeita</bpmn:incoming>
+        <bpmn:outgoing>Flow_Rejeitar_End</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="End_AcessoNegadoAprovacao" name="Acesso nao concedido">
+        <bpmn:incoming>Flow_Rejeitar_End</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:serviceTask id="Service_AprovarRequest" name="Marcar como approved e registrar revisao">
+        <bpmn:incoming>Flow_Admin_Aprova</bpmn:incoming>
+        <bpmn:outgoing>Flow_Aprovar_Vincular</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="Service_VincularAdminIgreja" name="Vincular admin, membership e churchData">
+        <bpmn:incoming>Flow_Aprovar_Vincular</bpmn:incoming>
+        <bpmn:outgoing>Flow_Vincular_EndAprovacao</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="End_AprovacaoOk" name="Responsabilidade aprovada">
+        <bpmn:incoming>Flow_Vincular_EndAprovacao</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_A1_A2" sourceRef="Start_Aprovacao" targetRef="Task_AcessarPaginaIgreja"/>
+      <bpmn:sequenceFlow id="Flow_A2_G1" sourceRef="Task_AcessarPaginaIgreja" targetRef="Gateway_UsuarioAutenticadoAprovacao"/>
+      <bpmn:sequenceFlow id="Flow_G1_Login" name="Nao" sourceRef="Gateway_UsuarioAutenticadoAprovacao" targetRef="Task_LoginAprovacao"/>
+      <bpmn:sequenceFlow id="Flow_Login_Back_Acessar" sourceRef="Task_LoginAprovacao" targetRef="Task_AcessarPaginaIgreja"/>
+      <bpmn:sequenceFlow id="Flow_G1_Solicitar" name="Sim" sourceRef="Gateway_UsuarioAutenticadoAprovacao" targetRef="Task_SolicitarResponsabilidade"/>
+      <bpmn:sequenceFlow id="Flow_Solicitar_CriarRequest" sourceRef="Task_SolicitarResponsabilidade" targetRef="Service_CriarRoleRequest"/>
+      <bpmn:sequenceFlow id="Flow_CriarRequest_AdminReview" sourceRef="Service_CriarRoleRequest" targetRef="Task_AdminRevisar"/>
+      <bpmn:sequenceFlow id="Flow_AdminReview_Gateway" sourceRef="Task_AdminRevisar" targetRef="Gateway_AdminAprova"/>
+      <bpmn:sequenceFlow id="Flow_Admin_Rejeita" name="Nao" sourceRef="Gateway_AdminAprova" targetRef="Service_RejeitarRequest"/>
+      <bpmn:sequenceFlow id="Flow_Rejeitar_End" sourceRef="Service_RejeitarRequest" targetRef="End_AcessoNegadoAprovacao"/>
+      <bpmn:sequenceFlow id="Flow_Admin_Aprova" name="Sim" sourceRef="Gateway_AdminAprova" targetRef="Service_AprovarRequest"/>
+      <bpmn:sequenceFlow id="Flow_Aprovar_Vincular" sourceRef="Service_AprovarRequest" targetRef="Service_VincularAdminIgreja"/>
+      <bpmn:sequenceFlow id="Flow_Vincular_EndAprovacao" sourceRef="Service_VincularAdminIgreja" targetRef="End_AprovacaoOk"/>
+    </bpmn:subProcess>
+
+    <bpmn:subProcess id="SubProcess_GateAcesso" name="Gate de acesso a /gestao-igreja">
+      <bpmn:incoming>Flow_Request_To_Gate</bpmn:incoming>
+      <bpmn:outgoing>Flow_Gate_To_Choice</bpmn:outgoing>
+      <bpmn:startEvent id="Start_Gate" name="Acessar /gestao-igreja">
+        <bpmn:outgoing>Flow_Gate_Start_Auth</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:exclusiveGateway id="Gateway_GateAutenticado" name="Usuario autenticado?">
+        <bpmn:incoming>Flow_Gate_Start_Auth</bpmn:incoming>
+        <bpmn:outgoing>Flow_Gate_Login</bpmn:outgoing>
+        <bpmn:outgoing>Flow_Gate_CheckChurch</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:userTask id="Task_LoginGate" name="Fazer login">
+        <bpmn:incoming>Flow_Gate_Login</bpmn:incoming>
+        <bpmn:outgoing>Flow_LoginGate_Back</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="Service_VerificarIgrejaAtiva" name="Verificar igreja ativa ou responsabilidade aprovada">
+        <bpmn:incoming>Flow_Gate_CheckChurch</bpmn:incoming>
+        <bpmn:outgoing>Flow_CheckChurch_Gateway</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="Gateway_TemIgreja" name="Tem igreja ativa?">
+        <bpmn:incoming>Flow_CheckChurch_Gateway</bpmn:incoming>
+        <bpmn:outgoing>Flow_NoChurch_End</bpmn:outgoing>
+        <bpmn:outgoing>Flow_YesChurch_LoadRoles</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:endEvent id="End_SemIgreja" name="Redirecionar para solicitacao ou perfil">
+        <bpmn:incoming>Flow_NoChurch_End</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:serviceTask id="Service_CarregarRolesAdmins" name="Carregar roles e admins da igreja">
+        <bpmn:incoming>Flow_YesChurch_LoadRoles</bpmn:incoming>
+        <bpmn:outgoing>Flow_LoadRoles_AccessGateway</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="Gateway_AcessoValido" name="Acesso valido?">
+        <bpmn:incoming>Flow_LoadRoles_AccessGateway</bpmn:incoming>
+        <bpmn:outgoing>Flow_AccessDenied_End</bpmn:outgoing>
+        <bpmn:outgoing>Flow_AccessGranted_End</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:endEvent id="End_AcessoNegadoGate" name="Acesso negado">
+        <bpmn:incoming>Flow_AccessDenied_End</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:endEvent id="End_AcessoPermitido" name="Acesso permitido">
+        <bpmn:incoming>Flow_AccessGranted_End</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_Gate_Start_Auth" sourceRef="Start_Gate" targetRef="Gateway_GateAutenticado"/>
+      <bpmn:sequenceFlow id="Flow_Gate_Login" name="Nao" sourceRef="Gateway_GateAutenticado" targetRef="Task_LoginGate"/>
+      <bpmn:sequenceFlow id="Flow_LoginGate_Back" sourceRef="Task_LoginGate" targetRef="Gateway_GateAutenticado"/>
+      <bpmn:sequenceFlow id="Flow_Gate_CheckChurch" name="Sim" sourceRef="Gateway_GateAutenticado" targetRef="Service_VerificarIgrejaAtiva"/>
+      <bpmn:sequenceFlow id="Flow_CheckChurch_Gateway" sourceRef="Service_VerificarIgrejaAtiva" targetRef="Gateway_TemIgreja"/>
+      <bpmn:sequenceFlow id="Flow_NoChurch_End" name="Nao" sourceRef="Gateway_TemIgreja" targetRef="End_SemIgreja"/>
+      <bpmn:sequenceFlow id="Flow_YesChurch_LoadRoles" name="Sim" sourceRef="Gateway_TemIgreja" targetRef="Service_CarregarRolesAdmins"/>
+      <bpmn:sequenceFlow id="Flow_LoadRoles_AccessGateway" sourceRef="Service_CarregarRolesAdmins" targetRef="Gateway_AcessoValido"/>
+      <bpmn:sequenceFlow id="Flow_AccessDenied_End" name="Nao" sourceRef="Gateway_AcessoValido" targetRef="End_AcessoNegadoGate"/>
+      <bpmn:sequenceFlow id="Flow_AccessGranted_End" name="Sim" sourceRef="Gateway_AcessoValido" targetRef="End_AcessoPermitido"/>
+    </bpmn:subProcess>
+
+    <bpmn:exclusiveGateway id="Gateway_EscolherOperacao" name="Escolher operacao da gestao">
+      <bpmn:incoming>Flow_Gate_To_Choice</bpmn:incoming>
+      <bpmn:incoming>Flow_Permissions_BackToChoice</bpmn:incoming>
+      <bpmn:incoming>Flow_Assignments_BackToChoice</bpmn:incoming>
+      <bpmn:incoming>Flow_QR_BackToChoice</bpmn:incoming>
+      <bpmn:outgoing>Flow_Choice_Permissions</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Choice_Assignments</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Choice_QR</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Choice_End</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:subProcess id="SubProcess_Permissoes" name="Permissoes operacionais por role e escopo">
+      <bpmn:incoming>Flow_Choice_Permissions</bpmn:incoming>
+      <bpmn:outgoing>Flow_Permissions_BackToChoice</bpmn:outgoing>
+      <bpmn:startEvent id="Start_Permissoes" name="Gerir permissoes">
+        <bpmn:outgoing>Flow_Perm_Start_List</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:userTask id="Task_ListarPermissoes" name="Abrir /gestao-igreja/permissoes">
+        <bpmn:incoming>Flow_Perm_Start_List</bpmn:incoming>
+        <bpmn:outgoing>Flow_Perm_List_Create</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:userTask id="Task_InformarRole" name="Informar usuario, role e escopo">
+        <bpmn:incoming>Flow_Perm_List_Create</bpmn:incoming>
+        <bpmn:incoming>Flow_Perm_Invalid_Back</bpmn:incoming>
+        <bpmn:outgoing>Flow_Perm_RoleGateway</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="Gateway_RoleValida" name="Role valida?">
+        <bpmn:incoming>Flow_Perm_RoleGateway</bpmn:incoming>
+        <bpmn:outgoing>Flow_Perm_Invalid_Back</bpmn:outgoing>
+        <bpmn:outgoing>Flow_Perm_Upsert</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="Service_UpsertRole" name="Upsert church_member_roles active">
+        <bpmn:incoming>Flow_Perm_Upsert</bpmn:incoming>
+        <bpmn:outgoing>Flow_Perm_Notify</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="Service_NotificarRoleGranted" name="Notificar role_granted">
+        <bpmn:incoming>Flow_Perm_Notify</bpmn:incoming>
+        <bpmn:outgoing>Flow_Perm_End</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="End_Permissoes" name="Permissao atualizada">
+        <bpmn:incoming>Flow_Perm_End</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_Perm_Start_List" sourceRef="Start_Permissoes" targetRef="Task_ListarPermissoes"/>
+      <bpmn:sequenceFlow id="Flow_Perm_List_Create" sourceRef="Task_ListarPermissoes" targetRef="Task_InformarRole"/>
+      <bpmn:sequenceFlow id="Flow_Perm_RoleGateway" sourceRef="Task_InformarRole" targetRef="Gateway_RoleValida"/>
+      <bpmn:sequenceFlow id="Flow_Perm_Invalid_Back" name="Nao" sourceRef="Gateway_RoleValida" targetRef="Task_InformarRole"/>
+      <bpmn:sequenceFlow id="Flow_Perm_Upsert" name="Sim" sourceRef="Gateway_RoleValida" targetRef="Service_UpsertRole"/>
+      <bpmn:sequenceFlow id="Flow_Perm_Notify" sourceRef="Service_UpsertRole" targetRef="Service_NotificarRoleGranted"/>
+      <bpmn:sequenceFlow id="Flow_Perm_End" sourceRef="Service_NotificarRoleGranted" targetRef="End_Permissoes"/>
+    </bpmn:subProcess>
+
+    <bpmn:subProcess id="SubProcess_EquipesDesignacoes" name="Equipes e designacoes com vagas">
+      <bpmn:incoming>Flow_Choice_Assignments</bpmn:incoming>
+      <bpmn:outgoing>Flow_Assignments_BackToChoice</bpmn:outgoing>
+      <bpmn:startEvent id="Start_Designacoes" name="Organizar servico">
+        <bpmn:outgoing>Flow_Ass_Start_CreateTeam</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:userTask id="Task_CriarEquipe" name="Criar equipe com capacidade">
+        <bpmn:incoming>Flow_Ass_Start_CreateTeam</bpmn:incoming>
+        <bpmn:outgoing>Flow_CreateTeam_SaveTeam</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="Service_SalvarEquipe" name="Salvar church_service_teams">
+        <bpmn:incoming>Flow_CreateTeam_SaveTeam</bpmn:incoming>
+        <bpmn:outgoing>Flow_SaveTeam_CreateAssignment</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:userTask id="Task_CriarDesignacao" name="Criar designacao vinculada ou nao a equipe">
+        <bpmn:incoming>Flow_SaveTeam_CreateAssignment</bpmn:incoming>
+        <bpmn:incoming>Flow_NoVacancies_Back</bpmn:incoming>
+        <bpmn:outgoing>Flow_CreateAssignment_VacanciesGateway</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="Gateway_TemVagasDesignacao" name="Quantidade de vagas informada?">
+        <bpmn:incoming>Flow_CreateAssignment_VacanciesGateway</bpmn:incoming>
+        <bpmn:outgoing>Flow_NoVacancies_Back</bpmn:outgoing>
+        <bpmn:outgoing>Flow_SaveAssignment</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="Service_SalvarDesignacao" name="Salvar designacao e vagas">
+        <bpmn:incoming>Flow_SaveAssignment</bpmn:incoming>
+        <bpmn:outgoing>Flow_SaveAssignment_Invite</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:userTask id="Task_ConvidarPessoas" name="Convidar pessoas ate limite de vagas">
+        <bpmn:incoming>Flow_SaveAssignment_Invite</bpmn:incoming>
+        <bpmn:outgoing>Flow_Invite_VacancyAvailable</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="Gateway_HaVagaDisponivel" name="Ha vaga disponivel?">
+        <bpmn:incoming>Flow_Invite_VacancyAvailable</bpmn:incoming>
+        <bpmn:outgoing>Flow_NoSlot_End</bpmn:outgoing>
+        <bpmn:outgoing>Flow_Slot_NotifyMember</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:endEvent id="End_LimiteVagas" name="Limite de vagas atingido">
+        <bpmn:incoming>Flow_NoSlot_End</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:serviceTask id="Service_NotificarDesignacao" name="Notificar assignment_created">
+        <bpmn:incoming>Flow_Slot_NotifyMember</bpmn:incoming>
+        <bpmn:outgoing>Flow_NotifyMember_Response</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:userTask id="Task_MembroResponderDesignacao" name="Membro aceita ou recusa em Minha Igreja">
+        <bpmn:incoming>Flow_NotifyMember_Response</bpmn:incoming>
+        <bpmn:outgoing>Flow_Response_Gateway</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="Gateway_MembroAceita" name="Membro aceita?">
+        <bpmn:incoming>Flow_Response_Gateway</bpmn:incoming>
+        <bpmn:outgoing>Flow_Accept_Assignment</bpmn:outgoing>
+        <bpmn:outgoing>Flow_Decline_Assignment</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="Service_AceitarDesignacao" name="Status accepted e vaga ocupada">
+        <bpmn:incoming>Flow_Accept_Assignment</bpmn:incoming>
+        <bpmn:outgoing>Flow_Accept_Notify</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="Service_NotificarAceite" name="Notificar lideranca e registrar insignia">
+        <bpmn:incoming>Flow_Accept_Notify</bpmn:incoming>
+        <bpmn:outgoing>Flow_Accept_End</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="Service_RecusarDesignacao" name="Status declined e vaga liberada">
+        <bpmn:incoming>Flow_Decline_Assignment</bpmn:incoming>
+        <bpmn:outgoing>Flow_Decline_Notify</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="Service_NotificarRecusa" name="Notificar lideranca">
+        <bpmn:incoming>Flow_Decline_Notify</bpmn:incoming>
+        <bpmn:outgoing>Flow_Decline_End</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="End_DesignacaoFinalizada" name="Designacao respondida">
+        <bpmn:incoming>Flow_Accept_End</bpmn:incoming>
+        <bpmn:incoming>Flow_Decline_End</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_Ass_Start_CreateTeam" sourceRef="Start_Designacoes" targetRef="Task_CriarEquipe"/>
+      <bpmn:sequenceFlow id="Flow_CreateTeam_SaveTeam" sourceRef="Task_CriarEquipe" targetRef="Service_SalvarEquipe"/>
+      <bpmn:sequenceFlow id="Flow_SaveTeam_CreateAssignment" sourceRef="Service_SalvarEquipe" targetRef="Task_CriarDesignacao"/>
+      <bpmn:sequenceFlow id="Flow_CreateAssignment_VacanciesGateway" sourceRef="Task_CriarDesignacao" targetRef="Gateway_TemVagasDesignacao"/>
+      <bpmn:sequenceFlow id="Flow_NoVacancies_Back" name="Nao" sourceRef="Gateway_TemVagasDesignacao" targetRef="Task_CriarDesignacao"/>
+      <bpmn:sequenceFlow id="Flow_SaveAssignment" name="Sim" sourceRef="Gateway_TemVagasDesignacao" targetRef="Service_SalvarDesignacao"/>
+      <bpmn:sequenceFlow id="Flow_SaveAssignment_Invite" sourceRef="Service_SalvarDesignacao" targetRef="Task_ConvidarPessoas"/>
+      <bpmn:sequenceFlow id="Flow_Invite_VacancyAvailable" sourceRef="Task_ConvidarPessoas" targetRef="Gateway_HaVagaDisponivel"/>
+      <bpmn:sequenceFlow id="Flow_NoSlot_End" name="Nao" sourceRef="Gateway_HaVagaDisponivel" targetRef="End_LimiteVagas"/>
+      <bpmn:sequenceFlow id="Flow_Slot_NotifyMember" name="Sim" sourceRef="Gateway_HaVagaDisponivel" targetRef="Service_NotificarDesignacao"/>
+      <bpmn:sequenceFlow id="Flow_NotifyMember_Response" sourceRef="Service_NotificarDesignacao" targetRef="Task_MembroResponderDesignacao"/>
+      <bpmn:sequenceFlow id="Flow_Response_Gateway" sourceRef="Task_MembroResponderDesignacao" targetRef="Gateway_MembroAceita"/>
+      <bpmn:sequenceFlow id="Flow_Accept_Assignment" name="Sim" sourceRef="Gateway_MembroAceita" targetRef="Service_AceitarDesignacao"/>
+      <bpmn:sequenceFlow id="Flow_Accept_Notify" sourceRef="Service_AceitarDesignacao" targetRef="Service_NotificarAceite"/>
+      <bpmn:sequenceFlow id="Flow_Accept_End" sourceRef="Service_NotificarAceite" targetRef="End_DesignacaoFinalizada"/>
+      <bpmn:sequenceFlow id="Flow_Decline_Assignment" name="Nao" sourceRef="Gateway_MembroAceita" targetRef="Service_RecusarDesignacao"/>
+      <bpmn:sequenceFlow id="Flow_Decline_Notify" sourceRef="Service_RecusarDesignacao" targetRef="Service_NotificarRecusa"/>
+      <bpmn:sequenceFlow id="Flow_Decline_End" sourceRef="Service_NotificarRecusa" targetRef="End_DesignacaoFinalizada"/>
+    </bpmn:subProcess>
+
+    <bpmn:subProcess id="SubProcess_QRInbox" name="QR Code, formulario, Inbox e Minha Igreja">
+      <bpmn:incoming>Flow_Choice_QR</bpmn:incoming>
+      <bpmn:outgoing>Flow_QR_BackToChoice</bpmn:outgoing>
+      <bpmn:startEvent id="Start_QR" name="Criar entrada publica">
+        <bpmn:outgoing>Flow_QR_Start_Create</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:userTask id="Task_CriarQR" name="Criar QR/formulario">
+        <bpmn:incoming>Flow_QR_Start_Create</bpmn:incoming>
+        <bpmn:outgoing>Flow_CreateQR_Save</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="Service_SalvarQR" name="Gerar token, salvar QR ativo e URL publica">
+        <bpmn:incoming>Flow_CreateQR_Save</bpmn:incoming>
+        <bpmn:outgoing>Flow_SaveQR_Print</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:userTask id="Task_DistribuirQR" name="Copiar, baixar ou imprimir QR">
+        <bpmn:incoming>Flow_SaveQR_Print</bpmn:incoming>
+        <bpmn:outgoing>Flow_Print_Scan</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:userTask id="Task_EscanearQR" name="Pessoa escaneia /qr/[token]">
+        <bpmn:incoming>Flow_Print_Scan</bpmn:incoming>
+        <bpmn:outgoing>Flow_Scan_LoadForm</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="Service_CarregarFormulario" name="Carregar formulario ativo por token">
+        <bpmn:incoming>Flow_Scan_LoadForm</bpmn:incoming>
+        <bpmn:outgoing>Flow_LoadForm_ActiveGateway</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="Gateway_FormularioAtivo" name="Formulario ativo e nao expirado?">
+        <bpmn:incoming>Flow_LoadForm_ActiveGateway</bpmn:incoming>
+        <bpmn:outgoing>Flow_FormInactive_End</bpmn:outgoing>
+        <bpmn:outgoing>Flow_FormActive_CountScan</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:endEvent id="End_FormIndisponivel" name="Formulario indisponivel">
+        <bpmn:incoming>Flow_FormInactive_End</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:serviceTask id="Service_ContarScan" name="Contar scan de forma nao bloqueante">
+        <bpmn:incoming>Flow_FormActive_CountScan</bpmn:incoming>
+        <bpmn:outgoing>Flow_CountScan_Fill</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:userTask id="Task_PreencherFormulario" name="Preencher formulario e privacidade">
+        <bpmn:incoming>Flow_CountScan_Fill</bpmn:incoming>
+        <bpmn:outgoing>Flow_Fill_AuthGateway</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="Gateway_SubmitterAutenticado" name="Usuario autenticado?">
+        <bpmn:incoming>Flow_Fill_AuthGateway</bpmn:incoming>
+        <bpmn:outgoing>Flow_Submitter_Login</bpmn:outgoing>
+        <bpmn:outgoing>Flow_Submitter_Submit</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:userTask id="Task_LoginSubmitter" name="Login e restaurar payload">
+        <bpmn:incoming>Flow_Submitter_Login</bpmn:incoming>
+        <bpmn:outgoing>Flow_LoginSubmitter_Submit</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:userTask id="Task_EnviarFormulario" name="Enviar formulario">
+        <bpmn:incoming>Flow_Submitter_Submit</bpmn:incoming>
+        <bpmn:incoming>Flow_LoginSubmitter_Submit</bpmn:incoming>
+        <bpmn:outgoing>Flow_Submit_CreateSubmission</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="Service_CriarSubmissao" name="Criar church_form_submissions received">
+        <bpmn:incoming>Flow_Submit_CreateSubmission</bpmn:incoming>
+        <bpmn:outgoing>Flow_CreateSubmission_SensitiveGateway</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="Gateway_TipoSensivel" name="Tipo sensivel?">
+        <bpmn:incoming>Flow_CreateSubmission_SensitiveGateway</bpmn:incoming>
+        <bpmn:outgoing>Flow_Sensitive_RoutePastor</bpmn:outgoing>
+        <bpmn:outgoing>Flow_NotSensitive_RouteLeader</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="Service_RotearPastor" name="Rotear para pastor com severidade urgent">
+        <bpmn:incoming>Flow_Sensitive_RoutePastor</bpmn:incoming>
+        <bpmn:outgoing>Flow_RoutePastor_Notify</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="Service_RotearLideranca" name="Rotear para lideranca com severidade action">
+        <bpmn:incoming>Flow_NotSensitive_RouteLeader</bpmn:incoming>
+        <bpmn:outgoing>Flow_RouteLeader_Notify</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="Service_NotificarSubmission" name="Notificar submission_created">
+        <bpmn:incoming>Flow_RoutePastor_Notify</bpmn:incoming>
+        <bpmn:incoming>Flow_RouteLeader_Notify</bpmn:incoming>
+        <bpmn:outgoing>Flow_NotifySubmission_Inbox</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:userTask id="Task_TratarInbox" name="Tratar na Inbox: atribuir, priorizar e atualizar status">
+        <bpmn:incoming>Flow_NotifySubmission_Inbox</bpmn:incoming>
+        <bpmn:outgoing>Flow_Inbox_NotifyMember</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:serviceTask id="Service_NotificarMembroStatus" name="Notificar membro identificado">
+        <bpmn:incoming>Flow_Inbox_NotifyMember</bpmn:incoming>
+        <bpmn:outgoing>Flow_NotifyMember_ViewMinhaIgreja</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:userTask id="Task_VerMinhaIgreja" name="Membro acompanha em Minha Igreja">
+        <bpmn:incoming>Flow_NotifyMember_ViewMinhaIgreja</bpmn:incoming>
+        <bpmn:outgoing>Flow_ViewMinhaIgreja_End</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:endEvent id="End_QRInbox" name="Retorno seguro exibido">
+        <bpmn:incoming>Flow_ViewMinhaIgreja_End</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_QR_Start_Create" sourceRef="Start_QR" targetRef="Task_CriarQR"/>
+      <bpmn:sequenceFlow id="Flow_CreateQR_Save" sourceRef="Task_CriarQR" targetRef="Service_SalvarQR"/>
+      <bpmn:sequenceFlow id="Flow_SaveQR_Print" sourceRef="Service_SalvarQR" targetRef="Task_DistribuirQR"/>
+      <bpmn:sequenceFlow id="Flow_Print_Scan" sourceRef="Task_DistribuirQR" targetRef="Task_EscanearQR"/>
+      <bpmn:sequenceFlow id="Flow_Scan_LoadForm" sourceRef="Task_EscanearQR" targetRef="Service_CarregarFormulario"/>
+      <bpmn:sequenceFlow id="Flow_LoadForm_ActiveGateway" sourceRef="Service_CarregarFormulario" targetRef="Gateway_FormularioAtivo"/>
+      <bpmn:sequenceFlow id="Flow_FormInactive_End" name="Nao" sourceRef="Gateway_FormularioAtivo" targetRef="End_FormIndisponivel"/>
+      <bpmn:sequenceFlow id="Flow_FormActive_CountScan" name="Sim" sourceRef="Gateway_FormularioAtivo" targetRef="Service_ContarScan"/>
+      <bpmn:sequenceFlow id="Flow_CountScan_Fill" sourceRef="Service_ContarScan" targetRef="Task_PreencherFormulario"/>
+      <bpmn:sequenceFlow id="Flow_Fill_AuthGateway" sourceRef="Task_PreencherFormulario" targetRef="Gateway_SubmitterAutenticado"/>
+      <bpmn:sequenceFlow id="Flow_Submitter_Login" name="Nao" sourceRef="Gateway_SubmitterAutenticado" targetRef="Task_LoginSubmitter"/>
+      <bpmn:sequenceFlow id="Flow_Submitter_Submit" name="Sim" sourceRef="Gateway_SubmitterAutenticado" targetRef="Task_EnviarFormulario"/>
+      <bpmn:sequenceFlow id="Flow_LoginSubmitter_Submit" sourceRef="Task_LoginSubmitter" targetRef="Task_EnviarFormulario"/>
+      <bpmn:sequenceFlow id="Flow_Submit_CreateSubmission" sourceRef="Task_EnviarFormulario" targetRef="Service_CriarSubmissao"/>
+      <bpmn:sequenceFlow id="Flow_CreateSubmission_SensitiveGateway" sourceRef="Service_CriarSubmissao" targetRef="Gateway_TipoSensivel"/>
+      <bpmn:sequenceFlow id="Flow_Sensitive_RoutePastor" name="Sim" sourceRef="Gateway_TipoSensivel" targetRef="Service_RotearPastor"/>
+      <bpmn:sequenceFlow id="Flow_NotSensitive_RouteLeader" name="Nao" sourceRef="Gateway_TipoSensivel" targetRef="Service_RotearLideranca"/>
+      <bpmn:sequenceFlow id="Flow_RoutePastor_Notify" sourceRef="Service_RotearPastor" targetRef="Service_NotificarSubmission"/>
+      <bpmn:sequenceFlow id="Flow_RouteLeader_Notify" sourceRef="Service_RotearLideranca" targetRef="Service_NotificarSubmission"/>
+      <bpmn:sequenceFlow id="Flow_NotifySubmission_Inbox" sourceRef="Service_NotificarSubmission" targetRef="Task_TratarInbox"/>
+      <bpmn:sequenceFlow id="Flow_Inbox_NotifyMember" sourceRef="Task_TratarInbox" targetRef="Service_NotificarMembroStatus"/>
+      <bpmn:sequenceFlow id="Flow_NotifyMember_ViewMinhaIgreja" sourceRef="Service_NotificarMembroStatus" targetRef="Task_VerMinhaIgreja"/>
+      <bpmn:sequenceFlow id="Flow_ViewMinhaIgreja_End" sourceRef="Task_VerMinhaIgreja" targetRef="End_QRInbox"/>
+    </bpmn:subProcess>
+
+    <bpmn:textAnnotation id="TextAnnotation_DecisoesPendentes">
+      <bpmn:text>Decisoes pendentes: mapear requested_role=admin para church_manager; definir QR anonimo vs login obrigatorio; modelar vagas da designacao; definir conversao de voluntariado; alinhar insignia vs Mana/XP.</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:association id="Association_Choice_Decisoes" sourceRef="Gateway_EscolherOperacao" targetRef="TextAnnotation_DecisoesPendentes"/>
+
+    <bpmn:endEvent id="EndEvent_Fim" name="Fim do fluxo">
+      <bpmn:incoming>Flow_Choice_End</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="Flow_Start_To_Request" sourceRef="StartEvent_Inicio" targetRef="SubProcess_AprovacaoInicial"/>
+    <bpmn:sequenceFlow id="Flow_Request_To_Gate" sourceRef="SubProcess_AprovacaoInicial" targetRef="SubProcess_GateAcesso"/>
+    <bpmn:sequenceFlow id="Flow_Gate_To_Choice" sourceRef="SubProcess_GateAcesso" targetRef="Gateway_EscolherOperacao"/>
+    <bpmn:sequenceFlow id="Flow_Choice_Permissions" name="Permissoes" sourceRef="Gateway_EscolherOperacao" targetRef="SubProcess_Permissoes"/>
+    <bpmn:sequenceFlow id="Flow_Permissions_BackToChoice" sourceRef="SubProcess_Permissoes" targetRef="Gateway_EscolherOperacao"/>
+    <bpmn:sequenceFlow id="Flow_Choice_Assignments" name="Equipes e designacoes" sourceRef="Gateway_EscolherOperacao" targetRef="SubProcess_EquipesDesignacoes"/>
+    <bpmn:sequenceFlow id="Flow_Assignments_BackToChoice" sourceRef="SubProcess_EquipesDesignacoes" targetRef="Gateway_EscolherOperacao"/>
+    <bpmn:sequenceFlow id="Flow_Choice_QR" name="QR e Inbox" sourceRef="Gateway_EscolherOperacao" targetRef="SubProcess_QRInbox"/>
+    <bpmn:sequenceFlow id="Flow_QR_BackToChoice" sourceRef="SubProcess_QRInbox" targetRef="Gateway_EscolherOperacao"/>
+    <bpmn:sequenceFlow id="Flow_Choice_End" name="Encerrar" sourceRef="Gateway_EscolherOperacao" targetRef="EndEvent_Fim"/>
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_GestaoIgreja">
+    <bpmndi:BPMNPlane id="BPMNPlane_GestaoIgreja" bpmnElement="Process_GestaoIgreja_Permissoes_QR">
+      <bpmndi:BPMNShape id="Shape_StartEvent_Inicio" bpmnElement="StartEvent_Inicio">
+        <dc:Bounds x="150" y="210" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SubProcess_AprovacaoInicial" bpmnElement="SubProcess_AprovacaoInicial" isExpanded="false">
+        <dc:Bounds x="240" y="180" width="220" height="96"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SubProcess_GateAcesso" bpmnElement="SubProcess_GateAcesso" isExpanded="false">
+        <dc:Bounds x="520" y="180" width="220" height="96"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_EscolherOperacao" bpmnElement="Gateway_EscolherOperacao" isMarkerVisible="true">
+        <dc:Bounds x="800" y="203" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SubProcess_Permissoes" bpmnElement="SubProcess_Permissoes" isExpanded="false">
+        <dc:Bounds x="930" y="60" width="230" height="96"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SubProcess_EquipesDesignacoes" bpmnElement="SubProcess_EquipesDesignacoes" isExpanded="false">
+        <dc:Bounds x="930" y="180" width="230" height="96"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SubProcess_QRInbox" bpmnElement="SubProcess_QRInbox" isExpanded="false">
+        <dc:Bounds x="930" y="300" width="230" height="96"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndEvent_Fim" bpmnElement="EndEvent_Fim">
+        <dc:Bounds x="1240" y="210" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_TextAnnotation_DecisoesPendentes" bpmnElement="TextAnnotation_DecisoesPendentes">
+        <dc:Bounds x="730" y="430" width="430" height="100"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_Start_To_Request" bpmnElement="Flow_Start_To_Request">
+        <di:waypoint x="186" y="228"/>
+        <di:waypoint x="240" y="228"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Request_To_Gate" bpmnElement="Flow_Request_To_Gate">
+        <di:waypoint x="460" y="228"/>
+        <di:waypoint x="520" y="228"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Gate_To_Choice" bpmnElement="Flow_Gate_To_Choice">
+        <di:waypoint x="740" y="228"/>
+        <di:waypoint x="800" y="228"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Choice_Permissions" bpmnElement="Flow_Choice_Permissions">
+        <di:waypoint x="825" y="203"/>
+        <di:waypoint x="825" y="108"/>
+        <di:waypoint x="930" y="108"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Permissions_BackToChoice" bpmnElement="Flow_Permissions_BackToChoice">
+        <di:waypoint x="1160" y="108"/>
+        <di:waypoint x="1190" y="108"/>
+        <di:waypoint x="1190" y="20"/>
+        <di:waypoint x="825" y="20"/>
+        <di:waypoint x="825" y="203"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Choice_Assignments" bpmnElement="Flow_Choice_Assignments">
+        <di:waypoint x="850" y="228"/>
+        <di:waypoint x="930" y="228"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Assignments_BackToChoice" bpmnElement="Flow_Assignments_BackToChoice">
+        <di:waypoint x="1160" y="228"/>
+        <di:waypoint x="1190" y="228"/>
+        <di:waypoint x="1190" y="160"/>
+        <di:waypoint x="825" y="160"/>
+        <di:waypoint x="825" y="203"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Choice_QR" bpmnElement="Flow_Choice_QR">
+        <di:waypoint x="825" y="253"/>
+        <di:waypoint x="825" y="348"/>
+        <di:waypoint x="930" y="348"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_QR_BackToChoice" bpmnElement="Flow_QR_BackToChoice">
+        <di:waypoint x="1160" y="348"/>
+        <di:waypoint x="1190" y="348"/>
+        <di:waypoint x="1190" y="410"/>
+        <di:waypoint x="825" y="410"/>
+        <di:waypoint x="825" y="253"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Choice_End" bpmnElement="Flow_Choice_End">
+        <di:waypoint x="850" y="228"/>
+        <di:waypoint x="1240" y="228"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Association_Choice_Decisoes" bpmnElement="Association_Choice_Decisoes">
+        <di:waypoint x="825" y="253"/>
+        <di:waypoint x="825" y="430"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

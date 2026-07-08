@@ -13,10 +13,13 @@ import { ChurchService, ChurchServiceStatus, ChurchServiceType, ServiceAdvancedA
 import CultoPlusCalendarView from './CultoPlusCalendarView';
 import { getCalendarMonthRange } from '../../utils/cultoPlusCalendar';
 import { isSafeLiveUrl } from '../../utils/cultoPlusOnePage';
+import { isGeneralManager } from '../../utils/profileAccess';
 
 type CultoPlusManagerProps = {
   initialMode?: 'list' | 'create';
   initialView?: 'list' | 'calendar';
+  initialServiceId?: string | null;
+  initialEdit?: boolean;
   pageTitle?: string;
   pageDescription?: string;
 };
@@ -35,9 +38,99 @@ const SERVICE_TYPES: { value: ChurchServiceType; label: string }[] = [
 const SERVICE_STATUS_OPTIONS: { value: ChurchServiceStatus; label: string }[] = [
   { value: 'draft', label: 'Rascunho' },
   { value: 'published', label: 'Publicado' },
+  { value: 'checkin_open', label: 'Check-in aberto' },
   { value: 'live', label: 'Ao vivo' },
+  { value: 'in_progress', label: 'Em andamento' },
   { value: 'finished', label: 'Encerrado' },
 ];
+
+const SERVICE_STATUS_LABELS: Record<ChurchServiceStatus, string> = {
+  draft: 'Rascunho',
+  published: 'Publicado',
+  checkin_open: 'Check-in aberto',
+  live: 'Ao vivo',
+  in_progress: 'Em andamento',
+  finished: 'Encerrado',
+  archived: 'Arquivado',
+};
+
+const SERVICE_STATUS_STYLES: Record<ChurchServiceStatus, string> = {
+  draft: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-300',
+  published: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-800',
+  checkin_open: 'bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200 dark:bg-cyan-950/30 dark:text-cyan-300 dark:ring-cyan-800',
+  live: 'bg-red-50 text-red-700 ring-1 ring-red-200 dark:bg-red-950/30 dark:text-red-300 dark:ring-red-800',
+  in_progress: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:ring-amber-800',
+  finished: 'bg-white text-gray-500 ring-1 ring-gray-200 dark:bg-bible-darkPaper dark:text-gray-400 dark:ring-gray-800',
+  archived: 'bg-gray-100 text-gray-400 dark:bg-gray-900 dark:text-gray-500',
+};
+
+type ServiceJourneyAction = {
+  status: ChurchServiceStatus;
+  label: string;
+  title: string;
+  className: string;
+};
+
+const getServiceJourneyActions = (service: ChurchService): ServiceJourneyAction[] => {
+  if (service.status === 'archived') return [];
+  const actions: ServiceJourneyAction[] = [];
+
+  if (service.status === 'draft') {
+    actions.push({
+      status: 'published',
+      label: 'Publicar',
+      title: 'Publicar a OnePage deste culto.',
+      className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300',
+    });
+  }
+
+  if (service.status === 'published' || service.status === 'draft') {
+    actions.push({
+      status: 'checkin_open',
+      label: 'Abrir check-in',
+      title: 'Liberar check-in antes do culto.',
+      className: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/20 dark:text-cyan-300',
+    });
+  }
+
+  if (service.status === 'published' || service.status === 'checkin_open') {
+    actions.push({
+      status: 'in_progress',
+      label: 'Iniciar presencial',
+      title: 'Marcar culto em andamento sem transmissao ao vivo.',
+      className: 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-300',
+    });
+  }
+
+  if ((service.status === 'published' || service.status === 'checkin_open' || service.status === 'in_progress') && service.liveUrl) {
+    actions.push({
+      status: 'live',
+      label: 'Iniciar live',
+      title: 'Marcar culto como ao vivo com transmissao.',
+      className: 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-300',
+    });
+  }
+
+  if (service.status === 'checkin_open' || service.status === 'in_progress' || service.status === 'live') {
+    actions.push({
+      status: 'finished',
+      label: 'Encerrar',
+      title: 'Encerrar o culto e liberar a recapitulação.',
+      className: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
+    });
+  }
+
+  if (service.status === 'finished') {
+    actions.push({
+      status: 'published',
+      label: 'Reabrir',
+      title: 'Voltar o culto para publicado.',
+      className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300',
+    });
+  }
+
+  return actions.slice(0, 3);
+};
 
 const LITURGY_KIND_OPTIONS: { value: ServiceLiturgyKind; label: string }[] = [
   { value: 'entrance', label: 'Entrada / Recepcao' },
@@ -112,7 +205,48 @@ const normalizeTime24h = (value: string, fallback: string) => {
   }
   return fallback;
 };
+const maskTimeInput = (value: string) => {
+  const digits = value.replace(/\D/g, '').slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+};
+const TIME_OPTIONS = Array.from({ length: 24 * 4 }, (_, index) => {
+  const minutes = index * 15;
+  const hour = String(Math.floor(minutes / 60)).padStart(2, '0');
+  const minute = String(minutes % 60).padStart(2, '0');
+  return `${hour}:${minute}`;
+});
 const getSongItems = (item: ServiceLiturgyItem) => item.songList?.split('\n') ?? [];
+
+const buildPlannedLiturgyItems = (
+  plannedItems: Array<Partial<ServiceLiturgyItem>> = [],
+): ServiceLiturgyItem[] => {
+  const fallbackTimes = ['18:45', '19:00', '19:15', '19:50', '20:35', '20:45', '20:55'];
+  const normalizedItems = plannedItems
+    .filter((item) => item.title || item.notes || item.kind)
+    .map((item, index) => ({
+      id: `ai_plan_${item.kind || 'other'}_${Date.now()}_${index}`,
+      kind: item.kind || 'other',
+      title: item.title || 'Novo momento',
+      startsAt: item.startsAt || fallbackTimes[index] || fallbackTimes.at(-1) || '21:00',
+      responsible: item.responsible || '',
+      notes: item.notes || '',
+      verseRef: item.verseRef,
+      verseText: item.verseText,
+      scriptureReadingRef: item.scriptureReadingRef,
+      scriptureReadingText: item.scriptureReadingText,
+      leaderScript: item.leaderScript,
+      prayerGuide: item.prayerGuide,
+      transitionText: item.transitionText,
+      sermonPoints: item.sermonPoints,
+      songList: item.songList,
+      pixKeyType: item.pixKeyType,
+      pixKey: item.pixKey,
+      sortOrder: index,
+    } as ServiceLiturgyItem));
+
+  return normalizedItems.length ? normalizedItems : createDefaultLiturgy();
+};
 
 const formatServiceDate = (value: string) => {
   try {
@@ -133,6 +267,27 @@ const SCHEDULE_STATUS_LABELS: Record<ServiceScheduleAssignment['status'], string
   declined: 'Recusado',
   replaced: 'Substituido',
 };
+
+const SCHEDULE_STATUS_STYLES: Record<ServiceScheduleAssignment['status'], string> = {
+  pending: 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-200',
+  confirmed: 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-200',
+  declined: 'bg-red-100 text-red-600 dark:bg-red-950/30 dark:text-red-200',
+  replaced: 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-200',
+};
+
+const SCHEDULE_STATUS_ORDER: Record<ServiceScheduleAssignment['status'], number> = {
+  pending: 0,
+  declined: 1,
+  confirmed: 2,
+  replaced: 3,
+};
+
+const sortScheduleAssignments = (assignments: ServiceScheduleAssignment[]) =>
+  [...assignments].sort((a, b) => {
+    const statusDiff = SCHEDULE_STATUS_ORDER[a.status] - SCHEDULE_STATUS_ORDER[b.status];
+    if (statusDiff !== 0) return statusDiff;
+    return (a.ministryName || '').localeCompare(b.ministryName || '') || (a.userDisplayName || '').localeCompare(b.userDisplayName || '');
+  });
 
 const MEMBER_AI_ACTIONS: { kind: ServiceAiContentKind; label: string }[] = [
   { kind: 'member_summary', label: 'Resumo' },
@@ -195,6 +350,8 @@ const getCachedDailyVerse = () => {
 const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
   initialMode = 'list',
   initialView = 'list',
+  initialServiceId = null,
+  initialEdit = false,
   pageTitle = 'Acompanhamento de Culto',
   pageDescription = 'Crie a timeline liturgica, publique uma OnePage e acompanhe check-ins, anotacoes e postagens ligadas a igreja.',
 }) => {
@@ -215,6 +372,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
   const [scheduleAssignments, setScheduleAssignments] = useState<ServiceScheduleAssignment[]>([]);
   const [churchMembers, setChurchMembers] = useState<UserProfile[]>([]);
   const [liveState, setLiveState] = useState<ServiceLiveState | null>(null);
+  const [syncingLiveItemId, setSyncingLiveItemId] = useState<string | null>(null);
   const [advancedAnalytics, setAdvancedAnalytics] = useState<ServiceAdvancedAnalytics | null>(null);
   const [loadingPanel, setLoadingPanel] = useState(false);
   const [aiLoadingKind, setAiLoadingKind] = useState<ServiceAiContentKind | null>(null);
@@ -240,6 +398,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
   const [liveVerseText, setLiveVerseText] = useState('');
   const [liveExplanation, setLiveExplanation] = useState('');
   const [serviceLimit, setServiceLimit] = useState<{ allowed: boolean; used: number; limit: number | null }>({ allowed: true, used: 0, limit: null });
+  const [isCurrentChurchManager, setIsCurrentChurchManager] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const keyVerseSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -258,6 +417,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
 
   const canCreate = Boolean(currentUser && churchData?.churchId);
   const planMatrix = cultoPlusService.getPlanMatrix(userProfile?.subscriptionTier ?? 'free');
+  const canUsePastoralAiFeatures = checkFeatureAccess('aiSermonBuilder') || isGeneralManager(userProfile) || isCurrentChurchManager;
   const serviceDate = getDatePart(startsAt);
   const serviceStartTime = getTimePart(startsAt, '19:00');
   const serviceEndTime = getTimePart(endsAt, '21:00');
@@ -266,6 +426,18 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
     () => services.find((service) => service.id === selectedServiceId) ?? null,
     [selectedServiceId, services],
   );
+  const sortedScheduleAssignments = useMemo(() => sortScheduleAssignments(scheduleAssignments), [scheduleAssignments]);
+  const scheduleSummary = useMemo(() => ({
+    pending: scheduleAssignments.filter((item) => item.status === 'pending').length,
+    confirmed: scheduleAssignments.filter((item) => item.status === 'confirmed').length,
+    declined: scheduleAssignments.filter((item) => item.status === 'declined').length,
+    replaced: scheduleAssignments.filter((item) => item.status === 'replaced').length,
+  }), [scheduleAssignments]);
+  const liveLiturgyItems = selectedService?.liturgyItems ?? [];
+  const liveCurrentIndex = Math.max(0, liveLiturgyItems.findIndex((item) => item.id === liveState?.currentItemId));
+  const liveCurrentItem = liveLiturgyItems[liveCurrentIndex] ?? liveLiturgyItems[0] ?? null;
+  const liveNextItem = liveLiturgyItems[liveCurrentIndex + 1] ?? null;
+  const liveProgress = liveLiturgyItems.length > 0 ? Math.round(((liveCurrentIndex + 1) / liveLiturgyItems.length) * 100) : 0;
 
   useEffect(() => {
     const loadServices = async () => {
@@ -301,6 +473,44 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
     };
     loadServices();
   }, [churchData?.churchId, showNotification, serviceView, calendarRange.startDate, calendarRange.endDate, userProfile?.subscriptionTier]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadChurchManagerStatus = async () => {
+      const currentUserId = currentUser?.uid ?? currentUser?.id;
+      if (!currentUserId || !churchData?.churchId) {
+        setIsCurrentChurchManager(false);
+        return;
+      }
+
+      if (isGeneralManager(userProfile)) {
+        setIsCurrentChurchManager(true);
+        return;
+      }
+
+      const isManager = await dbService.isUserChurchManager(currentUserId, churchData.churchId);
+      if (!cancelled) setIsCurrentChurchManager(isManager);
+    };
+
+    loadChurchManagerStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.uid, currentUser?.id, churchData?.churchId, userProfile?.profileType, userProfile?.subscriptionTier]);
+
+  useEffect(() => {
+    if (!initialServiceId || services.length === 0) return;
+    const service = services.find((item) => item.id === initialServiceId);
+    if (!service) return;
+    if (initialEdit) {
+      startEdit(service);
+      setSelectedServiceId(null);
+      return;
+    }
+    void openServicePanel(service);
+  }, [initialEdit, initialServiceId, services]);
 
   useEffect(() => {
     if (keyVerseSearchTimeoutRef.current) clearTimeout(keyVerseSearchTimeoutRef.current);
@@ -596,6 +806,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
 
   const pushLiveStep = async (item: ServiceLiturgyItem) => {
     if (!selectedService || !currentUser) return;
+    setSyncingLiveItemId(item.id);
     try {
       const next = await cultoPlusService.updateLiveState(selectedService, currentUser.uid ?? currentUser.id, {
         currentItemId: item.id,
@@ -612,12 +823,43 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
       showNotification('Momento ao vivo sincronizado.', 'success');
     } catch (error: any) {
       showNotification(error?.message || 'Nao foi possivel sincronizar o culto.', 'error');
+    } finally {
+      setSyncingLiveItemId(null);
     }
+  };
+
+  const resolveKeyVerseForAction = async () => {
+    let verseReference = keyVerseRef.trim();
+    let verseText = keyVerseText.trim();
+
+    if (verseReference && (!verseText || keyVerseSearchState !== 'found')) {
+      setSearchingKeyVerse(true);
+      try {
+        const result = await bibleService.getTextByReference(verseReference, settings.bibleVersion || 'ara');
+        if (result) {
+          verseReference = result.formattedRef || verseReference;
+          verseText = result.text || verseText;
+          setKeyVerseRef(verseReference);
+          setKeyVerseText(verseText);
+          setKeyVerseSearchState('found');
+        }
+      } finally {
+        setSearchingKeyVerse(false);
+      }
+    }
+
+    return { verseReference, verseText };
+  };
+
+  const prepareLiveStep = (item: ServiceLiturgyItem) => {
+    setLiveVerseRef(item.verseRef || selectedService?.keyVerseRef || liveVerseRef);
+    setLiveVerseText(item.verseText || selectedService?.keyVerseText || liveVerseText);
+    setLiveExplanation(item.notes || liveExplanation);
   };
 
   const generateAiContent = async (kind: ServiceAiContentKind) => {
     if (!selectedService || !currentUser) return;
-    if (!checkFeatureAccess('aiSermonBuilder')) {
+    if (!canUsePastoralAiFeatures) {
       showNotification('IA do Culto+ e recurso premium.', 'warning');
       return;
     }
@@ -636,15 +878,14 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
 
   const generateServicePlanFromAi = async () => {
     if (!currentUser) return;
-    if (!checkFeatureAccess('aiSermonBuilder')) {
-      showNotification('Planejamento com IA do Culto+ e recurso premium.', 'warning');
+    if (!canUsePastoralAiFeatures) {
+      showNotification('Planejamento com IA esta disponivel para perfis Pastor/Gestor ou planos com recursos pastorais.', 'warning');
       return;
     }
 
     setGeneratingServicePlan(true);
     try {
-      let verseReference = keyVerseRef.trim();
-      let verseText = keyVerseText.trim();
+      let { verseReference, verseText } = await resolveKeyVerseForAction();
 
       if (!verseReference || !verseText) {
         const cached = getCachedDailyVerse();
@@ -675,22 +916,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
       setServicePlanningFocus(suggestion.pastoralFocus ?? '');
 
       if (suggestion.liturgyItems?.length) {
-        setLiturgyItems((current) => current.map((item, index) => {
-          const planned = suggestion.liturgyItems?.find((entry) => entry.kind === item.kind) ?? suggestion.liturgyItems?.[index];
-          if (!planned) return item;
-          return {
-            ...item,
-            title: planned.title || item.title,
-            startsAt: planned.startsAt || item.startsAt,
-            responsible: planned.responsible ?? item.responsible,
-            notes: planned.notes ?? item.notes,
-            verseRef: planned.verseRef ?? item.verseRef,
-            verseText: planned.verseText ?? item.verseText,
-            songList: planned.songList ?? item.songList,
-            pixKeyType: planned.pixKeyType ?? item.pixKeyType,
-            pixKey: planned.pixKey ?? item.pixKey,
-          };
-        }));
+        setLiturgyItems(buildPlannedLiturgyItems(suggestion.liturgyItems));
       }
 
       await incrementUsage('analysis');
@@ -727,6 +953,17 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
     showNotification('Culto arquivado.', 'info');
   };
 
+  const updateServiceJourneyStatus = async (service: ChurchService, nextStatus: ChurchServiceStatus) => {
+    try {
+      await cultoPlusService.updateService(service.id, { status: nextStatus });
+      const updatedAt = new Date().toISOString();
+      setServices((items) => items.map((item) => item.id === service.id ? { ...item, status: nextStatus, updatedAt } : item));
+      showNotification(`Culto marcado como ${SERVICE_STATUS_LABELS[nextStatus].toLowerCase()}.`, 'success');
+    } catch (error: any) {
+      showNotification(error?.message || 'Nao foi possivel atualizar o estado do culto.', 'error');
+    }
+  };
+
   const handleSubmit = async () => {
     if (!currentUser || !userProfile || !churchData?.churchId) {
       showNotification('Vincule seu perfil a uma igreja para criar cultos.', 'warning');
@@ -743,6 +980,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
 
     setSaving(true);
     try {
+      const { verseReference, verseText } = await resolveKeyVerseForAction();
       const payload = {
         title: title.trim(),
         theme: theme.trim(),
@@ -750,8 +988,8 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
         serviceType,
         startsAt: new Date(startsAt).toISOString(),
         endsAt: new Date(endsAt).toISOString(),
-        keyVerseRef: keyVerseRef.trim() || undefined,
-        keyVerseText: keyVerseText.trim() || undefined,
+        keyVerseRef: verseReference || undefined,
+        keyVerseText: verseText || undefined,
         bannerUrl: bannerUrl.trim() || undefined,
         liveUrl: liveUrl.trim(),
         status,
@@ -812,14 +1050,28 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
             {pageDescription}
           </p>
         </div>
-        <button
-          onClick={() => showForm ? setShowForm(false) : startCreate()}
-          disabled={!canCreate}
-          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#073b35] via-[#0f5d51] to-[#d8b15f] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-950/10 ring-1 ring-emerald-200/60 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 dark:ring-emerald-900/40"
-        >
-          {showForm ? <Plus size={16} className="rotate-45" /> : <Sparkles size={16} />}
-          {showForm ? 'Fechar' : 'Novo Culto+'}
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {showForm && (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={saving}
+              title={editingServiceId ? 'Salvar as alteracoes deste culto.' : 'Publicar a OnePage deste culto.'}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#073b35] via-[#0f5d51] to-[#d8b15f] px-5 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-950/10 ring-1 ring-emerald-200/60 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 dark:ring-emerald-900/40"
+            >
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              {editingServiceId ? 'Salvar alteracoes' : 'Publicar OnePage'}
+            </button>
+          )}
+          <button
+            onClick={() => showForm ? setShowForm(false) : startCreate()}
+            disabled={!canCreate}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#073b35] via-[#0f5d51] to-[#d8b15f] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-950/10 ring-1 ring-emerald-200/60 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 dark:ring-emerald-900/40"
+          >
+            {showForm ? <Plus size={16} className="rotate-45" /> : <Sparkles size={16} />}
+            {showForm ? 'Fechar' : 'Novo Culto+'}
+          </button>
+        </div>
       </div>
 
       {!canCreate && (
@@ -854,6 +1106,9 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
 
       {canCreate && showForm && (
         <div className="mt-8 space-y-6 rounded-[1.5rem] border border-gray-100 bg-gray-50 p-5 dark:border-gray-800 dark:bg-gray-900/40">
+          <datalist id="culto-plus-time-options">
+            {TIME_OPTIONS.map((time) => <option key={time} value={time} />)}
+          </datalist>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label className="space-y-1">
               <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Nome do culto</span>
@@ -922,12 +1177,13 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Hora inicio</span>
                 <input
                   type="text"
+                  list="culto-plus-time-options"
                   inputMode="numeric"
                   pattern="[0-2][0-9]:[0-5][0-9]"
                   placeholder="18:00"
                   value={serviceStartTime}
                   title="Informe o horario de inicio no formato 24 horas."
-                  onChange={(event) => setStartsAt(buildDateTimeLocal(serviceDate, event.target.value))}
+                  onChange={(event) => setStartsAt(buildDateTimeLocal(serviceDate, maskTimeInput(event.target.value)))}
                   onBlur={(event) => setStartsAt(buildDateTimeLocal(serviceDate, normalizeTime24h(event.target.value, serviceStartTime)))}
                   className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none focus:ring-2 focus:ring-bible-gold dark:border-gray-700 dark:bg-bible-darkPaper"
                 />
@@ -936,12 +1192,13 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Hora fim</span>
                 <input
                   type="text"
+                  list="culto-plus-time-options"
                   inputMode="numeric"
                   pattern="[0-2][0-9]:[0-5][0-9]"
                   placeholder="21:00"
                   value={serviceEndTime}
                   title="Informe o horario previsto de encerramento no formato 24 horas."
-                  onChange={(event) => setEndsAt(buildDateTimeLocal(serviceDate, event.target.value))}
+                  onChange={(event) => setEndsAt(buildDateTimeLocal(serviceDate, maskTimeInput(event.target.value)))}
                   onBlur={(event) => setEndsAt(buildDateTimeLocal(serviceDate, normalizeTime24h(event.target.value, serviceEndTime)))}
                   className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-black outline-none focus:ring-2 focus:ring-bible-gold dark:border-gray-700 dark:bg-bible-darkPaper"
                 />
@@ -955,7 +1212,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-700/40 dark:text-emerald-300/50" size={17} />
                     <input
                       value={keyVerseRef}
-                      maxLength={15}
+                      maxLength={40}
                       onChange={(event) => {
                         setKeyVerseRef(event.target.value);
                         if (!event.target.value.trim()) {
@@ -1070,8 +1327,11 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
                       <div className="flex gap-2">
                         <input
                           value={item.startsAt}
+                          list="culto-plus-time-options"
+                          inputMode="numeric"
+                          pattern="[0-2][0-9]:[0-5][0-9]"
                           title="Horario em que este momento da liturgia comeca."
-                          onChange={(event) => updateLiturgyItem(item.id, { startsAt: event.target.value })}
+                          onChange={(event) => updateLiturgyItem(item.id, { startsAt: maskTimeInput(event.target.value) })}
                           onBlur={(event) => updateLiturgyItem(item.id, { startsAt: normalizeTime24h(event.target.value, item.startsAt) })}
                           className="min-w-[72px] flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm font-black outline-none dark:border-gray-700 dark:bg-gray-900"
                         />
@@ -1125,6 +1385,52 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
                         <input value={item.pixKey ?? ''} onChange={(event) => updateLiturgyItem(item.id, { pixKey: event.target.value })} title="Chave PIX que sera exibida no botao Ofertar da pagina publica." placeholder="Chave PIX" className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-sm font-bold outline-none dark:border-amber-900/40 dark:bg-bible-darkPaper" />
                       </div>
                     )}
+
+                    <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl border border-[#c5a059]/20 bg-[#fff8e8]/45 p-3 dark:border-[#c5a059]/20 dark:bg-amber-950/10 md:grid-cols-2">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#8a6a2f] dark:text-[#f3d28a] md:col-span-2">Roteiro gerado</p>
+                      <textarea
+                        value={item.leaderScript ?? ''}
+                        onChange={(event) => updateLiturgyItem(item.id, { leaderScript: event.target.value })}
+                        title="Fala pronta para o dirigente deste momento."
+                        placeholder="Fala do dirigente"
+                        className="min-h-20 rounded-xl border border-[#ead9a8] bg-white px-3 py-2 text-sm outline-none dark:border-amber-900/40 dark:bg-bible-darkPaper"
+                      />
+                      <textarea
+                        value={item.transitionText ?? ''}
+                        onChange={(event) => updateLiturgyItem(item.id, { transitionText: event.target.value })}
+                        title="Transicao para o proximo momento."
+                        placeholder="Transicao para o proximo momento"
+                        className="min-h-20 rounded-xl border border-[#ead9a8] bg-white px-3 py-2 text-sm outline-none dark:border-amber-900/40 dark:bg-bible-darkPaper"
+                      />
+                      <textarea
+                        value={item.prayerGuide ?? ''}
+                        onChange={(event) => updateLiturgyItem(item.id, { prayerGuide: event.target.value })}
+                        title="Guia de oracao deste momento."
+                        placeholder="Guia de oracao"
+                        className="min-h-20 rounded-xl border border-[#ead9a8] bg-white px-3 py-2 text-sm outline-none dark:border-amber-900/40 dark:bg-bible-darkPaper"
+                      />
+                      <textarea
+                        value={(item.sermonPoints ?? []).join('\n')}
+                        onChange={(event) => updateLiturgyItem(item.id, { sermonPoints: event.target.value.split('\n').map((point) => point.trim()).filter(Boolean) })}
+                        title="Pontos principais da Palavra ou aplicacao deste momento."
+                        placeholder="Pontos da mensagem, um por linha"
+                        className="min-h-20 rounded-xl border border-[#ead9a8] bg-white px-3 py-2 text-sm outline-none dark:border-amber-900/40 dark:bg-bible-darkPaper"
+                      />
+                      <input
+                        value={item.scriptureReadingRef ?? ''}
+                        onChange={(event) => updateLiturgyItem(item.id, { scriptureReadingRef: event.target.value })}
+                        title="Referencia da leitura biblica deste momento."
+                        placeholder="Leitura biblica: referencia"
+                        className="rounded-xl border border-[#ead9a8] bg-white px-3 py-2 text-sm font-bold outline-none dark:border-amber-900/40 dark:bg-bible-darkPaper"
+                      />
+                      <textarea
+                        value={item.scriptureReadingText ?? ''}
+                        onChange={(event) => updateLiturgyItem(item.id, { scriptureReadingText: event.target.value })}
+                        title="Texto da leitura biblica deste momento."
+                        placeholder="Texto da leitura biblica"
+                        className="min-h-20 rounded-xl border border-[#ead9a8] bg-white px-3 py-2 text-sm outline-none dark:border-amber-900/40 dark:bg-bible-darkPaper"
+                      />
+                    </div>
 
                     {['entrance', 'opening', 'prayer', 'response', 'closing', 'other'].includes(item.kind) && (
                       <textarea
@@ -1204,37 +1510,61 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {services.map((service) => (
-              <div key={service.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-5 transition hover:border-bible-gold/40 hover:bg-white dark:border-gray-800 dark:bg-gray-900/40 dark:hover:bg-gray-900">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="line-clamp-1 text-sm font-black text-gray-900 dark:text-white">{service.title}</h3>
-                    <p className="mt-1 line-clamp-2 text-xs text-gray-500">{service.theme}</p>
+            {services.map((service) => {
+              const journeyActions = getServiceJourneyActions(service);
+              return (
+                <div key={service.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-5 transition hover:border-bible-gold/40 hover:bg-white dark:border-gray-800 dark:bg-gray-900/40 dark:hover:bg-gray-900">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <h3 className="line-clamp-1 text-sm font-black text-gray-900 dark:text-white">{service.title}</h3>
+                      <p className="mt-1 line-clamp-2 text-xs text-gray-500">{service.theme}</p>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[8px] font-black uppercase tracking-widest ${SERVICE_STATUS_STYLES[service.status]}`}>
+                      {SERVICE_STATUS_LABELS[service.status]}
+                    </span>
                   </div>
-                  <CheckCircle2 className="shrink-0 text-green-500" size={18} />
+                  <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 dark:bg-bible-darkPaper"><CalendarDays size={12} /> {formatServiceDate(service.startsAt)}</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 dark:bg-bible-darkPaper"><Clock size={12} /> {service.liturgyItems.length} etapas</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 dark:bg-bible-darkPaper"><Users size={12} /> {serviceStats[service.id]?.checkinsCount ?? service.checkinsCount ?? 0}</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 dark:bg-bible-darkPaper"><MessageSquare size={12} /> {serviceStats[service.id]?.postsCount ?? service.postsCount ?? 0}</span>
+                  </div>
+                  {journeyActions.length > 0 && (
+                    <div className="mt-4 rounded-2xl border border-white bg-white/70 p-3 dark:border-gray-800 dark:bg-bible-darkPaper/70">
+                      <p className="mb-2 text-[9px] font-black uppercase tracking-widest text-gray-400">Jornada do culto</p>
+                      <div className="flex flex-wrap gap-2">
+                        {journeyActions.map((action) => (
+                          <button
+                            key={`${service.id}_${action.status}`}
+                            type="button"
+                            onClick={() => updateServiceJourneyStatus(service, action.status)}
+                            title={action.title}
+                            className={`inline-flex min-h-9 items-center justify-center gap-1 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest transition hover:-translate-y-0.5 ${action.className}`}
+                          >
+                            {action.status === 'live' ? <Radio size={11} /> : action.status === 'finished' ? <CheckCircle2 size={11} /> : <Clock size={11} />}
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-4">
+                    <Link href={`/culto/${service.slug}`} className="inline-flex items-center justify-center gap-1 rounded-xl bg-bible-gold px-3 py-2 text-[10px] font-black uppercase tracking-widest text-black">
+                      <ExternalLink size={12} /> Abrir
+                    </Link>
+                    <button onClick={() => startEdit(service)} className="inline-flex items-center justify-center gap-1 rounded-xl bg-white px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:bg-bible-darkPaper">
+                      <Edit2 size={12} /> Editar
+                    </button>
+                    <button onClick={() => openServicePanel(service)} className="inline-flex items-center justify-center gap-1 rounded-xl bg-white px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:bg-bible-darkPaper">
+                      <NotebookPen size={12} /> Painel
+                    </button>
+                    <button onClick={() => archiveService(service)} className="inline-flex items-center justify-center gap-1 rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-500 dark:bg-red-950/20">
+                      <Archive size={12} /> Arquivar
+                    </button>
+                  </div>
                 </div>
-                <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 dark:bg-bible-darkPaper"><CalendarDays size={12} /> {formatServiceDate(service.startsAt)}</span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 dark:bg-bible-darkPaper"><Clock size={12} /> {service.liturgyItems.length} etapas</span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 dark:bg-bible-darkPaper"><Users size={12} /> {serviceStats[service.id]?.checkinsCount ?? service.checkinsCount ?? 0}</span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 dark:bg-bible-darkPaper"><MessageSquare size={12} /> {serviceStats[service.id]?.postsCount ?? service.postsCount ?? 0}</span>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-4">
-                  <Link href={`/culto/${service.slug}`} className="inline-flex items-center justify-center gap-1 rounded-xl bg-bible-gold px-3 py-2 text-[10px] font-black uppercase tracking-widest text-black">
-                    <ExternalLink size={12} /> Abrir
-                  </Link>
-                  <button onClick={() => startEdit(service)} className="inline-flex items-center justify-center gap-1 rounded-xl bg-white px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:bg-bible-darkPaper">
-                    <Edit2 size={12} /> Editar
-                  </button>
-                  <button onClick={() => openServicePanel(service)} className="inline-flex items-center justify-center gap-1 rounded-xl bg-white px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:bg-bible-darkPaper">
-                    <NotebookPen size={12} /> Painel
-                  </button>
-                  <button onClick={() => archiveService(service)} className="inline-flex items-center justify-center gap-1 rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-500 dark:bg-red-950/20">
-                    <Archive size={12} /> Arquivar
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -1354,7 +1684,29 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
                 <p className="rounded-2xl border border-dashed border-gray-200 p-4 text-center text-sm font-medium text-gray-400 dark:border-gray-800">
                   Nenhuma escala criada para este culto.
                 </p>
-              ) : scheduleAssignments.map((assignment) => (
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                    {([
+                      ['pending', 'Pendentes', scheduleSummary.pending],
+                      ['confirmed', 'Confirmados', scheduleSummary.confirmed],
+                      ['declined', 'Recusados', scheduleSummary.declined],
+                      ['replaced', 'Substituidos', scheduleSummary.replaced],
+                    ] as const).map(([statusKey, label, value]) => (
+                      <div key={statusKey} className="rounded-2xl border border-gray-100 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900/40">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">{label}</p>
+                        <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {scheduleSummary.pending > 0 && (
+                    <p className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+                      Existem {scheduleSummary.pending} pessoa(s) sem resposta. Use lembretes ou substituicoes para fechar a escala antes do culto.
+                    </p>
+                  )}
+                </>
+              )}
+              {sortedScheduleAssignments.map((assignment) => (
                 <div key={assignment.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/40">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
@@ -1366,12 +1718,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
                         <p className="mt-1 text-xs font-bold text-bible-gold">Substituto: {assignment.replacementUserDisplayName}</p>
                       )}
                     </div>
-                    <span className={`inline-flex w-fit rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
-                      assignment.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                      assignment.status === 'declined' ? 'bg-red-100 text-red-600' :
-                      assignment.status === 'replaced' ? 'bg-amber-100 text-amber-700' :
-                      'bg-gray-100 text-gray-500'
-                    }`}>
+                    <span className={`inline-flex w-fit rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${SCHEDULE_STATUS_STYLES[assignment.status]}`}>
                       {SCHEDULE_STATUS_LABELS[assignment.status]}
                     </span>
                   </div>
@@ -1410,24 +1757,82 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Culto ao vivo</p>
                   <h4 className="text-base font-black text-gray-900 dark:text-white">Sincronizar OnePage</h4>
                 </div>
-                <span className="rounded-full bg-red-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-red-600">
+                <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${liveState ? 'bg-red-50 text-red-600 dark:bg-red-950/20 dark:text-red-200' : 'bg-gray-50 text-gray-500 dark:bg-gray-900 dark:text-gray-300'}`}>
                   {liveState ? 'Ativo' : 'Pronto'}
                 </span>
+              </div>
+              <div className="mb-4 rounded-2xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/40">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Momento atual</p>
+                    <h5 className="mt-1 text-sm font-black text-gray-900 dark:text-white">{liveCurrentItem?.title ?? 'Nenhum momento selecionado'}</h5>
+                    {liveNextItem && <p className="mt-1 text-xs font-semibold text-gray-500">Proximo: {liveNextItem.title}</p>}
+                  </div>
+                  <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:bg-bible-darkPaper">
+                    {liveLiturgyItems.length ? `${liveCurrentIndex + 1}/${liveLiturgyItems.length}` : '0/0'}
+                  </span>
+                </div>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-bible-darkPaper">
+                  <div className="h-full rounded-full bg-bible-gold transition-all" style={{ width: `${liveProgress}%` }} />
+                </div>
               </div>
               <div className="space-y-2">
                 <input value={liveVerseRef} onChange={(event) => setLiveVerseRef(event.target.value)} placeholder="Versiculo atual" className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-bible-gold dark:border-gray-700 dark:bg-gray-900" />
                 <textarea value={liveVerseText} onChange={(event) => setLiveVerseText(event.target.value)} placeholder="Texto biblico enviado aos participantes" className="min-h-20 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-bible-gold dark:border-gray-700 dark:bg-gray-900" />
                 <textarea value={liveExplanation} onChange={(event) => setLiveExplanation(event.target.value)} placeholder="Explicacao pastoral breve" className="min-h-20 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-bible-gold dark:border-gray-700 dark:bg-gray-900" />
               </div>
-              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
-                {selectedService?.liturgyItems.map((item) => (
-                  <button key={item.id} onClick={() => pushLiveStep(item)} className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest ${
-                    liveState?.currentItemId === item.id ? 'bg-bible-gold text-black' : 'bg-gray-50 text-gray-500 dark:bg-gray-900'
-                  }`}>
-                    <Radio size={12} />
-                    {item.title}
-                  </button>
-                ))}
+              <div className="mt-4 space-y-2">
+                {liveLiturgyItems.length === 0 ? (
+                  <p className="rounded-2xl border border-dashed border-gray-200 p-4 text-center text-sm font-medium text-gray-400 dark:border-gray-800">
+                    Adicione momentos na liturgia para controlar o culto ao vivo.
+                  </p>
+                ) : liveLiturgyItems.map((item, index) => {
+                  const isCurrent = liveState?.currentItemId === item.id;
+                  const isPast = liveState?.currentItemId ? index < liveCurrentIndex : false;
+                  const isSyncing = syncingLiveItemId === item.id;
+                  return (
+                    <div key={item.id} className={`rounded-2xl border p-3 transition ${isCurrent ? 'border-bible-gold bg-bible-gold/10' : 'border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40'} ${isPast ? 'opacity-60' : ''}`}>
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-black ${isCurrent ? 'bg-bible-gold text-black' : 'bg-white text-gray-500 dark:bg-bible-darkPaper'}`}>
+                              {index + 1}
+                            </span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{item.startsAt}</span>
+                            {isCurrent && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-red-600 dark:bg-red-950/20 dark:text-red-200">No ar</span>}
+                          </div>
+                          <h5 className="mt-2 line-clamp-1 text-sm font-black text-gray-900 dark:text-white">{item.title}</h5>
+                          {(item.verseRef || item.notes) && (
+                            <p className="mt-1 line-clamp-1 text-xs font-semibold text-gray-500">
+                              {item.verseRef || item.notes}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <button
+                            type="button"
+                            onClick={() => prepareLiveStep(item)}
+                            title="Carregar versiculo e notas deste momento nos campos acima."
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-white px-3 text-[10px] font-black uppercase tracking-widest text-gray-500 transition hover:text-bible-leather dark:bg-bible-darkPaper dark:text-gray-300"
+                          >
+                            <Quote size={12} />
+                            Preparar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => pushLiveStep(item)}
+                            disabled={isSyncing}
+                            title="Sincronizar este momento na OnePage publica do culto."
+                            className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-[10px] font-black uppercase tracking-widest transition disabled:opacity-60 ${isCurrent ? 'bg-bible-gold text-black' : 'bg-emerald-700 text-white hover:bg-emerald-800'}`}
+                          >
+                            {isSyncing ? <Loader2 size={12} className="animate-spin" /> : <Radio size={12} />}
+                            Sincronizar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
