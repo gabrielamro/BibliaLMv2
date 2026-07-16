@@ -768,7 +768,6 @@ function TeamInviteModal({
         fields: [
           { label: "Nome", type: "text", required: true },
           { label: "Contato", type: "tel", required: true },
-          { label: "Time", type: "text", required: true },
           { label: "Disponibilidade", type: "textarea" },
         ],
         privacyText: "Sua resposta sera recebida pela equipe responsavel da igreja.",

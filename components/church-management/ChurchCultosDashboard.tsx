@@ -21,6 +21,9 @@ import { useAuth } from "../../contexts/AuthContext";
 import { churchManagementService, type ChurchCultoOperationalItem } from "../../services/churchManagementService";
 import { cultoPlusService } from "../../services/cultoPlusService";
 import type { ChurchServiceTeam, ServiceLiturgyItem, ServiceScheduleStatus } from "../../types";
+import ChurchCultoDetailPage from "./ChurchCultoDetailPage";
+import ChurchTeamCreateModal from "./ChurchTeamCreateModal";
+import ChurchTeamDetailDashboard from "./ChurchTeamDetailDashboard";
 
 type OperationalFilter = "all" | "pending" | "confirmed" | "unmanaged";
 type SuggestedService = {
@@ -58,16 +61,16 @@ const SCHEDULE_STATUS_LABELS: Record<ServiceScheduleStatus, string> = {
   pending: "Pendente",
   confirmed: "Confirmado",
   declined: "Recusado",
-  replaced: "Substituido",
+  replaced: "Substituído",
 };
 
 const DEFAULT_MONTHLY_LITURGY: Array<Pick<ServiceLiturgyItem, "kind" | "title" | "startsAt">> = [
-  { kind: "entrance", title: "Recepcao e ambiente", startsAt: "16:45" },
-  { kind: "opening", title: "Abertura e oracao", startsAt: "17:00" },
-  { kind: "worship", title: "Louvor e adoracao", startsAt: "17:15" },
+  { kind: "entrance", title: "Recepção e ambiente", startsAt: "16:45" },
+  { kind: "opening", title: "Abertura e oração", startsAt: "17:00" },
+  { kind: "worship", title: "Louvor e adoração", startsAt: "17:15" },
   { kind: "word", title: "Palavra", startsAt: "17:50" },
-  { kind: "offering", title: "Dizimos, ofertas e avisos", startsAt: "18:35" },
-  { kind: "response", title: "Resposta e intercessao", startsAt: "18:45" },
+  { kind: "offering", title: "Dízimos, ofertas e avisos", startsAt: "18:35" },
+  { kind: "response", title: "Resposta e intercessão", startsAt: "18:45" },
   { kind: "closing", title: "Encerramento", startsAt: "18:55" },
 ];
 
@@ -115,18 +118,18 @@ function buildDefaultLiturgy(): ServiceLiturgyItem[] {
     title: item.title,
     startsAt: item.startsAt,
     responsible: "",
-    notes: "Preencha este momento com conteudo, responsavel e observacoes antes de publicar a escala final.",
+    notes: "Preencha este momento com conteúdo, responsável e observações antes de publicar a escala final.",
     sortOrder: index,
   }));
 }
 
 const SUGGESTION_TEMPLATES = [
-  { day: 0, title: "Escola Biblica Dominical", activity: "Escola Biblica, culto ou celebracao", start: "08:30", end: "10:30", serviceType: "sunday" as const },
-  { day: 0, title: "Culto da Familia", activity: "Culto principal/familia", start: "18:00", end: "20:00", serviceType: "sunday" as const },
-  { day: 2, title: "Culto de Oracao e Doutrina", activity: "Oracao, doutrina ou departamentos", start: "19:00", end: "20:00", serviceType: "other" as const },
-  { day: 3, title: "Culto de Oracao e Estudo Biblico", activity: "Culto de oracao ou estudo biblico", start: "19:00", end: "20:30", serviceType: "other" as const },
-  { day: 4, title: "Celulas e Pequenos Grupos", activity: "Celulas, pequenos grupos ou culto", start: "19:00", end: "20:30", serviceType: "cell" as const },
-  { day: 5, title: "Culto de Jovens e Oracao", activity: "Jovens, oracao ou libertacao", start: "19:30", end: "21:00", serviceType: "youth" as const },
+  { day: 0, title: "Escola Bíblica Dominical", activity: "Escola Bíblica, culto ou celebração", start: "08:30", end: "10:30", serviceType: "sunday" as const },
+  { day: 0, title: "Culto da Família", activity: "Culto principal/família", start: "18:00", end: "20:00", serviceType: "sunday" as const },
+  { day: 2, title: "Culto de Oração e Doutrina", activity: "Oração, doutrina ou departamentos", start: "19:00", end: "20:00", serviceType: "other" as const },
+  { day: 3, title: "Culto de Oração e Estudo Bíblico", activity: "Culto de oração ou estudo bíblico", start: "19:00", end: "20:30", serviceType: "other" as const },
+  { day: 4, title: "Células e Pequenos Grupos", activity: "Células, pequenos grupos ou culto", start: "19:00", end: "20:30", serviceType: "cell" as const },
+  { day: 5, title: "Culto de Jovens e Oração", activity: "Jovens, oração ou libertação", start: "19:30", end: "21:00", serviceType: "youth" as const },
   { day: 6, title: "Jovens, Adolescentes e Eventos", activity: "Jovens, adolescentes e eventos especiais", start: "18:00", end: "20:00", serviceType: "youth" as const },
 ];
 
@@ -189,11 +192,21 @@ function getStats(item: ChurchCultoOperationalItem) {
   };
 }
 
-function getManagementStatus(item: ChurchCultoOperationalItem) {
+function getLinkedTeams(item: ChurchCultoOperationalItem, teams: ChurchServiceTeam[]) {
+  const assignedTeamIds = new Set(item.assignments.map((assignment) => assignment.teamId).filter(Boolean) as string[]);
+  const scheduledTeamNames = new Set(item.schedules.map((schedule) => schedule.ministryName.trim().toLowerCase()));
+  return teams.filter((team) => assignedTeamIds.has(team.id) || scheduledTeamNames.has(team.name.trim().toLowerCase()));
+}
+
+function getManagementStatus(item: ChurchCultoOperationalItem, teams: ChurchServiceTeam[], teamParticipantCounts: Record<string, number>) {
   const stats = getStats(item);
-  if (stats.total === 0 && stats.teams === 0) return "Sem equipes";
+  const linkedTeams = getLinkedTeams(item, teams);
+  if (stats.teams === 0) return "Sem equipes";
+  if (linkedTeams.some((team) => (teamParticipantCounts[team.id] ?? 0) === 0)) return "Aguardando voluntários";
+  if (item.assignments.some((assignment) => assignment.sourceType === "gestao_culto_team" && assignment.status === "pending")) return "Aguardando aprovação";
+  if (stats.total === 0) return "Escalar voluntários";
   if (stats.pending > 0 || stats.declined > 0) return "Aguardando";
-  if (stats.total > 0 && stats.confirmed === stats.total) return "Confirmado";
+  if (stats.total > 0 && stats.confirmed === stats.total) return "Concluído";
   return "Em andamento";
 }
 
@@ -245,6 +258,8 @@ export default function ChurchCultosDashboard() {
   const [filter, setFilter] = useState<OperationalFilter>("all");
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
   const [scaleModal, setScaleModal] = useState<ChurchCultoOperationalItem | null>(null);
+  const [operationalTeamModal, setOperationalTeamModal] = useState<{ item: ChurchCultoOperationalItem; team: ChurchServiceTeam } | null>(null);
+  const [detailServiceId, setDetailServiceId] = useState<string | null>(null);
   const [suggestionModalOpen, setSuggestionModalOpen] = useState(false);
   const [selectedSuggestionKeys, setSelectedSuggestionKeys] = useState<Set<string>>(new Set());
   const [suggestionDrafts, setSuggestionDrafts] = useState<Record<string, SuggestionDraft>>({});
@@ -274,7 +289,7 @@ export default function ChurchCultosDashboard() {
       setTeams(nextTeams);
       setTeamParticipantCounts(nextCounts);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Nao foi possivel carregar os cultos.");
+      setError(loadError instanceof Error ? loadError.message : "Não foi possível carregar os cultos.");
     } finally {
       setIsLoading(false);
     }
@@ -379,7 +394,7 @@ export default function ChurchCultosDashboard() {
     }
     const suggestionsToCreate = availableSuggestions.filter((service) => selectedSuggestionKeys.has(service.key));
     if (suggestionsToCreate.length === 0) {
-      setFeedback("Selecione ao menos uma sugestao de culto para criar.");
+      setFeedback("Selecione ao menos uma sugestão de culto para criar.");
       return;
     }
     const invalidSuggestion = suggestionsToCreate.find((service) => {
@@ -387,7 +402,7 @@ export default function ChurchCultosDashboard() {
       return !draft.title.trim() || !draft.activity.trim() || !draft.startTime || !draft.endTime;
     });
     if (invalidSuggestion) {
-      setFeedback("Preencha titulo, descricao e horarios das sugestoes selecionadas.");
+      setFeedback("Preencha título, descrição e horários das sugestões selecionadas.");
       return;
     }
 
@@ -417,11 +432,11 @@ export default function ChurchCultosDashboard() {
           liturgyItems: buildDefaultLiturgy(),
         });
       }
-      setFeedback(`${suggestionsToCreate.length} sugestao(oes) de culto criada(s) para ${formatMonthYear(new Date())}. Complete o conteudo e escale as equipes.`);
+      setFeedback(`${suggestionsToCreate.length} sugestão(ões) de culto criada(s) para ${formatMonthYear(new Date())}. Complete o conteúdo e escale as equipes.`);
       setSuggestionModalOpen(false);
       await load();
     } catch (createError) {
-      setFeedback(createError instanceof Error ? createError.message : "Nao foi possivel criar o modelo mensal de cultos.");
+      setFeedback(createError instanceof Error ? createError.message : "Não foi possível criar o modelo mensal de cultos.");
     } finally {
       setIsCreatingMonthlyModel(false);
     }
@@ -431,8 +446,8 @@ export default function ChurchCultosDashboard() {
     if (selectedServiceIds.size === 0) return;
     const selectedItems = items.filter((item) => selectedServiceIds.has(item.service.id));
     const message = selectedItems.length === 1
-      ? `Excluir "${selectedItems[0]?.service.title}" da listagem? O culto sera arquivado.`
-      : `Excluir ${selectedItems.length} cultos da listagem? Os cultos serao arquivados.`;
+      ? `Excluir "${selectedItems[0]?.service.title}" da listagem? O culto será arquivado.`
+      : `Excluir ${selectedItems.length} cultos da listagem? Os cultos serão arquivados.`;
     if (!window.confirm(message)) return;
 
     setIsDeletingSelected(true);
@@ -443,65 +458,69 @@ export default function ChurchCultosDashboard() {
       }
       setItems((current) => current.filter((item) => !selectedServiceIds.has(item.service.id)));
       setSelectedServiceIds(new Set());
-      setFeedback(`${selectedItems.length} culto(s) excluido(s) da listagem.`);
+      setFeedback(`${selectedItems.length} culto(s) excluído(s) da listagem.`);
     } catch (deleteError) {
-      setFeedback(deleteError instanceof Error ? deleteError.message : "Nao foi possivel excluir os cultos selecionados.");
+      setFeedback(deleteError instanceof Error ? deleteError.message : "Não foi possível excluir os cultos selecionados.");
     } finally {
       setIsDeletingSelected(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] text-[#071735]">
-      <section className="mx-auto max-w-7xl px-5 py-8 md:px-8">
-        <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+    <main className="min-h-screen bg-[#fdfbf7] text-[#1f2937] dark:bg-[#0b0b0c] dark:text-gray-100">
+      <section className="w-full px-4 py-5 md:px-6 md:py-6 xl:px-8">
+        <header className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-900 p-4 text-white shadow-sm md:p-5">
+          <div className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-emerald-400/15 blur-3xl" />
+          <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">
-              <Info size={14} />
-              Gestao da Igreja
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-emerald-200 ring-1 ring-white/15">
+              <Info size={12} />
+              Visão do gestor
             </div>
-            <h1 className="mt-3 text-4xl font-black tracking-normal text-[#071735]">Gestao de Cultos</h1>
-            <p className="mt-2 text-base font-medium text-slate-600">Escalas, equipes e confirmacoes em um so lugar.</p>
+            <h1 className="mt-2 text-2xl font-black tracking-normal text-white md:text-3xl">Gestão de Cultos</h1>
+            <p className="mt-1.5 max-w-2xl text-sm font-medium leading-5 text-slate-300">Cultos, equipes, escalas e confirmações em um só lugar.</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <button
               type="button"
               onClick={openSuggestionModal}
               disabled={isCreatingMonthlyModel}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-black text-[#061b49] shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-xs font-black text-white shadow-sm transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <CalendarDays size={18} />
-              Sugestao de cultos
+              Sugestão de cultos
             </button>
-            <Link href="/workspace-pastoral/cultos/novo" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#061b49] px-5 text-sm font-black text-white shadow-sm transition hover:bg-[#0b2b6c]">
+            <Link href="/gestao-igreja/equipes" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-xs font-black text-white shadow-sm transition hover:bg-white/20">
+              <Users size={18} />
+              Gerenciar Equipes
+            </Link>
+            <Link href="/gestao-igreja/cultos/novo" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-black text-white shadow-sm transition hover:bg-emerald-800">
               <Plus size={18} />
               Novo Culto
             </Link>
           </div>
+          </div>
         </header>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <DashboardMetric icon={CalendarDays} label="Cultos no periodo" value={summary.cultos} helper="Mes atual" />
+        <section aria-label="Indicadores dos cultos" className="mt-4 grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+          <DashboardMetric icon={CalendarDays} label="Cultos no período" value={summary.cultos} helper="Mês atual" />
           <DashboardMetric icon={Users} label="Equipes" value={summary.teams} helper="Ativas" />
           <DashboardMetric icon={CheckCircle2} label="Confirmados" value={summary.confirmed} helper={`de ${summary.invited} convidados`} progress={summary.completion} />
           <DashboardMetric icon={Clock3} label="Pendentes" value={summary.pending} helper="Aguardando resposta" tone="orange" />
         </section>
 
-        <section className="mt-5 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_190px_auto]">
+        <section aria-label="Filtros da lista de cultos" className="mt-3 rounded-xl border border-[#e6e0d8] bg-white p-2.5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="grid gap-2.5 md:grid-cols-[minmax(0,1fr)_190px_auto]">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Buscar culto por nome, tema ou local..."
-                className="min-h-12 w-full rounded-lg border border-slate-200 bg-white pl-12 pr-4 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#061b49]"
+                className="min-h-11 w-full rounded-lg border border-slate-200 bg-white pl-11 pr-4 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 dark:border-white/10 dark:bg-[#151515] dark:text-white"
               />
             </label>
-            <button type="button" className="inline-flex min-h-12 items-center justify-between rounded-lg border border-slate-200 px-4 text-sm font-black text-[#071735]">
-              <span className="inline-flex items-center gap-2"><CalendarDays size={16} /> Proximos cultos</span>
-            </button>
-            <label className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-black text-[#071735]">
+            <label className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-black text-[#071735] dark:border-white/10 dark:text-white">
               <Filter size={17} />
               <select value={filter} onChange={(event) => setFilter(event.target.value as OperationalFilter)} className="w-full bg-transparent text-sm font-black outline-none">
                 {FILTER_OPTIONS.map((option) => (
@@ -513,7 +532,7 @@ export default function ChurchCultosDashboard() {
               type="button"
               onClick={deleteSelectedServices}
               disabled={selectedCount === 0 || isDeletingSelected}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-red-100 px-4 text-sm font-black text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-red-100 px-3 text-xs font-black text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Trash2 size={17} />
               {isDeletingSelected ? "Excluindo" : "Excluir"}
@@ -526,34 +545,34 @@ export default function ChurchCultosDashboard() {
         {isLoading ? <StatusMessage>Carregando cultos...</StatusMessage> : null}
 
         {!isLoading && unmanagedItems.length > 0 ? (
-          <section className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950 shadow-sm">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <section aria-label="Alerta de cultos incompletos" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-amber-950 shadow-sm">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-start gap-3">
-                <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-amber-700">
-                  <Info size={19} />
+                <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-amber-700">
+                  <Info size={16} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-black">Complete o conteudo e escale as equipes</h2>
-                  <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-amber-800">
-                    {unmanagedItems.length} culto(s) ainda estao sem equipes. O modelo padrao cria os cultos preenchidos como ponto de partida, mas e necessario alimentar tema, liturgia, links e escalar os times para ativar o acompanhamento no app.
+                  <h2 className="text-sm font-black">Complete o conteúdo e escale as equipes</h2>
+                  <p className="mt-0.5 max-w-3xl text-xs font-semibold leading-5 text-amber-800">
+                    {unmanagedItems.length} culto(s) sem equipe. Complete tema, liturgia e escala para ativar as confirmações.
                   </p>
                 </div>
               </div>
-              <Link href="/workspace-pastoral/cultos" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#061b49] px-4 text-sm font-black text-white transition hover:bg-[#0b2b6c]">
-                Editar conteudo
+              <button type="button" onClick={() => setDetailServiceId(unmanagedItems[0].service.id)} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 text-xs font-black text-white transition hover:bg-emerald-800">
+                Resolver primeiro
                 <ExternalLink size={16} />
-              </Link>
+              </button>
             </div>
           </section>
         ) : null}
 
-        <section className="mt-6">
+        <section className="mt-4">
           {selectedCount > 0 ? (
             <div className="mb-3 flex flex-col gap-3 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm font-black text-[#061b49] sm:flex-row sm:items-center sm:justify-between">
               <span>{selectedCount} culto(s) selecionado(s)</span>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setSelectedServiceIds(new Set())} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-blue-100 bg-white px-3 text-xs font-black transition hover:bg-slate-50">
-                  Limpar selecao
+                  Limpar seleção
                 </button>
                 <button type="button" onClick={deleteSelectedServices} disabled={isDeletingSelected} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-3 text-xs font-black text-white transition hover:bg-red-700 disabled:opacity-60">
                   <Trash2 size={15} />
@@ -574,9 +593,9 @@ export default function ChurchCultosDashboard() {
               />
             </label>
             <span>Culto</span>
-            <span>Data e horario</span>
+            <span>Data e horário</span>
             <span>Equipes</span>
-            <span>Confirmacoes</span>
+            <span>Confirmações</span>
             <span>Status</span>
             <span>Acoes</span>
           </div>
@@ -584,10 +603,12 @@ export default function ChurchCultosDashboard() {
           <div className="space-y-3">
             {filteredItems.map((item) => {
               const stats = getStats(item);
-              const detailHref = `/gestao-igreja/cultos/${encodeURIComponent(item.service.id)}`;
+              const managementStatus = getManagementStatus(item, teams, teamParticipantCounts);
+              const linkedTeams = getLinkedTeams(item, teams);
+              const teamNeedingVolunteers = linkedTeams.find((team) => (teamParticipantCounts[team.id] ?? 0) === 0);
               const isSelected = selectedServiceIds.has(item.service.id);
               return (
-                <article key={item.service.id} className={`grid gap-5 rounded-lg border bg-white p-4 shadow-sm transition lg:grid-cols-[44px_1.3fr_0.62fr_0.58fr_0.72fr_0.62fr_0.72fr] lg:items-center ${isSelected ? "border-blue-300 ring-2 ring-blue-100" : "border-slate-200"}`}>
+                <article key={item.service.id} className={`grid gap-5 rounded-2xl border bg-white p-4 shadow-sm transition dark:bg-white/[0.04] lg:grid-cols-[44px_1.3fr_0.62fr_0.58fr_0.72fr_0.62fr_0.72fr] lg:items-center ${isSelected ? "border-emerald-400 ring-2 ring-emerald-100 dark:ring-emerald-900/30" : "border-[#e6e0d8] dark:border-white/10"}`}>
                   <label className="flex items-center gap-3 text-xs font-black text-slate-600 lg:justify-center">
                     <input
                       type="checkbox"
@@ -614,8 +635,8 @@ export default function ChurchCultosDashboard() {
                         <span className="rounded-md bg-blue-50 px-2 py-1 text-[10px] font-black uppercase text-blue-700">{formatWeekday(item.service.startsAt)}</span>
                         <span className="rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase text-emerald-700">{STATUS_LABELS[item.service.status] ?? item.service.status}</span>
                       </div>
-                      <h2 className="mt-3 truncate text-lg font-black text-[#071735]">{item.service.title}</h2>
-                      <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-600">{item.service.theme || "Tema nao informado"}</p>
+                      <h2 className="mt-3 truncate text-lg font-black text-[#071735] dark:text-white">{item.service.title}</h2>
+                      <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-600">{item.service.theme || "Tema não informado"}</p>
                       <p className="mt-3 text-xs font-semibold text-slate-500">{item.service.churchName || "Sede da igreja"}</p>
                     </div>
                   </div>
@@ -630,9 +651,9 @@ export default function ChurchCultosDashboard() {
                       <Users size={22} />
                     </div>
                     <p className="mt-2 text-sm font-black text-slate-700">{stats.teams} equipes</p>
-                    <Link href={detailHref} className="mt-2 inline-flex items-center gap-1 text-xs font-black text-[#061b49]">
+                    <button type="button" onClick={() => setDetailServiceId(item.service.id)} className="mt-2 inline-flex items-center gap-1 text-xs font-black text-[#061b49]">
                       Ver equipes <ChevronRight size={13} />
-                    </Link>
+                    </button>
                   </div>
 
                   <div>
@@ -648,8 +669,19 @@ export default function ChurchCultosDashboard() {
                   </div>
 
                   <div>
-                    <span className="inline-flex min-h-8 items-center rounded-md bg-orange-50 px-3 text-[10px] font-black uppercase text-orange-600">{getManagementStatus(item)}</span>
-                    <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">Confirmacoes dos voluntarios</p>
+                    {managementStatus === "Sem equipes" || managementStatus === "Aguardando voluntários" || managementStatus === "Escalar voluntários" ? (
+                      <button
+                        type="button"
+                        onClick={() => managementStatus === "Aguardando voluntários" && teamNeedingVolunteers ? setOperationalTeamModal({ item, team: teamNeedingVolunteers }) : setScaleModal(item)}
+                        aria-label={`${managementStatus} para ${item.service.title}`}
+                        className={`inline-flex min-h-8 items-center text-[10px] font-black uppercase underline-offset-4 transition hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${managementStatus === "Aguardando voluntários" ? "text-amber-700 hover:text-amber-800" : "text-orange-700 hover:text-orange-800"}`}
+                      >
+                        {managementStatus}
+                      </button>
+                    ) : (
+                      <span className={`inline-flex min-h-8 items-center rounded-md px-3 text-[10px] font-black uppercase ${managementStatus === "Concluído" ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-600"}`}>{managementStatus}</span>
+                    )}
+                    <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">Confirmações dos voluntários</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -657,10 +689,10 @@ export default function ChurchCultosDashboard() {
                       <Users size={19} />
                       Escalar
                     </button>
-                    <Link href={detailHref} className="inline-flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border border-slate-200 text-[10px] font-black text-[#071735] transition hover:bg-slate-50">
+                    <button type="button" onClick={() => setDetailServiceId(item.service.id)} className="inline-flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border border-slate-200 text-[10px] font-black text-[#071735] transition hover:bg-slate-50">
                       <ChevronRight size={21} />
                       Detalhes
-                    </Link>
+                    </button>
                     {item.service.slug ? (
                       <Link href={`/culto/${item.service.slug}`} className="col-span-2 inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 text-[10px] font-black uppercase text-[#071735] transition hover:bg-slate-50">
                         <ExternalLink size={14} />
@@ -682,7 +714,7 @@ export default function ChurchCultosDashboard() {
           </section>
         ) : null}
 
-        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="mt-6 rounded-2xl border border-[#e6e0d8] bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-start gap-4">
               <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#061b49] text-white">
@@ -691,7 +723,7 @@ export default function ChurchCultosDashboard() {
               <div>
                 <h2 className="text-sm font-black text-[#071735]">Como funciona a escala?</h2>
                 <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-                  Lideres recebem notificacao para aprovar a equipe. Apos aprovacao, os voluntarios convidados confirmam ou recusam o convite.
+                  Líderes recebem notificação para aprovar a equipe. Após a aprovação, os voluntários convidados confirmam ou recusam o convite.
                 </p>
               </div>
             </div>
@@ -716,18 +748,34 @@ export default function ChurchCultosDashboard() {
         />
       ) : null}
 
+      {operationalTeamModal ? (
+        <ChurchTeamDetailDashboard
+          teamId={operationalTeamModal.team.id}
+          embedded
+          onClose={() => setOperationalTeamModal(null)}
+        />
+      ) : null}
+
+      {detailServiceId ? (
+        <ChurchCultoDetailPage
+          serviceId={detailServiceId}
+          embedded
+          onClose={() => setDetailServiceId(null)}
+        />
+      ) : null}
+
       {suggestionModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
           <section role="dialog" aria-modal="true" aria-labelledby="suggestion-modal-title" className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-2xl">
             <header className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Modelo mensal</p>
-                <h2 id="suggestion-modal-title" className="mt-1 text-2xl font-black text-[#071735]">Sugestao de cultos</h2>
+                <h2 id="suggestion-modal-title" className="mt-1 text-2xl font-black text-[#071735]">Sugestão de cultos</h2>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                  Selecione os cultos que deseja criar para {formatMonthYear(new Date())}. Eles serao criados sem equipes para voce completar conteudo e escala depois.
+                  Selecione os cultos que deseja criar para {formatMonthYear(new Date())}. Eles serão criados sem equipes para você completar conteúdo e escala depois.
                 </p>
               </div>
-              <button type="button" onClick={() => setSuggestionModalOpen(false)} aria-label="Fechar sugestoes" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50">
+              <button type="button" onClick={() => setSuggestionModalOpen(false)} aria-label="Fechar sugestões" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50">
                 <X size={18} />
               </button>
             </header>
@@ -736,7 +784,7 @@ export default function ChurchCultosDashboard() {
               {availableSuggestions.length > 0 ? (
                 <>
                   <div className="mb-3 flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm font-black text-[#071735]">{selectedSuggestionKeys.size} de {availableSuggestions.length} sugestao(oes) selecionada(s)</p>
+                    <p className="text-sm font-black text-[#071735]">{selectedSuggestionKeys.size} de {availableSuggestions.length} sugestão(ões) selecionada(s)</p>
                     <button type="button" onClick={toggleAllSuggestions} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-[#061b49] transition hover:bg-slate-50">
                       {selectedSuggestionKeys.size === availableSuggestions.length ? "Desmarcar todas" : "Selecionar todas"}
                     </button>
@@ -759,7 +807,7 @@ export default function ChurchCultosDashboard() {
                             <div className="min-w-0 flex-1">
                               <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_190px]">
                                 <label className="block">
-                                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Titulo</span>
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Título</span>
                                   <input
                                     value={draft.title}
                                     onChange={(event) => updateSuggestionDraft(service, { title: event.target.value })}
@@ -770,7 +818,7 @@ export default function ChurchCultosDashboard() {
                                   <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{service.weekday}</p>
                                   <div className="mt-1 grid grid-cols-2 gap-2">
                                     <label className="block">
-                                      <span className="sr-only">Horario inicial</span>
+                                      <span className="sr-only">Horário inicial</span>
                                       <input
                                         type="time"
                                         value={draft.startTime}
@@ -779,7 +827,7 @@ export default function ChurchCultosDashboard() {
                                       />
                                     </label>
                                     <label className="block">
-                                      <span className="sr-only">Horario final</span>
+                                      <span className="sr-only">Horário final</span>
                                       <input
                                         type="time"
                                         value={draft.endTime}
@@ -791,7 +839,7 @@ export default function ChurchCultosDashboard() {
                                 </div>
                               </div>
                               <label className="mt-3 block">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Descricao</span>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Descrição</span>
                                 <textarea
                                   value={draft.activity}
                                   onChange={(event) => updateSuggestionDraft(service, { activity: event.target.value })}
@@ -809,7 +857,7 @@ export default function ChurchCultosDashboard() {
               ) : (
                 <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center">
                   <CalendarDays className="mx-auto text-slate-400" size={30} />
-                  <h3 className="mt-4 text-lg font-black text-[#071735]">Todas as sugestoes do mes ja existem</h3>
+                  <h3 className="mt-4 text-lg font-black text-[#071735]">Todas as sugestões do mês já existem</h3>
                   <p className="mt-2 text-sm font-semibold text-slate-500">Ajuste cultos manualmente no Culto+ ou exclua/arquive itens antigos antes de criar novamente.</p>
                 </div>
               )}
@@ -853,19 +901,21 @@ function DashboardMetric({
 }) {
   const toneClass = tone === "orange" ? "bg-orange-50 text-orange-600" : "bg-blue-50 text-[#061b49]";
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-4">
-        <div className={`inline-flex h-14 w-14 items-center justify-center rounded-full ${toneClass}`}>
-          <Icon size={25} />
+    <article className="rounded-xl border border-[#e6e0d8] bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="flex items-center gap-3">
+        <div className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${toneClass}`}>
+          <Icon size={19} />
         </div>
-        <div>
-          <p className="text-xs font-black text-slate-600">{label}</p>
-          <p className="mt-1 text-3xl font-black text-[#071735]">{value}</p>
-          <p className="mt-1 text-xs font-semibold text-slate-500">{helper}</p>
+        <div className="min-w-0">
+          <p className="truncate text-[10px] font-black uppercase tracking-wide text-slate-500">{label}</p>
+          <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
+            <p className="text-2xl font-black leading-none text-[#071735] dark:text-white">{value}</p>
+            <p className="truncate text-[10px] font-semibold text-slate-500">{helper}</p>
+          </div>
         </div>
       </div>
       {typeof progress === "number" ? (
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-2 flex items-center gap-2">
           <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700">{progress}%</span>
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
             <div className="h-full rounded-full bg-emerald-400" style={{ width: `${progress}%` }} />
@@ -877,8 +927,56 @@ function DashboardMetric({
 }
 
 function StatusMessage({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "warning" }) {
-  const classes = tone === "warning" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-white text-slate-600";
-  return <section className={`mt-4 rounded-lg border p-4 text-sm font-semibold ${classes}`}>{children}</section>;
+  const classes = tone === "warning" ? "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-100" : "border-[#e6e0d8] bg-white text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300";
+  return <section className={`mt-4 rounded-2xl border p-4 text-sm font-semibold ${classes}`}>{children}</section>;
+}
+
+function OperationalTeamModal({
+  item,
+  team,
+  participantCount,
+  onClose,
+}: {
+  item: ChurchCultoOperationalItem;
+  team: ChurchServiceTeam;
+  participantCount: number;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4">
+      <section role="dialog" aria-modal="true" aria-labelledby="operational-team-title" className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-2xl">
+        <header className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700">Equipe operacional</p>
+            <h2 id="operational-team-title" className="mt-1 text-2xl font-black text-[#071735]">{team.name}</h2>
+            <p className="mt-2 text-sm font-semibold text-slate-600">Pendência do culto: {item.service.title}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Fechar equipe operacional" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50">x</button>
+        </header>
+
+        <div className="p-5">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+            <p>Esta equipe já está vinculada ao culto, mas ainda não possui voluntários.</p>
+            <p className="mt-2 text-xs font-black uppercase tracking-wider">Voluntários vinculados: {participantCount}</p>
+          </div>
+          <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">Adicione voluntários ao time ou crie um convite. Depois disso, volte à escala para enviar a aprovação.</p>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <Link href={`/gestao-igreja/equipes/${team.id}`} onClick={onClose} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#061b49] px-4 text-center text-xs font-black uppercase tracking-wider text-white transition hover:bg-[#0b2b6c]">
+              Selecionar voluntários
+            </Link>
+            <Link href={`/gestao-igreja/qrcodes/novo?type=volunteer&teamId=${encodeURIComponent(team.id)}`} onClick={onClose} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 px-4 text-center text-xs font-black uppercase tracking-wider text-[#061b49] transition hover:bg-slate-50">
+              Convidar voluntários
+            </Link>
+          </div>
+        </div>
+
+        <footer className="border-t border-slate-200 p-5 text-right">
+          <button type="button" onClick={onClose} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-black text-[#061b49] transition hover:bg-slate-50">Fechar</button>
+        </footer>
+      </section>
+    </div>
+  );
 }
 
 function ScaleServiceModal({
@@ -906,8 +1004,13 @@ function ScaleServiceModal({
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>(initialSelectedTeamIds);
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [createTeamModalOpen, setCreateTeamModalOpen] = useState(false);
 
   const selectedTeams = useMemo(() => teams.filter((team) => selectedTeamIds.includes(team.id)), [selectedTeamIds, teams]);
+  const selectedTeamsWithoutVolunteers = useMemo(
+    () => selectedTeams.filter((team) => (teamParticipantCounts[team.id] ?? 0) === 0),
+    [selectedTeams, teamParticipantCounts],
+  );
 
   const toggleTeam = (teamId: string) => {
     setSelectedTeamIds((current) => current.includes(teamId) ? current.filter((id) => id !== teamId) : [...current, teamId]);
@@ -915,11 +1018,15 @@ function ScaleServiceModal({
 
   const saveScale = async () => {
     if (!currentUserId) {
-      setFeedback("Usuario atual nao identificado para criar a escala.");
+      setFeedback("Usuário atual não identificado para criar a escala.");
       return;
     }
     if (selectedTeams.length === 0) {
       setFeedback("Selecione pelo menos uma equipe para este culto.");
+      return;
+    }
+    if (selectedTeamsWithoutVolunteers.length > 0) {
+      setFeedback(`A equipe ${selectedTeamsWithoutVolunteers[0].name} ainda não possui voluntários. Gerencie os membros antes de enviar a escala.`);
       return;
     }
 
@@ -935,10 +1042,10 @@ function ScaleServiceModal({
           createdBy: currentUserId,
         });
       }
-      setFeedback("Escala enviada para aprovacao do lider ou gestor. Apos aprovacao, os voluntarios serao notificados.");
+      setFeedback("Escala enviada para aprovação do líder ou gestor. Após a aprovação, os voluntários serão notificados.");
       await onChanged();
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : "Nao foi possivel salvar a escala.");
+      setFeedback(error instanceof Error ? error.message : "Não foi possível salvar a escala.");
     } finally {
       setIsSaving(false);
     }
@@ -951,7 +1058,7 @@ function ScaleServiceModal({
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Escalar culto</p>
             <h2 id="scale-service-title" className="mt-1 text-2xl font-black text-[#071735]">{item.service.title}</h2>
-            <p className="mt-2 text-sm font-semibold text-slate-600">{formatDate(item.service.startsAt)} as {formatTime(item.service.startsAt)}</p>
+            <p className="mt-2 text-sm font-semibold text-slate-600">{formatDate(item.service.startsAt)} às {formatTime(item.service.startsAt)}</p>
           </div>
           <button type="button" onClick={onClose} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50" aria-label="Fechar escala">
             x
@@ -961,7 +1068,7 @@ function ScaleServiceModal({
         <div className="max-h-[60vh] overflow-y-auto p-5">
           <div className="rounded-lg border border-slate-200 p-4">
             <h3 className="text-base font-black text-[#071735]">Times que participam</h3>
-            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">A selecao prepara as equipes para este culto sem alterar os membros cadastrados no time global.</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">A seleção prepara as equipes para este culto sem alterar os membros cadastrados no time global.</p>
 
             {teams.length > 0 ? (
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -983,21 +1090,48 @@ function ScaleServiceModal({
                 })}
               </div>
             ) : (
-              <p className="mt-4 rounded-lg border border-dashed border-slate-300 p-4 text-sm font-semibold text-slate-600">Nenhuma equipe cadastrada. Crie equipes antes de escalar o culto.</p>
+              <div className="mt-4 rounded-lg border border-dashed border-slate-300 p-4 text-sm font-semibold text-slate-600">
+                <p>Nenhuma equipe cadastrada. Crie uma equipe antes de escalar o culto.</p>
+                <button type="button" onClick={() => setCreateTeamModalOpen(true)} className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#061b49] px-4 text-xs font-black uppercase tracking-wider text-white transition hover:bg-[#0b2b6c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+                  <Plus size={15} /> Cadastrar equipe
+                </button>
+              </div>
             )}
           </div>
 
           {feedback ? <StatusMessage>{feedback}</StatusMessage> : null}
+          {selectedTeamsWithoutVolunteers.length > 0 ? (
+            <div role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+              <p>Esta equipe ainda não possui voluntários para receber a escala.</p>
+              <Link
+                href={`/gestao-igreja/equipes/${selectedTeamsWithoutVolunteers[0].id}`}
+                onClick={onClose}
+                className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#061b49] px-4 text-xs font-black uppercase tracking-wider text-white transition hover:bg-[#0b2b6c]"
+              >
+                Gerenciar voluntários e convites
+              </Link>
+            </div>
+          ) : null}
         </div>
 
         <footer className="flex flex-col-reverse gap-3 border-t border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
           <button type="button" onClick={onClose} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-black text-[#061b49] transition hover:bg-slate-50">Cancelar</button>
-          <button type="button" onClick={saveScale} disabled={isSaving || teams.length === 0} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#061b49] px-4 text-sm font-black text-white transition hover:bg-[#0b2b6c] disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="button" onClick={saveScale} disabled={isSaving || teams.length === 0 || selectedTeamsWithoutVolunteers.length > 0} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#061b49] px-4 text-sm font-black text-white transition hover:bg-[#0b2b6c] disabled:cursor-not-allowed disabled:opacity-60">
             <CheckCircle2 size={16} />
-            {isSaving ? "Salvando escala" : "Salvar times"}
+            {isSaving ? "Salvando escala" : selectedTeamsWithoutVolunteers.length > 0 ? "Adicione voluntários primeiro" : "Salvar times"}
           </button>
         </footer>
       </section>
+      <ChurchTeamCreateModal
+        churchId={item.service.churchId}
+        currentUserId={currentUserId}
+        open={createTeamModalOpen}
+        onClose={() => setCreateTeamModalOpen(false)}
+        onCreated={async (team) => {
+          setSelectedTeamIds((current) => current.includes(team.id) ? current : [...current, team.id]);
+          await onChanged();
+        }}
+      />
     </div>
   );
 }

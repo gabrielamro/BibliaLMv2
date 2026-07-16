@@ -36,22 +36,57 @@ const supabaseProjectRef = (() => {
 })();
 const supabaseAuthStorageKey = `sb-${supabaseProjectRef}-auth-token`;
 const runWithoutBrowserLock = async <R,>(_name: string, _acquireTimeout: number, fn: () => Promise<R>): Promise<R> => fn();
-const supabaseFetchTimeoutMs = 15000;
-const fetchWithTimeout: typeof fetch = async (input, init) => {
+const supabaseFetchTimeoutMs = 25000;
+const supabaseReadAttempts = 2;
+
+const getRequestMethod = (input: RequestInfo | URL, init?: RequestInit) =>
+    String(init?.method || (typeof Request !== 'undefined' && input instanceof Request ? input.method : 'GET')).toUpperCase();
+
+const runSupabaseFetchAttempt = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), supabaseFetchTimeoutMs);
     const externalSignal = init?.signal;
+    let didTimeout = false;
+    const abortFromExternalSignal = () => controller.abort(externalSignal?.reason);
+    const timeout = setTimeout(() => {
+        didTimeout = true;
+        controller.abort(new DOMException(`A consulta excedeu ${supabaseFetchTimeoutMs / 1000} segundos.`, 'TimeoutError'));
+    }, supabaseFetchTimeoutMs);
 
     if (externalSignal) {
-        if (externalSignal.aborted) controller.abort();
-        else externalSignal.addEventListener('abort', () => controller.abort(), { once: true });
+        if (externalSignal.aborted) abortFromExternalSignal();
+        else externalSignal.addEventListener('abort', abortFromExternalSignal, { once: true });
     }
 
     try {
         return await fetch(input, { ...init, signal: controller.signal });
+    } catch (error) {
+        if (didTimeout) {
+            throw Object.assign(new Error('A conexão com o Supabase demorou mais que o esperado.'), {
+                name: 'SupabaseTimeoutError',
+                cause: error,
+            });
+        }
+        throw error;
     } finally {
         clearTimeout(timeout);
+        externalSignal?.removeEventListener('abort', abortFromExternalSignal);
     }
+};
+
+const fetchWithTimeout: typeof fetch = async (input, init) => {
+    const method = getRequestMethod(input, init);
+    const maxAttempts = method === 'GET' || method === 'HEAD' ? supabaseReadAttempts : 1;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+            return await runSupabaseFetchAttempt(input, init);
+        } catch (error) {
+            const canRetry = attempt < maxAttempts && (error as Error)?.name === 'SupabaseTimeoutError' && !init?.signal?.aborted;
+            if (!canRetry) throw error;
+        }
+    }
+
+    throw new Error('Não foi possível concluir a requisição ao Supabase.');
 };
 const clearStaleAuthSessionInDev = () => {
     if (process.env.NODE_ENV !== 'development' || !isBrowser()) return;
@@ -141,15 +176,26 @@ export const loginWithApple = async () => {
     return data;
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export const normalizeAuthEmail = (email: string) => {
+    const normalizedEmail = email.trim();
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
+        throw Object.assign(new Error('Formato de e-mail inválido.'), { code: 'auth/invalid-email' });
+    }
+    return normalizedEmail;
+};
+
 export const loginWithEmail = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email: normalizeAuthEmail(email), password });
     if (error) throw error;
     return data;
 };
 
 export const registerWithEmail = async (email: string, password: string, name: string) => {
+    const normalizedEmail = normalizeAuthEmail(email);
     const { data, error } = await supabase.auth.signUp({
-        email,
+        email: normalizedEmail,
         password,
         options: { data: { display_name: name, displayName: name } }
     });
@@ -164,7 +210,7 @@ export const logout = async () => {
 };
 
 export const resetPasswordEmail = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizeAuthEmail(email), {
         redirectTo: `${window.location.origin}/login`
     });
     if (error) throw error;
@@ -1293,6 +1339,17 @@ export const dbService = {
         const { data, error } = await supabase.from('church_followers').select('*').eq('church_id', churchId);
         if (error) throw toError('Erro ao carregar seguidores da igreja', error);
         return data ?? [];
+    },
+    isFollowingChurch: async (uid: string, churchId: string): Promise<boolean> => {
+        if (!uid) return false;
+        const { data, error } = await supabase
+            .from('church_followers')
+            .select('id')
+            .eq('user_id', uid)
+            .eq('church_id', churchId)
+            .maybeSingle();
+        if (error) throw toError('Erro ao verificar acompanhamento da igreja', error);
+        return Boolean(data);
     },
     getChurchCommunityCounts: async (churchId: string): Promise<{ memberCount: number; followersCount: number }> => {
         const [members, followers] = await Promise.all([

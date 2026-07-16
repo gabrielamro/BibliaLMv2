@@ -32,6 +32,7 @@ As mensagens de commit devem ser semanticas:
 | 2026-04-29 | docs | _ARCHITECT_AGENT.md | Regra obrigatoria para avaliar e manter log de atividades em funcionalidades modificadas | Codex |
 | 2026-05-06 | feat | core | Ecossistema Social & Expansão Eclesiástica - v2.0.0 | Antigravity |
 | 2026-06-12 | feat | utils/, services/, app/competicao, views/ | Expansao de Mana, niveis, regras e competicao - v2.3.0 | Codex |
+| 2026-07-12 | feat | app/newhome, views/, components/ | New Home isolada, responsiva e personalizada por papel - v2.4.0 | Codex |
 
 
 ---

@@ -20,7 +20,7 @@ type CultoPlusTopActionsProps = {
 
 const CultoPlusTopActions: React.FC<CultoPlusTopActionsProps> = ({
   backHref,
-  menuLabel = 'Abrir configuracoes',
+  menuLabel = 'Abrir configurações',
   onNotify,
   items,
 }) => {
@@ -43,7 +43,7 @@ const CultoPlusTopActions: React.FC<CultoPlusTopActionsProps> = ({
           type="button"
           onClick={onNotify}
           className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-900 shadow-lg transition hover:bg-white"
-          aria-label="Notificacoes"
+          aria-label="Notificações"
         >
           <Bell size={17} />
         </button>

@@ -74,6 +74,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         location.pathname === '/apresentacao' ||
         location.pathname === '/faith-tech';
     const isCustomHomeShell = location.pathname === '/';
+    const isStandaloneNewHome = location.pathname === '/newhome';
+    const isStandaloneChurchManagementShell = location.pathname.startsWith('/gestao-igreja');
+    const isStandalonePastoralWorkspaceShell = location.pathname.startsWith('/workspace-pastoral');
+    const isStandalonePublicQrShell = location.pathname.startsWith('/qr/');
+    const isStandaloneCultoPlusShell = isStandaloneNewHome || location.pathname === '/meus-cultos' || isStandaloneChurchManagementShell || isStandalonePastoralWorkspaceShell || isStandalonePublicQrShell;
 
     const rootPaths = [
         '/',
@@ -97,6 +102,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         isCustomHomeShell,
         isHeaderHidden,
     });
+    const showGlobalMobileNav = showMobileNav && !isStandaloneChurchManagementShell && !isStandalonePastoralWorkspaceShell && !isStandalonePublicQrShell;
 
     const isAdmin = userProfile?.username === 'gabrielamaro' || currentUser?.email === 'gabrielamaro@live.com';
     const isPastor = canAccessPastoralWorkspace(userProfile);
@@ -345,7 +351,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             {/* Mobile Header - Hidden in Focus Mode / Home */}
             <header
                 className={`md:hidden flex items-center justify-between px-4 py-3 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 absolute top-0 left-0 right-0 z-[120] h-[var(--mobile-header-height)] pt-safe transition-transform duration-300 ease-in-out ${showHeader ? 'translate-y-0' : '-translate-y-full'
-                    } ${showMobileShell ? '' : '!hidden'}`}
+                    } ${showMobileShell && !isStandaloneCultoPlusShell ? '' : '!hidden'}`}
             >
                 <div className="flex items-center gap-3 z-10 flex-1 overflow-hidden">
                     {showBackButton ? (
@@ -443,7 +449,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="flex flex-1 overflow-hidden relative w-full"> {/* REMOVED pt-safe from here to fix top bar on desktop */}
 
                 {/* Desktop Sidebar — novo componente Canva-style */}
-                {showSidebar && (
+                {showSidebar && !isStandaloneCultoPlusShell && (
                     <Sidebar onOpenLogin={openLogin} initiallyCollapsed={sidebarStartsCollapsed} />
                 )}
 
@@ -472,7 +478,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 
 
-                    <div className={showMobileNav ? 'pb-[var(--mobile-bottom-nav-height)] md:pb-0' : ''}>
+                    <div className={`app-fluid-content ${showGlobalMobileNav ? 'pb-[var(--mobile-bottom-nav-height)] md:pb-0' : ''}`}>
                         {children}
                     </div>
 
@@ -480,10 +486,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <SupportModal isOpen={isSupportModalOpen} onClose={() => setIsSupportModalOpen(false)} />
                     <BuyCreditsModal isOpen={isBuyCreditsModalOpen} onClose={closeBuyCredits} />
                     <SystemTutorialModal isOpen={isTutorialOpen} onClose={() => setIsTutorialOpen(false)} />
-                    {!isCultoPlusOnePage && <ObreiroIAChatbot />}
+                    {!isCultoPlusOnePage && !isStandaloneCultoPlusShell && <ObreiroIAChatbot />}
                 </main>
 
-                {showMobileNav && <MobileBottomNav />}
+                {showGlobalMobileNav && <MobileBottomNav />}
             </div>
         </div>
     );

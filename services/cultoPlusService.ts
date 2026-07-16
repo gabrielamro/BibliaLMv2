@@ -35,7 +35,7 @@ import {
   type ServiceExperienceMoment,
   type WorshipExperienceMode,
 } from '../utils/cultoPlusExperience';
-import { generateChurchServicePlanning, generateSermonOutline, generateSpecificPrayer } from './pastorAgent';
+import { generateChurchServicePlanning, generateSermonOutline, generateSongLyricsText, generateSpecificPrayer } from './pastorAgent';
 
 type CreateChurchServiceInput = {
   churchId: string;
@@ -88,6 +88,8 @@ type GenerateServicePlanningInput = {
   verseReference: string;
   verseText: string;
   userPrompt: string;
+  serviceStartTime?: string;
+  serviceEndTime?: string;
 };
 
 export type ChurchServiceStats = {
@@ -375,7 +377,7 @@ const getServiceViewerPermissions = async (service: ChurchService, userId?: stri
   } catch (error) {
     const message = formatSupabaseError(error).toLowerCase();
     if (!message.includes('church_member_roles') && !message.includes('church_service_teams')) {
-      console.warn('Nao foi possivel resolver permissoes do culto:', error);
+      console.warn('Não foi possível resolver permissões do culto:', error);
     }
     return fallback;
   }
@@ -408,7 +410,7 @@ const mapScheduleAssignment = (row: any): ServiceScheduleAssignment => ({
   serviceId: row.service_id,
   churchId: row.church_id,
   ministryId: row.ministry_id,
-  ministryName: row.ministry_name ?? 'Ministerio',
+  ministryName: row.ministry_name ?? 'Ministério',
   userId: row.user_id,
   userDisplayName: row.user_display_name ?? 'Membro',
   userPhotoURL: row.user_photo_url ?? null,
@@ -439,16 +441,12 @@ const buildServiceContext = (service: ChurchService, notes = '') =>
     `Igreja: ${service.churchName}`,
     `Tema: ${service.theme}`,
     `Pregador: ${service.preacherName}`,
-    service.keyVerseRef ? `Versiculo-chave: ${service.keyVerseRef} ${service.keyVerseText ?? ''}` : '',
+    service.keyVerseRef ? `Versículo-chave: ${service.keyVerseRef} ${service.keyVerseText ?? ''}` : '',
     `Timeline: ${service.liturgyItems.map((item) => [
       `${item.startsAt} ${item.title}`,
-      item.songList ? `musicas: ${item.songList.replace(/\n/g, ', ')}` : '',
+      item.songList ? `músicas: ${item.songList.replace(/\n/g, ', ')}` : '',
+      item.songLyrics ? `texto das músicas: ${item.songLyrics.replace(/\n/g, ' | ')}` : '',
       item.verseRef ? `texto: ${item.verseRef} ${item.verseText ?? ''}` : '',
-      item.scriptureReadingRef ? `leitura biblica: ${item.scriptureReadingRef} ${item.scriptureReadingText ?? ''}` : '',
-      item.leaderScript ? `fala do dirigente: ${item.leaderScript}` : '',
-      item.prayerGuide ? `guia de oracao: ${item.prayerGuide}` : '',
-      item.transitionText ? `transicao: ${item.transitionText}` : '',
-      item.sermonPoints?.length ? `pontos: ${item.sermonPoints.join('; ')}` : '',
       item.notes ? `notas: ${item.notes}` : '',
     ].filter(Boolean).join(' - ')).join(' | ')}`,
     notes ? `Anotacoes/sermao: ${notes}` : '',
@@ -459,30 +457,52 @@ const LITURGY_KIND_VALUES = ['entrance', 'opening', 'worship', 'word', 'offering
 const PIX_KEY_TYPE_VALUES = ['cpf', 'phone', 'email', 'random'] as const;
 const LITURGY_KIND_ALIASES: Record<string, ServiceLiturgyKind> = {
   entrada: 'entrance',
-  recepcao: 'entrance',
-  recepção: 'entrance',
+  'recep\u00e7\u00e3o': 'entrance',
   abertura: 'opening',
   louvor: 'worship',
-  adoracao: 'worship',
-  adoração: 'worship',
+  'adora\u00e7\u00e3o': 'worship',
   palavra: 'word',
-  pregacao: 'word',
-  pregação: 'word',
+  'prega\u00e7\u00e3o': 'word',
   mensagem: 'word',
   oferta: 'offering',
   ofertas: 'offering',
-  dizimos: 'offering',
-  dizimos_ofertas: 'offering',
-  dizimos_e_ofertas: 'offering',
-  dízimos: 'offering',
-  oracao: 'prayer',
-  oração: 'prayer',
-  intercessao: 'prayer',
-  intercessão: 'prayer',
+  'd\u00edzimos': 'offering',
+  'd\u00edzimos_ofertas': 'offering',
+  'd\u00edzimos_e_ofertas': 'offering',
+  'ora\u00e7\u00e3o': 'prayer',
+  'intercess\u00e3o': 'prayer',
   resposta: 'response',
   apelo: 'response',
   encerramento: 'closing',
   final: 'closing',
+};
+
+const normalizePlanningTime = (value: string, fallback: string) => {
+  const clean = String(value || '').replace(/[^\d:]/g, '').slice(0, 5);
+  if (/^\d{2}:\d{2}$/.test(clean)) {
+    const [hours, minutes] = clean.split(':').map(Number);
+    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) return clean;
+  }
+  return fallback;
+};
+
+const planningTimeToMinutes = (time: string) => {
+  const [hours = 0, minutes = 0] = normalizePlanningTime(time, '00:00').split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
+const planningMinutesToTime = (minutes: number) => {
+  const normalized = ((Math.round(minutes) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(normalized / 60)).padStart(2, '0')}:${String(normalized % 60).padStart(2, '0')}`;
+};
+
+const buildTimelineTimes = (startTime: string, endTime: string, count: number) => {
+  const startMinutes = planningTimeToMinutes(startTime);
+  let endMinutes = planningTimeToMinutes(endTime);
+  if (endMinutes <= startMinutes) endMinutes += 24 * 60;
+  const duration = Math.max(15, endMinutes - startMinutes);
+  const step = count > 1 ? duration / count : 0;
+  return Array.from({ length: count }, (_, index) => planningMinutesToTime(startMinutes + Math.floor(step * index)));
 };
 
 const normalizeLiturgyKind = (value: unknown): ServiceLiturgyKind => {
@@ -494,10 +514,136 @@ const normalizeLiturgyKind = (value: unknown): ServiceLiturgyKind => {
 const getPlanningItems = (raw: any) => {
   if (Array.isArray(raw?.liturgyItems)) return raw.liturgyItems;
   if (Array.isArray(raw?.timeline)) return raw.timeline;
-  if (Array.isArray(raw?.programacao)) return raw.programacao;
-  if (Array.isArray(raw?.programação)) return raw.programação;
+    if (Array.isArray(raw?.['programa\u00e7\u00e3o'])) return raw['programa\u00e7\u00e3o'];
+    if (Array.isArray(raw?.['programa\u00e7\u00e3o'])) return raw['programa\u00e7\u00e3o'];
   if (Array.isArray(raw?.items)) return raw.items;
   return [];
+};
+
+const buildWordReadingGuide = (verseRef: string, verseText: string) =>
+  `Vamos acompanhar a leitura de ${verseRef || 'nosso texto bíblico'}. Ao ouvir este texto, preste atencao ao que Deus revela e ao chamado que a Palavra coloca diante de nos. Depois da leitura, caminharemos pela mensagem buscando compreender, crer e praticar esta verdade.`;
+
+const normalizeWordNotes = (item: any, notes: string, verseRef: string, verseText: string) => {
+  const kind = normalizeLiturgyKind(item.kind ?? item.type ?? item.tipo);
+  if (kind !== 'word') return notes;
+  const compactNotes = notes.replace(/\s+/g, ' ').trim();
+  const compactVerse = verseText.replace(/\s+/g, ' ').trim();
+  const repeatsVerseOnly = compactVerse && compactNotes === `${verseRef}: ${compactVerse}`;
+  if (!compactNotes || repeatsVerseOnly) return buildWordReadingGuide(verseRef, verseText);
+  return notes;
+};
+const fallbackSongLyrics: Record<string, string> = {
+  'Grande e o Senhor': `Grande é o Senhor e mui digno de louvor
+Na cidade do nosso Deus, Seu santo monte
+A alegria de toda a terra
+
+Grande é o Senhor em quem nós temos a vitória
+E que nos ajuda contra o inimigo
+Por isso nos prostramos diante d'Ele
+
+Queremos o Teu nome engrandecer
+E agradecer-Te por Tua obra em nossa vida
+Confiamos em Teu infinito amor
+Pois só Tu és o Deus eterno
+Sobre toda a terra e céus`,
+
+  'Tu Es Santo': `Tu és santo (Tu és santo)
+Poderoso (Poderoso)
+Tu és digno (Tu és digno)
+De todo o louvor (De todo o louvor)
+
+Seguirei (Seguirei)
+Teus caminhos (Teus caminhos)
+Te amarei (Te amarei)
+Para sempre (Para sempre)
+
+Eu canto e louvo ao Rei que é digno
+Eu me prostro diante d'Ele
+Eu O amo e O adoro
+E O servirei para sempre
+
+Tu és o meu Senhor
+Tu és o meu Pastor
+Tu és o meu Deus
+A minha salvação
+
+Rei da minha vida
+Príncipe da paz
+Eu viverei para Ti, Senhor`,
+
+  'Porque Ele Vive': `Deus enviou Seu Filho amado
+Para salvar e perdoar
+Na cruz morreu por meus pecados
+Mas o túmulo vazio está
+Porque Ele vive
+
+Porque Ele vive, posso crer no amanhã
+Porque Ele vive, temor não há
+Mas eu bem sei, eu sei, que a minha vida
+Está nas mãos do meu Jesus, que vivo está
+
+E quando, enfim, chegar a hora
+Em que a morte enfrentarei
+Sem medo, então, terei vitória
+Verei na Glória o meu Jesus, que vivo está`,
+};
+
+const fallbackWorshipSongs = [
+  'Grande e o Senhor',
+  'Tu Es Santo',
+  'Porque Ele Vive',
+];
+
+const normalizeSongList = (item: any) => {
+  const rawSongs = Array.isArray(item.songs)
+    ? item.songs
+    : String(item.songList || '').split('\n');
+  const songs = rawSongs.map((song: any) => String(song || '').slice(0, 120).trim()).filter(Boolean).slice(0, 3);
+  if (normalizeLiturgyKind(item.kind ?? item.type ?? item.tipo) === 'worship') {
+    return [...songs, ...fallbackWorshipSongs].slice(0, 3).join('\n');
+  }
+  return songs.join('\n');
+};
+
+const getSongTitlesFromItem = (item: any): string[] => normalizeSongList(item).split('\n').filter(Boolean);
+
+const normalizeSongTexts = (item: any): Record<string, string> | undefined => {
+  const songs = getSongTitlesFromItem(item);
+  if (!songs.length) return undefined;
+
+  const rawTexts = item.songTexts && typeof item.songTexts === 'object' && !Array.isArray(item.songTexts)
+    ? item.songTexts
+    : {};
+  const legacyText = String(item.songLyrics || item.lyrics || item.letra || '').trim();
+
+  const result: Record<string, string> = {};
+  songs.forEach((song) => {
+    const text = String(rawTexts[song] || '').slice(0, 3000).trim();
+    if (text) result[song] = text;
+  });
+
+  if (!Object.keys(result).length && legacyText) {
+    result[songs[0]] = legacyText.slice(0, 3000);
+  }
+
+  return Object.keys(result).length ? result : undefined;
+};
+
+const normalizeSongLeaders = (item: any): Record<string, string> | undefined => {
+  const songs = getSongTitlesFromItem(item);
+  if (!songs.length) return undefined;
+
+  const rawLeaders = item.songLeaders && typeof item.songLeaders === 'object' && !Array.isArray(item.songLeaders)
+    ? item.songLeaders
+    : {};
+
+  const result: Record<string, string> = {};
+  songs.forEach((song) => {
+    const leader = String(rawLeaders[song] || '').slice(0, 120).trim();
+    if (leader) result[song] = leader;
+  });
+
+  return Object.keys(result).length ? result : undefined;
 };
 
 const normalizePlanningSuggestion = (raw: any): CultoPlusPlanningSuggestion => {
@@ -507,24 +653,21 @@ const normalizePlanningSuggestion = (raw: any): CultoPlusPlanningSuggestion => {
           id: `ai_${normalizeLiturgyKind(item.kind ?? item.type ?? item.tipo)}_${index}`,
           kind: normalizeLiturgyKind(item.kind ?? item.type ?? item.tipo),
           title: String(item.title || item.titulo || item.name || item.nome || '').slice(0, 80),
-          startsAt: String(item.startsAt || item.time || item.horario || item.horário || '').match(/^\d{2}:\d{2}$/)
-            ? String(item.startsAt || item.time || item.horario || item.horário)
+          startsAt: String(item.startsAt || item.time || item['hor\u00e1rio'] || item['hor\u00e1rio'] || '').match(/^\d{2}:\d{2}$/)
+            ? String(item.startsAt || item.time || item['hor\u00e1rio'] || item['hor\u00e1rio'])
             : undefined,
           responsible: String(item.responsible || '').slice(0, 80),
-          notes: String(item.notes || item.descricao || item.descrição || item.description || '').slice(0, 800),
+          notes: normalizeWordNotes(
+            item,
+            String(item.notes || item['descri\u00e7\u00e3o'] || item['descri\u00e7\u00e3o'] || item.description || '').slice(0, 800),
+            String(item.verseRef || '').slice(0, 40),
+            String(item.verseText || '').slice(0, 600),
+          ),
           verseRef: String(item.verseRef || '').slice(0, 40),
           verseText: String(item.verseText || '').slice(0, 600),
-          scriptureReadingRef: String(item.scriptureReadingRef || item.readingRef || item.leituraRef || '').slice(0, 40),
-          scriptureReadingText: String(item.scriptureReadingText || item.readingText || item.leituraTexto || '').slice(0, 900),
-          leaderScript: String(item.leaderScript || item.hostScript || item.falaDirigente || item.fala || '').slice(0, 900),
-          prayerGuide: String(item.prayerGuide || item.oracao || item.oração || '').slice(0, 900),
-          transitionText: String(item.transitionText || item.transicao || item.transição || '').slice(0, 500),
-          sermonPoints: Array.isArray(item.sermonPoints || item.pontos)
-            ? (item.sermonPoints || item.pontos).map((point: any) => String(point || '').slice(0, 180)).filter(Boolean).slice(0, 5)
-            : [],
-          songList: Array.isArray(item.songs)
-            ? item.songs.map((song: any) => String(song || '').slice(0, 120)).filter(Boolean).join('\n')
-            : String(item.songList || '').slice(0, 600),
+          songList: normalizeSongList(item),
+          songTexts: normalizeSongTexts(item),
+          songLeaders: normalizeSongLeaders(item),
           pixKeyType: PIX_KEY_TYPE_VALUES.includes(item?.pixKeyType) ? item.pixKeyType : undefined,
           pixKey: String(item.pixKey || '').slice(0, 160),
           sortOrder: index,
@@ -544,40 +687,50 @@ const fallbackServicePlanning = (
   verseReference: string,
   verseText: string,
   userPrompt: string,
+  serviceStartTime = '19:00',
+  serviceEndTime = '21:00',
 ): CultoPlusPlanningSuggestion => {
   const theme = userPrompt.trim() || `Culto baseado em ${verseReference}`;
+  const times = buildTimelineTimes(serviceStartTime, serviceEndTime, 7);
   return {
     title: 'Culto de Celebracao',
     theme: theme.slice(0, 120),
     serviceType: 'sunday',
     pastoralFocus: `Conduzir a igreja a ouvir, responder e praticar ${verseReference}.`,
     liturgyItems: [
-      { kind: 'entrance', title: 'Recepcao e ambiente', startsAt: '18:45', leaderScript: 'Seja bem-vindo. Que este seja um tempo de reverencia, comunhao e escuta da Palavra de Deus.', transitionText: 'Vamos preparar o coracao para iniciar o culto.', notes: 'Receba a igreja com acolhimento e prepare o coracao para o culto.' },
-      { kind: 'opening', title: 'Abertura e oracao', startsAt: '19:00', leaderScript: `Abrimos este culto reconhecendo a presenca de Deus e pedindo que sua Palavra em ${verseReference} guie nossa resposta.`, prayerGuide: 'Ore agradecendo pela presenca de Deus, confessando dependencia e pedindo coracoes atentos.', notes: `Abrimos este culto reconhecendo a presenca de Deus e pedindo que sua Palavra em ${verseReference} guie nossa resposta.` },
-      { kind: 'worship', title: 'Louvor e adoracao', startsAt: '19:15', leaderScript: 'Cantamos para declarar quem Deus e e responder com gratidao ao seu cuidado.', transitionText: 'Depois do louvor, seguiremos para a leitura e proclamacao da Palavra.', notes: 'Momento de adoracao congregacional em resposta a graca de Deus.' },
-      { kind: 'word', title: 'Palavra', startsAt: '19:50', verseRef: verseReference, verseText, scriptureReadingRef: verseReference, scriptureReadingText: verseText, sermonPoints: ['Ouvir o texto com humildade', 'Responder em fe e obediencia', 'Praticar a Palavra durante a semana'], leaderScript: `A leitura biblica de hoje esta em ${verseReference}.`, notes: `${verseReference}: ${verseText}` },
-      { kind: 'offering', title: 'Dizimos e ofertas', startsAt: '20:35', notes: 'Contribuimos com gratidao, reconhecendo que tudo vem do Senhor.' },
-      { kind: 'prayer', title: 'Resposta e intercessao', startsAt: '20:45', prayerGuide: 'Ore para que a Palavra produza fe, arrependimento e obediencia concreta na igreja.', notes: 'Ore para que a Palavra produza fe, arrependimento e obediencia concreta.' },
-      { kind: 'closing', title: 'Encerramento', startsAt: '20:55', leaderScript: 'Encerramos este culto enviados para viver a Palavra com fidelidade e amor.', transitionText: 'Compartilhe esta mensagem e caminhe com a igreja durante a semana.', notes: 'Encerramos enviados para viver a Palavra durante a semana.' },
+      { kind: 'entrance', title: 'Recepção e ambiente', startsAt: times[0], notes: 'Receba a igreja com acolhimento e prepare o coração para o culto.' },
+      { kind: 'opening', title: 'Abertura e oração', startsAt: times[1], notes: `Abrimos este culto reconhecendo a presença de Deus e pedindo que sua Palavra em ${verseReference} guie nossa resposta.` },
+      { kind: 'worship', title: 'Louvor e adoração', startsAt: times[2], songList: fallbackWorshipSongs.join('\n'), songTexts: Object.fromEntries(fallbackWorshipSongs.map((song) => [song, fallbackSongLyrics[song] || ''])), notes: 'Momento de adoração congregacional em resposta a graça de Deus.' },
+      {
+        kind: 'word',
+        title: 'Palavra',
+        startsAt: times[3],
+        verseRef: verseReference,
+        verseText,
+        notes: `Vamos acompanhar a leitura de ${verseReference}. Ao ouvir este texto, preste atencao ao que Deus revela e ao chamado que a Palavra coloca diante de nos. Depois da leitura, caminharemos pela mensagem buscando compreender, crer e praticar esta verdade.`,
+      },
+      { kind: 'offering', title: 'Dízimos e ofertas', startsAt: times[4], notes: 'Contribuimos com gratidão, reconhecendo que tudo vem do Senhor.' },
+      { kind: 'prayer', title: 'Resposta e intercessão', startsAt: times[5], notes: 'Ore para que a Palavra produza fé, arrependimento e obediência concreta.' },
+      { kind: 'closing', title: 'Encerramento', startsAt: times[6], notes: 'Encerramos enviados para viver a Palavra durante a semana.' },
     ],
   };
 };
 
 const fallbackAiContent = (kind: ServiceAiContentKind, service: ChurchService) => {
-  const verse = service.keyVerseRef || 'texto biblico do culto';
+  const verse = service.keyVerseRef || 'texto bíblico do culto';
   const title = service.title;
   const theme = service.theme;
   const map: Record<ServiceAiContentKind, string> = {
-    member_summary: `Resumo pastoral de apoio: o culto "${title}" trabalhou o tema "${theme}", convidando a igreja a responder a Palavra com fe, obediencia e comunhao. Use este resumo como apoio pessoal, preservando a direcao pastoral recebida no culto.`,
-    member_devotional: `Devocional da mensagem\n\nTexto base: ${verse}\n\nMedite em como "${theme}" toca sua rotina nesta semana. Observe uma atitude concreta de obediencia, ore com sinceridade e procure praticar a Palavra em um relacionamento, decisao ou responsabilidade diaria.`,
-    member_prayer: `Senhor, ajuda-me a guardar a Palavra ministrada no culto "${title}". Que o tema "${theme}" produza arrependimento, fe e obediencia concreta. Conduz minha semana com sabedoria e amor. Amem.`,
-    member_weekly_plan: `Plano semanal\nDia 1: releia ${verse}.\nDia 2: escreva uma aplicacao pratica.\nDia 3: ore por alguem da igreja.\nDia 4: compartilhe uma verdade aprendida.\nDia 5: revise suas anotacoes.\nDia 6: pratique um ato de servico.\nDia 7: agradeca e testemunhe o que Deus fez.`,
-    member_reflection_questions: `Perguntas para reflexao\n1. O que a Palavra revelou sobre Deus?\n2. O que preciso obedecer?\n3. Que habito precisa mudar?\n4. Quem posso encorajar com esta mensagem?\n5. Como vou praticar isso nos proximos sete dias?`,
-    pastor_structure: `Estrutura sugerida\n1. Abertura conectando a igreja ao tema "${theme}".\n2. Leitura e explicacao de ${verse}.\n3. Desenvolvimento com aplicacoes pastorais.\n4. Resposta em oracao e compromisso.\n5. Encerramento com proximos passos.`,
-    pastor_liturgy: `Liturgia sugerida\nEntrada: acolhimento e oracao.\nAbertura: leitura biblica.\nLouvor: cancoes alinhadas ao tema.\nPalavra: exposicao e aplicacao.\nResposta: dizimos, ofertas e intercessao.\nEncerramento: envio pastoral.`,
-    pastor_verses: `Versiculos sugeridos\n${verse}\nRomanos 12:1-2\nSalmo 119:105\nTiago 1:22\nColossenses 3:16`,
+    member_summary: `Resumo pastoral de apoio: o culto "${title}" trabalhou o tema "${theme}", convidando a igreja a responder a Palavra com fé, obediência e comunhão. Use este resumo como apoio pessoal, preservando a direção pastoral recebida no culto.`,
+    member_devotional: `Devocional da mensagem\n\nTexto base: ${verse}\n\nMedite em como "${theme}" toca sua rotina nesta semana. Observe uma atitude concreta de obediência, ore com sinceridade e procure praticar a Palavra em um relacionamento, decisao ou responsabilidade diaria.`,
+    member_prayer: `Senhor, ajuda-me a guardar a Palavra ministrada no culto "${title}". Que o tema "${theme}" produza arrependimento, fé e obediência concreta. Conduz minha semana com sabedoria e amor. Amém.`,
+    member_weekly_plan: `Plano semanal\nDia 1: releia ${verse}.\nDia 2: escreva uma aplicação prática.\nDia 3: ore por alguém da igreja.\nDia 4: compartilhe uma verdade aprendida.\nDia 5: revise suas anotações.\nDia 6: pratique um ato de serviço.\nDia 7: agradeça e testemunhe o que Deus fez.`,
+    member_reflection_questions: `Perguntas para reflexão\n1. O que a Palavra revelou sobre Deus?\n2. O que preciso obedecer?\n3. Que hábito precisa mudar?\n4. Quem posso encorajar com esta mensagem?\n5. Como vou praticar isso nos próximos sete dias?`,
+    pastor_structure: `Estrutura sugerida\n1. Abertura conectando a igreja ao tema "${theme}".\n2. Leitura e explicação de ${verse}.\n3. Desenvolvimento com aplicações pastorais.\n4. Resposta em oração e compromisso.\n5. Encerramento com próximos passos.`,
+    pastor_liturgy: `Liturgia sugerida\nEntrada: acolhimento e oração.\nAbertura: leitura bíblica.\nLouvor: canções alinhadas ao tema.\nPalavra: exposicao e aplicação.\nResposta: dízimos, ofertas e intercessão.\nEncerramento: envio pastoral.`,
+    pastor_verses: `Versículos sugeridos\n${verse}\nRomanos 12:1-2\nSalmo 119:105\nTiago 1:22\nColossenses 3:16`,
     pastor_duration: `Estimativa de duracao\nAbertura: 10 min\nLouvor: 25 min\nPalavra: 35 min\nResposta: 10 min\nEncerramento: 10 min\nTotal aproximado: 90 min`,
-    pastor_post_summary: `Resumo pos-culto\nTema ministrado: ${theme}.\nResposta esperada: guardar a Palavra, praticar a fe e caminhar em comunhao durante a semana. Diferencie este texto como resumo de apoio, nao como transcricao oficial.`,
+    pastor_post_summary: `Resumo pós-culto\nTema ministrado: ${theme}.\nResposta esperada: guardar a Palavra, praticar a fé e caminhar em comunhão durante a semana. Diferencie este texto como resumo de apoio, não como transcrição oficial.`,
   };
   return map[kind];
 };
@@ -989,7 +1142,7 @@ export const cultoPlusService = {
       return data ? mapMinistry(data) : ministry;
     } catch (error) {
       if (!isMissingServiceSchema(error) && !formatSupabaseError(error).toLowerCase().includes('service_ministries')) {
-        throw new Error(`Erro ao criar ministerio. ${formatSupabaseError(error)}`);
+        throw new Error(`Erro ao criar ministério. ${formatSupabaseError(error)}`);
       }
       const ministries = readStorage<ServiceMinistry[]>(MINISTRY_STORAGE_KEY, []);
       writeStorage(MINISTRY_STORAGE_KEY, [ministry, ...ministries]);
@@ -1263,15 +1416,38 @@ export const cultoPlusService = {
   },
 
   generateServicePlanning: async (input: GenerateServicePlanningInput): Promise<CultoPlusPlanningSuggestion> => {
-    const raw = await generateChurchServicePlanning(input.verseReference, input.verseText, input.userPrompt);
+    const raw = await generateChurchServicePlanning(
+      input.verseReference,
+      input.verseText,
+      input.userPrompt,
+      input.serviceStartTime,
+      input.serviceEndTime,
+    );
     if (!raw) {
-      return fallbackServicePlanning(input.verseReference, input.verseText, input.userPrompt);
+      return fallbackServicePlanning(input.verseReference, input.verseText, input.userPrompt, input.serviceStartTime, input.serviceEndTime);
     }
     const suggestion = normalizePlanningSuggestion(raw);
     if (!suggestion.liturgyItems?.length) {
-      return fallbackServicePlanning(input.verseReference, input.verseText, input.userPrompt);
+      return fallbackServicePlanning(input.verseReference, input.verseText, input.userPrompt, input.serviceStartTime, input.serviceEndTime);
     }
     return suggestion;
+  },
+
+  generateSongLyricsText: async (songTitle: string, context = ''): Promise<string> => {
+    const title = songTitle.trim();
+    if (!title) return '';
+    const content = await generateSongLyricsText(title, context);
+    if (content?.trim()) {
+      return content.trim();
+    }
+    const cleanTitle = title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    for (const key of Object.keys(fallbackSongLyrics)) {
+      const cleanKey = key.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+      if (cleanTitle === cleanKey) {
+        return fallbackSongLyrics[key];
+      }
+    }
+    return `${title}\n\n[Digite a letra da música aqui]`;
   },
 
   generateAiContent: async (kind: ServiceAiContentKind, service: ChurchService, userId: string, notes = ''): Promise<ServiceAiContent> => {
@@ -1368,8 +1544,8 @@ export const cultoPlusService = {
       ['Check-ins', analytics.checkinsCount],
       ['Posts', analytics.postsCount],
       ['Anotacoes', analytics.notesCount],
-      ['Pedidos de oracao', analytics.prayersCount],
-      ['Versiculos salvos', analytics.verseSavesCount],
+      ['Pedidos de oração', analytics.prayersCount],
+      ['Versículos salvos', analytics.verseSavesCount],
       ['Reacoes', analytics.reactionsCount],
       ['Amen', reactions.amen],
       ['Gloria', reactions.glory],
@@ -1531,7 +1707,7 @@ export const cultoPlusService = {
       if (error) throw error;
     } catch (error) {
       if (!isMissingServiceSchema(error) && !formatSupabaseError(error).toLowerCase().includes('service_reactions')) {
-        throw new Error(`Erro ao registrar reacao. ${formatSupabaseError(error)}`);
+        throw new Error(`Erro ao registrar reação. ${formatSupabaseError(error)}`);
       }
       const reactions = readStorage<Array<{ serviceId: string; userId: string; reactionType: ServiceReactionType }>>(REACTION_STORAGE_KEY, []);
       const exists = reactions.some((item) => item.serviceId === serviceId && item.userId === userId && item.reactionType === reactionType);
@@ -1576,7 +1752,7 @@ export const cultoPlusService = {
       return data ? { ...prayer, id: data.id, createdAt: data.created_at } : prayer;
     } catch (error) {
       if (!isMissingServiceSchema(error) && !formatSupabaseError(error).toLowerCase().includes('service_prayer_requests')) {
-        throw new Error(`Erro ao criar pedido de oracao. ${formatSupabaseError(error)}`);
+        throw new Error(`Erro ao criar pedido de oração. ${formatSupabaseError(error)}`);
       }
       const prayers = readStorage<ServicePrayerRequest[]>(PRAYER_STORAGE_KEY, []);
       writeStorage(PRAYER_STORAGE_KEY, [prayer, ...prayers]);
@@ -1631,7 +1807,7 @@ export const cultoPlusService = {
       return count ?? 0;
     } catch (error) {
       if (!isMissingServiceSchema(error) && !formatSupabaseError(error).toLowerCase().includes('service_prayer_intercessions')) {
-        throw new Error(`Erro ao registrar intercessao. ${formatSupabaseError(error)}`);
+        throw new Error(`Erro ao registrar intercessão. ${formatSupabaseError(error)}`);
       }
       const intercessions = readStorage<Array<{ prayerId: string; serviceId: string; userId: string }>>(PRAYER_INTERCESSION_STORAGE_KEY, []);
       const exists = intercessions.some((item) => item.prayerId === prayerId && item.userId === userId);
@@ -1659,7 +1835,7 @@ export const cultoPlusService = {
       return count ?? 0;
     } catch (error) {
       if (!isMissingServiceSchema(error) && !formatSupabaseError(error).toLowerCase().includes('service_verse_saves')) {
-        throw new Error(`Erro ao salvar versiculo. ${formatSupabaseError(error)}`);
+        throw new Error(`Erro ao salvar versículo. ${formatSupabaseError(error)}`);
       }
       const saves = readStorage<Array<{ serviceId: string; userId: string }>>(VERSE_SAVE_STORAGE_KEY, []);
       const exists = saves.some((item) => item.serviceId === service.id && item.userId === userId);
@@ -1861,7 +2037,7 @@ export const cultoPlusService = {
     } catch (error) {
       const formattedError = formatSupabaseError(error);
       const canUseLocalFallback = isMissingServiceSchema(error) || formattedError.includes('23505') || formattedError.includes('service_notes_service_id_user_id_key');
-      if (!canUseLocalFallback) throw new Error(`Erro ao salvar anotacao. ${formattedError}`);
+      if (!canUseLocalFallback) throw new Error(`Erro ao salvar anotação. ${formattedError}`);
       const notes = readStorage<ServiceNote[]>(NOTE_STORAGE_KEY, []);
       writeStorage(NOTE_STORAGE_KEY, [note, ...notes]);
       return note;
@@ -1877,7 +2053,7 @@ export const cultoPlusService = {
         .eq('user_id', userId);
       if (error) throw error;
     } catch (error) {
-      if (!isMissingServiceSchema(error)) throw new Error(`Erro ao excluir anotacao. ${formatSupabaseError(error)}`);
+      if (!isMissingServiceSchema(error)) throw new Error(`Erro ao excluir anotação. ${formatSupabaseError(error)}`);
     }
 
     const notes = readStorage<ServiceNote[]>(NOTE_STORAGE_KEY, []);

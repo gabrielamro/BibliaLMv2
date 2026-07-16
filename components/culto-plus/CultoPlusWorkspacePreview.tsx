@@ -62,7 +62,7 @@ const CultoPlusWorkspacePreview: React.FC = () => {
         const loaded = await cultoPlusService.getServicesByChurch(churchId, { includeDrafts: true, limit: 5 });
         if (active) setServices(loaded);
       } catch (err: any) {
-        if (active) setError(err?.message || 'Nao foi possivel carregar os cultos.');
+        if (active) setError(err?.message || 'Não foi possível carregar os cultos.');
       } finally {
         if (active) setLoading(false);
       }

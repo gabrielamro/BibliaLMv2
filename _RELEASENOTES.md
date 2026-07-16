@@ -4,6 +4,32 @@
 > **VERSION SYNC:** Lembre-se de atualizar `constants.ts`, `_ARCHITECTURE.md` e `_PROJECT_CONTEXT.md` ao mudar a versão aqui.
 > **GIT SYNC:** Após atualizar este arquivo, o Arquiteto deve executar `git commit` com a mensagem do release.
 
+## [v2.4.0] - 2026-07-12 (New Home isolada)
+### Tipo: Feature / UI / UX / Architecture
+- **Gestao de Cultos:** `/gestao-igreja/cultos` recebe shell administrativo Culto+, menu completo com Cultos em primeiro lugar e rota propria `/gestao-igreja/cultos/novo` para criacao.
+- **Visoes acumulativas:** o shell de Gestao da Igreja agora permite alternar entre a visao pessoal, pastoral (quando autorizada) e administrativa sem modificar o perfil ou perder papeis.
+- **Menu pessoal adaptativo:** a `/newhome` agora identifica as visoes autorizadas da mesma conta e oferece retorno bidirecional para o Workspace Pastoral e a Gestao da Igreja no desktop e no mobile.
+- **Workspace Pastoral no menu:** a Home e a rota pastoral passam a reconhecer tambem os papeis ativos de pastor e gestor em `church_member_roles`, sem depender apenas do tipo geral do perfil.
+- **Template pastoral:** o Workspace Pastoral recebe shell Culto+ proprio, menu responsivo e alternador compartilhado entre as tres visoes, com opcao persistente de ocultar e mostrar o bloco.
+- **Alertas do gestor:** contas com acesso a Gestao da Igreja recebem uma central rapida com aprovacoes de escala, solicitacoes de voluntariado, notificacoes operacionais e cultos incompletos nas proximas 72 horas.
+- **Painel de notificacoes responsivo:** a central rapida do gestor passa a respeitar as bordas e a altura do viewport no mobile, mantendo lista rolavel e rodape sempre acessivel.
+- **Data das notificacoes:** cada pendencia da central do gestor agora exibe data e horario; alertas vinculados a cultos tambem destacam quando o culto acontecera.
+- **Marca na nova Home:** a logo Culto+ ganhou maior destaque no menu lateral e no cabecalho mobile, mantendo sua proporcao original.
+- **Meus Cultos pessoal:** a rota `/meus-cultos` passa a reunir somente check-ins, registros externos, escalas e times do usuario, com o shell visual do Culto+ e sem listar cultos sem vinculo.
+- **Menus por perfil:** Workspace Pastoral passa a aparecer na nova Home somente para perfis pastorais; Configuracoes fica disponivel com conta, perfil, planos e suporte.
+- **Navegacao por modulo:** sidebar e mobile receberam submenus expansiveis com paleta, icones e atalhos completos por area, filtrados pelas permissoes do usuario.
+- **Refinamento visual:** cards de Meta de Leitura, Pao Diario, Oracao e Meus Estudos, coluna Minha Semana, resumo do Reino e area de escala responsiva.
+- **Abas completas:** Criar, Reino, Gestao e Calendario receberam os mesmos grupos funcionais da `Inicio03`, respeitando acesso e dados reais.
+- **Marca oficial:** o shell da nova Home utiliza o arquivo de logo Culto+ fornecido, sem redesenho da identidade.
+- **Resumo:** Nova experiência de Home disponível em `/newhome`, sem substituir ou remover a Home atual em `/`.
+- **Novidades:**
+  - **Home como hub:** cinco abas exclusivas da página (`Início`, `Criar`, `Reino`, `Gestão` e `Calendário`) com navegação acessível e estado persistido na URL.
+  - **Conteúdo real:** estudos, notas, salas, cultos e designações são carregados pelas camadas de serviço existentes, sem dados operacionais fictícios.
+  - **Personalização por papel:** pastores e gestores veem salas próprias; voluntários veem convites e escalas; papéis simultâneos compõem os dois blocos.
+  - **Estados seguros:** visitantes, ausência de igreja, listas vazias e falhas parciais recebem mensagens e atalhos adequados.
+  - **Shell isolado:** marca Culto+, sidebar e navegação móvel específicas da nova rota, preservando integralmente o shell da Home atual.
+  - **Verificação:** typecheck e teste Playwright dedicado à rota e às abas.
+
 ## [Unreleased] - 2026-06-23 (Gestao da Igreja independente)
 ### Tipo: Feature / Security / MVP
 - **Resumo:** Avanco do roadmap de Gestao da Igreja para reduzir dependencia de previews e fechar fluxos reais do MVP.

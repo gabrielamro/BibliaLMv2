@@ -1,4 +1,16 @@
 export const formatSupabaseError = (error: any) => {
+  const rawError = [error?.message, error?.details, error?.hint, error?.code, error?.name]
+    .filter(Boolean)
+    .join(' | ');
+  const normalizedError = rawError.toLowerCase();
+
+  if (normalizedError.includes('supabasetimeouterror') || normalizedError.includes('timeouterror')) {
+    return 'A conexão com o Supabase demorou mais que o esperado. Tente novamente.';
+  }
+  if (normalizedError.includes('aborterror') || normalizedError.includes('signal is aborted') || normalizedError.includes('request was aborted')) {
+    return 'A requisição foi interrompida antes de concluir. Tente novamente.';
+  }
+
   const message = error?.message || error?.details || error?.hint || error?.code || 'Erro desconhecido do Supabase';
   return [message, error?.code && `code=${error.code}`, error?.details, error?.hint]
     .filter(Boolean)

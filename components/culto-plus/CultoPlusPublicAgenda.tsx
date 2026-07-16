@@ -82,7 +82,7 @@ const CultoPlusPublicAgenda: React.FC<CultoPlusPublicAgendaProps> = ({
   services,
   visibleDays,
   onOpen,
-  emptyLabel = 'Ainda nao ha cultos publicados para este periodo.',
+  emptyLabel = 'Ainda não h? cultos publicados para este período.',
   layout = 'list',
   pageSize = 6,
 }) => {
@@ -150,7 +150,7 @@ const CultoPlusPublicAgenda: React.FC<CultoPlusPublicAgendaProps> = ({
                   type="button"
                   onClick={() => setActivePage((currentPage) => Math.min(currentPage + 1, lastPage))}
                   disabled={safeActivePage === lastPage}
-                  aria-label="Ver proximos cultos"
+                  aria-label="Ver próximos cultos"
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-white text-emerald-700 transition hover:border-bible-gold hover:text-bible-gold disabled:cursor-not-allowed disabled:opacity-40 dark:border-emerald-900/60 dark:bg-bible-darkPaper dark:text-emerald-300"
                 >
                   <ChevronRight size={15} />
@@ -184,13 +184,13 @@ const CultoPlusPublicAgenda: React.FC<CultoPlusPublicAgendaProps> = ({
         </div>
 
         {carouselPages.length > 1 && (
-          <div className="flex justify-center gap-1.5" aria-label="Paginas de cultos">
+          <div className="flex justify-center gap-1.5" aria-label="Páginas de cultos">
             {carouselPages.map((_, pageIndex) => (
               <button
                 key={pageIndex}
                 type="button"
                 onClick={() => setActivePage(pageIndex)}
-                aria-label={`Ir para pagina ${pageIndex + 1} de cultos`}
+                aria-label={`Ir para página ${pageIndex + 1} de cultos`}
                 aria-current={safeActivePage === pageIndex ? 'page' : undefined}
                 className={`h-1.5 rounded-full transition-all ${safeActivePage === pageIndex ? 'w-6 bg-emerald-700 dark:bg-emerald-300' : 'w-1.5 bg-emerald-200 dark:bg-emerald-900'}`}
               />

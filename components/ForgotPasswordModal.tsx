@@ -39,7 +39,9 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen, onClo
       await resetPassword(email);
       setSuccess(true);
     } catch (err: any) {
-      console.error(err);
+      if (err.code !== 'auth/invalid-email' && !err.message?.includes('Unable to validate email address')) {
+        console.error(err);
+      }
       if (err.code === 'auth/user-not-found') {
         setError('E-mail não encontrado no sistema.');
       } else if (err.code === 'auth/invalid-email') {

@@ -104,7 +104,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
 
     const getFriendlyErrorMessage = (error: any) => {
         const isValidationError = error.message?.includes("Nome de usuário não encontrado");
-        if (!isValidationError) console.error("Auth Error:", error);
+        const isExpectedEmailError = error.code === 'auth/invalid-email' || error.message?.includes("Unable to validate email address");
+        if (!isValidationError && !isExpectedEmailError) console.error("Auth Error:", error);
         if (isValidationError) return "Nome de usuário não encontrado. Verifique a grafia ou tente com seu e-mail.";
 
         const code = error.code;
@@ -235,7 +236,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                             <div className="relative">
                                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                 <input
-                                    type="text"
+                                    type={mode === 'login' ? 'text' : 'email'}
+                                    inputMode={mode === 'login' ? 'text' : 'email'}
                                     placeholder={mode === 'login' ? "@usuário ou e-mail" : "Seu melhor e-mail"}
                                     value={identifier}
                                     onChange={e => setIdentifier(e.target.value)}

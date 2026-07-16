@@ -426,13 +426,10 @@ export interface ServiceLiturgyItem {
   notes?: string;
   verseRef?: string;
   verseText?: string;
-  scriptureReadingRef?: string;
-  scriptureReadingText?: string;
-  leaderScript?: string;
-  prayerGuide?: string;
-  transitionText?: string;
-  sermonPoints?: string[];
   songList?: string;
+  songLyrics?: string;
+  songTexts?: Record<string, string>;
+  songLeaders?: Record<string, string>;
   pixKeyType?: 'cpf' | 'phone' | 'email' | 'random';
   pixKey?: string;
   sortOrder: number;
@@ -1156,6 +1153,19 @@ export interface ChurchManagementNotification {
   readAt?: string | null;
   dismissedAt?: string | null;
   createdAt: string;
+}
+
+export type ChurchManagerAlertKind = 'approval' | 'volunteer' | 'service_configuration' | 'notification';
+
+export interface ChurchManagerAlert {
+  id: string;
+  kind: ChurchManagerAlertKind;
+  title: string;
+  message: string;
+  severity: ChurchNotificationSeverity;
+  link: string;
+  createdAt: string;
+  dueAt?: string | null;
 }
 
 export interface ChurchVolunteerBadge {

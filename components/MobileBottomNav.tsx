@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from '../utils/router';
 
 import React from 'react';
 
-import { Home, BookOpen, Crown, Church, Search } from 'lucide-react';
+import { Home, BookOpen, Crown, Church, Search, UserRound } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const MobileBottomNav: React.FC = () => {
@@ -13,13 +13,52 @@ const MobileBottomNav: React.FC = () => {
   const churchPath = userProfile?.churchData?.churchSlug
     ? `/igreja/${userProfile.churchData.churchSlug}`
     : '/social/igrejas';
+  const isCultoPlusShell = location.pathname === '/newhome' || location.pathname === '/meus-cultos';
+  const homePath = isCultoPlusShell ? '/newhome' : '/';
 
-  const navItems = [
+  const navItems = isCultoPlusShell ? [
     {
       id: 'home',
       label: 'Início',
       icon: Home,
-      path: '/',
+      path: '/newhome',
+      protected: false
+    },
+    {
+      id: 'bible',
+      label: 'Bíblia',
+      icon: BookOpen,
+      path: '/bibliasagrada',
+      protected: false
+    },
+    {
+      id: 'cultos',
+      label: 'Cultos',
+      icon: Church,
+      path: '/culto',
+      protected: false
+    },
+    {
+      id: 'social',
+      label: 'Reino',
+      icon: Crown,
+      path: '/social',
+      hasBadge: true,
+      protected: false
+    },
+    {
+      id: 'profile',
+      label: 'Perfil',
+      icon: UserRound,
+      path: '/perfil',
+      protected: true
+    }
+  ] : [
+    {
+      id: 'home',
+      label: 'Início',
+      icon: Home,
+      path: homePath,
       protected: true
     },
     {
@@ -88,6 +127,8 @@ const MobileBottomNav: React.FC = () => {
                 !location.pathname.startsWith('/social/igrejas') &&
                 !location.pathname.startsWith('/social/church')
               );
+            } else if (item.id === 'cultos') {
+              isActive = location.pathname.startsWith('/culto') || location.pathname.startsWith('/meus-cultos');
             } else if (item.id === 'church') {
               isActive = location.pathname.startsWith('/igreja') ||
                 location.pathname.startsWith('/social/igreja') ||

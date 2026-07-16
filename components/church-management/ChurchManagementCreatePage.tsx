@@ -9,6 +9,7 @@ import { churchManagementService } from "../../services/churchManagementService"
 import { dbService } from "../../services/supabase";
 import type { ChurchManagementSettings, ChurchOperationalRole, ChurchQrFormField, ChurchQrFormType, ChurchRoleScopeType, ChurchServiceTeam } from "../../types";
 import { CHURCH_VOLUNTEER_ROLE_OPTIONS, CHURCH_VOLUNTEER_CATEGORIES } from "../../utils/churchVolunteerCategories";
+import { getSafeManagementReturnPath } from "../../utils/managementNavigation";
 
 type CreateKind = "qrcode" | "designacao" | "equipe" | "permissao";
 
@@ -77,6 +78,7 @@ export default function ChurchManagementCreatePage({ kind }: { kind: CreateKind 
   const { currentUser, userProfile } = useAuth();
   const searchParams = useSearchParams();
   const config = configs[kind];
+  const backHref = getSafeManagementReturnPath(searchParams.get("returnTo"), config.back);
   const Icon = config.icon;
   const currentUserId = currentUser?.id ?? currentUser?.uid ?? userProfile?.uid ?? null;
   const [activeChurchId, setActiveChurchId] = useState<string | null>(null);
@@ -267,7 +269,7 @@ export default function ChurchManagementCreatePage({ kind }: { kind: CreateKind 
     <main className="min-h-screen bg-[#f4f6f8] text-slate-950 dark:bg-[#05070b] dark:text-white">
       <section className="border-b border-slate-200 bg-[#0f172a] text-white dark:border-white/10">
         <div className="mx-auto max-w-4xl px-5 py-8 md:px-8">
-          <Link href={config.back} className="mb-8 inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/15 px-3 text-sm font-semibold text-white transition hover:bg-white/10">
+          <Link href={backHref} className="mb-8 inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/15 px-3 text-sm font-semibold text-white transition hover:bg-white/10">
             <ArrowLeft size={16} />
             Voltar
           </Link>
@@ -363,7 +365,7 @@ export default function ChurchManagementCreatePage({ kind }: { kind: CreateKind 
               <Save size={16} />
               {saving ? "Salvando" : "Salvar"}
             </button>
-            <Link href={config.back} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 px-5 text-sm font-black uppercase tracking-wider text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10">Cancelar</Link>
+            <Link href={backHref} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 px-5 text-sm font-black uppercase tracking-wider text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10">Cancelar</Link>
           </div>
 
           {feedback ? <p className={`mt-4 rounded-lg border p-3 text-sm font-semibold ${feedback.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : feedback.type === "error" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-slate-200 bg-slate-50 text-slate-700"}`}>{feedback.message}</p> : null}

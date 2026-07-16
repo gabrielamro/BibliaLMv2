@@ -1,5 +1,5 @@
-import MemberChurchSectionPage from "../../../components/church-management/MemberChurchSectionPage";
+import { redirect } from "next/navigation";
 
 export default function MemberChurchJourneyPage() {
-  return <MemberChurchSectionPage section="acompanhamento" />;
+  redirect("/minha-igreja#acompanhamento");
 }

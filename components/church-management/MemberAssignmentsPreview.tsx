@@ -17,6 +17,7 @@ import {
   type ChurchAssignmentStatus,
 } from "../../services/churchManagementPreviewService";
 import { churchManagementService } from "../../services/churchManagementService";
+import { dbService } from "../../services/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import type { ChurchAssignment } from "../../types";
 
@@ -33,20 +34,23 @@ const cardMotion = {
 };
 
 export default function MemberAssignmentsPreview() {
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, updateProfile } = useAuth();
   const [statuses, setStatuses] = useState<Record<string, ChurchAssignmentStatus>>({});
   const [feedback, setFeedback] = useState("Convites pendentes aparecem aqui com resposta visivel para voce e para a lideranca.");
   const [realAssignments, setRealAssignments] = useState<ChurchAssignment[]>([]);
+  const [membershipByChurch, setMembershipByChurch] = useState<Record<string, boolean>>({});
+  const [churchesById, setChurchesById] = useState<Record<string, any>>({});
+  const [joiningChurchId, setJoiningChurchId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const reduceMotion = useReducedMotion();
   const activeChurchId = userProfile?.churchData?.churchId;
   const currentUserId = currentUser?.uid ?? currentUser?.id;
 
   useEffect(() => {
-    if (!activeChurchId || !currentUserId) return;
+    if (!currentUserId) return;
     let isMounted = true;
     setIsLoading(true);
-    churchManagementService.listAssignments(activeChurchId, { assigneeUserId: currentUserId, limit: 25 })
+    churchManagementService.listAssignmentsForUser(currentUserId, 25)
       .then((items) => {
         if (isMounted) setRealAssignments(items);
       })
@@ -60,6 +64,28 @@ export default function MemberAssignmentsPreview() {
       isMounted = false;
     };
   }, [activeChurchId, currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId || realAssignments.length === 0) return;
+    let isMounted = true;
+    const churchIds = [...new Set(realAssignments.map((assignment) => assignment.churchId))];
+    Promise.all(churchIds.map(async (churchId) => {
+      const [isMember, church] = await Promise.all([
+        churchManagementService.isChurchMember(churchId, currentUserId),
+        dbService.getChurchById(churchId).catch(() => null),
+      ]);
+      return { churchId, isMember, church };
+    }))
+      .then((results) => {
+        if (!isMounted) return;
+        setMembershipByChurch(Object.fromEntries(results.map((result) => [result.churchId, result.isMember])));
+        setChurchesById(Object.fromEntries(results.filter((result) => result.church).map((result) => [result.churchId, result.church])));
+      })
+      .catch(() => undefined);
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUserId, realAssignments]);
 
   const assignments = useMemo(() => {
     if (realAssignments.length === 0) return memberAssignmentsPreview;
@@ -79,6 +105,11 @@ export default function MemberAssignmentsPreview() {
   const setAssignmentStatus = async (id: string, nextStatus: ChurchAssignmentStatus) => {
     const hasRealAssignment = realAssignments.some((assignment) => assignment.id === id);
     if (hasRealAssignment && currentUserId) {
+      const assignment = realAssignments.find((item) => item.id === id);
+      if (nextStatus === "Ativa" && assignment && membershipByChurch[assignment.churchId] === false) {
+        setFeedback("Para aceitar este convite, primeiro torne-se membro da igreja indicada.");
+        return;
+      }
       try {
         const updated = await churchManagementService.respondToAssignment(id, currentUserId, nextStatus === "Ativa" ? "accepted" : "declined");
         setRealAssignments((items) => items.map((item) => item.id === updated.id ? updated : item));
@@ -93,6 +124,30 @@ export default function MemberAssignmentsPreview() {
         ? "Designacao aceita. A lideranca sera notificada e a conquista de disponibilidade sera registrada quando o banco estiver com insignias/Mana aplicado."
         : "Designacao recusada. A lideranca sera notificada sem expor justificativas publicamente."
     );
+  };
+
+  const joinChurchForAssignment = async (churchId: string) => {
+    if (!currentUserId) return;
+    setJoiningChurchId(churchId);
+    try {
+      const church = churchesById[churchId] ?? await dbService.getChurchById(churchId);
+      if (!church) throw new Error("Igreja não encontrada.");
+      await dbService.joinChurch(currentUserId, church);
+      await updateProfile({
+        churchData: {
+          churchId: church.id,
+          churchName: church.name,
+          churchSlug: church.slug,
+          isAnonymous: false,
+        },
+      });
+      setMembershipByChurch((current) => ({ ...current, [churchId]: true }));
+      setFeedback(`Agora você é membro de ${church.name}. Já pode aceitar o convite.`);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "Não foi possível solicitar o vínculo com a igreja.");
+    } finally {
+      setJoiningChurchId(null);
+    }
   };
 
   const motionProps = reduceMotion
@@ -151,6 +206,8 @@ export default function MemberAssignmentsPreview() {
             const Icon = assignment.icon;
             const status = statuses[assignment.id] ?? assignment.status;
             const canRespond = status === "Aguardando aceite";
+            const realAssignment = realAssignments.find((item) => item.id === assignment.id);
+            const needsMembership = canRespond && realAssignment ? membershipByChurch[realAssignment.churchId] === false : false;
             return (
               <motion.article key={assignment.id} variants={cardMotion} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -185,7 +242,15 @@ export default function MemberAssignmentsPreview() {
                   </div>
                 </div>
 
-                {canRespond ? (
+                {canRespond && needsMembership ? (
+                  <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-400/20 dark:bg-amber-400/10">
+                    <p className="text-sm font-black text-amber-950 dark:text-amber-100">Você ainda não é membro desta igreja.</p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-amber-900 dark:text-amber-200">Para aceitar este convite, torne-se membro de {churchesById[realAssignment?.churchId ?? ""]?.name || "esta igreja"}.</p>
+                    <button type="button" onClick={() => realAssignment && void joinChurchForAssignment(realAssignment.churchId)} disabled={joiningChurchId === realAssignment?.churchId} className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-amber-700 px-3 text-xs font-black text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60">
+                      {joiningChurchId === realAssignment?.churchId ? "Vinculando..." : "Tornar-se membro e continuar"}
+                    </button>
+                  </div>
+                ) : canRespond ? (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <button type="button" onClick={() => setAssignmentStatus(assignment.id, "Ativa")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black uppercase tracking-wider text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100">
                       <Check size={16} />

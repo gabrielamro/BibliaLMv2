@@ -4,14 +4,20 @@ import { useEffect } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import PastoralWorkspacePage from '../../views/PastoralWorkspacePage';
 import { useAuth } from '../../contexts/AuthContext';
+import { useWorkspace } from '../../contexts/WorkspaceContext';
 
 function PastoralWorkspaceGate() {
   const { checkFeatureAccess, openSubscription } = useAuth();
-  const allowed = checkFeatureAccess('churchAdminPanel');
+  const { isPastor, pastoralAccessLoading } = useWorkspace();
+  const allowed = checkFeatureAccess('churchAdminPanel') || isPastor;
 
   useEffect(() => {
-    if (!allowed) openSubscription('O Workspace Pastoral organiza salas, igreja, equipe e acompanhamento em um painel de lideranca.');
-  }, [allowed, openSubscription]);
+    if (!pastoralAccessLoading && !allowed) openSubscription('O Workspace Pastoral organiza salas, igreja, equipe e acompanhamento em um painel de lideranca.');
+  }, [allowed, openSubscription, pastoralAccessLoading]);
+
+  if (pastoralAccessLoading) {
+    return <div className="flex h-full items-center justify-center bg-gray-50 p-8 text-sm font-semibold text-gray-500 dark:bg-black">Validando seu papel na igreja...</div>;
+  }
 
   if (!allowed) {
     return (

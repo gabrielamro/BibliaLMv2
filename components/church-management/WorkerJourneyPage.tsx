@@ -46,7 +46,7 @@ const steps = [
 const panels = [
   ["Minhas designacoes", "Convites, aceite, recusa e atividades em aberto.", "/minha-igreja/designacoes", ClipboardCheck],
   ["Minhas equipes", "Onde sirvo, com quem caminho e qual escopo recebi.", "/minha-igreja/equipes", HeartHandshake],
-  ["Meu acompanhamento", "Pedidos enviados, voluntariado, grupos e retorno publico.", "/minha-igreja/acompanhamento", ShieldCheck],
+  ["Meu acompanhamento", "Pedidos enviados, voluntariado, grupos e retorno público.", "/minha-igreja#acompanhamento", ShieldCheck],
   ["Minhas conquistas", "Insignias e Mana de servico registrados por eventos reais.", "/minha-igreja/insignias", Award],
 ];
 

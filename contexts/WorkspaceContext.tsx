@@ -5,6 +5,7 @@ import { useAuth } from './AuthContext';
 import { dbService, supabase } from '../services/supabase';
 import { CustomPlan, PlanTeam, CustomQuiz } from '../types';
 import { canAccessPastoralWorkspace } from '../utils/profileAccess';
+import { churchManagementService } from '../services/churchManagementService';
 
 interface WorkspaceContextProps {
   plans: CustomPlan[];
@@ -14,6 +15,7 @@ interface WorkspaceContextProps {
   prayers: any[];
   loading: boolean;
   isPastor: boolean;
+  pastoralAccessLoading: boolean;
 
   refreshWorkspace: () => Promise<void>;
   createTeam: (name: string, color: string) => Promise<void>;
@@ -32,8 +34,48 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [tracks, setTracks] = useState<any[]>([]);
   const [prayers, setPrayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasPastoralChurchRole, setHasPastoralChurchRole] = useState(false);
+  const [pastoralAccessLoading, setPastoralAccessLoading] = useState(true);
 
-  const isPastor = canAccessPastoralWorkspace(userProfile);
+  const profileAllowsPastoralWorkspace = canAccessPastoralWorkspace(userProfile);
+  const isPastor = profileAllowsPastoralWorkspace || hasPastoralChurchRole;
+  const currentUserId = currentUser?.id ?? currentUser?.uid;
+  const churchId = userProfile?.churchData?.churchId;
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (profileAllowsPastoralWorkspace) {
+      setHasPastoralChurchRole(false);
+      setPastoralAccessLoading(false);
+      return () => { mounted = false; };
+    }
+
+    if (!currentUserId || !churchId) {
+      setHasPastoralChurchRole(false);
+      setPastoralAccessLoading(false);
+      return () => { mounted = false; };
+    }
+
+    setPastoralAccessLoading(true);
+    churchManagementService.listRoles(churchId, { limit: 200 })
+      .then((roles) => {
+        if (!mounted) return;
+        setHasPastoralChurchRole(roles.some((role) =>
+          role.userId === currentUserId
+          && role.status === 'active'
+          && (role.role === 'pastor' || role.role === 'church_manager')
+        ));
+      })
+      .catch(() => {
+        if (mounted) setHasPastoralChurchRole(false);
+      })
+      .finally(() => {
+        if (mounted) setPastoralAccessLoading(false);
+      });
+
+    return () => { mounted = false; };
+  }, [churchId, currentUserId, profileAllowsPastoralWorkspace]);
 
   const fetchData = async () => {
     if (!currentUser) return;
@@ -142,7 +184,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   return (
     <WorkspaceContext.Provider value={{
-      plans, teams, quizzes, tracks, prayers, loading, isPastor,
+      plans, teams, quizzes, tracks, prayers, loading, isPastor, pastoralAccessLoading,
       refreshWorkspace: fetchData,
       createTeam, deleteTeam, saveQuiz, deleteQuiz
     }}>

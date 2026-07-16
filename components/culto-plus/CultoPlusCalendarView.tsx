@@ -42,9 +42,9 @@ const serviceTypeLabel: Record<ChurchService['serviceType'], string> = {
   sunday: 'Domingo',
   youth: 'Jovens',
   women: 'Mulheres',
-  cell: 'Celula',
-  conference: 'Conferencia',
-  vigil: 'Vigilia',
+  cell: 'Célula',
+  conference: 'Conferência',
+  vigil: 'Vigília',
   communion: 'Santa Ceia',
   other: 'Outro',
 };

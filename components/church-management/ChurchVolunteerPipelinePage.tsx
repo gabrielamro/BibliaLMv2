@@ -27,7 +27,7 @@ const stages: Array<{ key: ChurchSubmissionStatus | "open"; label: string; text:
   { key: "assigned", label: "Atribuido", text: "Ja existe responsavel para conversar com a pessoa." },
   { key: "in_progress", label: "Em acompanhamento", text: "Lideranca esta avaliando equipe, disponibilidade e proximo passo." },
   { key: "waiting_member", label: "Aguardando membro", text: "A igreja ja retornou e aguarda resposta." },
-  { key: "closed", label: "Encerrado", text: "Fluxo concluido, arquivado ou resolvido." },
+  { key: "closed", label: "Concluído", text: "Candidatura aprovada, encerrada ou arquivada." },
 ];
 
 export default function ChurchVolunteerPipelinePage() {
@@ -79,8 +79,8 @@ export default function ChurchVolunteerPipelinePage() {
   ), [categorizedItems, selectedCategory]);
 
   const metrics = useMemo(() => {
-    const open = items.filter((item) => item.status !== "closed" && item.status !== "archived").length;
-    const noOwner = items.filter((item) => !item.assignedTo && item.status !== "closed" && item.status !== "archived").length;
+    const open = items.filter((item) => !["answered", "closed", "archived"].includes(item.status)).length;
+    const noOwner = items.filter((item) => !item.assignedTo && !["answered", "closed", "archived"].includes(item.status)).length;
     const urgent = items.filter((item) => item.priority === "high" || item.priority === "urgent").length;
     return [
       ["Interesses", String(items.length)],
@@ -185,7 +185,7 @@ export default function ChurchVolunteerPipelinePage() {
           </section>
 
           {stages.map((stage) => {
-            const stageItems = filteredItems.filter(({ item }) => stage.key === "closed" ? ["closed", "archived"].includes(item.status) : item.status === stage.key);
+            const stageItems = filteredItems.filter(({ item }) => stage.key === "closed" ? ["answered", "closed", "archived"].includes(item.status) : item.status === stage.key);
             return (
               <section key={stage.key} className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -277,7 +277,7 @@ export default function ChurchVolunteerPipelinePage() {
             <div className="mt-4 space-y-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
               {[
                 "Interesse em servir nao concede permissao automaticamente.",
-                "Aprovar voluntario deve virar designacao, equipe ou role em etapas separadas.",
+                "A aprovação no Inbox vincula o membro à equipe escolhida e registra sua função.",
                 "O membro ve retorno publico em Minha Igreja, nao notas internas.",
               ].map((item) => (
                 <p key={item} className="flex gap-3">

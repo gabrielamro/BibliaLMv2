@@ -43,7 +43,7 @@ const parseJsonWithRepair = async (raw: string, repairContext: string) => {
         return JSON.parse(cleaned);
     } catch (initialError: any) {
         const repaired = await callAi(
-            `Corrija APENAS a sintaxe JSON abaixo. Nao reescreva o conteudo, nao resuma e nao adicione markdown. Retorne somente JSON valido.\n\nCONTEXTO: ${repairContext}\n\nJSON COM ERRO:\n${cleaned}`,
+            `Corrija APENAS a sintaxe JSON abaixo. Não reescreva o conteúdo, não resuma e não adicione markdown. Retorne somente JSON válido.\n\nCONTEXTO: ${repairContext}\n\nJSON COM ERRO:\n${cleaned}`,
             'Voce e um reparador de JSON. Preserve todos os campos e textos, corrigindo apenas aspas, virgulas, barras invertidas e quebras de linha invalidas.',
             'json'
         );
@@ -94,7 +94,7 @@ export const callAi = async (prompt: string, systemInstruction?: string, respons
                     "Authorization": `Bearer ${orKey}`,
                     "Content-Type": "application/json",
                     "HTTP-Referer": "https://biblialm.com",
-                    "X-Title": "BibliaLM"
+                    "X-Title": "BíbliaLM"
                 },
                 body: JSON.stringify({
                     model: OPENROUTER_MODEL,
@@ -192,8 +192,8 @@ export const generateDailyDevotional = async (
         3. Se houver interpretação, sinalize com humildade.
         4. Cite explicitamente a fonte (capítulo e versículo).
         ${forbiddenReferences}
-        
-        Inclua: Título, Referência Bíblica (Ex: Salmos 23:1), Texto do Versículo, Conteúdo (Reflexão profunda de 3 parágrafos) e uma Oração final. 
+
+        Inclua: Título, Reférência Bíblica (Ex: Salmos 23:1), Texto do Versículo, Conteúdo (Reflexão profunda de 3 parágrafos) e uma Oração final.
         Retorne em JSON: { title, verseReference, verseText, content, prayer }.`;
         const text = await callAi(prompt, undefined, "json");
         const data = JSON.parse(text || "{}");
@@ -240,30 +240,40 @@ export const generateSermonOutline = async (contextText: string, theme: string, 
 export const generateChurchServicePlanning = async (
     verseReference: string,
     verseText: string,
-    userPrompt: string
+    userPrompt: string,
+    serviceStartTime = '19:00',
+    serviceEndTime = '21:00'
 ) => {
     try {
-        const prompt = `Crie uma sugestao de planejamento para um culto cristao usando o versiculo base e o pedido pastoral.
+        const prompt = `Crie uma sugestão de planejamento para um culto cristão usando o versículo base e o pedido pastoral.
 
-        Versiculo base: ${verseReference}
-        Texto do versiculo: ${verseText}
+        Versículo base: ${verseReference}
+        Texto do versículo: ${verseText}
+        Inicio do culto: ${serviceStartTime}
+        Fim previsto do culto: ${serviceEndTime}
         Pedido do pastor/gestor: ${userPrompt || 'Monte um culto equilibrado para a igreja local.'}
 
         REGRAS:
-        - Use tom pastoral, prudente e biblico.
-        - Nao invente doutrinas ou promessas absolutas.
-        - Diferencie o que vem do texto biblico da aplicacao pastoral sem usar linguagem tecnica para membros.
-        - Gere uma timeline objetiva, pronta para revisao humana.
+        - Use tom pastoral, prudente e bíblico.
+        - Não invente doutrinas ou promessas absolutas.
+        - Diferencie o que vem do texto bíblico da aplicação pastoral sem usar linguagem técnica para membros.
+        - Gere uma timeline objetiva, pronta para revisão humana.
         - IMPORTANTE: todo campo "notes" deve ser texto final para aparecer diretamente na OnePage aos membros.
-        - Nao escreva instrucoes internas como "o pastor deve", "sugira", "orientar", "conduzir", "falar sobre" ou "momento para".
-        - Escreva como mensagem pronta do culto, em tom acolhedor, curto e publicavel.
-        - Horarios devem estar no formato HH:mm.
-        - Use categorias liturgicas validas: entrance, opening, worship, word, offering, prayer, response, closing, other.
-        - Para worship, preencha "songs" com titulos de musicas sugeridas.
-        - Para word, preencha "verseRef", "verseText", "scriptureReadingRef", "scriptureReadingText", "sermonPoints", "leaderScript" e "notes" com resumo final da Palavra para os membros.
-        - Para offering, preencha "notes" com a mensagem final de dizimos/ofertas e deixe pixKeyType/pixKey vazios se nao houver chave informada.
-        - Para prayer, use "prayerGuide" e "notes" como chamada final para oracao congregacional.
-        - Para opening/response/closing, use "leaderScript" e "transitionText" como falas prontas, curtas e publicaveis.
+        - Não escreva instrucoes internas como "o pastor deve", "sugira", "orientar", "conduzir", "falar sobre" ou "momento para".
+        - Escreva como mensagem pronta do culto, em tom acolhedor, curto e públicavel.
+        - Horários devem estar no formato HH:mm.
+        - A timeline deve começar em ${serviceStartTime} e todos os momentos devem ficar dentro da janela ate ${serviceEndTime}.
+        - Não use horários antes do início nem depois do fim previsto do culto.
+        - Use categorias litúrgicas validas: entrance, opening, worship, word, offering, prayer, response, closing, other.
+        - Para worship, preencha "songs" com exatamente 3 titulos de louvores congregacionais sugeridos, alinhados ao tema e ao versículo.
+        - Para worship, preencha "songTexts" como objeto onde cada titulo em "songs" tenha seu proprio texto separado.
+        - Em "songTexts", escreva a letra COMPLETA de cada música (tanto músicas conhecidas/comerciais quanto autorais) para que os membros possam cantar no culto. Nunca use placeholders, resumos ou a mensagem "Cole aqui a letra licenciada/autorizada pela igreja.".
+        - Para word, preencha "verseRef", "verseText" e "notes" com um roteiro pronto de condução da leitura bíblica e introdução da Palavra.
+        - O "notes" do word deve ter 2 a 4 frases: convite para a igreja acompanhar a leitura, uma frase ligando o texto ao tema, e uma transição curta para a pregação/reflexão.
+        - No "notes" do word, não copie simplesmente o versículo; use o texto bíblico como base para orientar a leitura e preparar a escuta.
+        - Para offering, preencha "notes" com a mensagem final de dízimos/ofertas e deixe pixKeyType/pixKey vazios se não houver chave informada.
+        - Para prayer, use "notes" como uma chamada final para oração congregacional.
+        - Para closing, use "notes" como mensagem final de encerramento.
 
         Retorne somente JSON neste formato:
         {
@@ -272,19 +282,36 @@ export const generateChurchServicePlanning = async (
           "serviceType": "sunday",
           "pastoralFocus": "Resumo pastoral em uma frase",
           "liturgyItems": [
-            { "kind": "entrance", "title": "Liturgia de Entrada", "startsAt": "18:45", "responsible": "", "leaderScript": "...", "transitionText": "...", "notes": "..." },
-            { "kind": "opening", "title": "Abertura", "startsAt": "19:00", "responsible": "", "leaderScript": "...", "prayerGuide": "...", "notes": "..." },
-            { "kind": "worship", "title": "Adoracao e Louvor", "startsAt": "19:15", "responsible": "", "songs": ["..."], "leaderScript": "...", "transitionText": "...", "notes": "..." },
-            { "kind": "word", "title": "Liturgia da Palavra", "startsAt": "19:50", "responsible": "", "verseRef": "${verseReference}", "verseText": "${verseText}", "scriptureReadingRef": "${verseReference}", "scriptureReadingText": "${verseText}", "sermonPoints": ["...", "...", "..."], "leaderScript": "...", "notes": "..." },
-            { "kind": "offering", "title": "Dizimos e Ofertas", "startsAt": "20:35", "responsible": "", "notes": "...", "pixKeyType": "", "pixKey": "" },
-            { "kind": "prayer", "title": "Momento de Oracao", "startsAt": "20:45", "responsible": "", "prayerGuide": "...", "notes": "..." },
-            { "kind": "closing", "title": "Encerramento", "startsAt": "20:55", "responsible": "", "leaderScript": "...", "transitionText": "...", "notes": "..." }
+            { "kind": "entrance", "title": "Liturgia de Entrada", "startsAt": "18:45", "responsible": "", "notes": "..." },
+            { "kind": "opening", "title": "Abertura", "startsAt": "19:00", "responsible": "", "notes": "..." },
+            { "kind": "worship", "title": "Adoração e Louvor", "startsAt": "19:15", "responsible": "", "songs": ["Louvor sugerido 1", "Louvor sugerido 2", "Louvor sugerido 3"], "songTexts": { "Louvor sugerido 1": "Texto separado do louvor 1.", "Louvor sugerido 2": "Texto separado do louvor 2.", "Louvor sugerido 3": "Texto separado do louvor 3." }, "notes": "..." },
+            { "kind": "word", "title": "Liturgia da Palavra", "startsAt": "19:50", "responsible": "", "verseRef": "${verseReference}", "verseText": "${verseText}", "notes": "Vamos acompanhar a leitura de ${verseReference}. Ao ouvir este texto, perceba como a Palavra nos conduz ao tema do culto. Depois da leitura, meditaremos juntos sobre o que Deus nos chama a crer e praticar." },
+            { "kind": "offering", "title": "Dízimos e Ofertas", "startsAt": "20:35", "responsible": "", "notes": "...", "pixKeyType": "", "pixKey": "" },
+            { "kind": "prayer", "title": "Momento de Oração", "startsAt": "20:45", "responsible": "", "notes": "..." },
+            { "kind": "closing", "title": "Encerramento", "startsAt": "20:55", "responsible": "", "notes": "..." }
           ]
         }`;
-        const text = await callAi(prompt, "Atue como um pastor auxiliar que ajuda a planejar cultos com prudencia biblica.", "json");
+        const text = await callAi(prompt, "Atue como um pastor auxiliar que ajuda a planejar cultos com prudencia bíblica.", "json");
         return JSON.parse(text || "{}");
     } catch (e) {
         return null;
+    }
+};
+
+export const generateSongLyricsText = async (songTitle: string, context = ''): Promise<string> => {
+    try {
+        const prompt = `Retorne a letra COMPLETA da música "${songTitle}".
+
+        Contexto do culto: ${context || 'culto cristão congregacional'}
+
+        Regras importantes:
+        - Forneça a letra INTEGRAL e COMPLETA da música para que a congregação possa cantar.
+        - Não use resumos ou placeholders.
+        - Não use a mensagem "Cole aqui a letra licenciada/autorizada pela igreja." sob nenhuma hipótese.
+        - Retorne apenas a letra completa da música, formatada com quebras de linha corretas, sem explicações, tags ou comentários extras.`;
+        return await callAi(prompt, "Atue como um assistente de louvor que fornece a letra completa das músicas solicitadas.", "text");
+    } catch {
+        return "";
     }
 };
 
@@ -318,18 +345,18 @@ export const generateStructuredStudy = async (theme: string, reference: string, 
     const prompt = `
     Atue como um Pastor Audidtor sábio e humilde. Crie um estudo bíblico direto, acolhedor e profundamente fundamentado.
     Tema central: "${theme}". Público-alvo: "${audience}".
-    Referência base: "${reference}". (Se vaga, escolha uma referência canônica perfeita).
+    Reférência base: "${reference}". (Se vaga, escolha uma referência canônica perfeita).
     Modo: "${mode === 'quick' ? 'Devocional Rápido' : 'Estudo Pastoral Direto'}".
 
     REGRAS PASTORAIS (Obrigatoriedade):
     1. FUNDAMENTAÇÃO: Todo ensino deve ser ancorado em Escrituras reais. Cite Capítulo e Versículo.
     2. TRANSPARÊNCIA: Diferencie fatos bíblicos/históricos (exegese) de incentivos ou interpretações pastorais.
-    3. TOM: Seja um "Obreiro" servidor. Use um tom natural, humano e empático.
+    3. TOM: Sej? um "Obreiro" servidor. Use um tom natural, humano e empático.
     4. QUALIDADE: Não use placeholders. Se citar um fato histórico, certifique-se de que é verificável.
 
     ESTRUTURA HTML (Retorne APENAS HTML):
     <h1 class="bible-title">[Título Motivador]</h1>
-    <p class="bible-subtitle">[Referência Bíblica Fundamental]</p>
+    <p class="bible-subtitle">[Reférência Bíblica Fundamental]</p>
     
     <div class="bible-hero-box" style="background: linear-gradient(to bottom right, #fdfaf5, #fff); border-radius: 20px; padding: 30px; margin-bottom: 30px; border-left: 5px solid #c5a059; color: #333;">
         <h2 class="bible-hero-title" style="color: #c5a059; margin-top: 0;">1. Coração do Ensino</h2>
@@ -504,7 +531,7 @@ export const generateSpecificPrayer = async (topic: string, feeling: string): Pr
     try {
         const prompt = `Escreva o conteúdo de uma oração profunda e pastoral baseada no tópico: "${topic}" e no sentimento: "${feeling}". 
         REGRAS:
-        1. Seja profundo, empático e bíblico.
+        1. Sej? profundo, empático e bíblico.
         2. Retorne APENAS um JSON válido.
         3. Formato JSON: { "title": "...", "content": "..." }`;
 
@@ -545,7 +572,7 @@ export const generatePodcastScript = async (sourceText: string, title: string) =
         CONTEXTO: Utilize o texto base: "${sourceText}".
         
         PERSONAGENS:
-        - Maria: Tom acolhedor, sensível, sábio e pastoral. Ela abre e fecha o programa e traz a aplicação emocional/espiritual.
+        - Maria: Tom acolhedor, sensível, sábio e pastoral. Ela abre e fécha o programa e traz a aplicação emocional/espiritual.
         - Lucas: Tom claro, didático, estruturado e respeitoso. Ele foca no contexto histórico e na explicação dos versículos.
         
         ESTRUTURA:
@@ -663,7 +690,7 @@ O campo "blocks" deve ser um ARRAY com EXATAMENTE estes 9 blocos NESTA ORDEM e C
 blocks[0]:  type="hero-split",          layoutWidth="1/1"
 blocks[1]:  type="biblical",             layoutWidth="1/2"
 blocks[2]:  type="study-outline",        layoutWidth="1/3"
-blocks[3]:  type="rich-text",            layoutWidth="1/1" (conteudo com multiplos <h2>)
+blocks[3]:  type="rich-text",            layoutWidth="1/1" (conteúdo com multiplos <h2>)
 blocks[4]:  type="slide",                layoutWidth="1/1"
 blocks[5]:  type="related-verses",       layoutWidth="1/1" (Será ajustado dinamicamente)
 blocks[6]:  type="authority",            layoutWidth="1/1"
@@ -705,7 +732,7 @@ JSON EXATO (preencha "..." com conteúdo real):
 
     try {
         const raw = await callAi(prompt, systemInstruction, "json");
-        return await parseJsonWithRepair(raw, 'one-page pastoral BibliaLM');
+        return await parseJsonWithRepair(raw, 'one-page pastoral BíbliaLM');
     } catch (e: any) {
         throw new Error(`Falha ao gerar one-page: ${e.message}`);
     }

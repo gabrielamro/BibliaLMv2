@@ -51,9 +51,15 @@ export const generateChurchServicePlanning = async (
     verseReference: string,
     verseText: string,
     userPrompt: string,
+    serviceStartTime?: string,
+    serviceEndTime?: string,
     provider: AIProvider = 'gemini'
 ) => {
-    return await gemini.generateChurchServicePlanning(verseReference, verseText, userPrompt);
+    return await gemini.generateChurchServicePlanning(verseReference, verseText, userPrompt, serviceStartTime, serviceEndTime);
+};
+
+export const generateSongLyricsText = async (songTitle: string, context?: string, provider: AIProvider = 'gemini') => {
+    return await gemini.generateSongLyricsText(songTitle, context);
 };
 
 export const generateSermonIllustration = async (theme: string, context: string, provider: AIProvider = 'gemini') => {

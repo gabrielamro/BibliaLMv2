@@ -5,7 +5,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 
 import {
   loginWithGoogle, loginWithApple, loginWithEmail, registerWithEmail,
-  logout, dbService, monitorAuthState, resetPasswordEmail, supabase
+  logout, dbService, monitorAuthState, normalizeAuthEmail, resetPasswordEmail, supabase
 } from '../services/supabase';
 import { UserProfile, Badge, ActionType, ReadingPosition, UserActivity, UserStats, SystemSettings, SubscriptionTier, UserUsage, PlanFeatures, AppNotification } from '../types';
 import { BADGES, SUBSCRIPTION_PLANS } from '../constants';
@@ -351,9 +351,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signUpWithEmail = async (e: string, p: string, n: string, u: string, city: string, state: string, tier: SubscriptionTier = 'free', churchData?: any) => {
-    const cred = await registerWithEmail(e, p, n);
+    const normalizedEmail = normalizeAuthEmail(e);
+    const cred = await registerWithEmail(normalizedEmail, p, n);
     const profileData: any = {
-      email: e,
+      email: normalizedEmail,
       displayName: n,
       username: u.toLowerCase().replace(/[^a-z0-9_]/g, ''),
       city,

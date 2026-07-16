@@ -1,6 +1,36 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { churchManagementService } from '../services/churchManagementService.ts';
+import { formatSupabaseError } from '../utils/supabaseErrors.ts';
+
+test('formatSupabaseError converts aborted requests into an actionable message', () => {
+  assert.equal(
+    formatSupabaseError({ message: 'AbortError: signal is aborted without reason', details: 'Request was aborted' }),
+    'A requisição foi interrompida antes de concluir. Tente novamente.',
+  );
+});
+
+test('formatSupabaseError converts request timeouts into an actionable message', () => {
+  assert.equal(
+    formatSupabaseError({ message: 'SupabaseTimeoutError: request exceeded deadline' }),
+    'A conexão com o Supabase demorou mais que o esperado. Tente novamente.',
+  );
+});
+
+test('churchManagementService.submitQrForm rejects anonymous volunteer applications', async () => {
+  await assert.rejects(
+    churchManagementService.submitQrForm({
+      form: {
+        id: 'volunteer-form-id',
+        churchId: 'church-id',
+        formType: 'volunteer',
+      } as any,
+      submitterUserId: null,
+      payload: {},
+    }),
+    /Entre na sua conta para se candidatar como voluntário/,
+  );
+});
 
 test('churchManagementService.getSettings falls back to default settings when schema is missing', async () => {
   const settings = await churchManagementService.getSettings('some-church-id');
@@ -34,6 +64,16 @@ test('churchManagementService.listAssignments returns empty list when schema is 
   assert.deepEqual(assignments, []);
 });
 
+test('churchManagementService.listUserCultoAssignments returns only a safe empty state when schema is missing', async () => {
+  const assignments = await churchManagementService.listUserCultoAssignments('some-church-id', 'some-user-id');
+  assert.deepEqual(assignments, []);
+});
+
+test('churchManagementService.listUserTeams returns only a safe empty state when schema is missing', async () => {
+  const teams = await churchManagementService.listUserTeams('some-church-id', 'some-user-id');
+  assert.deepEqual(teams, []);
+});
+
 test('churchManagementService.listQrForms returns empty list when schema is missing', async () => {
   const forms = await churchManagementService.listQrForms('some-church-id');
   assert.deepEqual(forms, []);
@@ -41,6 +81,11 @@ test('churchManagementService.listQrForms returns empty list when schema is miss
 
 test('churchManagementService.listSubmissions returns empty list when schema is missing', async () => {
   const submissions = await churchManagementService.listSubmissions('some-church-id');
+  assert.deepEqual(submissions, []);
+});
+
+test('churchManagementService.listMemberSubmissions returns a safe empty state when schema is missing', async () => {
+  const submissions = await churchManagementService.listMemberSubmissions('some-user-id');
   assert.deepEqual(submissions, []);
 });
 

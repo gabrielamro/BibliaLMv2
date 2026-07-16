@@ -9,7 +9,7 @@ import { cultoPlusService } from '../../services/cultoPlusService';
 import { dbService, supabase } from '../../services/supabase';
 import { FeedPostCard } from '../social/FeedPostCard';
 import CultoPlusTopActions from './CultoPlusTopActions';
-import { ChurchService, Post, ServiceAdvancedAnalytics, ServiceAiContent, ServiceAiContentKind, ServiceLiveState, ServiceNote, ServicePrayerRequest, ServiceReactionSummary, ServiceReactionType, ServiceScheduleAssignment, ServiceScheduleStatus } from '../../types';
+import { ChurchService, Post, ServiceAdvancedAnalytics, ServiceAiContent, ServiceAiContentKind, ServiceLiturgyKind, ServiceLiveState, ServiceNote, ServicePrayerRequest, ServiceReactionSummary, ServiceReactionType, ServiceScheduleAssignment, ServiceScheduleStatus } from '../../types';
 import { buildServiceCalendarEvent, getLiveStatusLabel, getOfferingItem, getServiceCounterParts } from '../../utils/cultoPlusOnePage';
 import { getCurrentLiturgyMoment, getExperienceMoments, getNextLiturgyMoment, resolveServiceStreamStatus, resolveWorshipExperienceMode } from '../../utils/cultoPlusExperience';
 
@@ -101,10 +101,10 @@ const buildServiceRecapText = ({
   const privateNotes = notes.slice(0, 3).map((note) => `- ${note.content.replace(/\s+/g, ' ').trim().slice(0, 180)}`).join('\n');
 
   return [
-    `Recapitulacao do culto: ${service.title}`,
+    `Recapitulação do culto: ${service.title}`,
     `Igreja: ${service.churchName}`,
     `Tema: ${service.theme}`,
-    service.keyVerseRef ? `Versiculo-chave: ${service.keyVerseRef}` : null,
+    service.keyVerseRef ? `Versículo-chave: ${service.keyVerseRef}` : null,
     service.keyVerseText ? `"${service.keyVerseText}"` : null,
     '',
     'Linha do culto:',
@@ -113,11 +113,11 @@ const buildServiceRecapText = ({
     'Participacao:',
     `- Check-ins: ${service.checkinsCount ?? 0}`,
     `- Posts/testemunhos: ${posts.length}`,
-    `- Pedidos publicos de oracao: ${prayersCount}`,
-    `- Versiculos salvos: ${verseSavesCount}`,
+    `- Pedidos públicos de oração: ${prayersCount}`,
+    `- Versículos salvos: ${verseSavesCount}`,
     '',
     testimonies ? `Destaques do feed:\n${testimonies}` : null,
-    privateNotes ? `Minhas anotacoes:\n${privateNotes}` : null,
+    privateNotes ? `Minhas anotações:\n${privateNotes}` : null,
   ].filter((line) => line !== null).join('\n');
 };
 
@@ -130,12 +130,65 @@ const getPublicPreacherName = (value?: string) => {
 const getPublicMomentNotes = (value?: string | null) => {
   const notes = value?.trim() ?? '';
   if (!notes) return '';
-  if (/preencha este momento com conteudo/i.test(notes)) return '';
+  if (/preencha este momento com conteúdo/i.test(notes)) return '';
   return notes;
 };
 
+const SERVICE_MOMENT_KIND_LABELS: Record<ServiceLiturgyKind, string> = {
+  entrance: 'Recepção',
+  opening: 'Abertura',
+  worship: 'Louvor',
+  word: 'Palavra',
+  offering: 'Ofertas',
+  prayer: 'Oração',
+  response: 'Resposta',
+  closing: 'Encerramento',
+  other: 'Momento',
+};
+
+const getYouTubeEmbedUrl = (value?: string) => {
+  if (!value?.trim()) return '';
+  try {
+    const url = new URL(value);
+    const host = url.hostname.replace(/^www\./, '');
+    const videoId = host === 'youtu.be'
+      ? url.pathname.split('/').filter(Boolean)[0]
+      : url.searchParams.get('v') || url.pathname.match(/\/(?:embed|live)\/([^/?]+)/)?.[1];
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : '';
+  } catch {
+    return '';
+  }
+};
+
+const getServiceLiveProgressPercent = (service: Pick<ChurchService, 'startsAt' | 'endsAt'>, nowDate = new Date()) => {
+  const start = new Date(service.startsAt).getTime();
+  const end = new Date(service.endsAt).getTime();
+  const now = nowDate.getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+  return Math.max(0, Math.min(100, Math.round(((now - start) / (end - start)) * 100)));
+};
+
+const getServiceMomentDate = (service: Pick<ChurchService, 'startsAt'>, startsAt: string) => {
+  const [hours, minutes] = startsAt.split(':').map(Number);
+  const date = new Date(service.startsAt);
+  date.setHours(hours ?? 0, minutes ?? 0, 0, 0);
+  return date;
+};
+
+const getNextMomentDistanceLabel = (service: Pick<ChurchService, 'startsAt'>, startsAt: string, nowDate = new Date()) => {
+  const nextDate = getServiceMomentDate(service, startsAt);
+  const minutes = Math.max(0, Math.round((nextDate.getTime() - nowDate.getTime()) / 60000));
+  if (minutes <= 0) return 'agora';
+  return `em ~${minutes} min`;
+};
+
+const getInitials = (value: string) => {
+  const words = value.trim().split(/\s+/).filter(Boolean);
+  return (words[0]?.[0] ?? 'C') + (words[1]?.[0] ?? '+');
+};
+
 const REACTION_OPTIONS: { type: ServiceReactionType; label: string }[] = [
-  { type: 'amen', label: 'Amem' },
+  { type: 'amen', label: 'Amém' },
   { type: 'glory', label: 'Gloria' },
   { type: 'hallelujah', label: 'Aleluia' },
 ];
@@ -143,13 +196,13 @@ const REACTION_OPTIONS: { type: ServiceReactionType; label: string }[] = [
 const emptyReactions = (): ServiceReactionSummary => ({ amen: 0, glory: 0, hallelujah: 0 });
 
 const LIVE_POLL_INTERVAL_MS = 30000;
-const premiumCardClass = 'rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-sm dark:border-emerald-900/40 dark:bg-bible-darkPaper';
+const premiumCardClass = 'rounded-[1.5rem] border border-emerald-100 bg-white p-5 shadow-sm dark:border-emerald-900/40 dark:bg-bible-darkPaper';
 const premiumIconClass = 'text-emerald-700 dark:text-emerald-300';
 const premiumButtonClass = 'inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#073b35] via-[#0f5d51] to-[#d8b15f] px-5 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-950/10 ring-1 ring-emerald-200/60 transition hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60';
 const champagneButtonClass = 'inline-flex items-center justify-center gap-2 rounded-2xl bg-[#f3d28a] px-5 py-3 text-xs font-black uppercase tracking-widest text-[#073b35] shadow-sm transition hover:bg-white disabled:opacity-60';
 
 const POST_CULT_AI_ACTIONS: { kind: ServiceAiContentKind; label: string; description: string }[] = [
-  { kind: 'pastor_post_summary', label: 'Resumo IA', description: 'Sintese pastoral para memoria e comunicacao.' },
+  { kind: 'pastor_post_summary', label: 'Resumo IA', description: 'Sintese pastoral para memória e comunicacao.' },
   { kind: 'member_devotional', label: 'Devocional', description: 'Devocional para a igreja continuar na Palavra.' },
   { kind: 'member_weekly_plan', label: 'Plano semanal', description: 'Acompanhamento simples para celulas e grupos.' },
 ];
@@ -239,7 +292,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
         }
       } catch (error) {
         console.error('Erro ao carregar experiencia do culto:', error);
-        showNotification('Nao foi possivel carregar o culto.', 'error');
+        showNotification('Não foi possível carregar o culto.', 'error');
       } finally {
         setLoading(false);
       }
@@ -392,8 +445,27 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
     { label: 'Anotacoes', value: `${noteComments.length}`, icon: <NotebookPen size={16} /> },
     { label: 'Pedidos', value: `${publicPrayers.length}`, icon: <HandHeart size={16} /> },
     { label: 'Posts', value: `${posts.length}`, icon: <MessageSquarePlus size={16} /> },
-    { label: 'Versiculos', value: `${verseSavesCount}`, icon: <BookOpen size={16} /> },
+    { label: 'Versículos', value: `${verseSavesCount}`, icon: <BookOpen size={16} /> },
   ];
+  const liveEmbedUrl = useMemo(() => getYouTubeEmbedUrl(service?.liveUrl), [service?.liveUrl]);
+  const liveProgressPercent = useMemo(() => service ? getServiceLiveProgressPercent(service, nowDate) : 0, [service, nowDate]);
+  const currentMomentKindLabel = currentStep ? SERVICE_MOMENT_KIND_LABELS[currentStep.kind] : 'Culto';
+  const currentMomentTitle = liveState?.currentTitle || currentStep?.title || service?.title || 'Culto publicado';
+  const currentMomentResponsible = currentStep?.responsible || publicPreacherName || service?.preacherName || service?.churchName || '';
+  const currentMomentVerseRef = liveState?.currentVerseRef || currentStep?.verseRef || service?.keyVerseRef || '';
+  const currentMomentVerseText = liveState?.currentVerseText || currentStep?.verseText || service?.keyVerseText || '';
+  const nextMomentDistanceLabel = service && nextStep ? getNextMomentDistanceLabel(service, nextStep.startsAt, nowDate) : '';
+  const participantCount = Math.max(checkinsCount, visitorsCount);
+  const participantAvatars = useMemo(() => {
+    const labels = [
+      publicPreacherName,
+      service?.churchName,
+      service?.title,
+      'Culto+',
+      'Igreja',
+    ].filter(Boolean) as string[];
+    return labels.slice(0, 5).map(getInitials);
+  }, [publicPreacherName, service?.churchName, service?.title]);
   const recapText = useMemo(() => service ? buildServiceRecapText({
     service: { ...service, checkinsCount },
     moments: experienceMoments,
@@ -442,7 +514,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       await recordActivity('social_interaction', `Check-in no culto: ${service.title}`, { serviceId: service.id });
       showNotification('Check-in registrado.', 'success');
     } catch (error: any) {
-      showNotification(error?.message || 'Nao foi possivel fazer check-in.', 'error');
+      showNotification(error?.message || 'Não foi possível fazer check-in.', 'error');
     } finally {
       setCheckingIn(false);
     }
@@ -456,7 +528,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
     }
     const content = note.trim();
     if (!content) {
-      showNotification('Escreva uma anotacao antes de salvar.', 'warning');
+      showNotification('Escreva uma anotação antes de salvar.', 'warning');
       return;
     }
     setSavingNote(true);
@@ -467,7 +539,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       await recordActivity('create_note', `Anotou no culto: ${service.title}`, { serviceId: service.id });
       showNotification('Anotacao salva.', 'success');
     } catch (error: any) {
-      showNotification(error?.message || 'Nao foi possivel salvar a anotacao.', 'error');
+      showNotification(error?.message || 'Não foi possível salvar a anotação.', 'error');
     } finally {
       setSavingNote(false);
     }
@@ -489,7 +561,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       await recordActivity('social_post', `Postou sobre o culto: ${service.title}`, { serviceId: service.id });
       showNotification('Postagem enviada para o mural da igreja.', 'success');
     } catch (error: any) {
-      showNotification(error?.message || 'Nao foi possivel publicar no feed.', 'error');
+      showNotification(error?.message || 'Não foi possível publicar no feed.', 'error');
     } finally {
       setPosting(false);
     }
@@ -515,11 +587,11 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
         return;
       }
       await navigator.clipboard.writeText(url);
-      showNotification('Link do culto copiado.', 'success');
+      showNotification('Link do culto cópiado.', 'success');
     } catch (error: any) {
       if (error?.name === 'AbortError') return;
       console.error('Erro ao compartilhar culto:', error);
-      showNotification('Nao foi possivel compartilhar o culto.', 'error');
+      showNotification('Não foi possível compartilhar o culto.', 'error');
     }
   };
 
@@ -538,10 +610,10 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       const url = `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(invite.token)}`;
       setInviteToken(invite.token);
       setInviteUrl(url);
-      await recordActivity('invite_sent', `Convidou alguem para o culto: ${service.title}`, { serviceId: service.id, inviteId: invite.id });
+      await recordActivity('invite_sent', `Convidou alguém para o culto: ${service.title}`, { serviceId: service.id, inviteId: invite.id });
       return url;
     } catch (error: any) {
-      showNotification(error?.message || 'Nao foi possivel registrar o convite.', 'error');
+      showNotification(error?.message || 'Não foi possível registrar o convite.', 'error');
       return window.location.href.split('?')[0];
     } finally {
       setCreatingInvite(false);
@@ -553,14 +625,14 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       await navigator.clipboard.writeText(value);
       showNotification(message, 'success');
     } catch (error) {
-      console.error('Erro ao copiar texto:', error);
-      showNotification('Nao foi possivel copiar o texto.', 'error');
+      console.error('Erro ao cópiar texto:', error);
+      showNotification('Não foi possível cópiar o texto.', 'error');
     }
   };
 
   const handleCopyRecap = () => {
     if (!recapText) return;
-    copyToClipboard(recapText, 'Recapitulacao copiada.');
+    copyToClipboard(recapText, 'Recapitulação cópiada.');
   };
 
   const handleDownloadRecap = () => {
@@ -585,14 +657,14 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `relatorio-pastoral-${service.slug}.csv`;
+      link.download = `relatório-pastoral-${service.slug}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
       showNotification('Relatorio pastoral exportado.', 'success');
     } catch (error: any) {
-      showNotification(error?.message || 'Nao foi possivel exportar o relatorio pastoral.', 'error');
+      showNotification(error?.message || 'Não foi possível exportar o relatório pastoral.', 'error');
     } finally {
       setExportingPastoralReport(false);
     }
@@ -605,7 +677,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       return;
     }
     if (!checkFeatureAccess('aiSermonBuilder')) {
-      showNotification('IA pos-culto e recurso premium do Culto+.', 'warning');
+      showNotification('IA pós-culto e recurso premium do Culto+.', 'warning');
       return;
     }
 
@@ -614,10 +686,10 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       const result = await cultoPlusService.generateAiContent(kind, service, userId, recapText);
       setPostCultAiContents((items) => ({ ...items, [kind]: result }));
       await incrementUsage('analysis');
-      await recordActivity('social_interaction', `Gerou apoio pos-culto com IA: ${service.title}`, { serviceId: service.id, kind });
-      showNotification('Apoio pos-culto gerado com IA.', 'success');
+      await recordActivity('social_interaction', `Gerou apoio pós-culto com IA: ${service.title}`, { serviceId: service.id, kind });
+      showNotification('Apoio pós-culto gerado com IA.', 'success');
     } catch (error: any) {
-      showNotification(error?.message || 'Nao foi possivel gerar apoio pos-culto.', 'error');
+      showNotification(error?.message || 'Não foi possível gerar apoio pós-culto.', 'error');
     } finally {
       setPostCultAiLoadingKind(null);
     }
@@ -657,7 +729,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       setReactions(next);
       await recordActivity('social_interaction', `Reagiu ao culto: ${service.title}`, { serviceId: service.id, reactionType });
     } catch (error: any) {
-      showNotification(error?.message || 'Nao foi possivel registrar a reacao.', 'error');
+      showNotification(error?.message || 'Não foi possível registrar a reação.', 'error');
     }
   };
 
@@ -700,7 +772,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       return;
     }
     if (!prayerContent.trim()) {
-      showNotification('Escreva o pedido de oracao.', 'warning');
+      showNotification('Escreva o pedido de oração.', 'warning');
       return;
     }
     setSavingPrayer(true);
@@ -710,10 +782,10 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       setPrayerContent('');
       setIsPrayerPrivate(false);
       setIsPrayerModalOpen(false);
-      await recordActivity('prayer_wall', `Pediu oracao no culto: ${service.title}`, { serviceId: service.id, isPrivate: prayer.isPrivate });
+      await recordActivity('prayer_wall', `Pediu oração no culto: ${service.title}`, { serviceId: service.id, isPrivate: prayer.isPrivate });
       showNotification(prayer.isPrivate ? 'Pedido privado enviado.' : 'Pedido publicado no culto.', 'success');
     } catch (error: any) {
-      showNotification(error?.message || 'Nao foi possivel enviar o pedido.', 'error');
+      showNotification(error?.message || 'Não foi possível enviar o pedido.', 'error');
     } finally {
       setSavingPrayer(false);
     }
@@ -731,7 +803,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       await recordActivity('prayer_wall', `Intercedeu por pedido no culto: ${service.title}`, { serviceId: service.id, prayerId: prayer.id });
       showNotification('Intercessao registrada.', 'success');
     } catch (error: any) {
-      showNotification(error?.message || 'Nao foi possivel registrar a intercessao.', 'error');
+      showNotification(error?.message || 'Não foi possível registrar a intercessão.', 'error');
     }
   };
 
@@ -752,7 +824,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       });
       showNotification(status === 'confirmed' ? 'Escala confirmada.' : 'Resposta da escala registrada.', 'success');
     } catch (error: any) {
-      showNotification(error?.message || 'Nao foi possivel responder a escala.', 'error');
+      showNotification(error?.message || 'Não foi possível responder a escala.', 'error');
     } finally {
       setSavingScheduleStatusId(null);
     }
@@ -768,10 +840,10 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
     try {
       const count = await cultoPlusService.saveKeyVerse(service, userId);
       setVerseSavesCount(count);
-      await recordActivity('mark_verse', `Salvou versiculo-chave do culto: ${service.title}`, { serviceId: service.id, verseRef: service.keyVerseRef });
-      showNotification('Versiculo salvo.', 'success');
+      await recordActivity('mark_verse', `Salvou versículo-chave do culto: ${service.title}`, { serviceId: service.id, verseRef: service.keyVerseRef });
+      showNotification('Versículo salvo.', 'success');
     } catch (error: any) {
-      showNotification(error?.message || 'Nao foi possivel salvar o versiculo.', 'error');
+      showNotification(error?.message || 'Não foi possível salvar o versículo.', 'error');
     } finally {
       setSavingVerse(false);
     }
@@ -780,42 +852,42 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
   const quickActions: QuickAction[] = [
     ...(!isAfterCult ? [{
       label: checkedIn ? 'Acompanhar' : 'Check-in',
-      hint: checkedIn ? 'Culto' : 'Registrar presenca',
-      title: checkedIn ? 'Ir para o momento atual e acompanhar a liturgia.' : 'Registrar sua presenca neste culto.',
+      hint: checkedIn ? 'Culto' : 'Registrar presença',
+      title: checkedIn ? 'Ir para o momento atual e acompanhar a liturgia.' : 'Registrar sua presença neste culto.',
       icon: <Radio size={20} />,
       onClick: handleFollowAction,
     }] : []),
     {
       label: 'Anotacoes',
       hint: isAfterCult ? 'Rever suas notas' : 'Faca suas notas',
-      title: 'Abrir o painel para escrever suas anotacoes pessoais do culto.',
+      title: 'Abrir o painel para escrever suas anotações pessoais do culto.',
       icon: <NotebookPen size={20} />,
       onClick: () => setIsNotePanelOpen(true),
     },
     ...(!isAfterCult ? [{
-      label: 'Oracao',
+      label: 'Oração',
       hint: 'Escreva seu pedido',
-      title: 'Abrir popup para enviar um pedido de oracao deste culto.',
+      title: 'Abrir popup para enviar um pedido de oração deste culto.',
       icon: <HandHeart size={20} />,
       onClick: () => setIsPrayerModalOpen(true),
     }, {
       label: 'Ofertar',
-      hint: offeringItem ? 'Dizimos e ofertas' : 'Indisponivel',
-      title: offeringItem ? 'Abrir a chave PIX cadastrada para dizimos e ofertas.' : 'Este culto ainda nao possui chave PIX de oferta cadastrada.',
+      hint: offeringItem ? 'Dízimos e ofertas' : 'Indisponível',
+      title: offeringItem ? 'Abrir a chave PIX cadastrada para dízimos e ofertas.' : 'Este culto ainda não possui chave PIX de oferta cadastrada.',
       icon: <Gift size={20} />,
       onClick: () => setIsOfferingModalOpen(true),
     }] : []),
     {
       label: 'Convidar',
-      hint: isAfterCult ? 'Compartilhe memoria' : 'Chame alguem',
-      title: isAfterCult ? 'Compartilhar a pagina deste culto com outra pessoa.' : 'Abrir convite pronto para enviar este culto a outra pessoa.',
+      hint: isAfterCult ? 'Compartilhe memória' : 'Chame alguém',
+      title: isAfterCult ? 'Compartilhar a página deste culto com outra pessoa.' : 'Abrir convite pronto para enviar este culto a outra pessoa.',
       icon: <UserPlus size={20} />,
       onClick: isAfterCult ? handleShare : () => setIsInviteModalOpen(true),
     },
     {
       label: 'Compartilhar',
       hint: 'Divulgue o culto',
-      title: 'Compartilhar ou copiar o link publico deste culto.',
+      title: 'Compartilhar ou cópiar o link público deste culto.',
       icon: <Share2 size={20} />,
       onClick: handleShare,
     },
@@ -829,7 +901,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#f4fbf8] p-6 text-center dark:bg-black">
         <Radio className="mb-4 text-gray-300" size={48} />
-        <h1 className="text-2xl font-black text-gray-900 dark:text-white">Culto nao encontrado</h1>
+        <h1 className="text-xl font-black text-gray-900 dark:text-white">Culto não encontrado</h1>
         <Link href="/social/igrejas" className="mt-4 text-sm font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Voltar para igrejas</Link>
       </div>
     );
@@ -842,21 +914,37 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
         <div className="absolute inset-0 bg-gradient-to-br from-[#031f1c]/95 via-[#073b35]/90 to-[#d8b15f]/70" />
         <CultoPlusTopActions
           backHref={service.churchSlug ? `/igreja/${service.churchSlug}` : '/social/igrejas'}
-          onNotify={() => showNotification('Notificacoes do culto em breve.', 'info')}
+          onNotify={() => showNotification('Notificações do culto em breve.', 'info')}
           items={[
             { label: 'Compartilhar culto', icon: <Share2 size={15} />, onClick: handleShare },
             ...(checkinUrl ? [{ label: 'QR de check-in', icon: <QrCode size={15} />, onClick: () => setIsQrModalOpen(true) }] : []),
             { label: 'Ver igreja', icon: <Users size={15} />, href: service.churchSlug ? `/igreja/${service.churchSlug}` : '/social/igrejas' },
           ]}
         />
-        <div className="relative mx-auto max-w-6xl px-5 pb-8 pt-24 md:px-8 md:pb-10 md:pt-28">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+        <div className="relative w-full px-5 pb-8 pt-24 md:px-8 md:pb-10 md:pt-28">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(440px,520px)] lg:items-start">
             <div className="min-w-0">
-              <span className="inline-flex items-center rounded-lg border border-[#f3d28a]/30 bg-black/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.25em] text-[#f3d28a] backdrop-blur">
-                Culto+
-              </span>
-              <h1 className="mt-4 max-w-4xl text-4xl font-medium leading-tight text-white md:text-6xl">{service.title}</h1>
-              <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/82 md:text-xl">{service.theme}</p>
+              <h1 className="max-w-4xl text-2xl font-semibold leading-tight text-white md:text-4xl xl:text-[2.75rem]">{service.title}</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-medium text-white/78 md:text-base">
+                <span>{service.churchName}</span>
+                <CheckCircle2 size={15} className="text-emerald-400" />
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/82 md:text-base">
+                <span className="inline-flex items-center gap-2">
+                  <CalendarDays size={17} />
+                  {formatWeekdayDate(service.startsAt)}
+                </span>
+                <span className="hidden h-4 w-px bg-white/25 sm:inline-block" />
+                <span className="inline-flex items-center gap-2">
+                  <Clock size={17} />
+                  {formatServiceTime(service.startsAt)}
+                </span>
+                <span className="hidden h-4 w-px bg-white/25 sm:inline-block" />
+                <span className="inline-flex items-center gap-2">
+                  <Eye size={17} />
+                  Culto público
+                </span>
+              </div>
 
               {(canOpenSchedule || canManageService) && (
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -882,25 +970,126 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                 </div>
               )}
 
-              <div className="mt-7 max-w-3xl rounded-2xl border border-white/18 bg-white/8 p-4 shadow-2xl shadow-black/10 backdrop-blur-md md:p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[#f3d28a]/35 bg-[#f3d28a]/10 text-[#f3d28a]">
-                    <Radio size={28} />
+              <div className="mt-6 w-full max-w-5xl overflow-hidden rounded-2xl border border-white/15 bg-black shadow-2xl shadow-black/25">
+                <div className="relative aspect-video bg-[#031f1c]">
+                  {liveEmbedUrl ? (
+                    <iframe
+                      src={liveEmbedUrl}
+                      title={`Transmissão do culto ${service.title}`}
+                      className="absolute inset-0 h-full w-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <>
+                      {service.bannerUrl && <img src={service.bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-70" />}
+                      <div className="absolute inset-0 bg-gradient-to-br from-black/65 via-[#073b35]/35 to-black/75" />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+                        <span className="flex h-16 w-16 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white backdrop-blur">
+                          <PlayCircle size={34} />
+                        </span>
+                        <p className="mt-4 text-sm font-black uppercase tracking-widest text-white">
+                          {service.liveUrl ? 'Abrir transmissão externa' : 'Transmissão não configurada'}
+                        </p>
+                        {service.liveUrl && (
+                          <a href={service.liveUrl} target="_blank" rel="noopener noreferrer" className="mt-3 rounded-xl bg-[#f3d28a] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-[#073b35]">
+                            Entrar na live
+                          </a>
+                        )}
+                      </div>
+                    </>
+                  )}
+                  <div className="pointer-events-none absolute left-4 top-4 flex items-center gap-2">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-black shadow-lg">
+                      <span className="h-2 w-2 rounded-full bg-red-500" />
+                      {streamStatus === 'live' ? 'Ao vivo' : liveStatusLabel}
+                    </span>
+                    <span className="rounded-full bg-black/65 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white backdrop-blur">
+                      {liveEmbedUrl ? 'YouTube' : service.liveUrl ? 'Live' : 'Culto+'}
+                    </span>
                   </div>
-                  <div>
-                    <p className="text-lg font-medium leading-snug text-white md:text-xl">
-                      Seja bem-vindo ao culto das {formatServiceTime(service.startsAt)}.
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-white/75">
-                      Voce esta no Culto da {service.churchName}{publicPreacherName ? `, com ${publicPreacherName}.` : '.'}
-                      {service.liveUrl ? ' Voce tambem pode participar pela live na web.' : ''}
-                    </p>
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent px-4 pb-3 pt-16">
+                    <div className="h-1 rounded-full bg-white/25">
+                      <div className="h-full rounded-full bg-red-500" style={{ width: `${liveProgressPercent}%` }} />
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-white">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/12"><PlayCircle size={18} /></span>
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/12"><Radio size={16} /></span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-white/80">{streamStatus === 'live' ? 'AO VIVO' : formatServiceTime(service.startsAt)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="h-7 w-9 rounded border border-white/50" />
+                        <span className="h-7 w-7 rounded border border-white/50" />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
             <aside className="rounded-2xl border border-white/15 bg-white/10 p-5 shadow-2xl shadow-black/15 backdrop-blur-md">
+              <div className="mb-4 rounded-2xl border border-white/12 bg-white/8 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Users size={20} className="text-white" />
+                    <div>
+                      <p className="text-lg font-black text-white">{participantCount}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/55">{participantCount === 1 ? 'participante' : 'participantes'}</p>
+                    </div>
+                  </div>
+                  <div className="flex -space-x-2">
+                    {participantAvatars.map((initials, index) => (
+                      <span key={`${initials}_${index}`} className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#073b35] bg-[#f3d28a] text-[10px] font-black uppercase text-[#073b35]">
+                        {initials}
+                      </span>
+                    ))}
+                    {participantCount > participantAvatars.length && (
+                      <span className="flex h-9 min-w-9 items-center justify-center rounded-full border-2 border-[#073b35] bg-white/18 px-2 text-[10px] font-black text-white backdrop-blur">
+                        +{participantCount - participantAvatars.length}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-5 rounded-2xl border border-white/12 bg-white/8 p-4">
+                <span className="inline-flex items-center gap-2 rounded-full bg-[#f3d28a]/18 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[#f3d28a]">
+                  <Radio size={13} />
+                  Acontecendo agora
+                </span>
+                <div className="mt-4">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-[#f3d28a]/20 bg-black/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white/85">
+                    <BookOpen size={14} className="text-[#f3d28a]" />
+                    {currentMomentKindLabel}
+                  </span>
+                  <h2 className="mt-3 text-lg font-black leading-tight text-white md:text-xl">{isAfterCult ? afterCultTitle : currentMomentTitle}</h2>
+                  {currentMomentResponsible && <p className="mt-2 text-sm font-semibold text-white/70">{currentMomentResponsible}</p>}
+                </div>
+
+                {(currentMomentVerseRef || currentMomentVerseText) && (
+                  <div className="mt-5 rounded-xl border border-white/10 bg-white/8 p-4">
+                    {currentMomentVerseRef && <p className="text-sm font-black text-white">{currentMomentVerseRef}</p>}
+                    {currentMomentVerseText && <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-white/72">{currentMomentVerseText}</p>}
+                  </div>
+                )}
+
+                {nextStep && !isAfterCult && (
+                  <div className="mt-5 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/52">Próximo momento</p>
+                      <p className="mt-1 text-sm font-black text-white">{nextStep.title}</p>
+                    </div>
+                    <span className="shrink-0 text-xs font-bold text-white/70">{nextMomentDistanceLabel}</span>
+                  </div>
+                )}
+
+                <Link href="/biblia" title="Abrir a Bíblia para acompanhar a leitura." className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#f3d28a]/40 bg-[#f3d28a]/12 px-4 text-[10px] font-black uppercase tracking-widest text-[#f3d28a] transition hover:bg-[#f3d28a] hover:text-[#073b35]">
+                  <BookOpen size={15} />
+                  Abrir na Bíblia
+                </Link>
+              </div>
+
               <span className="inline-flex items-center gap-2 rounded-full bg-[#f3d28a]/18 px-3 py-1.5 text-[10px] font-medium uppercase tracking-widest text-[#f3d28a]">
                 <Radio size={13} />
                 {liveStatusLabel}
@@ -909,7 +1098,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                 <div className="mt-6 rounded-xl border border-white/12 bg-white/8 p-4">
                   <p className="text-lg font-medium text-white">{experienceMode === 'archived' ? 'Registro historico' : 'Obrigado por participar'}</p>
                   <p className="mt-2 text-sm leading-relaxed text-white/70">
-                    As anotacoes, pedidos e publicacoes continuam disponiveis para memoria do culto.
+                    As anotações, pedidos e publicações continuam disponíveis para memória do culto.
                   </p>
                 </div>
               ) : (
@@ -917,17 +1106,17 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                   <p className="mt-6 text-sm text-white/78">{counterParts?.label}</p>
                   <div className="mt-2 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-end gap-2">
                     <div>
-                      <p className="text-4xl font-medium leading-none md:text-5xl">{counterParts?.hours ?? '00'}</p>
+                      <p className="text-3xl font-semibold leading-none md:text-[2.25rem]">{counterParts?.hours ?? '00'}</p>
                       <p className="mt-2 text-[10px] uppercase tracking-widest text-white/58">Hora</p>
                     </div>
                     <span className="pb-6 text-3xl text-white/75">:</span>
                     <div>
-                      <p className="text-4xl font-medium leading-none md:text-5xl">{counterParts?.minutes ?? '00'}</p>
+                      <p className="text-3xl font-semibold leading-none md:text-[2.25rem]">{counterParts?.minutes ?? '00'}</p>
                       <p className="mt-2 text-[10px] uppercase tracking-widest text-white/58">Min</p>
                     </div>
                     <span className="pb-6 text-3xl text-white/75">:</span>
                     <div>
-                      <p className="text-4xl font-medium leading-none md:text-5xl">{counterParts?.seconds ?? '00'}</p>
+                      <p className="text-3xl font-semibold leading-none md:text-[2.25rem]">{counterParts?.seconds ?? '00'}</p>
                       <p className="mt-2 text-[10px] uppercase tracking-widest text-white/58">Seg</p>
                     </div>
                   </div>
@@ -938,7 +1127,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                   href={service.liveUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  title={isAfterCult ? 'Abrir a gravacao ou transmissao vinculada a este culto.' : 'Abrir a transmissao ao vivo deste culto em uma nova aba.'}
+                  title={isAfterCult ? 'Abrir a gravação ou transmissão vinculada a este culto.' : 'Abrir a transmissão ao vivo deste culto em uma nova aba.'}
                   className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e4b457] px-4 text-[10px] font-medium uppercase tracking-widest text-white shadow-lg shadow-black/10 transition hover:bg-[#f3d28a] hover:text-[#073b35]"
                 >
                   <PlayCircle size={16} />
@@ -951,19 +1140,19 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                     Culto presencial
                   </div>
                   <p className="mt-2 text-sm leading-relaxed text-white/70">
-                    Sem transmissao ativa. Acompanhe a liturgia, ore, anote e participe pelo app.
+                    Sem transmissão ativa. Acompanhe a liturgia, ore, anote e participe pelo app.
                   </p>
                 </div>
               ) : (
                 <p className="mt-6 rounded-xl border border-white/10 bg-white/6 p-4 text-sm leading-relaxed text-white/62">
-                  Transmissao nao configurada. O culto pode ser acompanhado pela programacao, check-in, oracao e anotacoes.
+                  Transmissão não configurada. O culto pode ser acompanhado pela programação, check-in, oração e anotações.
                 </p>
               )}
               {!isAfterCult && (
                 <button
                   type="button"
                   onClick={handleAddToCalendar}
-                  title="Baixar um arquivo de calendario com data, horario e link deste culto."
+                  title="Baixar um arquivo de calendario com data, horário e link deste culto."
                   className="mt-4 inline-flex min-h-10 items-center gap-2 text-[10px] font-medium uppercase tracking-widest text-white/80 transition hover:text-white"
                 >
                   <CalendarDays size={16} />
@@ -973,34 +1162,16 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
             </aside>
           </div>
 
-          <div className="mt-8 grid gap-4 border-y border-white/12 py-4 sm:grid-cols-2 lg:grid-cols-5">
-            {[
-              { icon: <CalendarDays size={19} />, label: formatWeekdayDate(service.startsAt), value: 'Data do culto' },
-              { icon: <Clock size={19} />, label: formatServiceTime(service.startsAt), value: 'Horario de inicio' },
-              { icon: <BookOpen size={19} />, label: service.keyVerseRef || 'Nao definido', value: 'Versiculo-chave' },
-              { icon: <Eye size={19} />, label: `${visitorsCount}`, value: visitorsCount === 1 ? 'Visita' : 'Visitas' },
-              { icon: <Users size={19} />, label: `${checkinsCount}`, value: checkinsCount === 1 ? 'Check-in' : 'Check-ins' },
-            ].map((item) => (
-              <div key={`${item.value}_${item.label}`} className="flex min-w-0 items-center gap-3 text-white/78">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/85">{item.icon}</span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-white">{item.label}</p>
-                  <p className="mt-0.5 text-xs text-white/58">{item.value}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
             {quickActions.map((action) => (
               <button
                 key={action.label}
                 type="button"
                 onClick={action.onClick}
                 title={action.title}
-                className="group flex min-h-20 items-center gap-3 rounded-2xl border border-white/12 bg-white/10 p-3 text-left backdrop-blur transition hover:bg-white/16 focus:outline-none focus:ring-2 focus:ring-[#f3d28a]/70"
+                className="group flex min-h-16 items-center gap-3 rounded-2xl border border-white/12 bg-white/10 p-3 text-left backdrop-blur transition hover:bg-white/16 focus:outline-none focus:ring-2 focus:ring-[#f3d28a]/70"
               >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f3d28a]/14 text-[#f3d28a] transition group-hover:bg-[#f3d28a]/24">{action.icon}</span>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f3d28a]/14 text-[#f3d28a] transition group-hover:bg-[#f3d28a]/24">{action.icon}</span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium text-white">{action.label}</span>
                   <span className="mt-0.5 block truncate text-xs text-white/60">{action.hint}</span>
@@ -1011,39 +1182,39 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-5 py-8 lg:grid-cols-[minmax(0,1fr)_360px] md:px-8">
+      <section className="grid w-full grid-cols-1 gap-6 px-5 py-8 lg:grid-cols-[minmax(0,1fr)_420px] md:px-8">
         <div className="space-y-6">
           <div ref={currentSectionRef} className={premiumCardClass}>
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Momento atual</p>
-                <h2 className="mt-1 text-2xl font-black text-gray-900 dark:text-white">{isAfterCult ? afterCultTitle : liveState?.currentTitle || currentStep?.title || 'Culto publicado'}</h2>
+                <h2 className="mt-1 text-lg font-black text-gray-900 dark:text-white">{isAfterCult ? afterCultTitle : liveState?.currentTitle || currentStep?.title || 'Culto publicado'}</h2>
                 {isAfterCult ? (
                   <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    A recapitulacao do culto permanece disponivel com timeline, anotacoes, pedidos e publicacoes.
+                    A recapitulação do culto permanece disponível com timeline, anotações, pedidos e publicações.
                   </p>
                 ) : currentStepNotes && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{currentStepNotes}</p>}
               </div>
               {isAfterCult ? (
-                <button onClick={handleShare} title="Compartilhar ou copiar o link publico deste culto." className={champagneButtonClass}>
+                <button onClick={handleShare} title="Compartilhar ou cópiar o link público deste culto." className={champagneButtonClass}>
                   <Share2 size={16} />
                   Compartilhar culto
                 </button>
               ) : (
-                <button onClick={handleCheckin} disabled={checkingIn || checkedIn} title={checkedIn ? 'Voce ja registrou check-in neste culto.' : 'Registrar sua presenca neste culto.'} className={champagneButtonClass}>
+                <button onClick={handleCheckin} disabled={checkingIn || checkedIn} title={checkedIn ? 'Voce j? registrou check-in neste culto.' : 'Registrar sua presença neste culto.'} className={champagneButtonClass}>
                   {checkingIn ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                  {checkedIn ? 'Check-in feito' : 'Fazer check-in'}
+                  {checkedIn ? 'Check-in féito' : 'Fazer check-in'}
                 </button>
               )}
             </div>
           </div>
 
           {myAssignments.length > 0 && (
-            <div className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-sm dark:border-emerald-900/40 dark:bg-bible-darkPaper">
+            <div className="rounded-[1.5rem] border border-emerald-100 bg-white p-5 shadow-sm dark:border-emerald-900/40 dark:bg-bible-darkPaper">
               <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Minha escala</p>
-                  <h2 className="mt-1 text-xl font-black text-gray-900 dark:text-white">Voce esta escalado neste culto</h2>
+                  <h2 className="mt-1 text-lg font-black text-gray-900 dark:text-white">Voce esta escalado neste culto</h2>
                 </div>
                 {canOpenSchedule && (
                   <button
@@ -1072,7 +1243,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                               {SCHEDULE_STATUS_LABELS[assignment.status]}
                             </span>
                           </div>
-                          <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{assignment.role || 'Funcao nao informada'}</p>
+                          <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{assignment.role || 'Função não informada'}</p>
                           {assignment.replacementUserDisplayName && (
                             <p className="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-200">Substituto: {assignment.replacementUserDisplayName}</p>
                           )}
@@ -1082,7 +1253,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                             type="button"
                             onClick={() => handleScheduleStatus(assignment, 'confirmed')}
                             disabled={isActionDisabled || assignment.status === 'confirmed'}
-                            title="Confirmar sua presenca nesta escala."
+                            title="Confirmar sua presença nesta escala."
                             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {isSavingThisSchedule ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
@@ -1092,7 +1263,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                             type="button"
                             onClick={() => handleScheduleStatus(assignment, 'declined')}
                             disabled={isActionDisabled || assignment.status === 'declined'}
-                            title="Informar que voce nao podera servir nesta escala."
+                            title="Informar que voce não podera servir nesta escala."
                             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-red-50 px-4 text-[10px] font-black uppercase tracking-widest text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-950/20 dark:text-red-200"
                           >
                             <X size={13} />
@@ -1102,7 +1273,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                       </div>
                       {isAfterCult && (
                         <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-gray-500 dark:bg-black/20 dark:text-gray-400">
-                          Este culto ja foi encerrado. A escala fica disponivel apenas como historico.
+                          Este culto j? foi encerrado. A escala fica disponível apenas como historico.
                         </p>
                       )}
                     </div>
@@ -1113,13 +1284,13 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           )}
 
           {isAfterCult && (
-            <div className="rounded-[2rem] border border-[#f3d28a]/40 bg-gradient-to-br from-[#fff8e8] via-white to-emerald-50 p-6 shadow-sm dark:border-amber-900/40 dark:from-amber-950/20 dark:via-bible-darkPaper dark:to-emerald-950/10">
+            <div className="rounded-[1.5rem] border border-[#f3d28a]/40 bg-gradient-to-br from-[#fff8e8] via-white to-emerald-50 p-5 shadow-sm dark:border-amber-900/40 dark:from-amber-950/20 dark:via-bible-darkPaper dark:to-emerald-950/10">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-[#a87d22] dark:text-amber-200">Recapitulacao do culto</p>
-                  <h2 className="mt-2 text-2xl font-black text-gray-900 dark:text-white">{service.title}</h2>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#a87d22] dark:text-amber-200">Recapitulação do culto</p>
+                  <h2 className="mt-2 text-xl font-black text-gray-900 dark:text-white">{service.title}</h2>
                   <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                    Reviva a ordem do culto, continue suas anotacoes e compartilhe o que Deus falou com a igreja.
+                    Reviva a ordem do culto, continue suas anotações e compartilhe o que Deus falou com a igreja.
                   </p>
                 </div>
                 {service.liveUrl && (
@@ -1127,7 +1298,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                     href={service.liveUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title="Abrir a gravacao ou transmissao vinculada a este culto."
+                    title="Abrir a gravação ou transmissão vinculada a este culto."
                     className={champagneButtonClass}
                   >
                     <PlayCircle size={16} />
@@ -1142,7 +1313,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                     <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200">
                       {item.icon}
                     </div>
-                    <p className="text-xl font-black text-gray-900 dark:text-white">{item.value}</p>
+                    <p className="text-lg font-black text-gray-900 dark:text-white">{item.value}</p>
                     <p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-gray-400">{item.label}</p>
                   </div>
                 ))}
@@ -1167,7 +1338,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                       { label: 'Participacao', value: `${pastoralAnalytics.checkinsCount}/${pastoralAnalytics.visitorsCount}`, helper: 'check-ins / visitas' },
                     ].map((item) => (
                       <div key={item.label} className="rounded-2xl bg-[#f8fcfa] p-4 dark:bg-black/20">
-                        <p className="text-2xl font-black text-gray-900 dark:text-white">{item.value}</p>
+                        <p className="text-xl font-black text-gray-900 dark:text-white">{item.value}</p>
                         <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">{item.label}</p>
                         <p className="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">{item.helper}</p>
                       </div>
@@ -1180,11 +1351,11 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                 <button
                   type="button"
                   onClick={() => setIsNotePanelOpen(true)}
-                  title="Abrir painel para rever ou criar anotacoes deste culto."
+                  title="Abrir painel para rever ou criar anotações deste culto."
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-emerald-900/40 dark:bg-black/18 dark:text-emerald-200"
                 >
                   <NotebookPen size={15} />
-                  Rever anotacoes
+                  Rever anotações
                 </button>
                 <button
                   type="button"
@@ -1198,7 +1369,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                 <button
                   type="button"
                   onClick={handleShare}
-                  title="Compartilhar ou copiar o link publico deste culto."
+                  title="Compartilhar ou cópiar o link público deste culto."
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-white px-4 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-emerald-900/40 dark:bg-black/18 dark:text-emerald-200"
                 >
                   <Share2 size={15} />
@@ -1210,13 +1381,13 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Resumo pastoral</p>
-                    <h3 className="mt-1 text-sm font-black text-gray-900 dark:text-white">Texto pronto para memoria, ata ou compartilhamento</h3>
+                    <h3 className="mt-1 text-sm font-black text-gray-900 dark:text-white">Texto pronto para memória, ata ou compartilhamento</h3>
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <button
                       type="button"
                       onClick={handleCopyRecap}
-                      title="Copiar a recapitulacao textual deste culto."
+                      title="Copiar a recapitulação textual deste culto."
                       className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-50 px-3 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-200"
                     >
                       <Copy size={13} />
@@ -1225,7 +1396,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                     <button
                       type="button"
                       onClick={handleDownloadRecap}
-                      title="Baixar a recapitulacao textual deste culto."
+                      title="Baixar a recapitulação textual deste culto."
                       className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-50 px-3 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-200"
                     >
                       <Download size={13} />
@@ -1235,7 +1406,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                       type="button"
                       onClick={handleDownloadPastoralReport}
                       disabled={exportingPastoralReport}
-                      title="Exportar relatorio pastoral em CSV com metricas de participacao deste culto."
+                      title="Exportar relatório pastoral em CSV com metricas de participacao deste culto."
                       className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#fff8e8] px-3 text-[10px] font-black uppercase tracking-widest text-[#8a6418] transition hover:bg-[#f3d28a]/30 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-amber-950/20 dark:text-amber-200"
                     >
                       {exportingPastoralReport ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
@@ -1251,7 +1422,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
               <div className="mt-5 rounded-2xl border border-[#f3d28a]/40 bg-white/75 p-4 dark:border-amber-900/40 dark:bg-black/18">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-[#a87d22] dark:text-amber-200">Apoio pos-culto com IA</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-[#a87d22] dark:text-amber-200">Apoio pós-culto com IA</p>
                     <h3 className="mt-1 text-sm font-black text-gray-900 dark:text-white">Resumo, devocional e acompanhamento para a semana</h3>
                     <p className="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">
                       Use como rascunho pastoral. Revise antes de publicar, ensinar ou enviar para grupos.
@@ -1293,7 +1464,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                             <p className="text-[10px] font-black uppercase tracking-widest text-[#a87d22] dark:text-amber-200">{action.label}</p>
                             <button
                               type="button"
-                              onClick={() => copyToClipboard(item.content, `${action.label} copiado.`)}
+                              onClick={() => copyToClipboard(item.content, `${action.label} cópiado.`)}
                               title={`Copiar ${action.label.toLowerCase()} gerado pela IA.`}
                               className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl bg-white px-3 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:bg-emerald-50 dark:bg-bible-darkPaper dark:text-emerald-200"
                             >
@@ -1342,14 +1513,14 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           )}
 
           {(experienceMode === 'during_with_live' || experienceMode === 'during_without_live' || liveState) && (
-            <div className="rounded-[2rem] border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-[#fff8e8] p-6 shadow-sm dark:border-emerald-900/40 dark:from-emerald-950/20 dark:via-bible-darkPaper dark:to-amber-950/10">
+            <div className="rounded-[1.5rem] border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-[#fff8e8] p-5 shadow-sm dark:border-emerald-900/40 dark:from-emerald-950/20 dark:via-bible-darkPaper dark:to-amber-950/10">
               <div className="flex items-center gap-2">
                 <Radio className="text-red-500" size={18} />
                 <p className="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300">
                   {experienceMode === 'during_with_live' ? 'Modo Culto Ao Vivo' : 'Culto presencial em andamento'}
                 </p>
               </div>
-              <h2 className="mt-2 text-xl font-black text-gray-900 dark:text-white">{liveState?.currentTitle || currentStep?.title || 'Acompanhando a liturgia'}</h2>
+              <h2 className="mt-2 text-lg font-black text-gray-900 dark:text-white">{liveState?.currentTitle || currentStep?.title || 'Acompanhando a liturgia'}</h2>
               {liveState?.currentVerseRef && <p className="mt-4 text-sm font-black text-gray-900 dark:text-white">{liveState.currentVerseRef}</p>}
               {liveState?.currentVerseText && <p className="mt-2 text-sm leading-relaxed text-gray-700 dark:text-gray-200">{liveState.currentVerseText}</p>}
               {currentStepNotes && <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{currentStepNotes}</p>}
@@ -1362,24 +1533,24 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           )}
 
           <div className={premiumCardClass}>
-            <h2 className="mb-4 flex items-center gap-2 text-xl font-black text-gray-900 dark:text-white"><Sparkles className={premiumIconClass} /> Reacoes do culto</h2>
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-black text-gray-900 dark:text-white"><Sparkles className={premiumIconClass} /> Reacoes do culto</h2>
             <div className="grid grid-cols-3 gap-3">
               {REACTION_OPTIONS.map((reaction) => (
                 <button
                   key={reaction.type}
                   onClick={() => handleReaction(reaction.type)}
-                  title={`Registrar reacao: ${reaction.label}.`}
+                  title={`Registrar reação: ${reaction.label}.`}
                   className="rounded-2xl border border-emerald-100 bg-emerald-50/50 px-3 py-4 text-center transition hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-950/10"
                 >
                   <span className="block text-sm font-black text-gray-900 dark:text-white">{reaction.label}</span>
-                  <span className="mt-1 block text-2xl font-black text-emerald-700 dark:text-emerald-300">{reactions[reaction.type]}</span>
+                  <span className="mt-1 block text-xl font-black text-emerald-700 dark:text-emerald-300">{reactions[reaction.type]}</span>
                 </button>
               ))}
             </div>
           </div>
 
           <div className={premiumCardClass}>
-            <h2 className="mb-5 flex items-center gap-2 text-xl font-black text-gray-900 dark:text-white"><Clock className={premiumIconClass} /> Timeline liturgica</h2>
+            <h2 className="mb-5 flex items-center gap-2 text-lg font-black text-gray-900 dark:text-white"><Clock className={premiumIconClass} /> Timeline litúrgica</h2>
             <div className="space-y-3">
               {experienceMoments.map((item) => {
                 const isPastItem = item.momentStatus === 'completed';
@@ -1389,30 +1560,26 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                     <span className={`rounded-xl bg-white px-3 py-2 text-xs font-black shadow-sm transition-all duration-700 dark:bg-bible-darkPaper ${isPastItem ? 'text-gray-300 line-through dark:text-gray-600' : 'text-emerald-700 dark:text-emerald-300'}`}>{item.startsAt}</span>
                     <div>
                       <h3 className="font-black text-gray-900 dark:text-white">{item.title}</h3>
-                      {item.responsible && <p className="text-xs font-bold text-gray-400">Responsavel: {item.responsible}</p>}
+                      {item.responsible && <p className="text-xs font-bold text-gray-400">Responsável: {item.responsible}</p>}
                       {getPublicMomentNotes(item.notes) && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{getPublicMomentNotes(item.notes)}</p>}
-                      {(item.leaderScript || item.prayerGuide || item.transitionText || item.scriptureReadingRef || item.scriptureReadingText || item.sermonPoints?.length) && (
-                        <div className="mt-3 space-y-2 rounded-2xl border border-[#f3d28a]/40 bg-white/70 p-3 text-sm text-gray-600 dark:border-amber-900/30 dark:bg-bible-darkPaper/70 dark:text-gray-300">
-                          {item.leaderScript && <p><span className="font-black text-[#8a6a2f] dark:text-[#f3d28a]">Fala:</span> {item.leaderScript}</p>}
-                          {(item.scriptureReadingRef || item.scriptureReadingText) && (
-                            <div>
-                              {item.scriptureReadingRef && <p className="font-black text-emerald-800 dark:text-emerald-300">{item.scriptureReadingRef}</p>}
-                              {item.scriptureReadingText && <p className="mt-1 font-serif italic leading-relaxed">"{item.scriptureReadingText}"</p>}
-                            </div>
-                          )}
-                          {item.sermonPoints?.length ? (
-                            <ul className="list-disc space-y-1 pl-5">
-                              {item.sermonPoints.map((point, index) => <li key={`${item.id}_point_${index}`}>{point}</li>)}
-                            </ul>
-                          ) : null}
-                          {item.prayerGuide && <p><span className="font-black text-[#8a6a2f] dark:text-[#f3d28a]">Oração:</span> {item.prayerGuide}</p>}
-                          {item.transitionText && <p><span className="font-black text-[#8a6a2f] dark:text-[#f3d28a]">Transição:</span> {item.transitionText}</p>}
-                        </div>
-                      )}
                       {item.songList && (
-                        <ul className="mt-2 space-y-1 text-sm font-medium text-gray-500 dark:text-gray-400">
-                          {item.songList.split('\n').filter(Boolean).map((song, index) => <li key={`${item.id}_song_${index}`}>- {song}</li>)}
-                        </ul>
+                        <div className="mt-3 space-y-2">
+                          {item.songList.split('\n').filter(Boolean).map((song, index) => {
+                            const text = item.songTexts?.[song] ?? (index === 0 ? item.songLyrics : '');
+                            const leader = item.songLeaders?.[song];
+                            return (
+                              <details key={`${item.id}_song_${index}`} className="rounded-2xl border border-emerald-100 bg-white/80 p-3 dark:border-emerald-900/40 dark:bg-bible-darkPaper/80">
+                                <summary className="cursor-pointer text-sm font-black text-emerald-800 dark:text-emerald-300">{song}</summary>
+                                {leader && <p className="mt-2 text-xs font-bold text-gray-400">Ministério / cantor: {leader}</p>}
+                                {text ? (
+                                  <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-gray-600 dark:text-gray-300">{text}</pre>
+                                ) : (
+                                  <p className="mt-3 text-xs font-medium text-gray-400">Texto não informado para este louvor.</p>
+                                )}
+                              </details>
+                            );
+                          })}
+                        </div>
                       )}
                       {item.verseRef && <p className="mt-2 text-sm font-black text-emerald-800 dark:text-emerald-300">{item.verseRef}</p>}
                       {item.verseText && <p className="mt-1 font-serif text-sm italic leading-relaxed text-gray-600 dark:text-gray-300">"{item.verseText}"</p>}
@@ -1431,15 +1598,15 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
 
           <div className={premiumCardClass}>
             <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <h2 className="flex items-center gap-2 text-xl font-black text-gray-900 dark:text-white"><NotebookPen className={premiumIconClass} /> Minhas anotacoes</h2>
-              <button onClick={() => setIsNotePanelOpen(true)} title="Abrir painel para escrever uma nova anotacao pessoal." className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-4 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-300">
+              <h2 className="flex items-center gap-2 text-lg font-black text-gray-900 dark:text-white"><NotebookPen className={premiumIconClass} /> Minhas anotações</h2>
+              <button onClick={() => setIsNotePanelOpen(true)} title="Abrir painel para escrever uma nova anotação pessoal." className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-4 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-300">
                 <MessageSquarePlus size={14} />
-                Nova anotacao
+                Nova anotação
               </button>
             </div>
             {noteComments.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/50 p-6 text-center text-sm font-medium text-gray-400 dark:border-emerald-900/40 dark:bg-emerald-950/10">
-                Suas anotacoes do culto aparecerao aqui.
+                Suas anotações do culto aparecerao aqui.
               </div>
             ) : (
               <div className="space-y-3">
@@ -1456,7 +1623,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           </div>
 
           <div className={premiumCardClass}>
-            <h2 className="mb-5 flex items-center gap-2 text-xl font-black text-gray-900 dark:text-white"><MessageSquarePlus className={premiumIconClass} /> Feed do culto</h2>
+            <h2 className="mb-5 flex items-center gap-2 text-lg font-black text-gray-900 dark:text-white"><MessageSquarePlus className={premiumIconClass} /> Feed do culto</h2>
             {posts.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/50 p-6 text-center text-sm font-medium text-gray-400 dark:border-emerald-900/40 dark:bg-emerald-950/10">
                 As postagens vinculadas a este culto aparecerao aqui.
@@ -1483,11 +1650,11 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
 
           <div className={premiumCardClass}>
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="flex items-center gap-2 text-xl font-black text-gray-900 dark:text-white"><HandHeart className={premiumIconClass} /> Pedidos de oracao</h2>
+              <h2 className="flex items-center gap-2 text-lg font-black text-gray-900 dark:text-white"><HandHeart className={premiumIconClass} /> Pedidos de oração</h2>
               <button
                 type="button"
                 onClick={() => setIsPrayerModalOpen(true)}
-                title="Abrir popup para enviar um pedido de oracao."
+                title="Abrir popup para enviar um pedido de oração."
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-4 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-300"
               >
                 <Send size={14} />
@@ -1496,7 +1663,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
             </div>
             {publicPrayers.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/50 p-6 text-center text-sm font-medium text-gray-400 dark:border-emerald-900/40 dark:bg-emerald-950/10">
-                Nenhum pedido publico neste culto ainda.
+                Nenhum pedido público neste culto ainda.
               </div>
             ) : (
               <div className="space-y-3">
@@ -1515,7 +1682,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                     <button
                       onClick={() => handleIntercedePrayer(prayer)}
                       disabled={prayer.intercessedByMe}
-                      title={prayer.intercessedByMe ? 'Voce ja marcou que esta orando por este pedido.' : 'Marcar que voce esta orando por este pedido.'}
+                      title={prayer.intercessedByMe ? 'Voce j? marcou que esta orando por este pedido.' : 'Marcar que voce esta orando por este pedido.'}
                       className="mt-3 inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60 dark:bg-bible-darkPaper dark:text-emerald-300"
                     >
                       <HandHeart size={13} />
@@ -1528,10 +1695,10 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           </div>
         </div>
 
-        <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+        <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           <div className={premiumCardClass}>
             <h2 className="mb-4 flex items-center gap-2 text-lg font-black text-gray-900 dark:text-white"><MessageSquarePlus className={premiumIconClass} /> Postar no feed</h2>
-            <textarea ref={postComposerRef} value={postContent} onChange={(event) => setPostContent(event.target.value)} title="Escreva uma mensagem para publicar no feed da igreja vinculada a este culto." placeholder="Compartilhe uma frase da pregacao, testemunho ou foto depois pelo feed..." className="min-h-32 w-full resize-none rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 text-sm leading-relaxed outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-emerald-900/40 dark:bg-emerald-950/10" />
+            <textarea ref={postComposerRef} value={postContent} onChange={(event) => setPostContent(event.target.value)} title="Escreva uma mensagem para publicar no feed da igreja vinculada a este culto." placeholder="Compartilhe uma frase da pregação, testemunho ou foto depois pelo feed..." className="min-h-32 w-full resize-none rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 text-sm leading-relaxed outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-emerald-900/40 dark:bg-emerald-950/10" />
             <button onClick={handleCreatePost} disabled={posting} title="Publicar esta mensagem no feed da igreja." className={`mt-3 w-full ${champagneButtonClass}`}>
               {posting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
               Publicar com a igreja
@@ -1539,13 +1706,13 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           </div>
 
           {service.keyVerseRef && (
-            <div className="rounded-[2rem] border border-[#f3d28a]/50 bg-gradient-to-br from-[#fff8e8] via-white to-emerald-50 p-6 dark:border-amber-900/40 dark:from-amber-950/20 dark:via-bible-darkPaper dark:to-emerald-950/10">
-              <h2 className="flex items-center gap-2 text-lg font-black text-[#073b35] dark:text-[#f3d28a]"><Heart size={18} /> Versiculo-chave</h2>
+            <div className="rounded-[1.5rem] border border-[#f3d28a]/50 bg-gradient-to-br from-[#fff8e8] via-white to-emerald-50 p-5 dark:border-amber-900/40 dark:from-amber-950/20 dark:via-bible-darkPaper dark:to-emerald-950/10">
+              <h2 className="flex items-center gap-2 text-lg font-black text-[#073b35] dark:text-[#f3d28a]"><Heart size={18} /> Versículo-chave</h2>
               <p className="mt-3 text-sm font-black text-gray-900 dark:text-white">{service.keyVerseRef}</p>
               {service.keyVerseText && <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{service.keyVerseText}</p>}
-              <button onClick={handleSaveKeyVerse} disabled={savingVerse} title="Salvar este versiculo-chave na sua conta." className={`mt-4 w-full ${champagneButtonClass}`}>
+              <button onClick={handleSaveKeyVerse} disabled={savingVerse} title="Salvar este versículo-chave na sua conta." className={`mt-4 w-full ${champagneButtonClass}`}>
                 {savingVerse ? <Loader2 size={14} className="animate-spin" /> : <Bookmark size={14} />}
-                Salvar versiculo ({verseSavesCount})
+                Salvar versículo ({verseSavesCount})
               </button>
             </div>
           )}
@@ -1555,21 +1722,21 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
 
       {isPrayerModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-3 backdrop-blur-sm md:items-center" role="dialog" aria-modal="true" aria-labelledby="service-prayer-title" onClick={() => setIsPrayerModalOpen(false)}>
-          <div className="w-full max-w-lg rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-2xl dark:border-emerald-900/40 dark:bg-bible-darkPaper" onClick={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-lg rounded-[1.5rem] border border-emerald-100 bg-white p-5 shadow-2xl dark:border-emerald-900/40 dark:bg-bible-darkPaper" onClick={(event) => event.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h2 id="service-prayer-title" className="flex items-center gap-2 text-xl font-medium text-gray-900 dark:text-white">
+                <h2 id="service-prayer-title" className="flex items-center gap-2 text-lg font-medium text-gray-900 dark:text-white">
                   <HandHeart className={premiumIconClass} />
-                  Pedido de oracao
+                  Pedido de oração
                 </h2>
-                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">Compartilhe um pedido para intercessao neste culto.</p>
+                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">Compartilhe um pedido para intercessão neste culto.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsPrayerModalOpen(false)}
-                title="Fechar janela de pedido de oracao."
+                title="Fechar janela de pedido de oração."
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-800 transition hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-200"
-                aria-label="Fechar pedido de oracao"
+                aria-label="Fechar pedido de oração"
               >
                 <X size={18} />
               </button>
@@ -1577,8 +1744,8 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
             <textarea
               value={prayerContent}
               onChange={(event) => setPrayerContent(event.target.value)}
-              title="Escreva um pedido de oracao para este culto."
-              placeholder="Compartilhe um pedido para intercessao..."
+              title="Escreva um pedido de oração para este culto."
+              placeholder="Compartilhe um pedido para intercessão..."
               className="min-h-32 w-full resize-none rounded-2xl border border-emerald-100 bg-emerald-50/30 p-4 text-sm leading-relaxed outline-none transition focus:border-emerald-300 focus:bg-white focus:ring-4 focus:ring-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-950/10 dark:focus:ring-emerald-950/40"
             />
             <label className="mt-3 flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -1589,7 +1756,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
               type="button"
               onClick={handleCreatePrayer}
               disabled={savingPrayer || !prayerContent.trim()}
-              title="Enviar o pedido de oracao para este culto."
+              title="Enviar o pedido de oração para este culto."
               className={`mt-4 w-full ${premiumButtonClass}`}
             >
               {savingPrayer ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
@@ -1601,11 +1768,11 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
 
       {isOfferingModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-3 backdrop-blur-sm md:items-center" role="dialog" aria-modal="true" aria-labelledby="service-offering-title" onClick={() => setIsOfferingModalOpen(false)}>
-          <div className="w-full max-w-md rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-2xl dark:border-emerald-900/40 dark:bg-bible-darkPaper" onClick={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-md rounded-[1.5rem] border border-emerald-100 bg-white p-5 shadow-2xl dark:border-emerald-900/40 dark:bg-bible-darkPaper" onClick={(event) => event.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h2 id="service-offering-title" className="flex items-center gap-2 text-lg font-medium text-gray-900 dark:text-white"><Gift className={premiumIconClass} /> Ofertar</h2>
-                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">Contribua com liberdade e discernimento, como parte da sua adoracao.</p>
+                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">Contribua com liberdade e discernimento, como parte da sua adoração.</p>
               </div>
               <button
                 type="button"
@@ -1624,7 +1791,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                 {offeringItem.notes && <p className="mt-3 text-sm leading-relaxed opacity-75">{offeringItem.notes}</p>}
                 <button
                   type="button"
-                  onClick={() => copyToClipboard(offeringItem.pixKey ?? '', 'Chave PIX copiada.')}
+                  onClick={() => copyToClipboard(offeringItem.pixKey ?? '', 'Chave PIX cópiada.')}
                   title="Copiar a chave PIX da oferta."
                   className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 text-[10px] font-medium uppercase tracking-widest text-[#073b35] shadow-sm transition hover:bg-amber-50 dark:bg-bible-darkPaper dark:text-amber-100"
                 >
@@ -1634,7 +1801,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/50 p-5 text-center text-sm font-medium text-gray-500 dark:border-emerald-900/40 dark:bg-emerald-950/10 dark:text-gray-400">
-                Oferta indisponivel neste culto.
+                Oférta indisponível neste culto.
               </div>
             )}
           </div>
@@ -1643,11 +1810,11 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
 
       {isInviteModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-3 backdrop-blur-sm md:items-center" role="dialog" aria-modal="true" aria-labelledby="service-invite-title" onClick={() => setIsInviteModalOpen(false)}>
-          <div className="w-full max-w-md rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-2xl dark:border-emerald-900/40 dark:bg-bible-darkPaper" onClick={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-md rounded-[1.5rem] border border-emerald-100 bg-white p-5 shadow-2xl dark:border-emerald-900/40 dark:bg-bible-darkPaper" onClick={(event) => event.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h2 id="service-invite-title" className="flex items-center gap-2 text-lg font-medium text-gray-900 dark:text-white"><UserPlus className={premiumIconClass} /> Convidar alguem</h2>
-                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">Compartilhe o culto com alguem que pode ser edificado pela mensagem.</p>
+                <h2 id="service-invite-title" className="flex items-center gap-2 text-lg font-medium text-gray-900 dark:text-white"><UserPlus className={premiumIconClass} /> Convidar alguém</h2>
+                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">Compartilhe o culto com alguém que pode ser edificado pela mensagem.</p>
               </div>
               <button
                 type="button"
@@ -1675,7 +1842,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                 type="button"
                 onClick={async () => {
                   const url = await getOrCreateInviteUrl('copy');
-                  await copyToClipboard(`Venha participar do culto "${service.title}" na ${service.churchName}. ${url}`, 'Convite copiado.');
+                  await copyToClipboard(`Venha participar do culto "${service.title}" na ${service.churchName}. ${url}`, 'Convite cópiado.');
                 }}
                 disabled={creatingInvite}
                 title="Copiar texto de convite com link rastreavel deste culto."
@@ -1693,9 +1860,9 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                       await navigator.share({ title: service.title, text: service.theme, url });
                       return;
                     }
-                    await copyToClipboard(url, 'Link do convite copiado.');
+                    await copyToClipboard(url, 'Link do convite cópiado.');
                   } catch (error: any) {
-                    if (error?.name !== 'AbortError') showNotification('Nao foi possivel compartilhar o convite.', 'error');
+                    if (error?.name !== 'AbortError') showNotification('Não foi possível compartilhar o convite.', 'error');
                   }
                 }}
                 disabled={creatingInvite}
@@ -1712,7 +1879,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
 
       {isScheduleModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-3 backdrop-blur-sm md:items-center" role="dialog" aria-modal="true" aria-labelledby="service-schedule-title" onClick={() => setIsScheduleModalOpen(false)}>
-          <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-2xl dark:border-emerald-900/40 dark:bg-bible-darkPaper" onClick={(event) => event.stopPropagation()}>
+          <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-[1.5rem] border border-emerald-100 bg-white p-5 shadow-2xl dark:border-emerald-900/40 dark:bg-bible-darkPaper" onClick={(event) => event.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h2 id="service-schedule-title" className="flex items-center gap-2 text-lg font-medium text-gray-900 dark:text-white"><Users className={premiumIconClass} /> Escala do culto</h2>
@@ -1742,7 +1909,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                         <div key={assignment.id} className="flex flex-col gap-1 rounded-xl bg-white p-3 text-sm dark:bg-bible-darkPaper sm:flex-row sm:items-center sm:justify-between">
                           <span className="min-w-0">
                             <span className="block font-black text-gray-900 dark:text-white">{assignment.userDisplayName}</span>
-                            <span className="mt-0.5 block text-xs font-semibold text-gray-500 dark:text-gray-400">{assignment.role || 'Funcao nao informada'}</span>
+                            <span className="mt-0.5 block text-xs font-semibold text-gray-500 dark:text-gray-400">{assignment.role || 'Função não informada'}</span>
                           </span>
                           <span className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${SCHEDULE_STATUS_STYLES[assignment.status]}`}>
                             {SCHEDULE_STATUS_LABELS[assignment.status]}
@@ -1756,7 +1923,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
             ) : (
               <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-center dark:border-gray-700">
                 <Users className="mx-auto text-gray-300" size={30} />
-                <h3 className="mt-3 text-base font-black text-gray-900 dark:text-white">Nenhuma escala publicada</h3>
+                <h3 className="mt-3 text-base font-black text-gray-900 dark:text-white">Nenhuma escala públicada</h3>
                 <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">Quando a equipe for escalada no Culto+, os nomes aparecerao aqui.</p>
               </div>
             )}
@@ -1766,7 +1933,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
 
       {isQrModalOpen && checkinUrl && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-3 backdrop-blur-sm md:items-center" role="dialog" aria-modal="true" aria-labelledby="service-qr-title" onClick={() => setIsQrModalOpen(false)}>
-          <div className="w-full max-w-md rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-2xl dark:border-emerald-900/40 dark:bg-bible-darkPaper" onClick={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-md rounded-[1.5rem] border border-emerald-100 bg-white p-5 shadow-2xl dark:border-emerald-900/40 dark:bg-bible-darkPaper" onClick={(event) => event.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between gap-4">
               <h2 id="service-qr-title" className="flex items-center gap-2 text-lg font-medium text-gray-900 dark:text-white"><QrCode className={premiumIconClass} /> QR de check-in</h2>
               <button
@@ -1785,7 +1952,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
               className="mx-auto h-44 w-44 rounded-2xl border border-emerald-100 bg-white p-3"
               loading="lazy"
             />
-            <p className="mt-4 text-center text-xs font-medium text-gray-400">Aponte a camera para abrir e iniciar o check-in.</p>
+            <p className="mt-4 text-center text-xs font-medium text-gray-400">Aponte a câmera para abrir e iniciar o check-in.</p>
             <a
               href={`https://api.qrserver.com/v1/create-qr-code/?size=720x720&data=${encodeURIComponent(checkinUrl)}`}
               download={`qr-${service.slug}.png`}
@@ -1802,13 +1969,13 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       {isNotePanelOpen ? (
         <div className="fixed inset-x-4 bottom-20 z-[80] rounded-[2rem] border border-emerald-200 bg-white p-5 shadow-2xl shadow-emerald-950/15 dark:border-emerald-900/60 dark:bg-bible-darkPaper md:inset-x-auto md:bottom-6 md:right-6 md:w-[430px]">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-lg font-black text-gray-900 dark:text-white"><NotebookPen className={premiumIconClass} /> Minhas anotacoes</h2>
+            <h2 className="flex items-center gap-2 text-lg font-black text-gray-900 dark:text-white"><NotebookPen className={premiumIconClass} /> Minhas anotações</h2>
             <button
               type="button"
               onClick={() => setIsNotePanelOpen(false)}
-              title="Ocultar o campo de anotacao."
+              title="Ocultar o campo de anotação."
               className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-800 transition hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-200"
-              aria-label="Ocultar campo de anotacao"
+              aria-label="Ocultar campo de anotação"
             >
               <X size={18} />
             </button>
@@ -1816,13 +1983,13 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           <textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            title="Escreva uma anotacao pessoal sobre o culto."
-            placeholder="Anote versiculos, frases da pregacao e aplicacoes praticas..."
+            title="Escreva uma anotação pessoal sobre o culto."
+            placeholder="Anote versículos, frases da pregação e aplicações práticas..."
             className="min-h-44 w-full resize-none rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 text-sm leading-relaxed outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-emerald-900/40 dark:bg-emerald-950/10"
           />
-          <button onClick={handleSaveNote} disabled={savingNote || !note.trim()} title="Salvar sua anotacao pessoal deste culto." className={`mt-3 w-full ${premiumButtonClass}`}>
+          <button onClick={handleSaveNote} disabled={savingNote || !note.trim()} title="Salvar sua anotação pessoal deste culto." className={`mt-3 w-full ${premiumButtonClass}`}>
             {savingNote ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            Salvar anotacao
+            Salvar anotação
           </button>
         </div>
       ) : (
@@ -1838,7 +2005,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                       handleReaction(reaction.type);
                       setIsReactionPanelOpen(false);
                     }}
-                    title={`Registrar reacao: ${reaction.label}.`}
+                    title={`Registrar reação: ${reaction.label}.`}
                     className="inline-flex min-h-10 items-center justify-between gap-3 rounded-2xl bg-emerald-50 px-3 text-[10px] font-black uppercase tracking-widest text-emerald-800 transition hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-200"
                   >
                     {reaction.label}
@@ -1850,7 +2017,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
             <button
               type="button"
               onClick={() => setIsReactionPanelOpen((isOpen) => !isOpen)}
-              title="Abrir opcoes de reacao para este culto."
+              title="Abrir opcoes de reação para este culto."
               className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-[#f3d28a] px-5 text-[10px] font-black uppercase tracking-widest text-[#073b35] shadow-2xl shadow-emerald-950/15 ring-4 ring-white transition hover:-translate-y-0.5 dark:ring-black"
               aria-label="Abrir reacoes do culto"
             >
@@ -1861,9 +2028,9 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           <button
             type="button"
             onClick={() => setIsNotePanelOpen(true)}
-            title="Abrir o campo para criar uma anotacao pessoal."
+            title="Abrir o campo para criar uma anotação pessoal."
             className="fixed bottom-20 right-4 z-[80] inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#073b35] via-[#0f5d51] to-[#d8b15f] px-5 text-[10px] font-black uppercase tracking-widest text-white shadow-2xl shadow-emerald-950/20 ring-4 ring-white transition hover:-translate-y-0.5 dark:ring-black md:bottom-6 md:right-6"
-            aria-label="Abrir campo de anotacao"
+            aria-label="Abrir campo de anotação"
           >
             <NotebookPen size={18} />
             Anotar

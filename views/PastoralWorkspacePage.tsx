@@ -4,7 +4,6 @@
 import React, { useEffect } from 'react';
 import { PenTool } from 'lucide-react';
 import SEO from '../components/SEO';
-import { WorkspaceProvider } from '../contexts/WorkspaceContext';
 import { useHeader } from '../contexts/HeaderContext';
 import WorkspaceOnePage from '../components/workspace/WorkspaceOnePage';
 
@@ -29,11 +28,7 @@ const PastoralWorkspaceContent: React.FC = () => {
 };
 
 const PastoralWorkspacePage: React.FC = () => {
-  return (
-    <WorkspaceProvider>
-      <PastoralWorkspaceContent />
-    </WorkspaceProvider>
-  );
+  return <PastoralWorkspaceContent />;
 };
 
 export default PastoralWorkspacePage;

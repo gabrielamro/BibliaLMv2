@@ -1,7 +1,7 @@
 # 📖 BíbliaLM - Product Context & Business Rules
 
 > **AI INSTRUCTION:** This file contains the "Soul" of the application. Refer to this for logic, gamification rules, and terminology.
-> **VERSION:** v2.3.0 (Mana, niveis e rankings)
+> **VERSION:** v2.4.0 (New Home isolada e personalizada por papel)
 
 ## 1. Product Vision
 A deep Bible study platform powered by AI, designed to look like a "Sanctuary" (Clean, Serene, Gold/Leather aesthetic). The AI is a "Counselor" or "Worker," not a generic bot.

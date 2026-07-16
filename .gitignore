@@ -58,3 +58,9 @@ test_*.ts
 # Test results
 test-results/
 playwright-report/
+.tmp-tests/
+
+# Local scratch/debug artifacts
+scratch/
+scratch_test.mjs
+deploy-debug.txt
