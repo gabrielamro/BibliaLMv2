@@ -14,10 +14,11 @@ export const isGroupMember = (group: ChurchGroup | null, profile: UserProfile | 
 export const canViewGroupFeed = (
   group: ChurchGroup,
   profile: UserProfile | null | undefined,
-  invite?: Pick<GroupAccessInvite, 'status'> | null,
+  _invite?: Pick<GroupAccessInvite, 'status'> | null,
 ): boolean => {
   if (group.privacy !== 'private') return true;
-  return isGroupMember(group, profile) || invite?.status === 'pending';
+  // Convite pendente libera apenas o resumo e a ação de aceite, nunca o mural.
+  return isGroupMember(group, profile);
 };
 
 export const canPostInGroupFeed = (
@@ -35,7 +36,7 @@ export const buildPrivateGroupAccessNotification = ({
     title: 'Convite para grupo privado',
     message: `${actorName} ${action} ${group.name}.`,
     type: 'social',
-    link: `/grupo/${group.id}?invite=${invite.id}`,
+    link: `/grupo/${group.slug || group.id}?invite=${invite.id}`,
     icon: 'users',
   };
 };

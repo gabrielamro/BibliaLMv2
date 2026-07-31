@@ -1,12 +1,13 @@
 "use client";
-import { useNavigate, useLocation, useParams, useSearchParams } from '../../utils/router';
+import { useNavigate, useParams, useSearchParams } from '../../utils/router';
 
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 
 import Link from "next/link";
 import { dbService } from '../../services/supabase';
-import { ChurchGroup, UserProfile, PrayerRequest, GroupAccessInvite, GroupPrivacy } from '../../types';
+import { churchGroupService } from '../../services/churchGroupService';
+import { Church, ChurchGroup, UserProfile, PrayerRequest, GroupAccessInvite, GroupPrivacy, ChurchMemberRole, Post } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHeader } from '../../contexts/HeaderContext';
 import { canPostInGroupFeed, canViewGroupFeed } from '../../utils/groupAccess';
@@ -24,12 +25,21 @@ import {
   LayoutGrid,
   AtSign,
   Check,
-  CornerUpLeft
+  CornerUpLeft,
+  ChevronRight
 } from 'lucide-react';
 import { generateSlug } from '../../utils/textUtils';
 import SEO from '../../components/SEO';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import PromptModal from '../../components/PromptModal';
+import { getChurchGroupCapabilities } from '../../utils/churchGroupRules';
+import KingdomComposer from '../../components/social/KingdomComposer';
+import { FeedPostCard } from '../../components/social/FeedPostCard';
+import { postInteractionService } from '../../services/postInteractionService';
+import { generateShareLink } from '../../utils/shareUtils';
+
+type GroupMuralItem = (PrayerRequest & { muralType?: 'prayer' }) | (Post & { muralType: 'post' });
+const isGroupFeedPost = (item: GroupMuralItem): item is Post & { muralType: 'post' } => item.muralType === 'post';
 
 // Novo componente para exibir reações como respostas
 const ResponseList = ({ prayer }: { prayer: PrayerRequest }) => {
@@ -82,15 +92,15 @@ const PostMenu = ({ prayer, onEdit, onDelete }: { prayer: PrayerRequest, onEdit:
 const CellForumPage: React.FC = () => {
     const { cellSlug } = useParams<{ cellSlug: string }>(); // Mantido cellSlug para compatibilidade de rotas
     const navigate = useNavigate();
-    const location = useLocation();
     const [searchParams] = useSearchParams();
     const { currentUser, userProfile, recordActivity, showNotification, openLogin, earnMana, updateProfile } = useAuth();
     const { setTitle, setBreadcrumbs, resetHeader } = useHeader();
     
-    const isSocialMode = location.pathname.startsWith('/social');
-    const basePath = isSocialMode ? '/social' : '';
-
     const [group, setGroup] = useState<ChurchGroup | null>(null);
+    const [linkedChurch, setLinkedChurch] = useState<Church | null>(null);
+    const [parentGroup, setParentGroup] = useState<ChurchGroup | null>(null);
+    const [churchRoles, setChurchRoles] = useState<ChurchMemberRole[]>([]);
+    const [eligibleLeaderIds, setEligibleLeaderIds] = useState<Set<string>>(new Set());
 
     // --- HEADER MANAGEMENT ---
     useEffect(() => {
@@ -98,20 +108,22 @@ const CellForumPage: React.FC = () => {
             setTitle(group.name);
             setBreadcrumbs([
                 { label: 'Comunidade', path: '/social' },
+                ...(linkedChurch ? [{ label: linkedChurch.name, path: `/igreja/${linkedChurch.slug}` }] : []),
+                ...(parentGroup ? [{ label: parentGroup.name, path: `/grupo/${parentGroup.slug || parentGroup.id}` }] : []),
                 { label: group.name }
             ]);
         }
         return () => resetHeader();
-    }, [group, setTitle, setBreadcrumbs, resetHeader]);
+    }, [group, linkedChurch, parentGroup, setTitle, setBreadcrumbs, resetHeader]);
 
     const [subgroups, setSubgroups] = useState<ChurchGroup[]>([]);
-    const [parentGroup, setParentGroup] = useState<ChurchGroup | null>(null);
-    const [prayers, setPrayers] = useState<PrayerRequest[]>([]);
+    const [prayers, setPrayers] = useState<GroupMuralItem[]>([]);
+    const [isKingdomComposerOpen, setIsKingdomComposerOpen] = useState(false);
     const [members, setMembers] = useState<UserProfile[]>([]);
     const [newPrayer, setNewPrayer] = useState('');
     const [loading, setLoading] = useState(true);
     const [isPosting, setIsPosting] = useState(false);
-    const [activeTab, setActiveTab] = useState<'mural' | 'subgroups' | 'ranking'>('mural');
+    const [activeTab, setActiveTab] = useState<'mural' | 'subgroups' | 'ranking' | 'about'>('mural');
     
     const [isCellOptionsOpen, setIsCellOptionsOpen] = useState(false);
     const [showDeleteCellModal, setShowDeleteCellModal] = useState(false);
@@ -162,6 +174,27 @@ const CellForumPage: React.FC = () => {
             if (data) {
                 setGroup(data);
 
+                const [churchResult, parentResult] = await Promise.allSettled([
+                    dbService.getChurchById(data.churchId),
+                    data.parentGroupId ? dbService.getCellById(data.parentGroupId) : Promise.resolve(null),
+                ]);
+                setLinkedChurch(churchResult.status === 'fulfilled' ? churchResult.value : null);
+                setParentGroup(parentResult.status === 'fulfilled' ? parentResult.value : null);
+
+                if (currentUserId) {
+                    const [rolesResult, leadersResult] = await Promise.allSettled([
+                        churchGroupService.getUserRoles(data.churchId, currentUserId),
+                        churchGroupService.getVisibleEligibleLeaderRoles(data.churchId),
+                    ]);
+                    const roles = rolesResult.status === 'fulfilled' ? rolesResult.value : [];
+                    const visibleLeaderRoles = leadersResult.status === 'fulfilled' ? leadersResult.value : [];
+                    setChurchRoles(roles);
+                    setEligibleLeaderIds(new Set([...roles, ...visibleLeaderRoles].map((role) => role.userId)));
+                } else {
+                    setChurchRoles([]);
+                    setEligibleLeaderIds(new Set());
+                }
+
                 const canView = canViewGroupFeed(data, userProfile, invite);
                 if (!canView) {
                     setPrayers([]);
@@ -171,20 +204,12 @@ const CellForumPage: React.FC = () => {
                     return;
                 }
 
-                // Fetch paralelo: mural, membros, subgrupos e (se houver) grupo pai
+                // Fetch paralelo: mural, membros e subgrupos.
                 const promises: Promise<any>[] = [
-                    dbService.getPrayerRequests('cell', data.id),
+                    dbService.getUnifiedGroupMural(data.id, currentUserId),
                     dbService.getCellMembers(data.id),
                     dbService.getSubgroups(data.id)
                 ];
-
-                // Se tiver parentGroupId, buscamos os detalhes do pai para breadcrumbs
-                if (data.parentGroupId) {
-                    // Aqui precisaríamos de um getGroupById, mas podemos usar a lógica de getAll e filtrar ou assumir que o pai existe
-                    // Como não temos um getById direto exportado no helper anterior, vamos adaptar ou usar o que tem
-                    // Simplificação: não buscamos o nome do pai agora para evitar complexidade extra sem endpoint, 
-                    // mas idealmente mostrariamos "Voltar para [Nome Pai]"
-                }
 
                 const [prayersList, membersList, subgroupsList] = await Promise.all(promises);
                 
@@ -215,7 +240,7 @@ const CellForumPage: React.FC = () => {
             setIsSearchingLeader(true);
             try {
               const results = await dbService.searchUsersByUsername(searchVal);
-              setLeaderResults(results);
+              setLeaderResults(results.filter((user) => eligibleLeaderIds.has(user.uid)));
             } catch (e) {
               console.error("Error searching for leader:", e);
             } finally {
@@ -228,7 +253,7 @@ const CellForumPage: React.FC = () => {
         return () => {
           if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
         };
-    }, [newSubgroupLeader]);
+    }, [eligibleLeaderIds, newSubgroupLeader]);
 
     useEffect(() => {
         const searchVal = normalizeUserSearchQuery(inviteQuery);
@@ -237,8 +262,12 @@ const CellForumPage: React.FC = () => {
             inviteSearchTimeoutRef.current = setTimeout(async () => {
                 setIsSearchingInvite(true);
                 try {
-                    const results = await dbService.searchUsersByUsername(searchVal);
-                    setInviteResults(results);
+                    const [results, churchMembers] = await Promise.all([
+                        dbService.searchUsersByUsername(searchVal),
+                        group ? dbService.getChurchMembers(group.churchId) : Promise.resolve([]),
+                    ]);
+                    const memberIds = new Set(churchMembers.map((member) => member.uid));
+                    setInviteResults(results.filter((user) => memberIds.has(user.uid)));
                 } catch (e) {
                     console.error("Error searching invite target:", e);
                 } finally {
@@ -251,7 +280,7 @@ const CellForumPage: React.FC = () => {
         return () => {
             if (inviteSearchTimeoutRef.current) clearTimeout(inviteSearchTimeoutRef.current);
         };
-    }, [inviteQuery]);
+    }, [group, inviteQuery]);
 
     const handleSelectLeader = (user: UserProfile) => {
         setSelectedLeader(user);
@@ -260,7 +289,7 @@ const CellForumPage: React.FC = () => {
     };
 
     const inviteUserToPrivateGroup = async (user: UserProfile, source: 'invite' | 'mention') => {
-        if (!group || !userProfile || group.privacy !== 'private') return;
+        if (!group || !userProfile || group.privacy !== 'private' || !groupCapabilities.canInviteMembers) return;
         const invite = await dbService.createGroupAccessInvite(group, user, userProfile, source);
         await recordActivity(source === 'mention' ? 'social_mention' : 'invite_sent', source === 'mention' ? `Mencionou ${user.displayName} no grupo ${group.name}` : `Convidou ${user.displayName} para o grupo ${group.name}`, {
             sourceId: invite.id,
@@ -270,7 +299,7 @@ const CellForumPage: React.FC = () => {
     };
 
     const notifyMentionedUsersForPrivateAccess = async (content: string) => {
-        if (!group || !userProfile || group.privacy !== 'private') return;
+        if (!group || !userProfile || group.privacy !== 'private' || !groupCapabilities.canInviteMembers) return;
         const usernames = Array.from(new Set((content.match(/@([a-zA-Z0-9_]+)/g) ?? []).map(name => name.slice(1).toLowerCase())));
         for (const username of usernames) {
             const [user] = await dbService.searchUsersByUsername(username);
@@ -329,6 +358,7 @@ const CellForumPage: React.FC = () => {
         const isInterceding = prayer.intercessors?.includes(currentUser.uid);
         
         setPrayers(prev => prev.map(p => {
+            if (isGroupFeedPost(p)) return p;
             if (p.id === prayer.id) {
                 const count = isInterceding ? (p.intercessorsCount - 1) : (p.intercessorsCount + 1);
                 const list = isInterceding 
@@ -340,13 +370,28 @@ const CellForumPage: React.FC = () => {
         }));
 
         try {
-            await dbService.togglePrayerIntercession(prayer.id, currentUser.uid, !!isInterceding);
+            await dbService.togglePrayerIntercession(prayer.id, currentUser.uid, !isInterceding);
             if (!isInterceding) {
                 showNotification(`Reagiu com ${emoji}`, "success");
                 if (emoji === '🔥') await earnMana('social_like');
             }
             setActiveReactionPicker(null);
         } catch (e) { console.error(e); }
+    };
+
+    const handleGroupPostInteraction = async (post: Post, type: 'like' | 'comment' | 'share' | 'save') => {
+        if (type === 'share') {
+            const url = generateShareLink('post', { postId: post.id });
+            if (navigator.share) await navigator.share({ title: 'Culto+', url });
+            else { await navigator.clipboard.writeText(url); showNotification('Link copiado!', 'success'); }
+            return;
+        }
+        if (type === 'comment') { navigate(`/p/${post.id}`); return; }
+        if (!currentUser) { openLogin(); return; }
+        const persisted = type === 'like'
+            ? await postInteractionService.setLiked(post, currentUser.uid, !post.likedBy?.includes(currentUser.uid))
+            : await postInteractionService.setSaved(post, !post.saved);
+        setPrayers(current => current.map(item => isGroupFeedPost(item) && item.id === post.id ? { ...persisted, muralType: 'post' } : item));
     };
 
     const handleEditPrayer = (prayer: PrayerRequest) => {
@@ -382,7 +427,7 @@ const CellForumPage: React.FC = () => {
     };
 
     const confirmEditCell = async (newName: string) => {
-        if (!group) return;
+        if (!group || !groupCapabilities.canEditGroup) return;
         try {
             await dbService.updateCell(group.id, { name: newName });
             setGroup({ ...group, name: newName });
@@ -392,7 +437,7 @@ const CellForumPage: React.FC = () => {
     };
 
     const handleDeleteCell = async () => {
-        if (!group) return;
+        if (!group || !groupCapabilities.canArchiveGroup) return;
         try {
             await dbService.deleteCell(group.id);
             showNotification("Grupo excluído permanentemente.", "info");
@@ -402,28 +447,33 @@ const CellForumPage: React.FC = () => {
 
     const handleCreateSubgroup = async () => {
         if (!newSubgroupName.trim() || !group || !currentUser) return;
+        if (!groupCapabilities.canCreateSubgroup) {
+            showNotification('Somente pastor ou líder autorizado desta igreja pode criar subgrupos.', 'error');
+            return;
+        }
+        if (selectedLeader && !eligibleLeaderIds.has(selectedLeader.uid)) {
+            showNotification('Escolha um pastor ou líder ativo vinculado a esta igreja.', 'error');
+            return;
+        }
         setLoading(true);
         try {
             const slug = group.slug + '-' + generateSlug(newSubgroupName);
             let finalLeaderName = newSubgroupLeader.trim() || "Liderança não definida";
-            let leaderUid = selectedLeader?.uid || undefined;
+            const leaderUid = selectedLeader?.uid || undefined;
             if (selectedLeader) finalLeaderName = selectedLeader.displayName;
-  
-            const subgroupData = {
+
+            const subgroup = await churchGroupService.createGroup({
                 churchId: group.churchId,
-                parentGroupId: group.id, // Hierarquia
+                parentGroupId: group.id,
                 name: newSubgroupName.trim(),
                 slug,
                 privacy: newSubgroupPrivacy,
-                stats: { memberCount: 1, totalMana: 0 },
                 leaderName: finalLeaderName,
                 leaderUid,
-                createdBy: currentUser.uid,
-                createdAt: new Date().toISOString()
-            };
-  
-            const id = await dbService.createCell(subgroupData);
-            setSubgroups(prev => [...prev, { id, ...subgroupData } as ChurchGroup]);
+                createdBy: currentUser.uid || currentUser.id,
+            });
+
+            setSubgroups(prev => [...prev, subgroup]);
             setIsCreatingSubgroup(false);
             setNewSubgroupName('');
             setNewSubgroupLeader('');
@@ -431,7 +481,8 @@ const CellForumPage: React.FC = () => {
             setSelectedLeader(null);
             showNotification("Subgrupo criado com sucesso!", "success");
         } catch (e) {
-            showNotification("Erro ao criar subgrupo.", "error");
+            const message = e instanceof Error ? e.message : 'Erro ao criar subgrupo.';
+            showNotification(message, "error");
         } finally {
             setLoading(false);
         }
@@ -439,13 +490,16 @@ const CellForumPage: React.FC = () => {
 
     const currentUserId = currentUser?.uid || currentUser?.id;
     const isMyGroup = userProfile?.churchData?.groupId === group?.id;
-    const isCreator = currentUserId && group && (group.createdBy === currentUserId);
-    const isLeader = currentUserId && group && (group.leaderUid === currentUserId);
-    const canModerateGroupPosts = Boolean(isCreator || isLeader);
+    const groupCapabilities = getChurchGroupCapabilities({
+        churchId: group?.churchId,
+        groupId: group?.id,
+        parentGroupId: group?.parentGroupId,
+        roles: churchRoles,
+    });
+    const canModerateGroupPosts = groupCapabilities.canModerateGroup;
     const canViewCurrentGroup = group ? canViewGroupFeed(group, userProfile, pendingInvite) : false;
     const canPostCurrentGroup = group ? canPostInGroupFeed(group, userProfile) : false;
-    const daysSinceCreation = group ? Math.floor((Date.now() - new Date(group.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : 0;
-    const canDelete = isCreator && daysSinceCreation <= 20;
+    const canDelete = groupCapabilities.canArchiveGroup;
 
     const handleAcceptInvite = async () => {
         if (!pendingInvite || !currentUser || !group) return;
@@ -486,7 +540,7 @@ const CellForumPage: React.FC = () => {
             <div className="h-40 md:h-48 bg-gradient-to-br from-purple-600 to-indigo-700 relative">
                 <div className="absolute inset-0 flex items-center justify-center opacity-10"><Boxes size={120} /></div>
                 
-                {isCreator && (
+                {groupCapabilities.canEditGroup && (
                     <div className="absolute top-4 right-4 z-40" ref={optionsRef}>
                         <button 
                             onClick={() => setIsCellOptionsOpen(!isCellOptionsOpen)}
@@ -498,21 +552,15 @@ const CellForumPage: React.FC = () => {
                         {isCellOptionsOpen && (
                             <div className="absolute right-0 mt-3 w-56 bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 py-3 z-50 animate-in fade-in zoom-in-95 origin-top-right">
                                 <div className="px-4 py-2 border-b border-gray-50 dark:border-gray-700 mb-2">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Opções do Criador</span>
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Gestão do grupo</span>
                                 </div>
                                 <button onClick={() => { handleEditCell(); setIsCellOptionsOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-left text-xs font-bold text-gray-600 dark:text-gray-300 transition-colors">
                                     <Edit2 size={14} className="text-purple-600" /> Editar Nome do Fórum
                                 </button>
-                                {canDelete ? (
+                                {canDelete && (
                                     <button onClick={() => { setShowDeleteCellModal(true); setIsCellOptionsOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 text-left text-xs font-bold text-red-500 transition-colors">
-                                        <Trash2 size={14} /> Excluir Grupo Permanentemente
+                                        <Trash2 size={14} /> Excluir grupo
                                     </button>
-                                ) : (
-                                    <div className="px-4 py-3 mt-1 bg-gray-50 dark:bg-gray-900/50">
-                                        <p className="text-[8px] text-gray-400 uppercase font-black tracking-tighter text-center leading-tight">
-                                            A exclusão automática expirou<br/>(Prazo: 20 dias após criação)
-                                        </p>
-                                    </div>
                                 )}
                             </div>
                         )}
@@ -526,14 +574,26 @@ const CellForumPage: React.FC = () => {
                         <Boxes size={32} className="text-purple-600" />
                     </div>
                     
-                    {/* BREADCRUMBS SE FOR SUBGRUPO */}
-                    {group.parentGroupId && (
-                        <div className="flex justify-center mb-2">
-                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-[10px] font-bold text-gray-500">
+                    <nav aria-label="Caminho do grupo" className="mb-3 flex flex-wrap items-center justify-center gap-1.5 text-xs font-bold text-gray-500">
+                        {linkedChurch && (
+                            <Link href={`/igreja/${linkedChurch.slug}`} className="rounded-lg px-2 py-1 transition hover:bg-gray-100 hover:text-purple-700 dark:hover:bg-gray-800">
+                                {linkedChurch.name}
+                            </Link>
+                        )}
+                        {parentGroup && (
+                            <>
+                                <ChevronRight size={13} aria-hidden="true" />
+                                <Link href={`/grupo/${parentGroup.slug || parentGroup.id}`} className="rounded-lg px-2 py-1 transition hover:bg-gray-100 hover:text-purple-700 dark:hover:bg-gray-800">
+                                    {parentGroup.name}
+                                </Link>
+                            </>
+                        )}
+                        {group.parentGroupId && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-gray-500 dark:bg-gray-800">
                                 <CornerUpLeft size={10} /> Subgrupo
                             </span>
-                        </div>
-                    )}
+                        )}
+                    </nav>
 
                     <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Fórum de Adoração e Comunhão</p>
@@ -547,16 +607,15 @@ const CellForumPage: React.FC = () => {
                     <div className="flex justify-center bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit mx-auto mb-4 shadow-inner overflow-x-auto no-scrollbar max-w-full">
                         <button onClick={() => setActiveTab('mural')} className={`px-6 py-2 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap ${activeTab === 'mural' ? 'bg-white dark:bg-gray-700 text-purple-600 shadow-sm' : 'text-gray-400'}`}>Mural</button>
                         <button onClick={() => setActiveTab('subgroups')} className={`px-6 py-2 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap ${activeTab === 'subgroups' ? 'bg-white dark:bg-gray-700 text-purple-600 shadow-sm' : 'text-gray-400'}`}>Subgrupos</button>
-                        <button onClick={() => setActiveTab('ranking')} className={`px-6 py-2 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap ${activeTab === 'ranking' ? 'bg-white dark:bg-gray-700 text-purple-600 shadow-sm' : 'text-gray-400'}`}>Ranking</button>
+                        <button onClick={() => setActiveTab('about')} className={`px-6 py-2 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap ${activeTab === 'about' ? 'bg-white dark:bg-gray-700 text-purple-600 shadow-sm' : 'text-gray-400'}`}>Sobre</button>
+                        <button onClick={() => setActiveTab('ranking')} className={`px-6 py-2 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap ${activeTab === 'ranking' ? 'bg-white dark:bg-gray-700 text-purple-600 shadow-sm' : 'text-gray-400'}`}>Membros</button>
                     </div>
 
                     <div className="flex justify-center gap-6 pt-4 border-t border-gray-50 dark:border-gray-800">
                         <div className="text-center"><span className="block font-black text-purple-600">{members.length}</span><span className="text-[9px] font-bold text-gray-400 uppercase">Membros</span></div>
                         <div className="text-center">
                             <span className="block font-black text-gray-900 dark:text-white">
-                                {group.leaderUid ? (
-                                    <Link href={`${basePath}/u/${group.leaderName?.replace('@','')}`} className="hover:text-bible-gold transition-colors underline decoration-bible-gold/30">{group.leaderName}</Link>
-                                ) : group.leaderName}
+                                {group.leaderName || 'Não definida'}
                             </span>
                             <span className="text-[9px] font-bold text-gray-400 uppercase">Líder</span>
                         </div>
@@ -607,22 +666,9 @@ const CellForumPage: React.FC = () => {
                 {canViewCurrentGroup && activeTab === 'mural' && (
                     <div className="space-y-6">
                         {canPostCurrentGroup ? (
-                            <div className="bg-white dark:bg-bible-darkPaper p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
-                                <textarea 
-                                    value={newPrayer} 
-                                    onChange={(e) => setNewPrayer(e.target.value)} 
-                                    placeholder="Compartilhe uma palavra ou pedido com seu grupo..." 
-                                    className="w-full bg-transparent outline-none text-sm resize-none h-20 p-2 placeholder-gray-400" 
-                                />
-                                <div className="flex justify-end mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                                    <button 
-                                        onClick={handlePostPrayer} 
-                                        disabled={!newPrayer.trim() || isPosting}
-                                        className="bg-purple-600 text-white px-6 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-purple-700 transition-all disabled:opacity-50 shadow-md"
-                                    >
-                                        {isPosting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Postar
-                                    </button>
-                                </div>
+                            <div className="relative flex items-center gap-3 rounded-[1.35rem] border border-fuchsia-200 bg-white p-4 shadow-sm after:absolute after:-bottom-2 after:right-8 after:h-4 after:w-4 after:rotate-45 after:border-b after:border-r after:border-fuchsia-200 after:bg-white dark:border-fuchsia-400/20 dark:bg-[#1a1620] dark:after:border-fuchsia-400/20 dark:after:bg-[#1a1620]">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-violet-100 text-violet-800 dark:bg-violet-500/20 dark:text-violet-200">{userProfile?.photoURL ? <img src={userProfile.photoURL} alt="" className="h-full w-full object-cover" /> : <UserIcon size={18} />}</span>
+                                <button type="button" onClick={() => setIsKingdomComposerOpen(true)} className="min-h-11 flex-1 rounded-xl px-2 text-left text-sm font-medium text-gray-500 hover:text-fuchsia-800 dark:text-gray-300 dark:hover:text-fuchsia-200">Abrir uma partilha para este grupo</button>
                             </div>
                         ) : (
                             <div className="p-8 bg-purple-50 dark:bg-purple-900/10 rounded-[2rem] text-center border-2 border-dashed border-purple-100">
@@ -672,7 +718,9 @@ const CellForumPage: React.FC = () => {
 
                         <div className="space-y-4">
                             <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Atividade do Grupo</h3>
-                            {prayers.map(p => (
+                            {prayers.map(p => isGroupFeedPost(p) ? (
+                                <FeedPostCard key={p.id} post={p} currentUser={currentUser} onInteraction={(_, type) => handleGroupPostInteraction(p, type)} showNotification={showNotification} />
+                            ) : (
                                 <div key={p.id} className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm animate-in fade-in group transition-all hover:shadow-md relative">
                                     <div className="flex justify-between items-start mb-4">
                                         <div className="flex items-center gap-3">
@@ -734,8 +782,8 @@ const CellForumPage: React.FC = () => {
                     <div className="space-y-6 animate-in fade-in">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-gray-800 dark:text-gray-200 text-sm uppercase tracking-wide flex items-center gap-2"><LayoutGrid size={18} /> Subgrupos ({subgroups.length})</h3>
-                            {(isCreator || isMyGroup) && (
-                                <button onClick={() => setIsCreatingSubgroup(true)} className="text-[10px] font-black uppercase tracking-widest bg-bible-gold/10 text-bible-gold px-3 py-1.5 rounded-full flex items-center gap-1 hover:bg-bible-gold/20 transition-colors"><Plus size={14}/> Criar Subgrupo</button>
+                            {groupCapabilities.canCreateSubgroup && (
+                                <button onClick={() => setIsCreatingSubgroup(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-bible-gold/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-bible-gold transition-colors hover:bg-bible-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold"><Plus size={16}/> Criar subgrupo</button>
                             )}
                         </div>
 
@@ -801,14 +849,14 @@ const CellForumPage: React.FC = () => {
                                 </div>
                                 <div className="flex gap-2 mt-6">
                                     <button onClick={() => { setIsCreatingSubgroup(false); setSelectedLeader(null); setNewSubgroupLeader(''); setNewSubgroupPrivacy('public'); }} className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-xl text-xs font-bold transition-colors">Cancelar</button>
-                                    <button onClick={handleCreateSubgroup} disabled={!newSubgroupName.trim()} className="flex-1 py-3 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-xl text-xs font-bold shadow-lg disabled:opacity-50 transition-all">Criar</button>
+                                    <button onClick={handleCreateSubgroup} disabled={!newSubgroupName.trim() || !groupCapabilities.canCreateSubgroup} className="flex-1 py-3 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-xl text-xs font-bold shadow-lg disabled:opacity-50 transition-all">Criar</button>
                                 </div>
                             </div>
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {subgroups.map(sub => (
-                                <div key={sub.id} onClick={() => navigate(`${basePath}/grupo/${sub.id}`)} className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm group hover:border-bible-gold cursor-pointer transition-all">
+                                <button key={sub.id} type="button" onClick={() => navigate(`/grupo/${sub.slug || sub.id}`)} className="w-full bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm group hover:border-bible-gold cursor-pointer transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold">
                                     <div className="flex justify-between items-start mb-4">
                                         <div>
                                             <h4 className="font-bold text-gray-900 dark:text-white group-hover:text-bible-gold transition-colors">{sub.name}</h4>
@@ -825,7 +873,7 @@ const CellForumPage: React.FC = () => {
                                     <div className="w-full flex items-center justify-center py-2 bg-gray-50 dark:bg-gray-900 text-gray-400 rounded-xl text-xs font-bold gap-1 group-hover:text-bible-gold group-hover:bg-bible-gold/10 transition-colors">
                                         Entrar no Subgrupo <ArrowLeft size={14} className="rotate-180" />
                                     </div>
-                                </div>
+                                </button>
                             ))}
                         </div>
                         {subgroups.length === 0 && (
@@ -834,13 +882,28 @@ const CellForumPage: React.FC = () => {
                     </div>
                 )}
 
+                {canViewCurrentGroup && activeTab === 'about' && (
+                    <section className="grid gap-4 animate-in fade-in md:grid-cols-2" aria-labelledby="group-about-title">
+                        <div className="rounded-[1.5rem] border border-purple-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-bible-darkPaper">
+                            <h2 id="group-about-title" className="text-lg font-bold text-gray-900 dark:text-white">Sobre o grupo</h2>
+                            <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300">Espaço de comunhão vinculado a {linkedChurch?.name || 'esta igreja'}, com conteúdo e participação organizados pela liderança.</p>
+                            <div className="mt-5 flex flex-wrap gap-2"><span className="rounded-full bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-700 dark:bg-purple-900/20 dark:text-purple-200">{group.privacy === 'private' ? 'Grupo privado' : 'Grupo público'}</span>{parentGroup && <span className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 dark:bg-gray-800 dark:text-gray-300">Subgrupo de {parentGroup.name}</span>}</div>
+                        </div>
+                        <div className="rounded-[1.5rem] border border-purple-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-bible-darkPaper">
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Liderança e pertencimento</h2>
+                            <dl className="mt-4 space-y-3 text-sm"><div><dt className="font-semibold text-gray-500">Liderança</dt><dd className="mt-1 text-gray-900 dark:text-white">{group.leaderName || 'Ainda não definida'}</dd></div><div><dt className="font-semibold text-gray-500">Participantes</dt><dd className="mt-1 text-gray-900 dark:text-white">{members.length} pessoas vinculadas</dd></div></dl>
+                        </div>
+                    </section>
+                )}
+
                 {canViewCurrentGroup && activeTab === 'ranking' && (
                     <div className="animate-in fade-in">
                         <div className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800">
-                            <h3 className="font-bold text-lg mb-6 flex items-center gap-2 text-purple-600"><Trophy size={20} /> Ranking de Estudo</h3>
+                            <h3 className="font-bold text-lg mb-2 flex items-center gap-2 text-purple-600"><Users size={20} /> Membros do grupo</h3>
+                            <p className="mb-6 text-sm text-gray-500">Pessoas que participam deste espaço, com sua jornada de leitura.</p>
                             <div className="space-y-4">
                                 {members.map((member, idx) => (
-                                    <Link key={member.uid} href={isSocialMode ? `/social/u/${member.username}` : `/${member.username}`} className="flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all border border-transparent hover:border-purple-100">
+                                    <Link key={member.uid} href={`/u/${member.username}`} className="flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all border border-transparent hover:border-purple-100">
                                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm ${idx === 0 ? 'bg-yellow-100 text-yellow-700' : idx === 1 ? 'bg-gray-100 text-gray-500' : 'text-gray-300'}`}>
                                             {idx === 0 ? <Crown size={16} /> : idx + 1}
                                         </div>
@@ -900,6 +963,13 @@ const CellForumPage: React.FC = () => {
                 confirmText="Sim, Excluir"
                 cancelText="Cancelar"
                 variant="danger"
+            />
+            <KingdomComposer
+                isOpen={isKingdomComposerOpen}
+                onClose={() => setIsKingdomComposerOpen(false)}
+                onPostSuccess={() => { setIsKingdomComposerOpen(false); void loadGroup(); }}
+                initialTab="reflection"
+                initialVisibility="group"
             />
         </div>
     );

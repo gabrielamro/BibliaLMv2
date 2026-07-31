@@ -15,6 +15,10 @@ type KingdomPostInput = {
   alsoShowOnChurch?: boolean | null;
   serviceId?: string | null;
   serviceTitle?: string | null;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  dedupeKey?: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 const stripUndefined = <T extends Record<string, unknown>>(payload: T): T =>
@@ -47,6 +51,10 @@ export const buildPostInsertPayloads = (data: KingdomPostInput, createdAt = new 
     also_show_on_church: data.alsoShowOnChurch ?? false,
     service_id: data.serviceId ?? null,
     service_title: data.serviceTitle ?? null,
+    source_type: data.sourceType ?? null,
+    source_id: data.sourceId ?? null,
+    dedupe_key: data.dedupeKey ?? null,
+    metadata: data.metadata ?? {},
   });
 
   const legacyPayload = stripUndefined(basePayload);

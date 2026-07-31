@@ -71,18 +71,18 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ type }) => {
   if (!config) return null;
 
   return (
-    <div className="relative group overflow-hidden p-6 rounded-[2.5rem] bg-gray-50/40 dark:bg-bible-darkPaper/40 border border-gray-100 dark:border-gray-800 backdrop-blur-md transition-all hover:bg-white dark:hover:bg-bible-darkPaper hover:shadow-2xl hover:border-bible-gold/20 mb-8 mx-4 md:mx-0">
+    <div className="group relative mb-4 overflow-hidden rounded-[1.5rem] border border-[#e4ded5] bg-white p-5 shadow-[0_8px_30px_rgba(30,41,35,0.04)] transition-all hover:-translate-y-0.5 hover:border-emerald-700/20 hover:shadow-[0_16px_40px_rgba(30,41,35,0.08)] dark:border-white/10 dark:bg-[#151515]">
       <div className="absolute -right-6 -top-6 opacity-5 group-hover:opacity-10 transition-opacity rotate-12 group-hover:rotate-0 duration-1000">
         <Sparkles size={120} />
       </div>
       
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${config.accent}`}>
+          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-sm ${config.accent}`}>
             {config.icon}
           </div>
           <div className="min-w-0">
-            <h3 className="font-serif font-bold text-lg text-gray-900 dark:text-white truncate">
+            <h3 className="truncate text-lg font-black text-gray-900 dark:text-white">
               {config.title}
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
@@ -92,8 +92,9 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ type }) => {
         </div>
         
         <button 
+          type="button"
           onClick={() => navigate(config.path)}
-          className="px-5 py-2.5 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#082f2b] px-5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-emerald-900 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 sm:w-auto"
         >
           {config.btn}
           <ArrowRight size={12} />

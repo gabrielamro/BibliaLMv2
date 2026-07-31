@@ -4,7 +4,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from "next/link";
 import { 
-  Heart, MessageCircle, Share2, MoreHorizontal, Bookmark, 
+  Heart, MessageCircle, Share2, MoreHorizontal, Bookmark, EyeOff, Flag,
   Edit2, Trash2, Quote, MapPin, HandHeart, Sparkles, 
   Smile, Users, Trophy, Headphones, Image as ImageIcon, BookOpen, Church, DoorOpen, Eye, CalendarDays
 } from 'lucide-react';
@@ -12,6 +12,7 @@ import { Post, MoodType } from '../../types';
 import SmartText from '../reader/SmartText';
 import { getPostImageSource } from '../../utils/socialPostMedia';
 import { normalizeBiblialmInternalUrl } from '../../utils/internalLinks';
+import DevotionalFeedCardContent from '../DevotionalFeedCardContent';
 
 interface FeedPostCardProps {
   post: Post;
@@ -19,6 +20,8 @@ interface FeedPostCardProps {
   onInteraction: (postId: string, type: 'like' | 'comment' | 'share' | 'save') => void;
   onEdit?: (post: Post) => void;
   onDelete?: (postId: string) => void;
+  onHide?: (postId: string) => void;
+  onReport?: (post: Post) => void;
   showNotification: (msg: string, type: any) => void;
 }
 
@@ -63,6 +66,13 @@ const TYPE_IDENTITY: Record<string, { label: string, icon: React.ElementType, co
         bg: 'bg-emerald-50 dark:bg-emerald-900/10', 
         border: 'border-emerald-100 dark:border-emerald-900/30' 
     },
+    checkin: {
+        label: 'Check-in',
+        icon: MapPin,
+        color: 'text-emerald-600',
+        bg: 'bg-emerald-50 dark:bg-emerald-900/10',
+        border: 'border-emerald-100 dark:border-emerald-900/30'
+    },
     quiz: { 
         label: 'Conquista', 
         icon: Trophy, 
@@ -85,11 +95,11 @@ const TYPE_IDENTITY: Record<string, { label: string, icon: React.ElementType, co
         border: 'border-purple-100 dark:border-purple-900/30' 
     },
     devotional: { 
-        label: 'Devocional', 
+        label: 'Pão Diário',
         icon: BookOpen, 
-        color: 'text-blue-500', 
-        bg: 'bg-blue-50 dark:bg-blue-900/10', 
-        border: 'border-blue-100 dark:border-blue-900/30' 
+        color: 'text-emerald-700 dark:text-emerald-300',
+        bg: 'bg-emerald-50 dark:bg-emerald-900/10',
+        border: 'border-emerald-100 dark:border-emerald-900/30'
     },
     study: {
         label: 'Estudo Premium',
@@ -122,7 +132,7 @@ const FEED_REASON_LABEL: Record<string, string> = {
     global_public: 'Publico',
 };
 
-const PostMenu = ({ post, onEdit, onDelete }: { post: Post, onEdit?: (p: Post) => void, onDelete?: (id: string) => void }) => {
+const PostMenu = ({ post, isOwner, onEdit, onDelete, onHide, onReport }: { post: Post, isOwner: boolean, onEdit?: (p: Post) => void, onDelete?: (id: string) => void, onHide?: (id: string) => void, onReport?: (post: Post) => void }) => {
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -149,13 +159,15 @@ const PostMenu = ({ post, onEdit, onDelete }: { post: Post, onEdit?: (p: Post) =
                             <Trash2 size={14} /> Excluir Post
                         </button>
                     )}
+                    {!isOwner && onHide && <button onClick={() => { onHide(post.id); setIsOpen(false); }} className="flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left text-xs font-bold text-gray-600 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"><EyeOff size={14} /> Ocultar publicação</button>}
+                    {!isOwner && onReport && <button onClick={() => { onReport(post); setIsOpen(false); }} className="flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left text-xs font-bold text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"><Flag size={14} /> Denunciar</button>}
                 </div>
             )}
         </div>
     );
 };
 
-export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, onInteraction, onEdit, onDelete }) => {
+export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, onInteraction, onEdit, onDelete, onHide, onReport }) => {
     if (!post) return null;
 
     const isLiked = post.likedBy?.includes(currentUser?.uid || '');
@@ -174,6 +186,20 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
     const feedReasonLabel = post.feedReason && !isOwner ? FEED_REASON_LABEL[post.feedReason] : '';
 
     const renderContent = () => {
+        if (post.type === 'devotional' && post.devotionalId && post.devotionalVerse && post.devotionalReference) {
+            return (
+                <div className="px-4 pb-5 sm:px-5">
+                    <DevotionalFeedCardContent
+                        title={post.devotionalTitle || post.title || 'Pão Diário'}
+                        verseText={post.devotionalVerse}
+                        verseReference={post.devotionalReference}
+                        message={post.content}
+                        href={normalizeBiblialmInternalUrl(post.devotionalUrl) || '/devocional'}
+                    />
+                </div>
+            );
+        }
+
         if (post.type === 'study' || post.type === 'room') {
             const isRoomShare = post.type === 'room';
             const cover = post.studyCoverUrl || postImage;
@@ -243,7 +269,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
                         src={postImage}
                         className="w-full h-auto object-cover max-h-[75vh]" 
                         loading="lazy" 
-                        alt="Conteúdo espiritual" 
+                        alt={typeof post.metadata?.imageAlt === 'string' && post.metadata.imageAlt.trim() ? post.metadata.imageAlt : `Publicação de ${post.userDisplayName}`}
                     />
                     {post.content && (
                         <div className="px-6 py-4">
@@ -300,12 +326,40 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
         }
 
         if (post.type === 'quiz') {
+            const score = typeof post.metadata?.score === 'number' ? post.metadata.score : null;
+            const xp = typeof post.metadata?.xp === 'number' ? post.metadata.xp : null;
+            const topic = typeof post.metadata?.topic === 'string' ? post.metadata.topic : null;
             return (
                 <div className="px-6 py-4">
                     <div className="bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/10 dark:to-yellow-900/10 p-6 rounded-2xl border border-orange-100 dark:border-orange-800/30 text-center">
                         <Trophy className="mx-auto text-orange-500 mb-2" size={32} />
                         <h3 className="font-bold text-gray-900 dark:text-white">Desafio Completado!</h3>
+                        {topic && <p className="mt-1 text-xs font-black uppercase tracking-widest text-orange-600">{topic}</p>}
                         <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 mb-4">{post.content}</p>
+                        {(score !== null || xp !== null) && (
+                            <div className="mx-auto flex max-w-xs justify-center gap-2">
+                                {score !== null && <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-orange-700 shadow-sm dark:bg-black/20">{score} pontos</span>}
+                                {xp !== null && <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-purple-700 shadow-sm dark:bg-black/20">+{xp} Maná</span>}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        if (post.type === 'checkin') {
+            const place = post.metadata?.place as { name?: string; address?: string } | undefined;
+            return (
+                <div className="px-6 py-4">
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 dark:border-emerald-900/30 dark:bg-emerald-900/10">
+                        <div className="mb-3 flex items-center gap-3">
+                            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white"><MapPin size={19} /></span>
+                            <div>
+                                <p className="font-black text-emerald-950 dark:text-emerald-100">{place?.name || post.location || 'Check-in'}</p>
+                                {place?.address && <p className="text-xs text-emerald-700 dark:text-emerald-300">{place.address}</p>}
+                            </div>
+                        </div>
+                        {post.content && <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-200"><SmartText text={post.content} enabled={true} /></p>}
                     </div>
                 </div>
             );
@@ -321,7 +375,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
     };
 
     return (
-        <div data-testid="feed-post" className={`bg-white dark:bg-bible-darkPaper md:rounded-3xl border-b md:border ${post.destination === 'church' ? 'border-blue-300 dark:border-blue-800 shadow-xl shadow-blue-500/10 ring-2 ring-blue-500/15 bg-gradient-to-br from-blue-50/50 via-white to-white dark:from-blue-900/20 dark:via-bible-darkPaper dark:to-bible-darkPaper' : 'border-gray-100 dark:border-gray-800/50'} mb-4 md:mb-8 overflow-hidden transition-all duration-500 hover:shadow-2xl relative group/card`}>
+        <article data-testid="feed-post" data-post-id={post.id} className={`group/card relative mb-4 rounded-[1.35rem] border bg-white shadow-[0_10px_35px_rgba(56,35,64,0.06)] transition-all duration-300 after:absolute after:-bottom-2.5 after:right-8 after:h-5 after:w-5 after:rotate-45 after:border-b after:border-r after:bg-white hover:-translate-y-0.5 hover:shadow-[0_18px_50px_rgba(56,35,64,0.11)] dark:bg-[#1a1620] dark:after:bg-[#1a1620] ${post.destination === 'church' ? 'border-emerald-300 bg-gradient-to-br from-emerald-50/50 via-white to-white ring-1 ring-emerald-500/10 after:border-emerald-300 dark:border-emerald-700 dark:from-emerald-900/15 dark:via-[#1a1620] dark:to-[#1a1620] dark:after:border-emerald-700' : 'border-[#dfd3df] after:border-[#dfd3df] dark:border-fuchsia-300/15 dark:after:border-fuchsia-300/15'}`}>
             
             {post.destination === 'church' && (
                 <>
@@ -336,11 +390,11 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
                 </>
             )}
 
-            <div className={`h-1.5 w-full opacity-80 ${post.destination === 'church' ? 'bg-gradient-to-r from-blue-400 via-blue-600 to-blue-400 shadow-[0_0_15px_rgba(37,99,235,0.5)]' : identity.bg}`}></div>
+            <div className={`h-1 w-full rounded-t-[1.35rem] opacity-80 ${post.destination === 'church' ? 'bg-gradient-to-r from-emerald-400 via-emerald-600 to-emerald-400' : 'bg-gradient-to-r from-violet-600 via-fuchsia-500 to-orange-400'}`}></div>
 
             <div className="px-5 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Link href={`/social/u/${post.userUsername}`} className="shrink-0 relative">
+                    <Link href={`/u/${post.userUsername}`} className="shrink-0 relative" aria-label={`Abrir perfil de ${post.userDisplayName}`}>
                         <div className={`w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden border-2 ${post.destination === 'church' ? 'border-blue-500/40' : 'border-gray-100 dark:border-gray-800'}`}>
                             {post.userPhotoURL ? (
                                 <img src={post.userPhotoURL} className="w-full h-full object-cover" alt={post.userDisplayName} />
@@ -356,7 +410,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
                     </Link>
                     <div className="flex flex-col">
                         <div className="flex items-center gap-2">
-                            <Link href={`/social/u/${post.userUsername}`} className="text-sm font-bold text-gray-900 dark:text-white leading-none hover:underline">
+                            <Link href={`/u/${post.userUsername}`} className="text-base font-black text-gray-900 dark:text-white leading-none hover:underline">
                                 {post.userDisplayName}
                             </Link>
                             {post.destination === 'cell' && <span className="bg-indigo-100 text-indigo-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase flex items-center gap-1"><Users size={8} /> Célula</span>}
@@ -374,7 +428,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
                     </div>
                 </div>
                 <div className="flex items-center">
-                    {isOwner && <PostMenu post={post} onEdit={post.type === 'study' ? undefined : onEdit} onDelete={onDelete} />}
+                    {((isOwner && (onEdit || onDelete)) || (!isOwner && (onHide || onReport))) && <PostMenu post={post} isOwner={Boolean(isOwner)} onEdit={isOwner && post.type !== 'study' && post.type !== 'devotional' ? onEdit : undefined} onDelete={isOwner ? onDelete : undefined} onHide={onHide} onReport={onReport} />}
                 </div>
             </div>
 
@@ -388,45 +442,47 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
                 </div>
             )}
 
-            <div className="px-6 py-3 border-t border-gray-50 dark:border-gray-800 flex items-center justify-between">
-                <div className="flex items-center gap-6">
+            <div className="mx-5 flex items-center justify-between border-t border-fuchsia-950/10 px-0 py-3 dark:border-white/10">
+                <div className="flex min-w-0 items-center gap-1 sm:gap-3">
                     <button 
                         onClick={() => onInteraction(post.id, 'like')} 
-                        className={`flex items-center gap-1.5 transition-all active:scale-125 ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+                        aria-label={isLiked ? 'Descurtir publicação' : 'Curtir publicação'}
+                        aria-pressed={isLiked}
+                        className={`flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl transition-all active:scale-110 ${isLiked ? 'text-red-500' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:hover:bg-white/5 dark:hover:text-gray-200'}`}
                     >
                         <Heart size={20} fill={isLiked ? "currentColor" : "none"} strokeWidth={isLiked ? 0 : 2} />
+                        <span className="hidden text-xs font-bold lg:inline">Curtir</span>
                         <span className="text-xs font-black">{post.likesCount || 0}</span>
                     </button>
                     
                     <button 
                         onClick={() => onInteraction(post.id, 'comment')} 
-                        className="flex items-center gap-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all active:scale-110"
+                        aria-label="Comentar na publicação"
+                        className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl text-gray-500 transition-all hover:bg-gray-50 hover:text-gray-700 active:scale-110 dark:hover:bg-white/5 dark:hover:text-gray-200"
                     >
                         <MessageCircle size={20} />
+                        <span className="hidden text-xs font-bold lg:inline">Comentar</span>
                         <span className="text-xs font-black">{post.commentsCount || 0}</span>
                     </button>
 
                     <button 
                         onClick={() => onInteraction(post.id, 'share')} 
-                        className="flex items-center gap-1.5 text-gray-400 hover:text-bible-gold transition-all active:scale-110"
+                        aria-label="Compartilhar publicação"
+                        className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl text-gray-500 transition-all hover:bg-violet-50 hover:text-violet-700 active:scale-110 dark:hover:bg-violet-500/10"
                     >
                         <Share2 size={18} />
+                        <span className="hidden text-xs font-bold lg:inline">Compartilhar</span>
                         <span className="text-xs font-black">{post.shares || 0}</span>
                     </button>
 
-                    <span className="flex items-center gap-1.5 text-gray-400">
+                    <span className="hidden items-center gap-1.5 text-gray-400 sm:flex">
                         <Eye size={18} />
                         <span className="text-xs font-black">{post.viewsCount || 0}</span>
                     </span>
                 </div>
 
-                <button 
-                    onClick={() => onInteraction(post.id, 'save')} 
-                    className={`transition-colors ${post.saved ? 'text-bible-gold' : 'text-gray-300 hover:text-bible-gold'}`}
-                >
-                    <Bookmark size={20} fill={post.saved ? "currentColor" : "none"} />
-                </button>
+                <button onClick={() => onInteraction(post.id, 'save')} aria-label={post.saved ? 'Remover dos salvos' : 'Salvar publicação'} aria-pressed={post.saved} className={`flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl px-2 transition-colors ${post.saved ? 'text-violet-700 dark:text-violet-300' : 'text-gray-400 hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-500/10'}`}><Bookmark size={20} fill={post.saved ? 'currentColor' : 'none'} /><span className="hidden text-xs font-bold lg:inline">Salvar</span></button>
             </div>
-        </div>
+        </article>
     );
 };

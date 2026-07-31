@@ -1,9 +1,6 @@
-"use client";
+import { redirect } from 'next/navigation';
 
-import CellForumPage from '../../../../views/public/CellForumPage';
-
-export default function Page() {
-  return (
-    <CellForumPage />
-  );
+export default async function Page({ params }: { params: Promise<{ cellSlug: string }> }) {
+  const { cellSlug } = await params;
+  redirect(`/grupo/${encodeURIComponent(cellSlug)}`);
 }

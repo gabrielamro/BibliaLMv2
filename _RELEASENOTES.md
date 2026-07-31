@@ -4,6 +4,477 @@
 > **VERSION SYNC:** Lembre-se de atualizar `constants.ts`, `_ARCHITECTURE.md` e `_PROJECT_CONTEXT.md` ao mudar a versão aqui.
 > **GIT SYNC:** Após atualizar este arquivo, o Arquiteto deve executar `git commit` com a mensagem do release.
 
+## [v2.8.9] - 2026-07-31 (Trama Viva aplicada e Caderno contextual)
+### Tipo: Refactor / UI / UX / Navegação
+- **Feed alinhado aos mockups:** hierarquia editorial, Fio da Comunhão, cards em formato de página/conversa e título curto do Reino.
+- **Pulso real:** o Pulso do Reino resume publicações e conversas carregadas sem inventar atividades ou métricas.
+- **Seu caminho:** rail desktop conecta cultos, igreja, estudos, salvos e orações; no mobile o conteúdo prioritário permanece em uma coluna.
+- **Caderno responsivo:** escrita e enriquecimento ficam ao lado de audiência e prévia no desktop e viram sequência vertical no celular.
+- **Taxonomia preservada:** anexar imagem não transforma reflexão ou oração em tipo genérico; upload mantém extensão coerente e menções apontam ao permalink.
+- **Contexto reaproveitado:** igreja e grupo abrem o mesmo composer com audiência pré-selecionada; o mural do grupo combina posts canônicos e pedidos legados.
+- **Rotas canônicas:** aliases sociais de perfil, igreja e grupo agora redirecionam de verdade para `/u`, `/igreja` e `/grupo`.
+- **Perfil:** superfície pública recebe a identidade cromática e densidade compacta do Reino; ações de post agora persistem também nessa página.
+- **Validação:** 9 testes do Reino, 12 testes de igreja/grupo, TypeScript, build e inspeção visual desktop/mobile aprovados.
+
+## [v2.8.8] - 2026-07-31 (Interações persistentes e publicação individual)
+### Tipo: Refactor / UI / UX / Segurança
+- **Interações reais:** curtir, salvar, ocultar, denunciar e comentar usam um serviço único e persistência no Supabase.
+- **Moderação pessoal:** a pessoa pode ocultar conteúdos e denunciar motivos padronizados; publicações ocultas deixam de voltar ao feed.
+- **Comentários confiáveis:** contagem sincronizada no banco e exclusão autorizada para autor do comentário ou da publicação.
+- **Post individual canônico:** `/p/[postId]` reutiliza o mesmo card, métricas e conversa do feed, com estados de loading, erro e indisponibilidade.
+- **Segurança:** novas tabelas usam RLS, grants explícitos, identidade derivada da sessão e função de trigger com `search_path` protegido.
+- **Acessibilidade:** salvar usa estado pressionado, imagens respeitam texto alternativo e o painel de comentários possui semântica de diálogo, Escape e alvos táteis.
+- **Validação:** 7 testes do Reino, TypeScript e build de produção aprovados.
+
+## [v2.8.7] - 2026-07-31 (Reino Trama Viva e Caderno de Partilha)
+### Tipo: Refactor / UI / UX / Acessibilidade
+- **Feed proprietário:** hierarquia visual Trama Viva, conteúdo na primeira dobra e filtros Para você, Seguindo, Minha igreja e Grupos.
+- **Estados confiáveis:** falha de backend, vazio e loading são distintos; posts mockados não mascaram erro de produção.
+- **Um único launcher:** removidos CTAs concorrentes e o FAB duplicado no mobile.
+- **Caderno de Partilha:** rascunho recuperável, confirmação de descarte, foco preso, Escape e restauração de foco.
+- **Audiência compreensível:** opções textuais explicam alcance e por que igreja/grupo podem estar indisponíveis.
+- **Anexos responsáveis:** localização somente após ação explícita; imagens validam tipo/tamanho e aceitam descrição acessível.
+- **Conteúdo organizado:** igreja recebe tabs reais Mural, Cultos, Grupos, Sobre e Membros; grupo recebe Mural, Subgrupos, Sobre e Membros.
+- **PostCard refinado:** rotas canônicas, alvos de 44 px e ação Salvar retirada enquanto não há persistência real.
+- **Validação:** contrato automatizado, matriz de grupos, TypeScript, build e inspeção visual em desktop/mobile aprovados.
+
+## [v2.8.6] - 2026-07-31 (Igrejas e grupos com permissões reais)
+### Tipo: Refactor / UX / Segurança
+- **Membro e seguidor separados:** a página da igreja comunica e persiste cada relação de forma independente.
+- **Grupos sob liderança:** criação, edição, moderação, convite e arquivamento consomem capabilities compartilhadas de pastor/líder ativo e escopo de igreja ou grupo.
+- **RLS como autoridade:** políticas e funções do banco impedem que chamadas diretas contornem as regras exibidas pela interface.
+- **Privacidade corrigida:** convite pendente não abre o feed privado; o aceite valida membresia da igreja, expiração e vínculo em uma única transação.
+- **Navegação contextual:** igreja, grupo pai, subgrupo e perfis usam rotas canônicas e breadcrumbs coerentes.
+- **Onboarding seguro:** novos membros escolhem grupos existentes; a criação acontece na página da igreja por liderança reconhecida.
+- **Cobertura:** testes verificam matriz de permissões, privacidade, rotas, relações da igreja e contratos da migration.
+
+## [v2.8.5] - 2026-07-29 (NewHome compacta e devocional em destaque)
+### Tipo: Refactor / UI / Hierarquia
+- **Pão Diário prioritário:** o devocional ocupa o card principal da jornada e recebe acesso direto para a reflexão do dia.
+- **Continuidade reposicionada:** “Continuar leitura” passa para o atalho compacto anteriormente ocupado pelo Pão Diário.
+- **Agenda objetiva:** “Minha semana” exibe até três próximos cultos da igreja; cultos em que o usuário já confirmou a escala recebem destaque próprio, sem repetir convites ou designações como programações.
+- **Cabeçalho simplificado:** os textos auxiliares “Sua agenda” e “Cultos e escalas em um único resumo” foram removidos para priorizar o título e a lista.
+- **Convite para servir:** quando não há escala futura confirmada, a Home mantém os três próximos cultos e oferece candidatura pelo formulário ativo da igreja; sem formulário publicado, orienta o membro a procurar a liderança.
+- **Arte Sacra sem rolagem operacional:** o painel “Comece pela Palavra” foi compactado, Feed/Story migrou para a barra de salvamento do canvas e o botão principal do Motor de Criação IA permanece fixo e visível fora da área rolável.
+- **Canvas da Arte Sacra simplificado:** “Gerar Arte Inédita” e “Explorar Acervo” foram removidos do estado vazio por duplicarem as abas laterais no desktop e os comandos IA/Substituir do dock no mobile e tablet.
+- **Menu lateral ajustável:** o novo menu Culto+ pode alternar entre a visualização completa e a compacta por ícones, preservando a preferência durante a navegação.
+- **Coluna social sem lacunas:** “Minha escala” mantém sua altura de conteúdo e “No Reino” ocupa o restante da lateral, alinhando o encerramento dos blocos com a coluna principal no desktop.
+- **Duas prévias do Reino:** a lateral utiliza a altura ampliada para apresentar duas publicações compactas, com trechos e interações, em vez de deixar espaço vazio.
+- **Cards principais alinhados:** Pão Diário e Minha semana compartilham a mesma linha de cabeçalho e mantêm os CTAs ancorados na mesma altura inferior.
+- **Voluntariado padronizado:** o CTA “Quer servir?” adota a mesma altura, raio, espaçamento e proporção de ícone das programações de culto.
+- **Escala com contexto:** o convite da NewHome informa equipe, área, culto, data e horário; ausências de identificação da equipe recebem fallback explícito.
+- **Convite de escala enxuto:** o bloco complementar “O que você vai fazer” foi removido para priorizar os dados operacionais essenciais e as ações de resposta.
+- **Atalhos da jornada padronizados:** Meta de Leitura, Continuar leitura e Oração ao Amanhecer exibem título e descrição ao lado do ícone, conteúdo em blocos equivalentes e CTAs alinhados.
+- **Atalhos sem espaço residual:** os três cards da jornada crescem igualmente até o final da coluna principal, eliminando a faixa vazia criada quando a lateral possui mais conteúdo.
+- **Devocional premium:** Pão Diário mantém a mesma altura da agenda, recebe painel editorial para a Palavra, selo de referência, bloco de meditação e tempo estimado de leitura.
+- **Títulos equilibrados:** Pão Diário e Minha semana compartilham a mesma escala tipográfica de 24 px.
+- **Blocos compactos:** cards, tipografia, ícones, espaçamentos, a coluna do Reino e a estante de estudos foram reduzidos para melhorar a leitura da página.
+- **Faixas redundantes removidas:** os resumos inferiores de próximos cultos e escala deixam a visão inicial, pois os mesmos destinos já estão disponíveis nos CTAs.
+- **Cobertura:** Playwright valida a nova prioridade, os destinos, a ausência da lista repetida e os limites de altura dos cards.
+
+## [v2.8.4] - 2026-07-29 (Filtros da Bíblia restaurados)
+### Tipo: Feature / Biblioteca bíblica / Acessibilidade
+- **Traduções visíveis:** o seletor de versão mostra ARA, ARC, NVI, ACF e Almeida 1917 também no mobile.
+- **Testamentos restaurados:** Toda a Bíblia, Antigo Testamento e Novo Testamento voltam a filtrar a biblioteca.
+- **Bíblia Católica:** uma opção dedicada apresenta os sete livros deuterocanônicos disponíveis no catálogo.
+- **Filtros combináveis e compactos:** testamento/cânon, categoria literária e busca funcionam em conjunto; as categorias ficam em um dropdown lateral e “Ver todos os livros” limpa o conjunto.
+- **Responsividade:** os quatro filtros principais usam grade de duas colunas no mobile e faixa horizontal no desktop.
+- **Cobertura:** Playwright valida tradução, Antigo, Novo, Católica, abertura do leitor, mobile e alias `/biblia`.
+
+## [v2.8.3] - 2026-07-29 (Pão Diário resiliente)
+### Tipo: Fix / API / Resiliência
+- **Leitura sempre disponível:** falha na personalização autenticada não bloqueia mais o conteúdo canônico já resolvido para o dia.
+- **Fallback autenticado:** se a API inteira estiver temporariamente indisponível, usuários logados também recebem o catálogo local somente leitura.
+- **Atualização protegida:** a ação de gerar um novo conteúdo continua falhando explicitamente e não consome a atualização diária quando não há confirmação no servidor.
+- **Diagnóstico seguro:** erros de Supabase são registrados no servidor com código, mensagem, detalhes e dica, sem expor token ou credenciais.
+- **Cobertura:** testes verificam fallback normal, preservação da atualização explícita e retorno canônico na falha de personalização.
+
+## [v2.8.2] - 2026-07-29 (NewHome orientada por módulos)
+### Tipo: Refactor / UI / Design system
+- **Paleta sem conflitos:** as abas Criar, Reino, Gestão e Calendário deixam de manter gradientes e cores locais concorrentes.
+- **Componentes temáticos:** hero, cards, CTAs, ícones, bordas, superfícies e foco consomem os tokens oficiais do módulo ativo.
+- **Home composta:** leitura e jornada usam Bíblia; agenda e escala usam Cultos; comunidade usa Reino; Criar Sala usa Workspace Pastoral.
+- **Base equilibrada:** o canvas permanece neutro, com uma ambientação discreta da aba, preservando legibilidade em claro e escuro.
+- **Menu simplificado:** metadados cromáticos obsoletos foram removidos; desktop e mobile usam a mesma fonte de verdade.
+- **Semântica preservada:** alertas e convites pendentes continuam âmbar, sem confundir estado operacional com identidade de módulo.
+
+## [v2.8.1] - 2026-07-29 (Identidade visual por módulos)
+### Tipo: Design system / UI / Acessibilidade
+- **Temas centralizados:** oito identidades tipadas cobrem Início, Bíblia, Reino, Cultos, Criar, Gestão, Workspace Pastoral e áreas neutras.
+- **Rotas previsíveis:** um resolver único define o módulo visual, inclusive nas áreas compartilhadas de culto, oração e criação de sala.
+- **Navegação consistente:** menu pessoal, shell Culto+, bottom navigation, alternador de visões e shells profissionais usam os mesmos tokens.
+- **New Home:** cada aba herda sua identidade; Calendário usa Cultos, Gestão usa preto premium e Criar usa o gradiente da marca.
+- **Reino:** hero, progresso, compositor e navegação principal deixam o verde institucional e adotam o gradiente social próprio.
+- **Claro e escuro:** todos os módulos possuem contraste, foco, seleção, superfície, borda e gradiente equivalentes.
+- **Cobertura:** testes validam o contrato de rotas, fallback neutro, aliases, tokens e alternador de visões.
+
+## [v2.8.0] - 2026-07-28 (Estúdio da Palavra concluído)
+### Tipo: Feature / Editor / IA / Segurança
+- **Revisão da IA:** o Obreiro IA gera uma proposta isolada e nunca altera o documento silenciosamente; o autor pode aplicar tudo, mesclar blocos escolhidos, inserir como novos ou descartar.
+- **Persistência transacional:** estudos e aulas usam revisão otimista, autosave remoto, recuperação local e estado explícito para conflito ou falha.
+- **Banco protegido:** `public_studies` e `custom_plans` receberam documento JSONB, versão, revisão, índices, grants mínimos e policies que impedem leitura anônima de rascunhos.
+- **Biblioteca editorial:** busca, grupos Texto/Bíblia/Mídia/Interação/Layout, memória de recentes, cinco modelos orientadores e documento em branco.
+- **Teclado e acessibilidade:** comando `/`, menu semântico, modal com foco restaurado, Escape, seleções anunciadas e ações com alvos de toque.
+- **Consolidação:** V2 e V3 redirecionam para `/criar-conteudo`; os dois editores duplicados e seus testes obsoletos foram removidos.
+- **Performance:** mídia editorial usa carregamento e decodificação assíncronos; o autosave permanece temporizado e sem criação automática.
+- **Cobertura:** suíte focada cobre shell, mobile, recuperação, persistência, revisão da IA, biblioteca, comando `/`, rotas e revisão de aulas.
+
+## [v2.7.1] - 2026-07-28 (Estúdio da Palavra com recuperação)
+### Tipo: Refactor / Persistência / UX
+- **Componente canônico:** estudo standalone, rota V3 e edição de aulas agora entram pelo mesmo `StudyStudio`.
+- **Adapters de contexto:** estudo e aula recebem capabilities explícitas para publicação, audiência, PDF, Reino, IA e ação final.
+- **Recuperação local:** alterações ainda não confirmadas são armazenadas com versão e podem ser recuperadas após recarregar.
+- **Saída protegida:** o editor alerta antes de sair com alterações não salvas e diferencia visualmente `Salvo`, `Salvando` e `Alterações não salvas`.
+- **Privacidade local:** rascunhos são separados por usuário ou sessão anônima e removidos quando o proprietário da sessão muda.
+- **Acessibilidade:** campos de título e categoria possuem associação semântica e ações novas mantêm alvo mínimo de toque.
+- **Cobertura:** 14 testes focados aprovados para standalone, V3, sala protegida, mobile, layout, slots e recuperação.
+
+## [v2.7.0] - 2026-07-28 (Estúdio da Palavra unificado)
+### Tipo: Refactor / Editor / IA / Responsividade
+- **Um só estúdio:** a criação de conteúdo e a edição de aulas agora usam o mesmo componente, preservando os blocos e recursos já existentes.
+- **Editor visual moderno:** nova barra de ferramentas com Estrutura, Inserir, Modelos, Bíblia e Obreiro IA, painel contextual e canvas limpo.
+- **Layout WordPress:** grade real de 12 colunas com composições de largura total, 2/3, 1/2 e 1/3, inclusive no conteúdo publicado.
+- **Persistência segura da aula:** salvar dentro da sala grava o plano antes de fechar o editor e mantém a tela aberta quando ocorre erro.
+- **IA protegida:** o Estúdio usa rota autenticada no servidor, valida elegibilidade e aplica repetição com espera progressiva.
+- **Contrato compartilhado:** `StudyDocumentV2`, normalização de conteúdo legado e `StudyDocumentRenderer` reduzem diferenças entre edição, prévia e leitura pública.
+- **Cobertura:** teste Playwright dedicado ao shell unificado e à responsividade mobile.
+
+## [v2.6.17] - 2026-07-27 (Atalhos essenciais da jornada)
+### Tipo: Melhoria / UI / Hierarquia
+- **CTA removido:** `Meus Estudos` deixou a faixa de atalhos da `/newhome`, permanecendo disponível no menu e na biblioteca.
+- **Distribuição equilibrada:** Meta de Leitura, Pão Diário e Oração ao Amanhecer agora ocupam três colunas equivalentes no desktop.
+- **Responsividade:** os atalhos continuam empilhados no mobile e preservam áreas de toque acessíveis.
+- **Cobertura:** o teste valida a presença de três CTAs, a remoção de Meus Estudos e larguras equivalentes.
+
+## [v2.6.16] - 2026-07-27 (Pesquisa compacta e saudação lateral)
+### Tipo: Correção / UI / Otimização de espaço
+- **Alvo corrigido:** a redução de largura foi aplicada à pesquisa da `/newhome`, mantendo a navegação por abas em seu tamanho confortável.
+- **Saudação reposicionada:** `Bem-vindo, [nome]` aparece imediatamente à direita da pesquisa no desktop, antes das notificações e do perfil.
+- **Hierarquia preservada:** a saudação grande continua removida do conteúdo inicial, evitando duplicidade.
+- **Cobertura:** o teste valida largura limitada da pesquisa e posicionamento horizontal da saudação.
+
+## [v2.6.15] - 2026-07-27 (Barra compacta e saudação integrada)
+### Tipo: Melhoria / UI / Otimização de espaço
+- **Barra reduzida:** a navegação de áreas da `/newhome` passou de 56px para 44px de altura, com abas e ícones mais compactos.
+- **Saudação integrada:** `Bom dia, [nome]` foi substituído por `Bem-vindo, [nome]` e colocado à direita da barra no desktop.
+- **Duplicação removida:** a saudação grande deixou de ocupar uma linha própria dentro do painel inicial.
+- **Conteúdo antecipado:** o espaçamento superior do conteúdo foi reduzido, trazendo os cards para mais perto da navegação.
+- **Cobertura:** testes validam a nova saudação, ausência do texto antigo, abas e menu mobile.
+
+## [v2.6.14] - 2026-07-27 (Minha semana priorizada na nova Home)
+### Tipo: Refactor / UI / UX
+- **CTA reorganizado:** o card principal independente de `Próximo culto` foi substituído por uma versão aprimorada de `Minha semana`.
+- **Agenda unificada:** o novo card reúne até três compromissos entre cultos e escalas, com acesso direto ao calendário completo.
+- **Contexto preservado:** o primeiro culto agendado recebe o selo pequeno `Próximo culto` dentro da lista.
+- **Lateral objetiva:** a antiga cópia de `Minha semana` foi removida da coluna lateral e `Minha escala` sobe para a primeira posição quando aplicável.
+- **Cobertura:** testes confirmam título único, CTA do calendário, ausência do botão antigo e responsividade.
+
+## [v2.6.13] - 2026-07-27 (Menu Cultos centralizado em Meus Cultos)
+### Tipo: Ajuste / Navegação
+- **Destino principal:** o item `Cultos` no shell Culto+, no menu mobile e na página inicial agora direciona para `/meus-cultos`.
+- **Agenda preservada:** `/culto` continua disponível nos atalhos internos que representam explicitamente a agenda pública.
+- **Cobertura:** teste Playwright confirma o `href` apresentado no menu real.
+
+## [v2.6.12] - 2026-07-27 (Reino com largura editorial ampliada)
+### Tipo: Melhoria / UI / Responsividade
+- **Desktop melhor aproveitado:** a coluna principal de `/social` passou de `max-w-3xl` para um limite editorial de `980px`.
+- **Proporção moderna:** cabeçalho, compositor e cards crescem juntos e permanecem alinhados, sem ocupar toda a largura disponível.
+- **Mobile preservado:** a coluna continua fluida em telas pequenas e não cria rolagem horizontal.
+- **Cobertura:** testes verificam o intervalo de largura no desktop, alinhamento entre blocos e comportamento mobile.
+
+## [v2.6.11] - 2026-07-27 (Orações no tema bíblico premium)
+### Tipo: Refactor / UI / UX / Acessibilidade
+- **Ecossistema bíblico:** `/oracoes` agora compartilha a paleta de pergaminho, couro, marrom, ouro envelhecido e carvão quente do Pão Diário.
+- **Oração do dia:** o antigo banner verde foi substituído por uma superfície editorial marrom e dourada, com texto em branco envelhecido.
+- **Contraste corrigido:** os destaques do texto inteligente respeitam a cor do contexto e não deixam trechos escuros sobre o banner.
+- **Componentes harmonizados:** gerador personalizado, filtros, cards, ações e estados de carregamento receberam o mesmo vocabulário visual.
+- **Fluxos preservados:** áudio, geração por tema, filtros, leitura completa e cópia continuam funcionando.
+- **Cobertura:** dois cenários Playwright validam tema, contraste, filtros, gerador e responsividade mobile.
+
+## [v2.6.10] - 2026-07-27 (Pão Diário com leitura prioritária)
+### Tipo: Refactor / UI / UX / Acessibilidade
+- **Hierarquia editorial:** o título diário é o único título principal; `A Palavra antes de tudo` foi retirado e `Ler a Palavra` tornou-se um marcador discreto.
+- **Conteúdo essencial primeiro:** a etapa inicial agora segue versículo, reflexão pastoral, contexto bíblico imediato e `Observe no texto`.
+- **Reflexão integrada:** o sentido central recebeu maior peso visual e o contexto bíblico passou a funcionar como aprofundamento dentro do mesmo bloco editorial.
+- **Etapas secundárias:** a navegação completa virou trilho lateral no desktop e aparece depois do conteúdo no mobile, sem competir com a leitura.
+- **Fluxos preservados:** áudio, tamanho de fonte, foco, atualização diária, cinco etapas e publicação no feed continuam funcionais.
+- **Cobertura:** testes validam ordem semântica, responsividade, fluxo completo, tema e rolagem.
+
+## [v2.6.9] - 2026-07-24 (Culto compacto em telas horizontais)
+### Tipo: Melhoria / Responsividade / UI
+- **Primeira tela completa:** cabeçalho, transmissão e as seis ações rápidas cabem sem rolagem em telas horizontais com pouca altura.
+- **Player adaptável:** o vídeo ocupa o espaço restante e mantém conteúdo, controles e mensagem centralizados.
+- **Ações em linha:** Check-in, Anotações, Oração, Ofertar, Convidar e Compartilhar ficam em uma grade única e compacta.
+- **Gestão preservada:** Ver escala e Editar culto também estão disponíveis no menu superior quando a faixa administrativa é recolhida.
+- **Escopo seguro:** o modo compacto só é ativado em paisagem até `900px × 520px`; o layout vertical permanece inalterado.
+
+## [v2.6.8] - 2026-07-24 (Reações no rodapé da timeline)
+### Tipo: Ajuste / UI / UX
+- **Posição contextual:** Amém, Glória e Aleluia foram movidos para depois da área rolável da timeline.
+- **Alinhamento:** a faixa ocupa o rodapé do painel lateral, na mesma direção visual do botão Compartilhar.
+- **Acesso preservado:** reações, contadores, carregamento e animações continuam funcionando sem cobrir os eventos.
+
+## [v2.6.7] - 2026-07-24 (Filtro responsivo da timeline)
+### Tipo: Fix / UI / Acessibilidade
+- **Camadas corrigidas:** o menu do filtro agora abre acima da faixa fixa de reações, sem ser cortado ou encoberto.
+- **Responsividade:** botão e menu respeitam a largura útil do painel e não criam rolagem horizontal no mobile.
+- **Interação completa:** o seletor fecha ao escolher uma opção, clicar fora ou pressionar Esc.
+- **Acessibilidade:** filtro e opções expõem estado, relacionamento e semântica de menu para tecnologias assistivas.
+
+## [v2.6.6] - 2026-07-24 (Continuidade pós-login no culto)
+### Tipo: Fix / Autenticação / UX
+- **Retorno ao culto:** o login deixa de enviar o participante para a home e restaura a rota completa que iniciou a autenticação.
+- **Intenção preservada:** a reação escolhida antes do login fica temporariamente guardada na sessão e é registrada automaticamente após autenticar.
+- **Execução segura:** o retorno aceita somente rotas internas; a reação expira, pertence ao culto de origem e é consumida uma única vez.
+- **Cobertura:** testes validam o retorno após recarga de OAuth, bloqueio de redirecionamento externo e consumo correto da reação.
+
+## [v2.6.5] - 2026-07-24 (Reações vivas na timeline)
+### Tipo: Feature / Realtime / UI / Responsividade
+- **Três reações fixas:** Amém, Glória e Aleluia ficam sempre acessíveis junto ao cabeçalho da timeline.
+- **Contagem acumulativa:** cada toque gera um novo evento e incrementa o respectivo emoji, inclusive para reações repetidas da mesma pessoa.
+- **Presença humana:** foto pública ou iniciais do participante sobem brevemente sobre o painel e desaparecem após a animação.
+- **Atualização ao vivo:** reações feitas em outros dispositivos atualizam o contador e a animação pelo canal Realtime do culto.
+- **Mobile protegido:** a faixa fica antes dos eventos roláveis, sem sobreposição e sem criar rolagem horizontal.
+
+## [v2.6.4] - 2026-07-24 (Timeline viva do culto)
+### Tipo: Feature / Realtime / Segurança / UX
+- **Liturgia viva:** o painel lateral organiza check-ins, orações, posts e comentários dentro de cada momento da programação.
+- **Leitura imediata:** participantes, cronômetro e progresso litúrgico ficam compactos no topo; filtros permitem focar cada tipo de atividade.
+- **Participação contextual:** cada usuário pode publicar ou editar um comentário por bloco litúrgico, sem criar conversas paralelas.
+- **Privacidade por contrato:** oração pública mostra até 120 caracteres; oração privada chega à timeline sem conteúdo sensível.
+- **Tempo real:** check-ins, posts, orações redigidas e comentários atualizam o culto sem recarregar a página.
+- **QA completa:** massa repetível, testes de domínio, validação SQL/RLS/Realtime e revisão responsiva em desktop e mobile.
+
+## [v2.6.3] - 2026-07-24 (Experiência pública de culto imersiva)
+### Tipo: Refactor / UI / Responsividade
+- **Template compartilhado:** todos os cultos públicos passam a usar a mesma composição visual validada no cenário QA.
+- **Foco na transmissão:** vídeo, identificação do culto e atalhos ocupam o painel principal, enquanto contexto ao vivo, participantes e contagem ficam agrupados lateralmente.
+- **Ações rápidas:** check-in, anotações, oração, oferta, convite e compartilhamento aparecem imediatamente abaixo da transmissão.
+- **Shell imersivo:** menu lateral e navegação móvel globais deixam de competir com a experiência pública do culto.
+- **Liturgia confiável:** o intervalo para o próximo momento aceita horários simples e timestamps completos sem exibir valores inválidos.
+
+## [v2.6.2] - 2026-07-23 (Massa QA integral e repetível)
+### Tipo: Feature / QA / Supabase / Documentation
+- **Cinco personas:** membro, pastor, gestor, líder e visitante possuem contas confirmadas, perfis coerentes e acessos distintos.
+- **Cenário completo:** igreja, célula, equipes, funções, cultos, escalas, convites, formulários QR, inbox, notificações e conteúdos foram preenchidos com estados reais.
+- **Feed coberto:** os onze tipos de publicação e as cinco visibilidades podem ser avaliados sem depender de dados pessoais.
+- **Operação segura:** criação idempotente, credenciais somente em arquivo local ignorado e limpeza isolada pela chave `cultoplus_full_qa_v1`.
+- **Validação real:** o gerador confere quantidades mínimas, vínculo entre módulos e autenticação das cinco contas após cada execução.
+
+## [v2.6.1] - 2026-07-23 (Operação da igreja completa e protegida por escopo)
+### Tipo: Fix / Security / Supabase / Permissions
+- **Estrutura operacional:** funções de equipe, vagas, convites de escala e participação passam a existir no banco com chaves compatíveis com os IDs textuais dos cultos.
+- **Quiz personalizado:** criação, leitura pública ativa e gerenciamento pelo autor agora possuem tabela, índices, RLS e contrato JSON consistente.
+- **Papéis separados:** pastor deixa de herdar administração; gestor opera toda a igreja e líder atua somente na equipe autorizada.
+- **QR seguro:** formulários de equipe carregam escopo explícito, enquanto candidaturas de voluntariado exigem autenticação e vínculo com a igreja.
+- **Respostas protegidas:** voluntários podem aceitar ou recusar seus convites sem alterar dados administrativos da escala.
+- **Banco validado:** estruturas novas ficaram sem alertas de segurança ou performance no Supabase Advisor.
+
+## [v2.6.0] - 2026-07-23 (Publicação central e segura no Reino)
+### Tipo: Feature / Security / Feed / Supabase
+- **Contrato único:** Quiz, Pão Diário, oração, reflexão, sentimento e check-in passam pelo serviço central de publicação.
+- **Audiência protegida:** políticas RLS diferenciam conteúdo público, seguidores, igreja, grupo e privado diretamente no banco.
+- **Conteúdo estruturado:** posts recebem origem, metadados e chave de deduplicação para cards ricos e prevenção de envios repetidos.
+- **Fluxo rápido:** o Quiz publica o resultado real, retorna ao Feed sem atraso artificial e destaca a publicação criada.
+- **Operações confiáveis:** criação retorna o registro persistido; atualização e exclusão agora propagam falhas para a interface.
+
+## [v2.5.18] - 2026-07-22 (Sentido central alinhado ao leitor)
+### Tipo: Fix / Layout / Reading Experience
+- **Coluna central:** título, orientação e reflexão pastoral agora compartilham uma coluna de leitura centralizada.
+- **Justificação preservada:** cada parágrafo continua justificado dentro da coluna, com a última linha alinhada naturalmente à esquerda.
+- **Responsividade:** o bloco ocupa toda a largura disponível no mobile e ganha margens equilibradas em telas largas.
+
+## [v2.5.17] - 2026-07-22 (Etapas e reflexão legíveis no Pão Diário)
+### Tipo: Refactor / UX / Reading Experience / Accessibility
+- **Etapas reconhecíveis:** o estudo apresenta título, instrução, cinco cartões numerados e estado atual com contraste claro.
+- **Progresso visível:** etapas concluídas recebem check e o mobile orienta o gesto para visualizar toda a sequência.
+- **Sentido central organizado:** o texto é dividido em parágrafos, recebe alinhamento justificado e preserva uma última linha natural.
+- **Ênfase editorial segura:** termos bíblicos relevantes recebem negrito sem alterar a mensagem e sem injetar HTML.
+- **Cobertura:** seis testes Playwright validam etapas, estrutura textual, destaques, mobile, rolagem e fluxo completo.
+
+## [v2.5.16] - 2026-07-22 (Tema bíblico escuro suavizado)
+### Tipo: Style / UI / Reading Experience / Accessibility
+- **Menos peso visual:** grandes superfícies marrons foram substituídas por carvão quente e cinzas de pergaminho.
+- **Branco envelhecido:** versículo principal e textos da passagem contextual usam `#E7E0D4`, inspirado na tinta suave de Bíblias usadas.
+- **Destaque moderado:** versos-base deixam o laranja saturado e recebem fundo neutro, preservando contraste sem dominar a página.
+- **Ouro pontual:** referências, números e progresso mantêm ouro envelhecido apenas como detalhe de hierarquia.
+- **Cobertura:** seis testes Playwright aprovam paleta, tipografia, fluxo, mobile e rolagem.
+
+## [v2.5.15] - 2026-07-22 (Rolagem restaurada no shell Culto+)
+### Tipo: Fix / Layout / Responsive
+- **Causa corrigida:** a cadeia de flexboxes do menu limitava o shell à altura da tela e o `overflow-hidden` do Pão Diário recortava o restante do leitor.
+- **Altura natural:** o shell agora cresce conforme o conteúdo, preservando o menu lateral fixo e o contêiner de rolagem global.
+- **Eixos separados:** o Pão Diário bloqueia somente o excesso horizontal e mantém a rolagem vertical livre.
+- **Cobertura:** teste percorre programaticamente do cabeçalho ao rodapé; os seis cenários Playwright foram aprovados.
+
+## [v2.5.14] - 2026-07-22 (Menu oficial no Pão Diário)
+### Tipo: Refactor / Navigation / Responsive / Accessibility
+- **Menu oficial:** `/devocional` passa a usar o `CultoPlusPageShell`, com navegação lateral no desktop e cabeçalho expansível no mobile.
+- **Estado ativo:** Bíblia permanece expandida e Pão Diário é identificado como a rota atual.
+- **Sem duplicidade:** a barra interna antiga foi removida para manter uma única fonte de navegação.
+- **Leitura focada:** o modo sem interrupções continua ocultando todo o menu automaticamente.
+- **Cobertura:** cinco testes Playwright aprovam desktop, mobile, estado ativo, foco e fluxo completo.
+
+## [v2.5.13] - 2026-07-22 (Pão Diário em identidade bíblica premium)
+### Tipo: Refactor / UI / UX / Branding / Responsive
+- **Paleta bíblica:** couro profundo, marrom, ouro envelhecido, marfim e pergaminho substituem os acentos verdes e azuis predominantes.
+- **Tipografia das Escrituras:** versículo principal e passagem contextual usam uma família serifada clássica inspirada em Bíblias impressas, sem alterar a fonte dos controles.
+- **Largura total:** navegação, cabeçalho e leitor passam a acompanhar toda a largura útil disponível, com margens responsivas.
+- **Leitura preservada:** reflexões mantêm largura confortável de linha mesmo dentro da superfície ampliada.
+- **Cobertura:** cinco testes Playwright aprovam fluxo, mobile, atualização diária, largura, gradiente e tipografia bíblica.
+
+## [v2.5.12] - 2026-07-22 (Pão Diário compartilhado e sem repetição)
+### Tipo: Feature / Supabase / Segurança / UX / Mobile
+- **Conteúdo oficial do dia:** o primeiro acesso cria ou seleciona o Pão Diário de `America/Manaus`, grava no banco e fixa o mesmo conteúdo para todos naquele dia.
+- **Histórico sem repetição:** usuários autenticados recebem uma alternativa do catálogo ou uma nova geração quando já visualizaram o conteúdo oficial.
+- **Atualização pessoal:** cada usuário pode gerar um novo Pão Diário uma vez por dia sem alterar a experiência dos demais; falhas liberam a reserva e não gastam a cota.
+- **Catálogo reutilizável:** conteúdos gerados são persistidos e podem voltar à rotação em outro dia para pessoas que ainda não os leram.
+- **Desktop e mobile:** ação discreta “Atualizar” no desktop e gesto de puxar para baixo no mobile, ambos com confirmação explícita.
+- **Proteção de dados:** geração e escrita usam rota de servidor; tabelas de catálogo, agenda, estado e histórico têm RLS e permissões mínimas.
+
+## [v2.5.11] - 2026-07-21 (Feed do Reino na identidade Culto+)
+### Tipo: Refactor / UI / UX / Branding / Navigation
+- **Menu oficial:** `/social` passa a usar o shell Culto+ e o menu lateral legado deixa de ser renderizado nessa rota.
+- **Identidade do Reino:** fundo marfim, azul-marinho e verde operacional organizam abertura, estados e ações sem descaracterizar os tipos de publicação.
+- **Publicação mais direta:** uma entrada visível reúne reflexão, check-in e criação de arte; o botão flutuante permanece no mobile com rótulos acessíveis.
+- **Navegação contextual:** Feed, igreja e exploração ficam disponíveis no cabeçalho, além do menu principal.
+- **Cards atualizados:** publicações, conteúdos sugeridos, meditação, carregamento, erro e módulo indisponível adotam superfícies e hierarquia da nova interface.
+- **Fluxos preservados:** publicar, comentar, curtir, compartilhar, editar, excluir, atualizar e abrir o compositor continuam usando a lógica existente.
+- **Correção de rolagem:** o comando de voltar ao topo passa a apontar para o contêiner realmente rolável do Feed.
+- **Cobertura:** TypeScript direcionado e 19 testes do shell, Feed e regras sociais aprovados, incluindo três novos cenários estruturais.
+
+## [v2.5.10] - 2026-07-21 (Alternância de visão slim)
+### Tipo: Refactor / UI / UX / Accessibility
+- **Ícones lado a lado:** Minha visão, Gestão da Igreja e Workspace Pastoral agora aparecem em um único controle horizontal compacto.
+- **Menu mais leve:** os cards com título e descrição foram removidos; o seletor ocupa o antigo espaço do selo “Papéis acumulativos”.
+- **Sempre disponível:** a opção de ocultar e o estado persistido em `localStorage` foram retirados.
+- **Permissões preservadas:** cada usuário continua vendo somente as visões para as quais possui acesso.
+- **Acessibilidade:** todos os ícones mantêm nome acessível, tooltip, foco por teclado e indicação visual/semântica da visão atual.
+- **Cobertura:** TypeScript direcionado e dois testes de regra aprovados.
+
+## [v2.5.9] - 2026-07-21 (Palavra com contexto bíblico ampliado)
+### Tipo: Feature / Content / Bible / UI / UX / Pastoral
+- **Versículo dentro da passagem:** a etapa Palavra mostra dois versículos anteriores e dois posteriores, com o versículo-base destacado e referência do trecho ampliado.
+- **Fonte bíblica local:** um endpoint interno lê `biblia_completa.json` no servidor e entrega somente os versos necessários, evitando incluir os 4,3 MB da Bíblia no bundle do navegador.
+- **Leitura estruturada:** livro, capítulo, versículo-base e testamento aparecem antes do contexto; perguntas de observação ajudam o usuário a retornar ao próprio texto.
+- **Separação pastoral:** “Sentido central” identifica claramente a reflexão editorial e lembra que ela auxilia, mas não substitui, a leitura do capítulo completo.
+- **Conteúdo mais profundo:** o devocional padrão agora explica contexto imediato, sentido central e aplicação prudente em três parágrafos.
+- **Geração futura protegida:** novos devocionais devem seguir a mesma estrutura, omitir detalhes incertos e não transformar aplicação pastoral em citação bíblica.
+- **Áudio enriquecido:** quando o contexto está disponível, a narração inclui o trecho ampliado antes da reflexão e da oração.
+- **Fallback resiliente:** o serviço prioriza a Bíblia local, mantém o cache existente como alternativa e preserva o versículo-base se o contexto ampliado falhar.
+- **Cobertura:** TypeScript direcionado aprovado, 17 testes de regra passaram e 8 cenários Playwright validaram contexto real, fluxo, foco e mobile.
+
+## [v2.5.8] - 2026-07-21 (Pão Diário em leitor de estudo compacto)
+### Tipo: Refactor / UI / UX / Reading Experience / Accessibility
+- **Uma etapa por vez:** Palavra, reflexão, oração, prática e conclusão deixam de ocupar uma página longa e passam a ser capítulos do mesmo leitor.
+- **Rolagem reduzida:** o cabeçalho foi compactado e apenas o conteúdo da etapa ativa permanece no DOM, diminuindo drasticamente a altura total da página.
+- **Fluxo explícito:** botões “Etapa anterior” e ações de continuidade conduzem o usuário sem depender de rolagem ou de descobrir o próximo bloco.
+- **Caderno de estudo:** uma única superfície editorial reúne progresso, capítulos, leitura e ações, substituindo a percepção de dashboard por uma experiência de leitura concentrada.
+- **Controles preservados:** áudio, tamanho da fonte, modo sem interrupções, deep link bíblico, reflexão privada, oração, prática, conclusão e publicação opcional continuam disponíveis.
+- **Retomada inteligente:** ao abrir a página, o leitor posiciona o usuário na primeira etapa ainda não concluída; jornadas finalizadas abrem no encerramento.
+- **Mobile mais direto:** abertura encurtada, capítulos roláveis horizontalmente, alvos de toque acessíveis e ausência de menu inferior ou assistente flutuante durante o estudo.
+- **Prudência pastoral:** a sequência mantém a Palavra antes da interpretação e apresenta a prática como decisão pessoal, nunca como medida de fé.
+- **Cobertura:** TypeScript direcionado aprovado e 8 cenários Playwright passaram, cobrindo identidade, sessão, fluxo integral, foco e responsividade.
+
+## [v2.5.7] - 2026-07-21 (Pão Diário em experiência editorial)
+### Tipo: Refactor / UI / UX / Reading Experience
+- **Fim da aparência de sistema:** `/devocional` deixa de usar o shell com menu lateral e passa a ter navegação mínima, própria para um momento de leitura.
+- **Landing acolhedora:** a abertura reúne marca, data, duração estimada, título, introdução, áudio, tipografia, modo sem interrupções e um único CTA para iniciar ou continuar.
+- **Leitura contínua:** os cards operacionais e o resumo lateral foram removidos; Palavra, reflexão, oração, prática e conclusão agora formam uma coluna editorial de rolagem.
+- **Progresso discreto:** as cinco etapas permanecem acessíveis em uma linha narrativa, sem aparência de checklist administrativo.
+- **Hierarquia pastoral:** o versículo antecede a reflexão; a oração ganha uma pausa visual própria e a prática é apresentada como decisão pessoal, não como medida de fé.
+- **Ações contextuais:** salvar, dizer “Amém”, marcar a prática, concluir e compartilhar aparecem dentro do momento correspondente da leitura.
+- **Sem interrupções artificiais:** a barra inferior mobile e o botão flutuante do Obreiro IA ficam ocultos nessa rota, preservando o caráter contemplativo da leitura.
+- **Responsividade:** a composição mantém largura confortável, alvos de toque acessíveis e ausência de rolagem horizontal no mobile.
+- **Fluxos preservados:** retomada, atividade devocional, privacidade, áudio, foco, deep link bíblico e publicação específica no Reino continuam funcionais.
+- **Cobertura:** TypeScript direcionado aprovado e 8 cenários Playwright passaram de forma sequencial, cobrindo identidade, navegação, fluxo integral, foco e mobile.
+
+## [v2.5.6] - 2026-07-21 (Pão Diário guiado e compartilhável)
+### Tipo: Feature / UI / UX / Social / Accessibility
+- **Encontro em cinco etapas:** `/devocional` conduz por leitura, reflexão, oração, prática e conclusão, com todas as etapas visíveis e progresso objetivo.
+- **Retomada real:** progresso, prática, conclusão e estado de compartilhamento são restaurados localmente; reflexão e “Amém” autenticados continuam reconciliados com `user_devotionals`.
+- **Leitura confortável:** título compacto, controles A−/A/A+, narração central e modo sem interrupções seguem a identidade visual do Culto+ em desktop e mobile.
+- **Bíblia no contexto:** a referência do dia abre diretamente no livro, capítulo e versículo do leitor existente.
+- **Atividade consistente:** a conclusão registra `recordActivity('devotional')` uma única vez, sem recompensa manual divergente no botão “Amém”.
+- **Publicação opcional:** após concluir, o usuário pode abrir uma prévia, escrever uma mensagem pública e escolher Reino, igreja ou grupo antes de confirmar.
+- **Privacidade por padrão:** a reflexão pessoal não compõe o payload nem o card do feed; somente a mensagem pública digitada no popup é publicada.
+- **Persistência prudente:** rascunho e aplicação pessoal não são enviados para a tabela genérica de configurações; a reflexão autenticada permanece no fluxo com RLS já existente.
+- **Card exclusivo no Reino:** posts `devotional` recebem layout próprio com título, versículo, referência e link de retorno ao Pão Diário, reutilizado também na prévia.
+- **Compatibilidade de dados:** o conteúdo estruturado é serializado na tabela de posts existente; nenhuma migração ou tabela adicional foi necessária.
+- **Cobertura:** 32 testes de regras, persistência, resolução e feed passaram; 3 cenários Playwright validaram fluxo completo, modo foco e responsividade mobile.
+
+## [v2.5.5] - 2026-07-21 (Módulos bíblicos na identidade Culto+)
+### Tipo: Refactor / UI / UX / Branding / Navigation
+- **Experiência integrada:** `/devocional`, `/oracoes`, `/plano` e `/quiz` passam a usar o shell oficial, a logo e o menu pessoal do Culto+.
+- **Navegação coerente:** o módulo Bíblia abre automaticamente na rota ativa e mantém Pão Diário, Meta de Leitura, Orações e Quiz Bíblico no mesmo contexto.
+- **Identidade visual:** as páginas adotam fundo marfim, azul-marinho e verde operacional, preservando acentos próprios para oração, devocional e modos do quiz.
+- **Mobile unificado:** cabeçalho e barra inferior seguem o padrão Culto+, com Bíblia destacada em todas as quatro experiências e sem o deslocamento do menu legado.
+- **SEO e produto:** títulos, descrições, metadados e compartilhamento passam a apresentar Culto+ como marca principal.
+- **Fluxos preservados:** geração e reprodução de orações, reflexão diária, progresso de leitura, autenticação da meta e modos do quiz não tiveram suas regras alteradas.
+- **Cobertura:** testes Playwright validam shell, logo, menu ativo, navegação protegida e comportamento mobile, em conjunto com a cobertura da Bíblia Sagrada.
+
+## [v2.5.4] - 2026-07-21 (Bíblia Sagrada na identidade Culto+)
+### Tipo: Refactor / UI / UX / Branding / Navigation
+- **Shell oficial:** `/bibliasagrada` e o alias `/biblia` passam a usar a logo, a alternância de visão e o menu pessoal do Culto+.
+- **Módulo bíblico completo:** o menu da Bíblia reúne Bíblia Sagrada, Pão Diário, Meta de leitura, Orações e Quiz Bíblico, abrindo automaticamente na rota ativa.
+- **Navegação mobile unificada:** a barra inferior adota `Início`, `Bíblia`, `Cultos`, `Reino` e `Perfil`, mantendo Bíblia destacada e removendo o espaçamento do cabeçalho legado.
+- **Identidade da página:** título, descrição e metadados passam a apresentar `Bíblia Sagrada | Culto+` e a logo oficial.
+- **Leitor preservado:** o conteúdo de capítulos e versículos não foi alterado; no mobile, o cabeçalho do shell é ocultado durante a leitura para manter a barra própria do leitor.
+- **Cobertura:** testes Playwright validam desktop, mobile, menu expandido, identidade, alinhamento do topo e abertura de Gênesis 1.
+
+## [v2.5.3] - 2026-07-17 (Culto+ como ecossistema completo)
+### Tipo: Refactor / UI / UX / Branding
+- **Nova apresentação:** `/intro` passa a comunicar o Culto+ como evolução integral do BibliaLM, conectando Bíblia, jornada espiritual, comunidade, cultos, serviço, cuidado pastoral e gestão.
+- **Identidade oficial:** a página adota a logo atual e combina o marfim, azul-marinho e verde operacional do app com os acentos roxo, coral e dourado da marca.
+- **Três visões conectadas:** Minha visão, Workspace Pastoral e Gestão da Igreja aparecem como experiências acumulativas de uma única conta.
+- **Narrativa de produto:** seis pilares e a jornada “Ler, Crescer, Participar, Servir, Cuidar e Gerir” tornam a capacidade do ecossistema mais clara.
+- **Responsividade e acesso:** layout em largura total, navegação semântica, foco visível, alvos de toque acessíveis e reorganização completa para mobile.
+- **Cobertura visual:** testes Playwright validam conteúdo, CTAs, remoção da marca antiga na apresentação e ausência de rolagem horizontal no mobile.
+
+## [v2.5.2] - 2026-07-17 (Recusa de solicitação de voluntariado)
+### Tipo: Feature / UI / UX / Notifications
+- **Decisão completa:** o detalhe da candidatura no Inbox passa a oferecer a ação “Recusar solicitação” ao lado do fluxo de aprovação.
+- **Confirmação segura:** a recusa exige confirmação no próprio popup e permite registrar uma orientação opcional para o candidato.
+- **Retorno ao usuário:** a solicitação é encerrada com status público específico, aparece como “Recusada” em Meus Cultos e gera uma notificação direcionada para essa área.
+- **Nova tentativa liberada:** a recusa encerra somente o envio atual e informa explicitamente que o usuário pode enviar uma nova candidatura quando desejar.
+- **Reenvio pelo acompanhamento:** solicitações recusadas exibem “Tentar novamente” em Meus Cultos e reabrem o formulário original da mesma igreja quando ele continua ativo.
+- **Retorno legível:** somente a orientação escrita pela liderança recebe negrito; o texto operacional permanece com peso normal.
+- **Identificação no convite:** formulários de voluntariado preenchem o contato com o `@usuário`; o nome completo vem do cadastro somente quando não é igual ao apelido, permanecendo editável quando ausente.
+- **Estado consistente:** solicitações recusadas saem das pendências, aparecem como “Recusado” na lista e não podem ser reabertas pelo controle genérico de status.
+
+## [v2.5.1] - 2026-07-16 (Pessoas como fluxo operacional único)
+### Tipo: Refactor / UI / UX / Navigation
+- **Sem abas internas:** `/gestao-igreja/pessoas` deixa de apresentar sete áreas concorrentes e passa a começar diretamente pela lista de pessoas.
+- **Hierarquia compacta:** quatro indicadores, uma faixa acionável de pendências, busca e filtros ocupam o primeiro viewport sem hero ou cards excessivos.
+- **Perfil sob demanda:** clicar em uma pessoa abre um drawer temporário, sem abas, com próximas escalas, equipes, acessos e contato em sequência.
+- **Escala preservada:** a agenda mensal continua disponível no drawer e permite selecionar dia, culto, equipe e função sem navegar para outra página.
+- **Convite para equipe:** “Adicionar à equipe” envia convite pendente; o papel de voluntário só é ativado depois do aceite explícito do membro.
+- **Fluxos contextuais:** equipes, designações, voluntariado, QR Codes e permissões abrem em pop-ups; as rotas antigas redirecionam usando `panel`, não abas.
+- **Inbox rápido:** o cabeçalho mantém aprovações diretas em um card temporário e a faixa de pendências abre uma lista objetiva para decisão.
+- **Responsivo:** tabela vira blocos legíveis no mobile e o perfil operacional ocupa um drawer de largura adaptativa.
+
+## [v2.5.0] - 2026-07-16 (Central operacional da igreja)
+### Tipo: Feature / Refactor / UI / UX / Security
+- **Página única:** Pessoas, equipes, escalas, voluntariado, convites, QR Codes e permissões passam a funcionar em abas de `/gestao-igreja/pessoas`.
+- **Agenda individual:** clicar em uma pessoa abre um perfil operacional em pop-up com calendário mensal, equipes, permissões, histórico e status de cada escala.
+- **Escala pelo calendário:** gestor ou líder autorizado pode selecionar um dia, culto e equipe para enviar uma escala pontual que exige confirmação do voluntário.
+- **Regras preservadas:** vínculo com a equipe e participação no culto continuam independentes; a operação bloqueia pessoa sem vínculo, equipe fora do escopo, duplicidade e conflito de horário.
+- **Indicadores e filtros:** a central apresenta métricas reais e mantém busca por pessoa, equipe, papel e situação operacional.
+- **Menu consolidado:** seis entradas administrativas são reunidas em “Pessoas e equipes”; rotas antigas redirecionam para a aba correspondente.
+- **Compatibilidade:** detalhes, edições e cadastros antigos continuam disponíveis enquanto os fluxos principais passam a abrir na central.
+
+## [v2.4.1] - 2026-07-16 (Cultos como central pessoal)
+### Tipo: Refactor / UI / UX / Navigation
+- **Hub único:** `/meus-cultos` reúne indicadores, escalas, candidaturas de voluntariado, equipes e histórico pessoal em largura total.
+- **Fluxo por pop-ups:** detalhes de designações, solicitações e equipes abrem no próprio painel; convites de escala podem ser aceitos ou recusados sem trocar de página.
+- **Status real:** a área Minha escala diferencia convite pendente, escala confirmada, candidatura enviada, em análise, aguardando usuário e aprovada.
+- **Notificações preservadas:** candidaturas continuam chegando aos alertas da gestão e o retorno público é mostrado no painel pessoal.
+- **Rotas consolidadas:** `/minha-igreja/*` permanece apenas como compatibilidade e redireciona para a seção correspondente de `/meus-cultos`.
+- **Menu simplificado:** Minha Igreja deixa de competir com Cultos; escala, equipes e solicitações ficam agrupadas sob Cultos.
+- **Menu consistente:** o hub de Cultos adota os mesmos módulos expansíveis, alternador de visão, permissões e menu mobile da nova Home, mantendo Cultos aberto por padrão.
+- **Inbox em Gestão de Cultos:** o cabeçalho administrativo recebe um atalho com contador e card rápido das aprovações de escala e voluntariado, com acesso ao Inbox completo.
+- **Aprovação pelo card:** cada pendência do Inbox em Gestão de Cultos exibe a ação Aprovar; escalas são confirmadas no próprio card e candidaturas abrem diretamente a seleção de equipe e função.
+
 ## [v2.4.0] - 2026-07-12 (New Home isolada)
 ### Tipo: Feature / UI / UX / Architecture
 - **Gestao de Cultos:** `/gestao-igreja/cultos` recebe shell administrativo Culto+, menu completo com Cultos em primeiro lugar e rota propria `/gestao-igreja/cultos/novo` para criacao.
@@ -314,3 +785,7 @@
   - `services/firebase.ts` (Nova função `wipeAllUserData`)
   - `components/AdminPage.tsx` (UI da Zona de Perigo)
 - **Contexto Técnico:** Adicionado suporte a `writeBatch` no Firebase para deleção em massa. Criada estrutura de documentação viva para reduzir alucinações da IA.
+- **Igrejas no novo Reino:** a página de descoberta de igrejas agora usa o shell Culto+, identidade visual roxo/fúcsia do Reino, busca responsiva e cards adaptados para desktop e mobile.
+- **Menu único em Igrejas:** `/social/igrejas` agora é reconhecida como página com shell próprio, impedindo a renderização simultânea dos menus legado e Culto+.
+- **Explorar integrado ao Reino:** a busca global e os atalhos de descoberta agora usam o shell Culto+, identidade roxo/fúcsia, cards responsivos e um Espaço + reorganizado.
+- **Cabeçalhos compactos no Reino:** Feed, Igrejas e Explorar agora usam faixas reduzidas, com títulos objetivos e menos informação introdutória para priorizar o conteúdo.

@@ -83,12 +83,12 @@ test('private group invite notification points the user to the invite acceptance
   assert.equal(notification.title, 'Convite para grupo privado');
   assert.match(notification.message, /Pr\. Joao/);
   assert.match(notification.message, /Discipulado/);
-  assert.equal(notification.link, '/grupo/group-1?invite=invite-1');
+  assert.equal(notification.link, '/grupo/discipulado?invite=invite-1');
 });
 
-test('private group feed is visible only to members or users with a pending invite', () => {
+test('private group feed is visible only after membership is accepted', () => {
   assert.equal(canViewGroupFeed(privateGroup, member, undefined), true);
-  assert.equal(canViewGroupFeed(privateGroup, null, pendingInvite), true);
+  assert.equal(canViewGroupFeed(privateGroup, null, pendingInvite), false);
   assert.equal(canViewGroupFeed(privateGroup, null, undefined), false);
   assert.equal(canViewGroupFeed(publicGroup, null, undefined), true);
 });

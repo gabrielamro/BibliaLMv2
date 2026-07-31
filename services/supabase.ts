@@ -23,7 +23,9 @@ import { buildPostInsertPayloads, dropPostInsertColumn } from '../utils/kingdomP
 import { shouldRetryFeedWithoutDestination } from '../utils/kingdomFeedFallback';
 import { buildKingdomPersonalizedFeed, normalizePostVisibility } from '../utils/kingdomFeedRules';
 import { parseStudyShareContent } from '../utils/studySharePost';
+import { parseDevotionalShareContent } from '../utils/devotionalSharePost';
 import { decodeMoodContent } from '../utils/socialPostMood';
+import { normalizeStudyBlocks } from '../utils/studyDocument';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder_anon_key';
@@ -1033,7 +1035,7 @@ export const dbService = {
                 .select('id, role')
                 .eq('church_id', churchId)
                 .eq('user_id', uid)
-                .in('role', ['church_manager', 'pastor'])
+                .eq('role', 'church_manager')
                 .eq('status', 'active')
                 .limit(1);
 
@@ -1047,7 +1049,7 @@ export const dbService = {
                 .select('id, requested_role')
                 .eq('church_id', churchId)
                 .eq('user_id', uid)
-                .in('requested_role', ['admin', 'manager', 'pastor'])
+                .in('requested_role', ['admin', 'manager'])
                 .eq('status', 'approved')
                 .limit(1);
 
@@ -1253,7 +1255,12 @@ export const dbService = {
         return data ? mapChurch(data) : null;
     },
     getChurchRootGroups: async (churchId: string): Promise<ChurchGroup[]> => {
-        const { data, error } = await supabase.from('cells').select('*').eq('church_id', churchId);
+        const { data, error } = await supabase
+            .from('cells')
+            .select('*')
+            .eq('church_id', churchId)
+            .is('parent_group_id', null)
+            .order('created_at', { ascending: true });
         if (error) throw toError('Erro ao carregar grupos da igreja', error);
         return (data ?? []).map(mapCell);
     },
@@ -1335,10 +1342,20 @@ export const dbService = {
         if (error) throw toError('Erro ao carregar fieis da igreja', error);
         return (data ?? []).map((d: any) => mapProfileToUserProfile(d.profiles)).filter(Boolean);
     },
-    getChurchFollowers: async (churchId: string) => {
-        const { data, error } = await supabase.from('church_followers').select('*').eq('church_id', churchId);
+    getChurchFollowers: async (churchId: string): Promise<UserProfile[]> => {
+        const { data, error } = await supabase
+            .from('church_followers')
+            .select('user_id')
+            .eq('church_id', churchId);
         if (error) throw toError('Erro ao carregar seguidores da igreja', error);
-        return data ?? [];
+        const userIds = [...new Set((data ?? []).map((row: any) => row.user_id).filter(Boolean))];
+        if (!userIds.length) return [];
+        const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', userIds);
+        if (profilesError) throw toError('Erro ao carregar perfis dos seguidores da igreja', profilesError);
+        return (profiles ?? []).map(mapProfileToUserProfile).filter(Boolean);
     },
     isFollowingChurch: async (uid: string, churchId: string): Promise<boolean> => {
         if (!uid) return false;
@@ -1456,6 +1473,23 @@ export const dbService = {
 
         return unified.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     },
+    getUnifiedGroupMural: async (groupId: string, viewerId?: string): Promise<any[]> => {
+        const [prayers, postsResult] = await Promise.all([
+            dbService.getPrayerRequests('cell', groupId),
+            supabase.from('posts').select('*')
+                .eq('cell_id', groupId)
+                .eq('destination', 'cell')
+                .order('created_at', { ascending: false })
+                .limit(40),
+        ]);
+        if (postsResult.error) throw toError('Erro ao carregar publicacoes do grupo', postsResult.error);
+        const enrichedRows = await enrichPostRowsWithProfiles(postsResult.data ?? []);
+        const hydratedPosts = await hydrateSavedPosts(enrichedRows.map(mapPost), viewerId);
+        return [
+            ...prayers.map(item => ({ ...item, muralType: 'prayer' })),
+            ...hydratedPosts.map(item => ({ ...item, muralType: 'post' })),
+        ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    },
     togglePrayerIntercession: async (prayerId: string, uid: string, isActive: boolean) => {
         const { data } = await supabase.from('prayer_requests').select('intercessors').eq('id', prayerId).single();
         if (!data) return;
@@ -1544,7 +1578,7 @@ export const dbService = {
     ): Promise<GroupAccessInvite> => {
         const { data, error } = await supabase.rpc('create_private_group_invite', {
             p_group_id: group.id,
-            p_group_slug: group.id,
+            p_group_slug: group.slug || group.id,
             p_invited_user_id: invitedUser.uid,
             p_source: source,
             p_actor_name: invitedBy.displayName || 'Um membro'
@@ -1557,13 +1591,8 @@ export const dbService = {
             p_invite_id: inviteId
         });
         if (error) throw toError('Erro ao aceitar convite do grupo', error);
-        const group = mapCell(data);
-        await dbService.joinCell(uid, group.id, {
-            churchId: group.churchId,
-            name: group.name,
-            slug: group.slug
-        });
-        return group;
+        // A RPC valida o convite e atualiza a membresia na mesma transacao.
+        return mapCell(data);
     },
     createContentAccessInvite: async (params: {
         contentType: 'study' | 'room';
@@ -1611,11 +1640,12 @@ export const dbService = {
             getFollowingIdsForFeed(viewerProfile?.uid),
             getViewerGroupIdsForFeed(viewerProfile),
         ]);
-        return buildKingdomPersonalizedFeed(enrichedPosts.map(mapPost), {
+        const visiblePosts = buildKingdomPersonalizedFeed(enrichedPosts.map(mapPost), {
             viewer: viewerProfile,
             followingIds,
             groupIds,
         }, limitCount);
+        return hydrateSavedPosts(visiblePosts, viewerProfile?.uid);
     },
     getKingdomHomePosts: async (limitCount = 60, viewerProfile?: UserProfile | null): Promise<Post[]> => {
         const { data, error } = await supabase.from('posts').select('*')
@@ -1626,11 +1656,12 @@ export const dbService = {
             getFollowingIdsForFeed(viewerProfile?.uid),
             getViewerGroupIdsForFeed(viewerProfile),
         ]);
-        return buildKingdomPersonalizedFeed(enrichedPosts.map(mapPost), {
+        const visiblePosts = buildKingdomPersonalizedFeed(enrichedPosts.map(mapPost), {
             viewer: viewerProfile,
             followingIds,
             groupIds,
         }, limitCount);
+        return hydrateSavedPosts(visiblePosts, viewerProfile?.uid);
     },
     getUserFeedPosts: async (uid: string, limitCount = 50, viewerProfile?: UserProfile | null): Promise<Post[]> => {
         const { data, error } = await supabase.from('posts').select('*')
@@ -1643,11 +1674,12 @@ export const dbService = {
             getFollowingIdsForFeed(viewerProfile?.uid),
             getViewerGroupIdsForFeed(viewerProfile),
         ]);
-        return buildKingdomPersonalizedFeed(enrichedPosts.map(mapPost), {
+        const visiblePosts = buildKingdomPersonalizedFeed(enrichedPosts.map(mapPost), {
             viewer: viewerProfile,
             followingIds,
             groupIds,
         }, limitCount);
+        return hydrateSavedPosts(visiblePosts, viewerProfile?.uid);
     },
     getServiceFeedPosts: async (serviceId: string, limitCount = 30): Promise<Post[]> => {
         const { data, error } = await supabase.from('posts').select('*')
@@ -1658,30 +1690,45 @@ export const dbService = {
         const enrichedPosts = await enrichPostRowsWithProfiles(data ?? []);
         return enrichedPosts.map(mapPost);
     },
-    createPost: async (data: any) => {
+    createPost: async (data: any): Promise<Post> => {
         const [fullPayload, legacyPayload] = buildPostInsertPayloads(data, now());
         let payload = fullPayload;
-        let { error } = await supabase.from('posts').insert(payload);
+        let { data: insertedPost, error } = await supabase.from('posts').insert(payload).select('*').single();
 
         for (let attempt = 0; error && attempt < 8; attempt++) {
             const missingColumn = getMissingColumnName(error);
             if (!isMissingColumnError(error) || !missingColumn || !(missingColumn in payload)) break;
             payload = dropPostInsertColumn(payload, missingColumn);
-            const retry = await supabase.from('posts').insert(payload);
+            const retry = await supabase.from('posts').insert(payload).select('*').single();
+            insertedPost = retry.data;
             error = retry.error;
         }
 
         if (error && (error?.code === 'PGRST204' || /column|schema cache|destination|visibility|cell_id|liked_by|user_username|user_photo_url|shares_count|mood/i.test(formatSupabaseError(error)))) {
-            const retry = await supabase.from('posts').insert(legacyPayload);
+            const retry = await supabase.from('posts').insert(legacyPayload).select('*').single();
+            insertedPost = retry.data;
             error = retry.error;
         }
+        if (error?.code === '23505' && data.dedupeKey) {
+            const existing = await supabase
+                .from('posts')
+                .select('*')
+                .eq('user_id', data.userId)
+                .eq('dedupe_key', data.dedupeKey)
+                .maybeSingle();
+            if (existing.data) return mapPost(existing.data);
+        }
         if (error) throw toError('Erro ao criar publicacao no Reino', error);
+        if (!insertedPost) throw new Error('A publicação foi enviada, mas o banco não retornou o registro criado.');
+        return mapPost(insertedPost);
     },
     updatePost: async (id: string, data: any) => {
-        await supabase.from('posts').update(clean(data)).eq('id', id);
+        const { error } = await supabase.from('posts').update(clean(data)).eq('id', id);
+        if (error) throw toError('Erro ao atualizar publicação no Reino', error);
     },
     deletePost: async (id: string) => {
-        await supabase.from('posts').delete().eq('id', id);
+        const { error } = await supabase.from('posts').delete().eq('id', id);
+        if (error) throw toError('Erro ao remover publicação do Reino', error);
     },
     getPost: async (id: string, viewerProfile?: UserProfile | null): Promise<Post | null> => {
         const { data, error } = await supabase.from('posts').select('*').eq('id', id).single();
@@ -1693,37 +1740,35 @@ export const dbService = {
             getFollowingIdsForFeed(viewerProfile?.uid),
             getViewerGroupIdsForFeed(viewerProfile),
         ]);
-        return buildKingdomPersonalizedFeed([mapPost(enrichedPost)], {
+        const visiblePosts = buildKingdomPersonalizedFeed([mapPost(enrichedPost)], {
             viewer: viewerProfile,
             followingIds,
             groupIds,
-        }, 1)[0] || null;
+        }, 1);
+        const [hydratedPost] = await hydrateSavedPosts(visiblePosts, viewerProfile?.uid);
+        return hydratedPost || null;
     },
-    togglePostLike: async (postId: string, uid: string, isLiked: boolean) => {
-        // #region agent log
-        await fetch('http://127.0.0.1:7257/ingest/855e5ae7-5028-483b-b858-50f697cefc39',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'72a1fe'},body:JSON.stringify({sessionId:'72a1fe',runId:'pre-fix',hypothesisId:'H1',location:'services/supabase.ts:1095',message:'togglePostLike entry',data:{postId,uid,isLiked},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
-        const { data } = await supabase.from('posts').select('liked_by, likes_count').eq('id', postId).single();
-        if (!data) return;
-        // #region agent log
-        await fetch('http://127.0.0.1:7257/ingest/855e5ae7-5028-483b-b858-50f697cefc39',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'72a1fe'},body:JSON.stringify({sessionId:'72a1fe',runId:'pre-fix',hypothesisId:'H2',location:'services/supabase.ts:1097',message:'liked_by raw value before parse',data:{liked_by:data.liked_by,liked_by_type:typeof data.liked_by,likes_count:data.likes_count},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
-        let likedBy: string[];
-        try {
-            const parsedLikedBy = safeJson(data.liked_by, []);
-            likedBy = Array.isArray(parsedLikedBy) ? parsedLikedBy.filter((item): item is string => typeof item === 'string') : [];
-        } catch (error) {
-            // #region agent log
-            await fetch('http://127.0.0.1:7257/ingest/855e5ae7-5028-483b-b858-50f697cefc39',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'72a1fe'},body:JSON.stringify({sessionId:'72a1fe',runId:'pre-fix',hypothesisId:'H3',location:'services/supabase.ts:1101',message:'JSON.parse failed for liked_by',data:{liked_by:data.liked_by,liked_by_type:typeof data.liked_by,error_message:error instanceof Error ? error.message : String(error)},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
-            likedBy = [];
-        }
-        if (isLiked) { if (!likedBy.includes(uid)) likedBy.push(uid); }
-        else { likedBy = likedBy.filter(i => i !== uid); }
-        // #region agent log
-        await fetch('http://127.0.0.1:7257/ingest/855e5ae7-5028-483b-b858-50f697cefc39',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'72a1fe'},body:JSON.stringify({sessionId:'72a1fe',runId:'post-fix',hypothesisId:'H4',location:'services/supabase.ts:1107',message:'liked_by after mutation',data:{isLiked,nextLikedBy:likedBy,nextCount:likedBy.length},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
-        await supabase.from('posts').update({ liked_by: JSON.stringify(likedBy), likes_count: likedBy.length }).eq('id', postId);
+    togglePostLike: async (postId: string, _uid: string, isLiked: boolean): Promise<{ likesCount: number; likedBy: string[] }> => {
+        const { data, error } = await supabase.rpc('set_post_like', {
+            p_post_id: postId,
+            p_is_liked: isLiked,
+        });
+        if (error) throw toError('Erro ao atualizar curtida', error);
+        const result = Array.isArray(data) ? data[0] : data;
+        return { likesCount: result?.likes_count ?? 0, likedBy: safeJson(result?.liked_by, []) };
+    },
+    setPostSaved: async (postId: string, saved: boolean): Promise<boolean> => {
+        const { data, error } = await supabase.rpc('set_post_save', { p_post_id: postId, p_saved: saved });
+        if (error) throw toError('Erro ao salvar publicacao', error);
+        return Boolean(data);
+    },
+    hidePost: async (postId: string, uid: string): Promise<void> => {
+        const { error } = await supabase.from('post_hidden').upsert({ post_id: postId, user_id: uid });
+        if (error) throw toError('Erro ao ocultar publicacao', error);
+    },
+    reportPost: async (postId: string, uid: string, reason: string, details?: string): Promise<void> => {
+        const { error } = await supabase.from('post_reports').insert({ post_id: postId, reporter_id: uid, reason, details: details || null });
+        if (error && error.code !== '23505') throw toError('Erro ao denunciar publicacao', error);
     },
     getTrendingPost: async (): Promise<Post | null> => {
         const { data } = await supabase.from('posts').select('*').order('created_at', { ascending: false }).limit(1).single();
@@ -1761,8 +1806,11 @@ export const dbService = {
         if (error) {
             throw toError('Erro ao enviar comentario', error);
         }
-        await supabase.rpc('increment_post_comments_count', { post_id_input: comment.postId });
         return mapPostComment(data);
+    },
+    deletePostComment: async (commentId: string): Promise<void> => {
+        const { error } = await supabase.from('post_comments').delete().eq('id', commentId);
+        if (error) throw toError('Erro ao excluir comentario', error);
     },
 
     // ── COMENTÁRIOS DE PLANOS (FÓRUM) ────────────────────────────────────────
@@ -1854,11 +1902,33 @@ export const dbService = {
     createCustomPlan: async (data: any) => {
         const { data: res, error } = await supabase.from('custom_plans').insert(mapPlanToDb({ viewsCount: 0, ...data })).select().single();
         if (error) throw error;
-        return { id: res.id };
+        return { id: res.id, revision: Number(res.revision || 0) };
     },
     updateCustomPlan: async (id: string, data: any) => {
         const { error } = await supabase.from('custom_plans').update(mapPlanToDb(data)).eq('id', id);
         if (error) throw error;
+    },
+    updateCustomPlanWithRevision: async (id: string, data: any, expectedRevision: number): Promise<number> => {
+        const nextRevision = expectedRevision + 1;
+        const { data: updated, error } = await supabase
+            .from('custom_plans')
+            .update({
+                ...mapPlanToDb(data),
+                revision: nextRevision,
+                schema_version: 2,
+                updated_at: now(),
+            })
+            .eq('id', id)
+            .eq('revision', expectedRevision)
+            .select('revision')
+            .maybeSingle();
+        if (error) throw error;
+        if (!updated) {
+            const conflict = new Error('A sala foi atualizada em outra sessão. Recarregue antes de salvar a aula.');
+            conflict.name = 'StudyRevisionConflictError';
+            throw conflict;
+        }
+        return Number(updated.revision);
     },
     getPlanParticipant: async (planId: string, uid: string) => {
         const { data } = await supabase.from('plan_participants').select('*').eq('plan_id', planId).eq('uid', uid).single();
@@ -2011,13 +2081,19 @@ export const dbService = {
 
     // ── QUIZ & AVALIAÇÃO ─────────────────────────────────────────────────────
     getCustomQuizzes: async (uid: string): Promise<CustomQuiz[]> => {
-        const { data } = await supabase.from('custom_quizzes').select('*').eq('author_id', uid);
-        return (data ?? []).map(d => ({ ...d, id: d.id, authorId: d.author_id, gameMode: d.game_mode, isActive: d.is_active, createdAt: d.created_at, aiConfig: d.ai_config ? JSON.parse(d.ai_config) : undefined, questions: d.questions ? JSON.parse(d.questions) : undefined }));
+        const { data, error } = await supabase
+            .from('custom_quizzes')
+            .select('*')
+            .eq('author_id', uid)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return (data ?? []).map(mapCustomQuiz);
     },
     getCustomQuiz: async (id: string): Promise<CustomQuiz | null> => {
-        const { data } = await supabase.from('custom_quizzes').select('*').eq('id', id).single();
+        const { data, error } = await supabase.from('custom_quizzes').select('*').eq('id', id).maybeSingle();
+        if (error) throw error;
         if (!data) return null;
-        return { ...data, id: data.id, authorId: data.author_id, gameMode: data.game_mode, isActive: data.is_active, createdAt: data.created_at };
+        return mapCustomQuiz(data);
     },
     createEvaluation: async (data: any) => {
         const { data: res, error } = await supabase.from('evaluations')
@@ -2251,6 +2327,20 @@ export const dbService = {
                 slug,
                 blocks: JSON.stringify(data.blocks || []),
                 meta: JSON.stringify(data.meta || {}),
+                document: {
+                    schemaVersion: 2,
+                    revision: 0,
+                    context: 'standalone',
+                    title: data.meta?.title || 'Novo Conteúdo',
+                    description: data.meta?.description || '',
+                    category: data.meta?.category || 'Geral',
+                    tags: data.meta?.tags || [],
+                    blocks: normalizeStudyBlocks(data.blocks || []),
+                    status: data.status === 'published' ? 'published' : 'draft',
+                    updatedAt: data.updatedAt || now(),
+                },
+                schema_version: 2,
+                revision: 0,
                 cover_image: data.meta?.coverImage || null,
                 status: data.status || 'draft',
                 published_at: data.status === 'published' ? now() : null,
@@ -2632,6 +2722,8 @@ function mapPlan(d: any): CustomPlan {
         createdFromContext: d.created_from_context ?? undefined,
         isRanked: d.is_ranked ?? false,
         status: d.status ?? 'draft',
+        revision: Number(d.revision ?? 0),
+        schemaVersion: Number(d.schema_version ?? 2),
         churchId: d.church_id ?? undefined,
         groupId: d.group_id ?? undefined,
         createdAt: d.created_at,
@@ -2672,9 +2764,10 @@ function mapPlanToDb(data: any): any {
     ['title', 'description', 'category', 'status', 'tags', 'metrics'].forEach(f => {
         if (data[f] !== undefined) mapped[f] = data[f];
     });
-    if (data.weeks !== undefined) mapped.weeks = JSON.stringify(data.weeks);
-    if (data.teams !== undefined) mapped.teams = JSON.stringify(data.teams);
-    if (data.teamScores !== undefined) mapped.team_scores = JSON.stringify(data.teamScores);
+    // As colunas são JSONB: enviar estruturas nativas evita JSON duplamente serializado.
+    if (data.weeks !== undefined) mapped.weeks = data.weeks;
+    if (data.teams !== undefined) mapped.teams = data.teams;
+    if (data.teamScores !== undefined) mapped.team_scores = data.teamScores;
     return clean(mapped);
 }
 
@@ -2714,6 +2807,31 @@ async function enrichPostRowsWithProfiles(rows: any[]): Promise<any[]> {
     }));
 }
 
+function parseJsonColumn<T>(value: T | string | null | undefined, fallback: T): T {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value !== 'string') return value;
+    try {
+        return JSON.parse(value) as T;
+    } catch {
+        return fallback;
+    }
+}
+
+function mapCustomQuiz(d: any): CustomQuiz {
+    return {
+        id: d.id,
+        authorId: d.author_id,
+        title: d.title,
+        description: d.description ?? '',
+        type: d.type ?? 'manual',
+        gameMode: d.game_mode ?? 'classic',
+        aiConfig: d.ai_config ? parseJsonColumn(d.ai_config, undefined) : undefined,
+        questions: parseJsonColumn(d.questions, []),
+        isActive: Boolean(d.is_active),
+        createdAt: d.created_at,
+    };
+}
+
 async function getFollowingIdsForFeed(uid?: string | null): Promise<string[]> {
     if (!uid) return [];
 
@@ -2728,6 +2846,24 @@ async function getFollowingIdsForFeed(uid?: string | null): Promise<string[]> {
     }
 
     return (data ?? []).map((row: any) => row.following_id).filter(Boolean);
+}
+
+async function hydrateSavedPosts(posts: Post[], uid?: string | null): Promise<Post[]> {
+    if (!uid || posts.length === 0) return posts;
+    const postIds = posts.map((post) => post.id);
+    const [savedResult, hiddenResult] = await Promise.all([
+        supabase.from('post_saves').select('post_id').eq('user_id', uid).in('post_id', postIds),
+        supabase.from('post_hidden').select('post_id').eq('user_id', uid).in('post_id', postIds),
+    ]);
+    if (savedResult.error) {
+        if (!isMissingTableError(savedResult.error, 'post_saves') && !isMissingTableError(savedResult.error, 'public.post_saves')) {
+            console.warn('[dbService] Nao foi possivel carregar posts salvos:', formatSupabaseError(savedResult.error));
+        }
+        return posts;
+    }
+    const savedIds = new Set((savedResult.data ?? []).map((row: any) => row.post_id));
+    const hiddenIds = new Set(hiddenResult.error ? [] : (hiddenResult.data ?? []).map((row: any) => row.post_id));
+    return posts.filter((post) => !hiddenIds.has(post.id)).map((post) => ({ ...post, saved: savedIds.has(post.id) }));
 }
 
 async function getViewerGroupIdsForFeed(viewerProfile?: UserProfile | null): Promise<string[]> {
@@ -2748,6 +2884,7 @@ async function getViewerGroupIdsForFeed(viewerProfile?: UserProfile | null): Pro
 
 function mapPost(d: any): Post {
     const studyShare = d.type === 'study' || d.type === 'room' ? parseStudyShareContent(d.content) : null;
+    const devotionalShare = d.type === 'devotional' ? parseDevotionalShareContent(d.content) : null;
     const profile = d.__profile;
     const moodContent = d.type === 'feeling' ? decodeMoodContent(d.content ?? '', d.mood ?? null) : null;
     return {
@@ -2757,7 +2894,7 @@ function mapPost(d: any): Post {
         userUsername: d.user_username ?? profile?.username ?? '',
         userPhotoURL: d.user_photo_url ?? profile?.photo_url ?? undefined,
         type: d.type ?? 'reflection',
-        content: studyShare?.description ?? moodContent?.content ?? d.content ?? '',
+        content: studyShare?.description ?? devotionalShare?.message ?? moodContent?.content ?? d.content ?? '',
         likesCount: d.likes_count ?? 0,
         commentsCount: d.comments_count ?? 0,
         shares: d.shares_count ?? d.shares ?? 0,
@@ -2768,9 +2905,10 @@ function mapPost(d: any): Post {
         likedBy: safeJson(d.liked_by, []),
         createdAt: d.created_at,
         time: d.created_at,
-        location: '',
+        location: d.type === 'checkin' && d.metadata?.place?.name ? d.metadata.place.name : '',
         imageUrl: d.image_url ?? studyShare?.studyCoverUrl ?? undefined,
         image: d.image_url ?? studyShare?.studyCoverUrl ?? undefined,
+        title: d.title ?? devotionalShare?.devotionalTitle ?? undefined,
         destination: d.destination ?? 'global',
         visibility: normalizePostVisibility({ visibility: d.visibility, destination: d.destination ?? 'global' }),
         feedReason: d.feed_reason ?? undefined,
@@ -2782,9 +2920,19 @@ function mapPost(d: any): Post {
         studyCoverUrl: studyShare?.studyCoverUrl ?? d.image_url ?? undefined,
         studyUrl: studyShare?.studyUrl,
         studySourceLabel: studyShare?.sourceLabel,
+        devotionalId: devotionalShare?.devotionalId,
+        devotionalTitle: devotionalShare?.devotionalTitle,
+        devotionalVerse: devotionalShare?.verseText,
+        devotionalReference: devotionalShare?.verseReference,
+        devotionalUrl: devotionalShare?.devotionalUrl,
+        devotionalDate: devotionalShare?.devotionalDate,
         alsoShowOnChurch: d.also_show_on_church ?? false,
         serviceId: d.service_id ?? undefined,
         serviceTitle: d.service_title ?? undefined,
+        sourceType: d.source_type ?? undefined,
+        sourceId: d.source_id ?? undefined,
+        dedupeKey: d.dedupe_key ?? undefined,
+        metadata: d.metadata && typeof d.metadata === 'object' ? d.metadata : {},
         authorProfilePublic: d.__profile ? d.__profile.is_profile_public ?? true : false,
         authorChurchId: safeJson(d.__profile?.church_data)?.churchId ?? undefined,
         authorCity: d.__profile?.city ?? undefined,

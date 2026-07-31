@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, MessageCircle, Send, X } from 'lucide-react';
+import { Loader2, MessageCircle, Send, Trash2, X } from 'lucide-react';
 import { ActionType, Post, PostComment, UserProfile } from '../../types';
 import { dbService } from '../../services/supabase';
 
@@ -10,6 +10,7 @@ interface PostCommentsSheetProps {
   userProfile: UserProfile | null;
   onClose: () => void;
   onCommentAdded?: (postId: string) => void;
+  onCommentRemoved?: (postId: string) => void;
   showNotification: (message: string, type: any) => void;
   recordActivity?: (action: ActionType, details: string, meta?: any) => Promise<void>;
 }
@@ -39,6 +40,7 @@ const PostCommentsSheet: React.FC<PostCommentsSheetProps> = ({
   userProfile,
   onClose,
   onCommentAdded,
+  onCommentRemoved,
   showNotification,
   recordActivity,
 }) => {
@@ -63,6 +65,15 @@ const PostCommentsSheet: React.FC<PostCommentsSheetProps> = ({
     };
     loadComments();
   }, [isOpen, post?.id, showNotification]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen || !post) return null;
 
@@ -101,21 +112,36 @@ const PostCommentsSheet: React.FC<PostCommentsSheetProps> = ({
     await submitComment(draft);
   };
 
+  const removeComment = async (comment: PostComment) => {
+    try {
+      await dbService.deletePostComment(comment.id);
+      setComments(current => current.filter(item => item.id !== comment.id));
+      onCommentRemoved?.(post.id);
+      showNotification('Comentário excluído.', 'success');
+    } catch (error) {
+      console.error(error);
+      showNotification('Não foi possível excluir o comentário.', 'error');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[130] flex items-end justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" />
 
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="post-comments-title"
         className="relative w-full max-w-xl h-[82vh] bg-white dark:bg-gray-950 rounded-t-[28px] shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="pt-3 pb-2 px-4 border-b border-gray-100 dark:border-gray-800">
           <div className="w-10 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-3" />
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-sm text-gray-900 dark:text-white">
+            <h3 id="post-comments-title" className="font-bold text-sm text-gray-900 dark:text-white">
               Comentários {comments.length > 0 ? `(${comments.length})` : ''}
             </h3>
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+            <button type="button" onClick={onClose} aria-label="Fechar comentários" className="min-h-11 min-w-11 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
               <X size={18} />
             </button>
           </div>
@@ -144,12 +170,19 @@ const PostCommentsSheet: React.FC<PostCommentsSheetProps> = ({
                     </div>
                   )}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="bg-gray-100 dark:bg-gray-900 rounded-2xl px-3 py-2">
                     <p className="text-xs font-bold text-gray-900 dark:text-white">{comment.userDisplayName}</p>
                     <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap break-words">{comment.content}</p>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-1">{formatTime(comment.createdAt)}</p>
+                  <div className="mt-1 flex min-h-8 items-center justify-between gap-2">
+                    <p className="text-[10px] text-gray-400">{formatTime(comment.createdAt)}</p>
+                    {(currentUser?.uid === comment.userId || currentUser?.uid === post.userId) && (
+                      <button type="button" onClick={() => void removeComment(comment)} aria-label="Excluir comentário" className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))
@@ -162,8 +195,9 @@ const PostCommentsSheet: React.FC<PostCommentsSheetProps> = ({
               <button
                 key={emoji}
                 onClick={() => submitComment(emoji)}
+                aria-label={`Comentar ${emoji}`}
                 disabled={isSending}
-                className="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-base shrink-0 disabled:opacity-60"
+                className="min-h-11 min-w-11 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-base shrink-0 disabled:opacity-60"
               >
                 {emoji}
               </button>

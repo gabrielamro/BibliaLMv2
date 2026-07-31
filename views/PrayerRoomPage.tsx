@@ -129,7 +129,7 @@ const PrayerRoomPage: React.FC = () => {
       }));
 
       try {
-          await dbService.togglePrayerIntercession(prayer.id, currentUser.uid, !!isInterceding);
+          await dbService.togglePrayerIntercession(prayer.id, currentUser.uid, !isInterceding);
           if (!isInterceding) await earnMana('prayer_wall');
       } catch (e) {
           console.error(e);

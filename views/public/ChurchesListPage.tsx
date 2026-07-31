@@ -6,11 +6,13 @@ import { Church } from '../../types';
 import {
   CheckCircle2,
   ChevronRight,
-  Compass,
+  Church as ChurchIcon,
   Loader2,
   MapPin,
   Search,
   Shield,
+  Sparkles,
+  Users,
 } from 'lucide-react';
 import { useHeader } from '../../contexts/HeaderContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -240,97 +242,139 @@ const ChurchesListPage: React.FC = () => {
   };
 
   return (
-    <div className="h-full bg-gray-50 dark:bg-black/20 overflow-y-auto">
+    <div data-module="kingdom" className="h-full overflow-y-auto bg-[#fdfbf7] text-[#2d2a26] dark:bg-[#0b0b0c] dark:text-gray-100">
       <SEO title="Igrejas no Reino" description="Explore igrejas e comunidades cadastradas no BibliaLM." />
       {isSocialMode && <SocialNavigation activeTab="church" />}
 
-      <div className="max-w-xl mx-auto px-4 py-8 pb-32">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded-[1.5rem] flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <Compass size={32} />
+      <main className="mx-auto w-full max-w-[1180px] px-4 pb-28 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pb-12">
+        <section className="module-gradient relative overflow-hidden rounded-[1.5rem] px-5 py-4 text-white shadow-[0_12px_35px_rgba(91,42,134,0.16)] sm:px-6">
+          <div aria-hidden="true" className="absolute -right-16 -top-20 h-56 w-56 rounded-full border border-white/10" />
+          <div aria-hidden="true" className="absolute -bottom-24 right-24 h-52 w-52 rounded-full bg-orange-200/15 blur-2xl" />
+          <div className="relative flex items-center justify-between gap-4">
+            <div className="max-w-2xl">
+              <span className="hidden">
+                <Sparkles size={13} /> Reino Culto+
+              </span>
+              <h1 className="text-xl font-black tracking-[-0.03em] sm:text-2xl">Igrejas</h1>
+              <p className="hidden">
+                Descubra igrejas, acompanhe o que acontece perto de você e fortaleça vínculos de fé.
+              </p>
+            </div>
+            {currentChurchSlug ? (
+              <button
+                type="button"
+                onClick={() => navigate(`/social/igreja/${currentChurchSlug}`)}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 text-xs font-black uppercase tracking-[0.08em] text-[#5b2a86] shadow-lg transition hover:-translate-y-0.5 hover:bg-[#fff4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                <ChurchIcon size={16} /> Abrir minha igreja
+              </button>
+            ) : null}
           </div>
-          <h1 className="text-2xl font-serif font-black text-gray-900 dark:text-white mb-2">Comunidades de Fe</h1>
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Encontre uma igreja e veja seu perfil</p>
-        </div>
+          <nav aria-label="Atalhos do Reino" className="relative mt-3 flex gap-1.5 overflow-x-auto border-t border-white/10 pt-3 no-scrollbar">
+            <button type="button" onClick={() => navigate('/social')} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-3.5 text-xs font-bold text-white/90 transition hover:bg-white/10"><Users size={15} /> Feed</button>
+            <span aria-current="page" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-white px-3.5 text-xs font-black text-[#5b2a86]"><ChurchIcon size={15} /> Igrejas</span>
+            <button type="button" onClick={() => navigate('/social/explore')} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-3.5 text-xs font-bold text-white/90 transition hover:bg-white/10"><Search size={15} /> Explorar</button>
+          </nav>
+        </section>
 
-        <div className="mb-8 rounded-[2rem] bg-white p-3 shadow-sm border border-gray-100 dark:bg-bible-darkPaper dark:border-gray-800">
-          <div className="relative mb-3">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+        <section aria-labelledby="church-search-title" className="mt-5 rounded-[1.5rem] border border-[#eadde8] bg-white p-4 shadow-[0_8px_30px_rgba(91,42,134,0.06)] dark:border-white/10 dark:bg-[#151515] sm:p-5">
+          <div className="mb-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-700 dark:text-fuchsia-300">Buscar comunidades</p>
+            <h2 id="church-search-title" className="mt-1 text-xl font-black tracking-tight">Qual igreja você procura?</h2>
+          </div>
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(180px,.7fr)_90px_auto]">
+            <label className="relative block">
+              <span className="sr-only">Nome da igreja</span>
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-fuchsia-700/60" size={18} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="Nome da igreja"
-              className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl outline-none focus:ring-2 ring-bible-gold transition-all font-bold"
+                className="min-h-12 w-full rounded-xl border border-[#e9e1e8] bg-[#fbf8fa] pl-12 pr-4 text-sm font-semibold outline-none transition focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-200 dark:border-white/10 dark:bg-white/5 dark:focus:ring-fuchsia-500/20"
             />
-          </div>
-          <div className="grid grid-cols-[1fr_82px] gap-3">
+            </label>
+            <label>
+              <span className="sr-only">Cidade</span>
             <input
               type="text"
               value={cityQuery}
               onChange={(e) => setCityQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="Cidade"
-              className="min-w-0 px-4 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl outline-none focus:ring-2 ring-bible-gold transition-all text-sm font-bold"
+                className="min-h-12 w-full rounded-xl border border-[#e9e1e8] bg-[#fbf8fa] px-4 text-sm font-semibold outline-none transition focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-200 dark:border-white/10 dark:bg-white/5 dark:focus:ring-fuchsia-500/20"
             />
+            </label>
+            <label>
+              <span className="sr-only">Estado</span>
             <input
               type="text"
               value={stateQuery}
               onChange={(e) => setStateQuery(e.target.value.toUpperCase().slice(0, 2))}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="UF"
-              className="px-4 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl outline-none focus:ring-2 ring-bible-gold transition-all text-sm font-black uppercase text-center"
+                maxLength={2}
+                className="min-h-12 w-full rounded-xl border border-[#e9e1e8] bg-[#fbf8fa] px-3 text-center text-sm font-black uppercase outline-none transition focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-200 dark:border-white/10 dark:bg-white/5 dark:focus:ring-fuchsia-500/20"
             />
-          </div>
+            </label>
           <button
             onClick={handleSearch}
             disabled={loading}
-            className="mt-3 w-full min-h-12 rounded-2xl bg-bible-leather px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:opacity-90 disabled:opacity-50 dark:bg-bible-gold dark:text-black"
+              className="module-gradient inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-xs font-black uppercase tracking-wider text-white shadow-md transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading ? 'Buscando...' : 'Buscar igrejas'}
+              {loading ? <><Loader2 size={16} className="animate-spin" /> Buscando</> : <><Search size={16} /> Buscar</>}
           </button>
         </div>
+        </section>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="animate-spin text-bible-gold mb-4" size={32} />
-            <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Buscando comunidades...</p>
+          <div className="mt-5 flex flex-col items-center justify-center rounded-[1.5rem] border border-[#eadde8] bg-white py-24 dark:border-white/10 dark:bg-[#151515]">
+            <Loader2 className="mb-4 animate-spin text-fuchsia-700" size={32} />
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-fuchsia-800 dark:text-fuchsia-300">Buscando comunidades...</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <section aria-live="polite" className="mt-5">
+            <div className="mb-4 flex items-end justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-700 dark:text-fuchsia-300">{hasSearched ? 'Resultado da busca' : 'Comunidades no Reino'}</p>
+                <h2 className="mt-1 text-xl font-black">{churches.length} {churches.length === 1 ? 'igreja encontrada' : 'igrejas encontradas'}</h2>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {churches.map((church) => {
               const isCurrentMember = !church.isExternal && currentChurchId === church.id;
               return (
               <div
                 key={church.id}
                 onClick={() => openChurchProfile(church)}
-                className={`bg-white dark:bg-bible-darkPaper p-4 rounded-[2rem] border shadow-sm flex items-center gap-4 hover:border-bible-gold transition-all active:scale-[0.98] cursor-pointer group ${isCurrentMember ? 'border-bible-gold/60 ring-2 ring-bible-gold/10' : 'border-gray-100 dark:border-gray-800'}`}
+                  className={`group flex min-h-[180px] cursor-pointer flex-col rounded-[1.5rem] border bg-white p-5 shadow-[0_8px_30px_rgba(91,42,134,0.05)] transition hover:-translate-y-0.5 hover:border-fuchsia-300 hover:shadow-[0_16px_40px_rgba(91,42,134,0.10)] active:scale-[0.99] dark:bg-[#151515] ${isCurrentMember ? 'border-fuchsia-400 ring-2 ring-fuchsia-500/10' : 'border-[#eadde8] dark:border-white/10'}`}
               >
-                <div className="w-16 h-16 bg-gray-50 dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                  <div className="flex min-w-0 items-start gap-3">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-fuchsia-100 bg-gradient-to-br from-fuchsia-50 to-rose-50 dark:border-fuchsia-500/15 dark:from-fuchsia-500/10 dark:to-rose-500/10">
                   {church.logoUrl ? (
                     <img src={church.logoUrl} className="w-full h-full object-cover" alt={church.name} />
                   ) : (
-                    <Shield size={24} className="text-gray-200 dark:text-gray-700" />
+                    <Shield size={24} className="text-fuchsia-300 dark:text-fuchsia-700" />
                   )}
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <h3 className="font-bold text-gray-900 dark:text-white truncate">{church.name}</h3>
+                    <h3 className="truncate font-black text-gray-900 dark:text-white">{church.name}</h3>
                     {church.isExternal && (
                       <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[8px] font-black uppercase text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">Web</span>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 text-[10px] text-gray-500 font-bold uppercase tracking-wide">
-                    <MapPin size={12} className="text-bible-gold" />
+                    <MapPin size={12} className="text-fuchsia-600" />
                     {[church.location?.city, church.location?.state].filter(Boolean).join(', ') || 'Localizacao pendente'}
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 mt-2">
-                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter bg-gray-50 dark:bg-gray-800 px-2 py-0.5 rounded">
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-fuchsia-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-fuchsia-700 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">
                       {church.stats?.memberCount || 0} Membros
                     </span>
-                    <span className="text-[9px] font-black text-purple-500 uppercase tracking-tighter bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded">
+                    <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-orange-700 dark:bg-orange-500/10 dark:text-orange-300">
                       {church.stats?.totalMana || 0} Vitalidade
                     </span>
                     {church.isExternal && (
@@ -341,15 +385,16 @@ const ChurchesListPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex flex-col items-end gap-2">
+                  </div>
+                <div className="mt-auto flex items-center gap-2 border-t border-[#f0e8ef] pt-4 dark:border-white/10">
                   <button
                     onClick={(event) => joinChurch(event, church)}
                     disabled={actionChurchId === church.id}
-                    className={`min-h-9 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-60 ${isCurrentMember ? 'bg-bible-gold text-white' : 'bg-bible-gold/10 text-bible-gold hover:bg-bible-gold hover:text-white'}`}
+                      className={`inline-flex min-h-10 flex-1 items-center justify-center rounded-xl px-3 text-[9px] font-black uppercase tracking-widest transition disabled:opacity-60 ${isCurrentMember ? 'module-gradient text-white' : 'bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100 dark:bg-fuchsia-500/10 dark:text-fuchsia-300'}`}
                   >
                     {actionChurchId === church.id ? <Loader2 size={14} className="animate-spin" /> : <span className="flex items-center gap-1"><CheckCircle2 size={12} fill={isCurrentMember ? 'currentColor' : 'none'} /> {isCurrentMember ? 'Minha igreja' : 'Sou membro'}</span>}
                   </button>
-                  <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-300 group-hover:text-bible-gold group-hover:bg-bible-gold/10 transition-all">
+                    <div aria-hidden="true" className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f8f4f7] text-fuchsia-500 transition group-hover:bg-fuchsia-100 group-hover:text-fuchsia-700 dark:bg-white/5">
                     {actionChurchId === church.id ? <Loader2 size={18} className="animate-spin" /> : <ChevronRight size={20} />}
                   </div>
                 </div>
@@ -363,11 +408,13 @@ const ChurchesListPage: React.FC = () => {
               </p>
             )}
 
+            </div>
+
             {(nextPageToken || nextOffset !== null) && (
               <button
                 onClick={loadMore}
                 disabled={isLoadingMore}
-                className="w-full min-h-12 rounded-2xl border border-bible-gold/20 bg-white text-xs font-black uppercase tracking-widest text-bible-gold shadow-sm transition-all hover:bg-bible-gold hover:text-white disabled:opacity-60 dark:bg-bible-darkPaper"
+                  className="mt-5 min-h-12 w-full rounded-xl border border-fuchsia-200 bg-white text-xs font-black uppercase tracking-widest text-fuchsia-700 shadow-sm transition hover:bg-fuchsia-50 disabled:opacity-60 dark:border-fuchsia-500/20 dark:bg-[#151515] dark:text-fuchsia-300"
               >
                 {isLoadingMore ? (
                   <span className="inline-flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Carregando mais 10</span>
@@ -378,24 +425,24 @@ const ChurchesListPage: React.FC = () => {
             )}
 
             {churches.length === 0 && (
-              <div className="text-center py-20 bg-white dark:bg-bible-darkPaper rounded-[2rem] border border-dashed border-gray-200 dark:border-gray-800">
-                <Search size={48} className="mx-auto mb-4 text-gray-200" />
+                <div className="rounded-[1.5rem] border border-dashed border-fuchsia-200 bg-white py-20 text-center dark:border-fuchsia-500/20 dark:bg-[#151515]">
+                <Search size={48} className="mx-auto mb-4 text-fuchsia-200" />
                 <p className="text-gray-500 font-bold">Nenhuma igreja encontrada</p>
                 <p className="text-[10px] text-gray-400 uppercase font-black mt-1">Tente nome, cidade e UF</p>
                 {hasSearched && searchQuery.trim() && cityQuery.trim() && stateQuery.trim() && (
                   <button
                     onClick={createChurchFromSearch}
                     disabled={actionChurchId === 'manual-create'}
-                    className="mt-6 inline-flex min-h-11 items-center justify-center rounded-2xl bg-bible-gold px-5 text-[10px] font-black uppercase tracking-widest text-white shadow-sm transition-all hover:opacity-90 disabled:opacity-60"
+                      className="module-gradient mt-6 inline-flex min-h-11 items-center justify-center rounded-xl px-5 text-[10px] font-black uppercase tracking-widest text-white shadow-sm transition hover:-translate-y-0.5 disabled:opacity-60"
                   >
                     {actionChurchId === 'manual-create' ? <Loader2 size={16} className="animate-spin" /> : 'Criar perfil desta igreja'}
                   </button>
                 )}
               </div>
             )}
-          </div>
+          </section>
         )}
-      </div>
+      </main>
     </div>
   );
 };

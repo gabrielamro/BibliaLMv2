@@ -5,7 +5,7 @@ import { useNavigate } from '../utils/router';
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 
 import { useWisdomStream } from '../hooks/useWisdomStream';
-import { StudyModule, HomeConfig, CustomPlan, ChurchService } from '../types';
+import { StudyModule, HomeConfig, CustomPlan, ChurchService, Post } from '../types';
 import {
     PlusCircle, Loader2, Flame, BookOpen,
     Trophy, MessageCircle, ArrowRight, Zap,
@@ -16,6 +16,8 @@ import { FeedPostCard } from './social/FeedPostCard';
 import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { dbService } from '../services/supabase';
+import { postInteractionService } from '../services/postInteractionService';
+import { generateShareLink } from '../utils/shareUtils';
 import { cultoPlusService } from '../services/cultoPlusService';
 import { INSPIRATIONAL_VERSES, BIBLE_BOOKS_LIST } from '../constants';
 import { normalizeText } from '../utils/textUtils';
@@ -151,10 +153,18 @@ const HomeDashboard: React.FC = () => {
         return <div className="flex h-full items-center justify-center"><Loader2 className="animate-spin text-bible-gold" size={40} /></div>;
     }
 
-    const handleInteraction = async (postId: string, type: 'like' | 'comment' | 'share' | 'save') => {
+    const handleInteraction = async (post: Post, type: 'like' | 'comment' | 'share' | 'save') => {
         if (!currentUser) return;
         if (type === 'like') {
-            await dbService.togglePostLike(postId, currentUser.uid, false);
+            await postInteractionService.setLiked(post, currentUser.uid, !post.likedBy?.includes(currentUser.uid));
+        } else if (type === 'save') {
+            await postInteractionService.setSaved(post, !post.saved);
+        } else if (type === 'comment') {
+            navigate(`/p/${post.id}`);
+        } else {
+            const url = generateShareLink('post', { postId: post.id });
+            if (navigator.share) await navigator.share({ title: 'Culto+', url });
+            else { await navigator.clipboard.writeText(url); showNotification('Link copiado!', 'success'); }
         }
     };
 
@@ -479,7 +489,7 @@ const HomeDashboard: React.FC = () => {
                                                     <FeedPostCard
                                                         post={item.data}
                                                         currentUser={currentUser}
-                                                        onInteraction={handleInteraction}
+                                                        onInteraction={(_, type) => handleInteraction(item.data, type)}
                                                         showNotification={showNotification}
                                                     />
                                                 </div>

@@ -20,6 +20,7 @@ import { getProfileStudyItems } from '../../utils/contentEditing';
 import { getProfileFeedPosts } from '../../utils/profileFeed';
 import { FeedPostCard } from '../../components/social/FeedPostCard';
 import { generateShareLink } from '../../utils/shareUtils';
+import { postInteractionService } from '../../services/postInteractionService';
 import { getPublicProfileTabs } from '../../utils/profileTabs';
 type Tab = 'overview' | 'studies' | 'plans' | 'followers' | 'settings' | 'church';
 type SettingsTab = 'profile' | 'notifications' | 'appearance' | 'privacy' | 'subscription';
@@ -202,6 +203,7 @@ const PublicUserProfilePage: React.FC = () => {
 
     if (type === 'like') {
         const isLiked = targetPost.likedBy?.includes(currentUser.uid);
+        const previousPost = targetPost;
         setUserPosts(prev => prev.map(post => {
             if (post.id !== postId) return post;
             const likedBy = isLiked
@@ -209,7 +211,13 @@ const PublicUserProfilePage: React.FC = () => {
                 : [...(post.likedBy || []), currentUser.uid];
             return { ...post, likedBy, likesCount: likedBy.length, likes: likedBy.length };
         }));
-        await dbService.togglePostLike(postId, currentUser.uid, !isLiked);
+        try {
+          const persisted = await postInteractionService.setLiked(targetPost, currentUser.uid, !isLiked);
+          setUserPosts(prev => prev.map(post => post.id === postId ? persisted : post));
+        } catch {
+          setUserPosts(prev => prev.map(post => post.id === postId ? previousPost : post));
+          showNotification('Não foi possível atualizar a curtida.', 'error');
+        }
         return;
     }
 
@@ -226,6 +234,20 @@ const PublicUserProfilePage: React.FC = () => {
 
     if (type === 'comment') {
         navigate(`/p/${postId}`);
+        return;
+    }
+
+    if (type === 'save') {
+        const desired = !targetPost.saved;
+        setUserPosts(prev => prev.map(post => post.id === postId ? { ...post, saved: desired } : post));
+        try {
+          const persisted = await postInteractionService.setSaved(targetPost, desired);
+          setUserPosts(prev => prev.map(post => post.id === postId ? persisted : post));
+          showNotification(desired ? 'Publicação salva.' : 'Removida dos salvos.', 'success');
+        } catch {
+          setUserPosts(prev => prev.map(post => post.id === postId ? targetPost : post));
+          showNotification('Não foi possível atualizar os salvos.', 'error');
+        }
     }
   };
 
@@ -259,16 +281,16 @@ const PublicUserProfilePage: React.FC = () => {
   const instagramHref = instagramUsername ? `https://instagram.com/${instagramUsername}` : null;
 
   return (
-    <div className="h-full bg-gray-50 dark:bg-black overflow-y-auto">
+    <div data-module="kingdom" className="h-full overflow-y-auto bg-[#fdfbf7] dark:bg-[#0b0b0c]">
       <SEO title={profile.displayName} />
       
-      <div className="h-32 md:h-64 bg-gradient-to-r from-bible-gold to-yellow-600 relative shadow-inner">
+      <div className="relative h-24 bg-gradient-to-r from-[#53247b] via-[#bd397f] to-[#ff744f] shadow-inner md:h-36">
       </div>
 
-      <div className="max-w-4xl mx-auto w-full px-4 -mt-12 md:-mt-20 z-10 space-y-4 pb-28">
-          <div className="bg-white dark:bg-bible-darkPaper rounded-[2rem] shadow-xl p-5 md:p-8 border border-gray-100 dark:border-gray-800 relative">
+      <div className="z-10 mx-auto w-full max-w-[980px] space-y-4 px-4 pb-28 -mt-10 md:-mt-14">
+          <div className="relative rounded-[1.5rem] border border-[#e4d9df] bg-white p-5 shadow-[0_18px_55px_rgba(58,29,71,0.10)] dark:border-fuchsia-300/15 dark:bg-[#1a1620] md:p-7">
               <div className="flex flex-col md:flex-row items-center md:items-end gap-4 md:gap-6 text-center md:text-left">
-                  <div className="w-24 h-24 md:w-40 md:h-40 rounded-[2rem] border-[4px] border-white dark:border-gray-800 shadow-2xl overflow-hidden bg-gray-200 dark:bg-gray-700 flex-shrink-0 -mt-16 md:-mt-24">
+                  <div className="h-24 w-24 flex-shrink-0 -mt-14 overflow-hidden rounded-[1.5rem] border-[4px] border-white bg-gray-200 shadow-2xl dark:border-[#1a1620] dark:bg-gray-700 md:h-28 md:w-28 md:-mt-16">
                       {profile.photoURL ? (
                           <img src={profile.photoURL} className="w-full h-full object-cover" />
                       ) : (
@@ -325,7 +347,7 @@ const PublicUserProfilePage: React.FC = () => {
                                {profile.churchData?.churchName && (
                                   <button
                                     type="button"
-                                    onClick={() => profile.churchData?.churchSlug && navigate(`/social/igreja/${profile.churchData.churchSlug}`)}
+                                    onClick={() => profile.churchData?.churchSlug && navigate(`/igreja/${profile.churchData.churchSlug}`)}
                                     className="inline-flex min-h-8 max-w-full items-center justify-center gap-1.5 rounded-xl border border-bible-gold/15 bg-bible-gold/10 px-3 text-[10px] font-black uppercase tracking-widest text-bible-gold transition-all hover:bg-bible-gold hover:text-white disabled:cursor-default disabled:opacity-70 md:justify-start"
                                     disabled={!profile.churchData?.churchSlug}
                                     title="Ir para a pagina da igreja"
@@ -677,7 +699,7 @@ const PublicUserProfilePage: React.FC = () => {
                                       <h3 className="text-xl font-bold text-gray-900 dark:text-white">{profile.churchData.churchName}</h3>
                                       <p className="text-sm text-gray-500 mt-1">Conectado e Servindo</p>
                                       <button 
-                                          onClick={() => navigate(`/social/igreja/${profile.churchData?.churchSlug}`)}
+                                          onClick={() => navigate(`/igreja/${profile.churchData?.churchSlug}`)}
                                           className="mt-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-xl text-xs font-bold shadow-sm"
                                       >
                                           Visitar Página da Igreja

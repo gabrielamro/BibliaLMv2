@@ -1,10 +1,6 @@
-"use client";
+import { redirect } from 'next/navigation';
 
-import ProtectedRoute from '../../../../components/ProtectedRoute';
-import PublicUserProfilePage from '../../../../views/public/PublicUserProfilePage';
-
-export default function Page() {
-  return (
-    <ProtectedRoute><PublicUserProfilePage /></ProtectedRoute>
-  );
+export default async function Page({ params }: { params: Promise<{ username: string }> }) {
+  const { username } = await params;
+  redirect(`/u/${encodeURIComponent(username)}`);
 }

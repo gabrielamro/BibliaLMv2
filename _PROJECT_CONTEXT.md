@@ -1,10 +1,10 @@
-# 📖 BíbliaLM - Product Context & Business Rules
+# 📖 Culto+ - Product Context & Business Rules
 
 > **AI INSTRUCTION:** This file contains the "Soul" of the application. Refer to this for logic, gamification rules, and terminology.
-> **VERSION:** v2.4.0 (New Home isolada e personalizada por papel)
+> **VERSION:** v2.8.9 (Trama Viva aplicada e Caderno contextual)
 
 ## 1. Product Vision
-A deep Bible study platform powered by AI, designed to look like a "Sanctuary" (Clean, Serene, Gold/Leather aesthetic). The AI is a "Counselor" or "Worker," not a generic bot.
+Culto+ is the evolution of the full BibliaLM ecosystem: one church-centered platform connecting personal Bible study, spiritual growth, community, services, volunteering, pastoral care and church management. The legacy name may still exist in modules being migrated, but every new product surface must present Culto+ as the primary brand.
 
 ## 2. User Roles & Permissions (The Hierarchy)
 
@@ -12,23 +12,64 @@ A deep Bible study platform powered by AI, designed to look like a "Sanctuary" (
 | :--- | :--- | :--- |
 | **Visitante (Free)** | Read Bible, Feed (Read), Prayer Wall | AI Limits (low), Ads (future) |
 | **Semeador (Bronze)** | + AI Chat (Medium), Custom Profile | ~10 Images/day |
-| **Fiel (Silver)** | + Create Church/Cell, Podcast Gen | ~30 Images/day |
+| **Fiel (Silver)** | + Create Church, Podcast Gen | ~30 Images/day |
 | **Visionário (Gold)** | **UNLIMITED AI**, Global Highlight | Unlimited |
 | **Pastor** | + Pastoral Workspace (Journey Creator) | Unlimited + Leadership Tools |
 | **Admin** | Full System Control, Wipe Data, CMS | N/A |
 
+*   A alternância entre Minha visão, Gestão da Igreja e Workspace Pastoral deve permanecer compacta no menu: ícones lado a lado, rótulos acessíveis e somente as visões autorizadas. Não usar cards textuais nem opção de ocultar esse controle.
+
 ## 3. Core Modules
+
+### 3.0. Identidade visual por módulo
+*   Cada rota resolve um único módulo visual por meio do registro central em `constants.ts` e do resolver `utils/moduleTheme.ts`.
+*   `Início` usa preto com amarelo da marca; `Bíblia` usa couro, pergaminho e ouro do Pão Diário; `Reino` usa gradiente próprio roxo, magenta e coral; `Cultos` usa verde; `Criar` usa o gradiente multicolorido da marca; `Gestão da Igreja` usa preto, grafite e prata; `Workspace Pastoral` usa roxo.
+*   A identidade aparece em navegação, item ativo, cabeçalho, abas, foco e CTA principal. Superfícies de conteúdo permanecem neutras e cores semânticas de sucesso, alerta, erro e informação não são substituídas.
+*   O shell determina a identidade de rotas operacionais compartilhadas: `/gestao-igreja/cultos` permanece Gestão, `/workspace-pastoral/cultos` permanece Workspace Pastoral e `/culto` ou `/meus-cultos` pertencem a Cultos.
+*   `/oracoes` pertence à Bíblia, `/social/oracao` pertence ao Reino e `/oracoes/gerenciar` pertence ao Workspace Pastoral. `/criar-sala` pertence visualmente ao Workspace Pastoral.
+*   Tema claro, tema escuro, menu desktop, menu móvel, navegação inferior e alternador de visões devem consumir os mesmos tokens. Cor nunca é a única indicação do módulo: título, ícone e estado ativo permanecem obrigatórios.
 
 ### 3.1. Início (Home)
 *   The dashboard. Contains "Daily Bread" (Devotional), Reading Progress, and Shortcuts.
+*   O item principal `Cultos` nos menus pessoal, mobile e do shell Culto+ direciona para `/meus-cultos`. A agenda pública `/culto` permanece acessível somente por atalhos internos explicitamente identificados como agenda.
+*   Na `/newhome`, `Minha semana` ocupa o segundo card principal ao lado da continuidade de leitura e reúne cultos e escalas. Não deve existir um CTA principal separado de `Próximo culto`; essa informação aparece como selo discreto no primeiro culto da agenda. A retirada do card semanal da coluna lateral mantém `Minha escala` como primeira prioridade para voluntários.
+*   Na `/newhome`, a barra de pesquisa deve ter largura limitada no desktop e compartilhar a linha com a saudação `Bem-vindo, [nome]` à sua direita, antes das ações de notificação e perfil. A navegação por abas mantém a altura confortável de interação e não recebe a saudação. Não repetir uma saudação grande dentro do painel inicial.
+*   A faixa de atalhos da jornada na `/newhome` apresenta somente `Meta de Leitura`, `Pão Diário` e `Oração ao Amanhecer`, distribuídos em três colunas equivalentes no desktop. `Meus Estudos` permanece acessível pela biblioteca e pelo menu, sem duplicar um CTA nessa faixa.
 
 ### 3.2. Bíblia (Reader)
 *   Offline-first capability.
 *   **AI Tools:** Explain Verse, Generate Image, Audio Narration (TTS).
+*   **Estúdio da Palavra:** `/criar-conteudo` e o editor de aulas de `/criar-sala` compartilham o componente canônico `StudyStudio`; `/criar-conteudo-v2` e `/criar-conteudo-v3` apenas preservam links antigos redirecionando para a rota canônica. O Estúdio usa capabilities por contexto, grade real de 12 colunas, biblioteca pesquisável, cinco modelos, comando `/`, pesquisa bíblica, propriedades e Obreiro IA. Sugestões da IA sempre passam por revisão e aceite total, parcial, como novos blocos ou descarte. O documento canônico usa `StudyDocumentV2`, revisão otimista e autosave; leitores públicos usam `StudyDocumentRenderer`.
+*   **Pão Diário:** experiência editorial independente em cinco movimentos — ler, refletir, orar, praticar e concluir — com retomada local, controles de leitura e publicação opcional no Reino.
+*   A identidade visual do Pão Diário usa couro, marrom, ouro envelhecido e superfícies de pergaminho. O leitor ocupa toda a largura útil da página, enquanto o texto bíblico usa tipografia serifada clássica distinta dos controles e comentários editoriais.
+*   No modo escuro, superfícies extensas devem usar carvão quente e pergaminho neutro, reservando marrom e ouro para hierarquia e detalhes. Todo texto bíblico usa branco envelhecido `#E7E0D4`, inclusive a passagem contextual e os versos em destaque.
+*   As experiências diretamente ligadas à Bíblia — Bíblia Sagrada, Pão Diário, Orações, planos e quiz — devem compartilhar a mesma família visual de pergaminho, carvão quente, couro, marrom e ouro envelhecido. Cada módulo preserva sua estrutura funcional, mas não deve introduzir uma cor institucional concorrente.
+*   `/oracoes` usa essa identidade bíblica em todas as superfícies. Textos de oração em áreas escuras usam branco envelhecido `#E7E0D4`, e destaques inteligentes nunca podem reduzir o contraste da leitura.
+*   `/devocional` usa o `CultoPlusPageShell` oficial. Não deve renderizar uma segunda barra de navegação própria; no modo sem interrupções, o shell é ocultado junto com as demais distrações.
+*   O conteúdo oficial do Pão Diário é único por data no fuso `America/Manaus`: o primeiro acesso materializa a seleção no banco e os demais acessos recebem o mesmo conteúdo.
+*   Usuários autenticados não devem receber novamente um conteúdo já registrado no histórico. Cada pessoa pode solicitar uma alternativa pessoal uma vez por dia; essa troca não altera o conteúdo oficial dos demais usuários e uma falha de geração não consome a cota.
+*   A geração e a trava diária são decisões do servidor. Chaves privilegiadas, gravação do catálogo, histórico e reserva da atualização nunca devem ser executados pelo navegador.
+*   O Pão Diário usa navegação mínima e um leitor de estudo que mostra uma etapa por vez, com botões explícitos de avanço e retorno; não deve assumir aparência de dashboard ou painel operacional.
+*   `/devocional` deve apresentar um único título editorial para o conteúdo diário. A etapa `Ler a Palavra` é apenas um marcador discreto e não pode criar um segundo título concorrente.
+*   Na primeira etapa, a ordem obrigatória é: versículo, reflexão pastoral, contexto bíblico imediato, observação e continuidade. A reflexão possui maior peso visual; o contexto permanece integrado como apoio e `Observe no texto` encerra a leitura.
+*   As cinco etapas do estudo devem ser reconhecíveis como navegação sequencial secundária: trilho lateral compacto no desktop e lista completa depois do conteúdo no mobile, preservando numeração, estado atual, conclusão e acesso direto.
+*   A etapa Palavra deve distinguir explicitamente texto bíblico, contexto imediato e reflexão pastoral. O trecho ampliado vem da Bíblia local do projeto e a aplicação nunca deve ser apresentada como citação bíblica.
+*   O "Sentido central" preserva o conteúdo pastoral, mas deve apresentá-lo em parágrafos justificados e destacar em negrito somente termos bíblicos relevantes, sem HTML gerado pelo conteúdo.
+*   Reflexões do Pão Diário são privadas por padrão e nunca são copiadas automaticamente para posts.
 
 ### 3.3. O Reino (Social)
-*   **Feed:** Chronological posts. Types: Prayer, Reflection, Feeling, Quiz result.
+*   **Feed:** Chronological posts. Types: Prayer, Reflection, Feeling, Quiz result and Pão Diário cards.
+*   O Feed em `/social` usa o shell e o menu oficial Culto+, com uma superfície editorial de leitura, publicação rápida e atalhos para igreja e descoberta. Não deve reativar o menu lateral legado nessa rota.
+*   No desktop, a coluna principal do Reino usa largura editorial ampliada de até `980px`: deve aproveitar a área disponível sem ocupar a página inteira. Cabeçalho, compositor e publicações compartilham o mesmo alinhamento; no mobile, a coluna continua fluida e sem rolagem horizontal.
+*   O Feed usa a linguagem própria **Trama Viva**: superfícies editoriais neutras, gradiente Culto+ para conexão e filtros explícitos `Para você`, `Seguindo`, `Minha igreja` e `Grupos`. Falha de backend nunca é mascarada por posts mockados.
+*   A publicação rápida usa o **Caderno de Partilha**: um único launcher por viewport, rascunho local recuperável, audiência textual, localização somente após consentimento, imagem validada com descrição e confirmação antes de descartar.
+*   Mudanças visuais no Feed devem preservar os fluxos de publicar, comentar, curtir, compartilhar, editar, excluir e atualizar a lista.
 *   **Ecclesia:** Church & Cell system. Users bind to a Church/Group to see specific Prayer Walls.
+*   **Relações distintas:** `Sou membro` representa vínculo de membresia com a igreja; `Seguir página` acompanha as publicações sem tornar a pessoa membro. Uma relação nunca deve ser inferida da outra.
+*   **Criação de grupos:** somente pastor ativo da mesma igreja ou líder ativo com escopo compatível pode criar grupo. Plano, membresia, voluntariado, autoria e papel de gestor não concedem essa permissão.
+*   **Hierarquia de grupos:** líder com escopo de igreja pode criar grupo raiz; líder com escopo de grupo pode administrar o grupo designado e criar subgrupo abaixo dele. Todo líder selecionado precisa ter papel ativo na mesma igreja.
+*   **Privacidade:** grupo privado pode ser descoberto por convite, mas seu feed só é liberado após o aceite e a confirmação de que a pessoa já é membro da igreja. Convites expiram e são consumidos atomicamente.
+*   Igrejas, grupos, subgrupos e perfis usam rotas canônicas (`/igreja`, `/grupo` e `/u`) e breadcrumbs preservam o contexto da navegação.
 *   **Explore:** OmniSearch for finding Users, Churches, or Bible content.
 
 ### 3.4. Estúdio Criativo
@@ -41,7 +82,17 @@ A deep Bible study platform powered by AI, designed to look like a "Sanctuary" (
 ### 3.6. Culto+
 *   Church service accompaniment module.
 *   Pastors/managers create a service, liturgical timeline, public OnePage, check-ins, private sermon notes and church-linked feed posts.
+*   A página pública `/culto/[serviceSlug]` é uma experiência imersiva em largura total: cabeçalho e ações compactos, transmissão como elemento dominante, atalhos imediatamente abaixo do vídeo e painel contextual de participação, momento atual e contagem regressiva.
+*   Em telas horizontais com pouca altura, a primeira dobra deve acomodar cabeçalho, transmissão e todas as ações rápidas em uma linha. A timeline continua como conteúdo subsequente e o modo vertical preserva os alvos de toque maiores.
+*   O painel lateral organiza uma timeline viva pelos blocos litúrgicos, combinando check-ins, posts vinculados, pedidos de oração e um comentário por usuário em cada momento, com filtros e atualização em tempo real.
+*   O seletor da timeline deve permanecer acima das reações fixas, caber integralmente no painel em qualquer breakpoint e fechar após a seleção, clique externo ou tecla Esc.
+*   Amém, Glória e Aleluia permanecem visíveis em uma faixa fixa da timeline. Cada toque cria um evento contabilizado e mostra temporariamente a foto pública ou as iniciais de quem reagiu.
+*   A faixa de reações ocupa o rodapé do painel lateral, depois da área rolável da timeline e alinhada visualmente às ações inferiores da transmissão.
+*   Quando uma participação no culto exigir autenticação, o app deve preservar a rota completa de origem. Reações iniciadas antes do login são mantidas somente na sessão, vinculadas ao culto e registradas uma única vez após a autenticação.
+*   Pedidos públicos exibem no máximo 120 caracteres. Pedidos privados nunca expõem conteúdo na projeção pública ou nos eventos Realtime; mostram somente que a pessoa pediu uma oração privada.
 *   The church profile surfaces published services in the `Cultos` tab.
+*   Papéis gerais e operacionais são independentes: `church_manager` administra a operação, `pastor` recebe cuidado sensível, `leader` atua somente no escopo concedido e `volunteer` responde apenas pelos próprios convites e escalas.
+*   O perfil ou assinatura de pastor não concede automaticamente acesso à Gestão da Igreja.
 
 ## 4. Gamification (The Mana System)
 *   **Currency:** "Maná" (XP). Not spendable, prestige only.

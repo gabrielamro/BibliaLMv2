@@ -217,7 +217,7 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
       const target = posts.find(p => p.id === postId);
       if (!target) return;
       const isLiked = target.likedBy?.includes(currentUser.uid);
-      await dbService.togglePostLike(postId, currentUser.uid, !!isLiked);
+      await dbService.togglePostLike(postId, currentUser.uid, !isLiked);
       reloadFeed();
     } else if (type === 'comment') {
       navigate(`/p/${postId}`);
@@ -416,7 +416,7 @@ const ReinoTab: React.FC<ReinoTabProps> = ({
                 groups.map((group) => (
                   <button
                     key={group.id}
-                    onClick={() => navigate(`/social/grupo/${group.slug || group.id}`)}
+                    onClick={() => navigate(`/grupo/${group.slug || group.id}`)}
                     className="w-full flex items-center justify-between gap-3 rounded-xl p-3 bg-gray-50 dark:bg-[#1A1A1A] hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors text-left"
                   >
                     <span className="text-xs font-medium text-gray-700 dark:text-gray-300 line-clamp-1">{group.name}</span>

@@ -11,6 +11,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { bibleService } from '../../services/bibleService';
 import { dbService, uploadBlob } from '../../services/supabase';
+import { kingdomPublishingService } from '../../services/kingdomPublishingService';
 import { findNearbyChurches, NearbyPlace } from '../../services/pastorAgent';
 import { MoodType, PostVisibility } from '../../types';
 import { base64ToBlob } from '../../utils/imageOptimizer';
@@ -20,10 +21,11 @@ import { encodeMoodContent } from '../../utils/socialPostMood';
 interface KingdomComposerProps {
   isOpen: boolean;
   onClose: () => void;
-  onPostSuccess: () => void;
+  onPostSuccess: (postId?: string) => void;
   prefilledImage?: string | null;
   prefilledCaption?: string;
   initialTab?: 'reflection' | 'prayer' | 'feeling' | 'checkin';
+  initialVisibility?: PostVisibility;
 }
 
 type PostTabType = 'reflection' | 'prayer' | 'feeling' | 'checkin';
@@ -71,7 +73,7 @@ const YOUNG_SUGGESTIONS: Record<string, string[]> = {
 
 const KingdomComposer: React.FC<KingdomComposerProps> = ({ 
   isOpen, onClose, onPostSuccess, 
-  prefilledImage, prefilledCaption, initialTab
+  prefilledImage, prefilledCaption, initialTab, initialVisibility
 }) => {
   const { currentUser, userProfile, showNotification, recordActivity } = useAuth();
   const { settings } = useSettings();
@@ -85,6 +87,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
   
   // Image and Bible Search
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [imageAlt, setImageAlt] = useState('');
   const [verseRef, setVerseRef] = useState('');
   const [isSearchingVerse, setIsSearchingVerse] = useState(false);
   const [foundVerse, setFoundVerse] = useState<{ref: string, text: string} | null>(null);
@@ -94,9 +97,17 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<NearbyPlace | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const hasDraftRef = useRef(false);
 
   const [isPosting, setIsPosting] = useState(false);
+  const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [showDiscardConfirmation, setShowDiscardConfirmation] = useState(false);
   const searchTimeoutRef = useRef<any>(null);
+  const verseRequestRef = useRef(0);
+  hasDraftRef.current = Boolean(content.trim() || attachedImage || foundVerse || selectedPlace);
 
   const setPostVisibility = (nextVisibility: PostVisibility) => {
     setVisibility(nextVisibility);
@@ -116,6 +127,17 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+        previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+        if (!prefilledCaption && !prefilledImage) {
+            try {
+                const draft = JSON.parse(localStorage.getItem(`cultoplus:kingdom-draft:${currentUser?.uid || 'guest'}`) || 'null');
+                if (draft?.content) setContent(draft.content);
+                if (draft?.activeTab) setActiveTab(draft.activeTab);
+                if (draft?.visibility) setPostVisibility(draft.visibility);
+            } catch {
+                setDraftStatus('error');
+            }
+        }
         if (prefilledImage) {
             setAttachedImage(prefilledImage);
             // Default to reflection tab if image is present unless forced
@@ -125,28 +147,71 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
             setContent(prefilledCaption);
         }
         if (initialTab) setActiveTab(initialTab);
+        if (initialVisibility) setPostVisibility(initialVisibility);
     }
-  }, [isOpen, prefilledImage, prefilledCaption, initialTab]);
+  }, [isOpen, prefilledImage, prefilledCaption, initialTab, initialVisibility]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            if (hasDraftRef.current) setShowDiscardConfirmation(true);
+            else onClose();
+            return;
+        }
+        if (event.key !== 'Tab' || !dialogRef.current) return;
+        const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'));
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    window.setTimeout(() => textareaRef.current?.focus(), 0);
+    return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+        previouslyFocusedRef.current?.focus();
+    };
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen || !currentUser?.uid) return;
+    setDraftStatus('saving');
+    const timeout = window.setTimeout(() => {
+        try {
+            localStorage.setItem(`cultoplus:kingdom-draft:${currentUser.uid}`, JSON.stringify({ content, activeTab, visibility }));
+            setDraftStatus('saved');
+        } catch {
+            setDraftStatus('error');
+        }
+    }, 500);
+    return () => window.clearTimeout(timeout);
+  }, [activeTab, content, currentUser?.uid, isOpen, visibility]);
 
   useEffect(() => {
     if (activeTab === 'reflection' && verseRef.length > 3) {
         if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
         searchTimeoutRef.current = setTimeout(async () => {
+            const requestId = ++verseRequestRef.current;
             setIsSearchingVerse(true);
-            const res = await bibleService.getTextByReference(verseRef, settings.bibleVersion || 'ara');
-            if (res) {
-                setFoundVerse({ ref: res.formattedRef, text: res.text });
+            try {
+              const res = await bibleService.getTextByReference(verseRef, settings.bibleVersion || 'ara');
+              if (requestId !== verseRequestRef.current) return;
+              setFoundVerse(res ? { ref: res.formattedRef, text: res.text } : null);
+            } finally {
+              if (requestId === verseRequestRef.current) setIsSearchingVerse(false);
             }
-            setIsSearchingVerse(false);
         }, 800);
     } else if (verseRef.length === 0) {
+        verseRequestRef.current += 1;
         setFoundVerse(null);
+        setIsSearchingVerse(false);
     }
   }, [verseRef, activeTab, settings.bibleVersion]);
 
-  // Geolocation Effect
-  useEffect(() => {
-    if (activeTab === 'checkin' && !selectedPlace && nearbyPlaces.length === 0) {
+  const findPlacesFromCurrentLocation = () => {
         setIsLocating(true);
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(async (position) => {
@@ -168,16 +233,47 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
             setIsLocating(false);
             showNotification("Geolocalização não suportada.", "error");
         }
-    }
-  }, [activeTab]);
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        showNotification('Use uma imagem JPG, PNG ou WebP.', 'warning');
+        return;
+      }
+      if (file.size > 8 * 1024 * 1024) {
+        showNotification('A imagem deve ter no máximo 8 MB.', 'warning');
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => setAttachedImage(reader.result as string);
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleCloseRequest = () => {
+      if (content.trim() || attachedImage || foundVerse || selectedPlace) {
+          setShowDiscardConfirmation(true);
+          return;
+      }
+      onClose();
+  };
+
+  const discardDraft = () => {
+      if (currentUser?.uid) localStorage.removeItem(`cultoplus:kingdom-draft:${currentUser.uid}`);
+      resetForm();
+      setShowDiscardConfirmation(false);
+      onClose();
+  };
+
+  const insertSuggestion = (suggestion: string) => {
+      const textarea = textareaRef.current;
+      if (!textarea) { setContent(previous => `${previous}${previous ? '\n' : ''}${suggestion}`); return; }
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      setContent(previous => `${previous.slice(0, start)}${suggestion}${previous.slice(end)}`);
+      window.setTimeout(() => textarea.focus(), 0);
   };
 
   const handleSubmit = async () => {
@@ -195,7 +291,8 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
         if (attachedImage && attachedImage.startsWith('data:')) {
             try {
                 const blob = await base64ToBlob(attachedImage);
-                finalImageUrl = await uploadBlob(blob, `posts/${currentUser.uid}/${Date.now()}.webp`);
+                const extension = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
+                finalImageUrl = await uploadBlob(blob, `posts/${currentUser.uid}/${crypto.randomUUID()}.${extension}`);
             } catch (err) {
                 console.error("Image upload failed", err);
                 showNotification("Falha ao enviar imagem. Tente novamente.", "error");
@@ -212,53 +309,50 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
             finalContent = `📍 Check-in em **${selectedPlace.name}**\n${selectedPlace.address}\n\n${content}`;
         }
 
-        const postData: any = {
-            userId: currentUser.uid,
-            userDisplayName: userProfile.displayName,
-            userUsername: userProfile.username,
-            userPhotoURL: userProfile.photoURL,
-            type: activeTab === 'feeling' ? 'feeling' : attachedImage ? 'image' : (activeTab === 'reflection' ? 'reflection' : activeTab === 'prayer' ? 'prayer' : activeTab === 'checkin' ? 'reflection' : 'feeling'),
+        const publishedPost = await kingdomPublishingService.publish({
+            publisher: {
+                userId: currentUser.uid,
+                displayName: userProfile.displayName,
+                username: userProfile.username,
+                photoURL: userProfile.photoURL,
+            },
+            type: activeTab,
             content: activeTab === 'feeling' ? encodeMoodContent(finalContent, selectedMood) : finalContent,
-            image: finalImageUrl,
-            createdAt: new Date().toISOString(),
-            likesCount: 0,
-            commentsCount: 0,
-            shares: 0,
-            likes: 0,
-            comments: 0,
-            saved: false,
-            likedBy: [],
-            location: selectedPlace ? selectedPlace.name : (userProfile.city || 'Reino'),
-            destination: destination,
-            visibility,
-            alsoShowOnChurch: alsoShowOnChurch,
-            time: 'Agora'
-        };
-
-        if (activeTab === 'feeling' && selectedMood) {
-            postData.mood = selectedMood;
-        }
-
-        if (destination === 'cell') {
-            postData.cellId = userProfile.churchData?.groupId;
-            postData.cellName = userProfile.churchData?.groupName;
-        } else if (destination === 'church') {
-            postData.churchId = userProfile.churchData?.churchId;
-        }
-
-        await dbService.createPost(postData);
+            imageUrl: finalImageUrl,
+            mood: activeTab === 'feeling' ? selectedMood : null,
+            audience: {
+                destination,
+                visibility,
+                churchId: destination === 'church' ? userProfile.churchData?.churchId : null,
+                cellId: destination === 'cell' ? userProfile.churchData?.groupId : null,
+                alsoShowOnChurch,
+            },
+            sourceType: activeTab === 'checkin' ? 'place_checkin' : activeTab,
+            sourceId: activeTab === 'checkin' && selectedPlace
+                ? `${selectedPlace.name}:${selectedPlace.address}`
+                : null,
+            metadata: {
+                ...(selectedPlace ? {
+                    place: {
+                        name: selectedPlace.name,
+                        address: selectedPlace.address,
+                    },
+                } : {}),
+                ...(attachedImage && imageAlt.trim() ? { imageAlt: imageAlt.trim() } : {}),
+            },
+        });
         try {
             const mentionedUsernames = extractMentionUsernames(finalContent);
             if (mentionedUsernames.length > 0) {
-                const mentionedUsers = (await dbService.getAllUsers())
-                    .filter(user => mentionedUsernames.includes(user.username?.toLowerCase()) && user.uid !== currentUser.uid);
+                const mentionedUsers = (await Promise.all(mentionedUsernames.map(username => dbService.getUserByUsername(username))))
+                    .filter((user): user is NonNullable<typeof user> => Boolean(user && user.uid !== currentUser.uid));
 
                 await Promise.all(mentionedUsers.map(user => dbService.sendUserNotification(
                     user.uid,
                     'Menção no Reino',
                     `${userProfile.displayName} mencionou @${user.username} em uma publicação.`,
                     'social',
-                    '/social'
+                    `/p/${publishedPost.id}`
                 )));
             }
         } catch (mentionError) {
@@ -270,8 +364,9 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
             console.warn("Post publicado, mas a atividade não foi registrada.", activityError);
         }
         showNotification("Publicado com sucesso!", "success");
+        localStorage.removeItem(`cultoplus:kingdom-draft:${currentUser.uid}`);
         resetForm();
-        onPostSuccess();
+        onPostSuccess(publishedPost.id);
         onClose();
     } catch (e) {
         console.error(e);
@@ -284,6 +379,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
   const resetForm = () => {
       setContent('');
       setAttachedImage(null);
+      setImageAlt('');
       setVerseRef('');
       setFoundVerse(null);
       setSelectedMood(null);
@@ -297,46 +393,64 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-bible-darkPaper w-full max-w-xl md:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] animate-in slide-in-from-bottom-10">
+    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-[#100a18]/85 p-0 backdrop-blur-md animate-in fade-in duration-300 md:items-center md:p-5">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="kingdom-composer-title" className="relative flex max-h-[96vh] w-full max-w-[1080px] flex-col overflow-hidden bg-[#fffdf9] shadow-[0_30px_100px_rgba(8,4,16,0.55)] animate-in slide-in-from-bottom-10 dark:bg-[#17131d] md:rounded-[2rem] md:border md:border-fuchsia-300/30 md:after:pointer-events-none md:after:absolute md:after:bottom-0 md:after:left-1/2 md:after:top-[6.7rem] md:after:w-px md:after:bg-gradient-to-b md:after:from-[#d9cbd7]/20 md:after:via-[#c4b2c2]/70 md:after:to-[#d9cbd7]/20">
         
         {/* Header com Abas Dinâmicas */}
-        <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-black/20">
-            <div className="flex gap-1 bg-white dark:bg-gray-800 p-1 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-x-auto no-scrollbar">
+        <div className="border-b border-[#e9dfd7] bg-[#fffdf9] p-4 dark:border-white/10 dark:bg-[#17131d] md:px-8 md:pt-6">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-black uppercase tracking-[0.16em] text-violet-700 dark:text-fuchsia-300">Culto+</span>
+              <h2 id="kingdom-composer-title" className="font-serif text-2xl font-black text-[#24182d] dark:text-white md:text-3xl">Nova partilha</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400" aria-live="polite">{draftStatus === 'saving' ? 'Salvando rascunho…' : draftStatus === 'saved' ? 'Rascunho salvo neste dispositivo' : draftStatus === 'error' ? 'Não foi possível salvar o rascunho' : 'Escreva com calma; você revisará antes de publicar.'}</p>
+            </div>
+            <button type="button" onClick={handleCloseRequest} aria-label="Fechar compositor" className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"><X size={20}/></button>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div role="tablist" aria-label="Tipo da partilha" className="flex gap-1 overflow-x-auto rounded-2xl border border-[#eee4dc] bg-white p-1 shadow-sm no-scrollbar dark:border-white/10 dark:bg-white/5">
                 <button 
                     onClick={() => setActiveTab('reflection')}
-                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'reflection' ? 'bg-bible-gold text-white' : 'text-gray-400 hover:text-bible-gold'}`}
+                    role="tab" aria-selected={activeTab === 'reflection'} className={`flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-xs font-black transition-all ${activeTab === 'reflection' ? 'bg-gradient-to-r from-violet-700 to-fuchsia-600 text-white' : 'text-gray-500 hover:text-violet-700 dark:text-gray-300'}`}
                 >
                     <PenLine size={14} /> Reflexão
                 </button>
                 <button 
                     onClick={() => setActiveTab('prayer')}
-                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'prayer' ? 'bg-orange-500 text-white' : 'text-gray-400 hover:text-orange-500'}`}
+                    role="tab" aria-selected={activeTab === 'prayer'} className={`flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-xs font-black transition-all ${activeTab === 'prayer' ? 'bg-gradient-to-r from-violet-700 to-fuchsia-600 text-white' : 'text-gray-500 hover:text-violet-700 dark:text-gray-300'}`}
                 >
                     <HandHeart size={14} /> Oração
                 </button>
                 <button 
                     onClick={() => setActiveTab('checkin')}
-                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'checkin' ? 'bg-green-600 text-white' : 'text-gray-400 hover:text-green-600'}`}
+                    role="tab" aria-selected={activeTab === 'checkin'} className={`flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-xs font-black transition-all ${activeTab === 'checkin' ? 'bg-gradient-to-r from-violet-700 to-fuchsia-600 text-white' : 'text-gray-500 hover:text-violet-700 dark:text-gray-300'}`}
                 >
                     <MapPin size={14} /> Check-in
                 </button>
                 <button 
                     onClick={() => setActiveTab('feeling')}
-                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'feeling' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-purple-500'}`}
+                    role="tab" aria-selected={activeTab === 'feeling'} className={`flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-xs font-black transition-all ${activeTab === 'feeling' ? 'bg-gradient-to-r from-violet-700 to-fuchsia-600 text-white' : 'text-gray-500 hover:text-violet-700 dark:text-gray-300'}`}
                 >
                     <Smile size={14} /> Sentir
                 </button>
             </div>
-            <button onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"><X size={20}/></button>
+          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+        <div className="min-h-0 flex-1 md:grid md:grid-cols-[1.08fr_.92fr]">
+        <div className="min-h-0 overflow-y-auto p-5 space-y-6 custom-scrollbar md:p-8 md:pr-10">
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/jpeg,image/png,image/webp" onChange={handleImageUpload} />
+
+            <div className="grid grid-cols-3 gap-2" aria-label="Enriquecer partilha">
+              <button type="button" onClick={() => setActiveTab('reflection')} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-amber-200 bg-white px-3 text-xs font-bold text-amber-800 transition hover:bg-amber-50 dark:border-amber-400/20 dark:bg-white/5 dark:text-amber-300"><BookOpen size={16} /> Passagem</button>
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-violet-200 bg-white px-3 text-xs font-bold text-violet-800 transition hover:bg-violet-50 dark:border-violet-400/20 dark:bg-white/5 dark:text-violet-300"><ImageIcon size={16} /> Imagem</button>
+              <button type="button" onClick={() => { setActiveTab('checkin'); if (!selectedPlace && nearbyPlaces.length === 0) findPlacesFromCurrentLocation(); }} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-rose-200 bg-white px-3 text-xs font-bold text-rose-700 transition hover:bg-rose-50 dark:border-rose-400/20 dark:bg-white/5 dark:text-rose-300"><MapPin size={16} /> Local</button>
+            </div>
             
             {/* Image Preview Area */}
             {attachedImage && (
-                <div className="relative rounded-2xl overflow-hidden shadow-lg group border border-gray-200 dark:border-gray-800">
-                    <img src={attachedImage} alt="Preview" className="w-full h-auto max-h-60 object-cover" />
+                <div className="space-y-3 rounded-2xl border border-gray-200 p-3 shadow-lg dark:border-gray-800">
+                  <div className="relative overflow-hidden rounded-xl group">
+                    <img src={attachedImage} alt={imageAlt || 'Prévia da imagem anexada'} className="w-full h-auto max-h-60 object-cover" />
                     <button 
                         onClick={() => setAttachedImage(null)}
                         className="absolute top-2 right-2 p-2 bg-black/60 hover:bg-red-500 text-white rounded-full transition-colors backdrop-blur-md"
@@ -346,6 +460,11 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                     <div className="absolute bottom-2 left-2 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-widest">
                         <ImageIcon size={10} className="inline mr-1" /> Imagem Anexada
                     </div>
+                  </div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200">
+                    Descrição da imagem
+                    <input value={imageAlt} onChange={event => setImageAlt(event.target.value)} maxLength={180} placeholder="Descreva para quem não consegue ver a imagem" className="mt-2 min-h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-900" />
+                  </label>
                 </div>
             )}
 
@@ -357,8 +476,13 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                          <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-bold text-gray-500 hover:text-green-600 flex items-center gap-1">
                              <Camera size={12}/> Adicionar Foto
                          </button>
-                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                     </div>
+
+                    {!isLocating && !selectedPlace && nearbyPlaces.length === 0 && (
+                        <button type="button" onClick={findPlacesFromCurrentLocation} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-bold text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200">
+                            <MapPin size={17} /> Usar minha localização
+                        </button>
+                    )}
 
                     {isLocating ? (
                         <div className="p-8 text-center text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl flex flex-col items-center gap-2">
@@ -444,7 +568,10 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
 
             {/* Editor de Texto Principal */}
             <div className="relative group">
+                <label htmlFor="kingdom-partilha-text" className="mb-3 block text-sm font-black text-gray-900 dark:text-white">O que deseja compartilhar?</label>
                 <textarea 
+                    id="kingdom-partilha-text"
+                    ref={textareaRef}
                     value={content}
                     onChange={e => setContent(e.target.value)}
                     placeholder={
@@ -453,7 +580,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                         activeTab === 'checkin' ? "Compartilhe sobre este momento..." :
                         "Compartilhe o que Deus falou ao seu coração..."
                     }
-                    className="w-full h-40 bg-transparent text-lg font-medium text-gray-800 dark:text-white outline-none resize-none placeholder-gray-300 dark:placeholder-gray-700 leading-relaxed"
+                    className="h-48 w-full resize-none rounded-2xl border border-[#e5d9cf] bg-white p-4 font-serif text-lg font-medium leading-relaxed text-gray-800 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/15 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder-gray-500"
                     autoFocus={!prefilledImage}
                 />
                 
@@ -465,7 +592,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                             {YOUNG_SUGGESTIONS[activeTab].map((s, i) => (
                                 <button 
                                     key={i} 
-                                    onClick={() => setContent(s)}
+                                    onClick={() => insertSuggestion(s)}
                                     className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-xl text-[10px] font-bold text-gray-500 hover:bg-bible-gold/10 hover:text-bible-gold transition-colors border border-transparent hover:border-bible-gold/20"
                                 >
                                     {s.length > 30 ? s.substring(0, 30) + '...' : s}
@@ -478,8 +605,12 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
         </div>
 
         {/* Rodapé: Destino e Botão de Ação */}
-        <div className="p-4 md:p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-black/20 pb-safe">
-            <div className="max-w-md mx-auto space-y-4">
+        <div className="min-h-0 overflow-y-auto border-t border-[#e9dfd7] bg-[#fcf8f2] p-4 pb-safe dark:border-white/10 dark:bg-black/10 md:border-l-0 md:border-t-0 md:p-8 md:pl-10">
+            <div className="mx-auto space-y-4">
+                <div>
+                    <h3 className="font-serif text-xl font-black text-gray-950 dark:text-white">Destino e prévia</h3>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Confirme quem verá antes de publicar.</p>
+                </div>
 
                 <div className="rounded-2xl border border-gray-100 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
                     <div className="mb-3 flex items-center justify-between gap-3">
@@ -491,14 +622,39 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                         </div>
                         <Lock size={16} className="text-gray-300" />
                     </div>
-                    <div className="grid grid-cols-5 gap-2">
-                        <button onClick={() => setPostVisibility('public')} className={`flex min-h-10 items-center justify-center rounded-xl border text-xs transition-all ${visibility === 'public' ? 'border-bible-gold bg-bible-gold/10 text-bible-gold' : 'border-gray-100 text-gray-400 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800'}`} title="Publico"><Globe size={17} /></button>
-                        <button onClick={() => setPostVisibility('followers')} className={`flex min-h-10 items-center justify-center rounded-xl border text-xs transition-all ${visibility === 'followers' ? 'border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' : 'border-gray-100 text-gray-400 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800'}`} title="Seguidores"><Users size={17} /></button>
-                        <button onClick={() => userProfile?.churchData?.groupId && setPostVisibility('group')} disabled={!userProfile?.churchData?.groupId} className={`flex min-h-10 items-center justify-center rounded-xl border text-xs transition-all disabled:opacity-35 ${visibility === 'group' ? 'border-indigo-500 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20' : 'border-gray-100 text-gray-400 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800'}`} title="Grupo"><ListFilter size={17} /></button>
-                        <button onClick={() => userProfile?.churchData?.churchId && setPostVisibility('church')} disabled={!userProfile?.churchData?.churchId} className={`flex min-h-10 items-center justify-center rounded-xl border text-xs transition-all disabled:opacity-35 ${visibility === 'church' ? 'border-blue-500 bg-blue-50 text-blue-600 dark:bg-blue-900/20' : 'border-gray-100 text-gray-400 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800'}`} title="Igreja"><Church size={17} /></button>
-                        <button onClick={() => setPostVisibility('private')} className={`flex min-h-10 items-center justify-center rounded-xl border text-xs transition-all ${visibility === 'private' ? 'border-gray-700 bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100' : 'border-gray-100 text-gray-400 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800'}`} title="Privado"><Lock size={17} /></button>
+                    <div role="radiogroup" aria-label="Audiência da publicação" className="grid gap-2 sm:grid-cols-2">
+                        {([
+                            { value: 'public', label: 'Público', detail: 'Pode aparecer na descoberta', icon: Globe, enabled: true },
+                            { value: 'followers', label: 'Seguidores', detail: 'Somente quem segue você', icon: Users, enabled: true },
+                            { value: 'group', label: 'Meu grupo', detail: userProfile?.churchData?.groupName || 'Vincule-se a um grupo', icon: ListFilter, enabled: Boolean(userProfile?.churchData?.groupId) },
+                            { value: 'church', label: 'Minha igreja', detail: userProfile?.churchData?.churchName || 'Vincule-se a uma igreja', icon: Church, enabled: Boolean(userProfile?.churchData?.churchId) },
+                            { value: 'private', label: 'Somente eu', detail: 'Fica privado no seu acervo', icon: Lock, enabled: true },
+                        ] as const).map(option => {
+                            const Icon = option.icon;
+                            const selected = visibility === option.value;
+                            return (
+                                <button key={option.value} type="button" role="radio" aria-checked={selected} disabled={!option.enabled} onClick={() => option.enabled && setPostVisibility(option.value)} className={`flex min-h-14 items-center gap-3 rounded-xl border px-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${selected ? 'border-violet-500 bg-violet-50 text-violet-900 ring-1 ring-violet-500 dark:bg-violet-500/10 dark:text-violet-100' : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800'}`}>
+                                    <Icon size={18} className="shrink-0" />
+                                    <span><span className="block text-sm font-bold">{option.label}</span><span className="block text-xs opacity-70">{option.detail}</span></span>
+                                    {selected && <Check size={16} className="ml-auto shrink-0" />}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
+
+                <section aria-labelledby="partilha-preview-title" className="rounded-2xl border border-[#dfd1c5] bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
+                    <h4 id="partilha-preview-title" className="mb-3 text-sm font-black text-gray-900 dark:text-white">Prévia</h4>
+                    <div className="rounded-xl border border-[#eee4dc] p-4 dark:border-white/10">
+                        <div className="mb-3 flex items-center gap-3">
+                            {userProfile?.photoURL ? <img src={userProfile.photoURL} alt="" className="h-9 w-9 rounded-full object-cover" /> : <span className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-100 text-xs font-black text-violet-800 dark:bg-violet-500/20 dark:text-violet-200">{(userProfile?.displayName || 'Você').slice(0, 2).toUpperCase()}</span>}
+                            <div><strong className="block text-sm text-gray-900 dark:text-white">{userProfile?.displayName || 'Você'}</strong><span className="text-xs text-gray-500">Agora mesmo · {activeTab === 'reflection' ? 'Reflexão' : activeTab === 'prayer' ? 'Oração' : activeTab === 'checkin' ? 'Encontro' : 'Testemunho'}</span></div>
+                        </div>
+                        <p className="whitespace-pre-wrap font-serif text-sm leading-relaxed text-gray-700 dark:text-gray-200">{content.trim() || 'Sua partilha aparecerá aqui enquanto você escreve.'}</p>
+                        {foundVerse && <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-400/20 dark:bg-amber-500/5"><strong className="text-sm text-amber-800 dark:text-amber-300">{foundVerse.ref}</strong><p className="mt-1 line-clamp-3 font-serif text-xs italic text-gray-600 dark:text-gray-300">{foundVerse.text}</p></div>}
+                        {attachedImage && <img src={attachedImage} alt={imageAlt || 'Prévia do anexo'} className="mt-3 max-h-36 w-full rounded-xl object-cover" />}
+                    </div>
+                </section>
                  
                 {/* Seletor de Destino */}
                 <div className="hidden">
@@ -552,10 +708,14 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                             </div>
                         </div>
                         <button 
+                            type="button"
+                            role="switch"
+                            aria-checked={alsoShowOnChurch}
+                            aria-label="Também mostrar no mural da igreja"
                             onClick={() => setAlsoShowOnChurch(!alsoShowOnChurch)}
-                            className={`w-10 h-6 rounded-full relative transition-colors ${alsoShowOnChurch ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'}`}
+                            className={`relative min-h-11 w-12 rounded-full transition-colors ${alsoShowOnChurch ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'}`}
                         >
-                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${alsoShowOnChurch ? 'left-5' : 'left-1'}`} />
+                            <div className={`absolute top-3.5 h-4 w-4 rounded-full bg-white transition-all ${alsoShowOnChurch ? 'left-7' : 'left-1'}`} />
                         </button>
                     </div>
                 )}
@@ -570,7 +730,20 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                 </button>
             </div>
         </div>
+        </div>
       </div>
+      {showDiscardConfirmation && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-4">
+          <div role="alertdialog" aria-modal="true" aria-labelledby="discard-draft-title" className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl dark:bg-gray-900">
+            <h3 id="discard-draft-title" className="text-lg font-bold text-gray-900 dark:text-white">Descartar esta partilha?</h3>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">O texto salvo neste dispositivo também será removido.</p>
+            <div className="mt-5 flex gap-3">
+              <button type="button" autoFocus onClick={() => setShowDiscardConfirmation(false)} className="min-h-11 flex-1 rounded-xl border border-gray-200 px-4 text-sm font-bold text-gray-700 dark:border-gray-700 dark:text-gray-200">Continuar escrevendo</button>
+              <button type="button" onClick={discardDraft} className="min-h-11 flex-1 rounded-xl bg-red-600 px-4 text-sm font-bold text-white">Descartar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

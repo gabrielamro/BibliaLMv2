@@ -6,13 +6,14 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import Link from "next/link";
 import { dbService, uploadBlob } from '../../services/supabase';
 import { cultoPlusService } from '../../services/cultoPlusService';
-import { Church, UserProfile, ChurchGroup, PrayerRequest, GroupPrivacy, Post, ChurchService } from '../../types';
+import { churchGroupService } from '../../services/churchGroupService';
+import { Church, UserProfile, ChurchGroup, PrayerRequest, GroupPrivacy, Post, ChurchService, ChurchMemberRole } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   Loader2, MapPin, Users, Shield, ArrowLeft, Trophy, LogIn, 
   CheckCircle2, MessageSquareHeart, Heart, Send, Plus, 
   Home, Crown, Star, ChevronRight, Calendar, Info, Share2, 
-  Flame, LayoutGrid, Award, Bell, Boxes, MessageSquare, Edit2, Trash2, AtSign, Zap, BookOpen, Brain, MapPinned,
+  Flame, LayoutGrid, Award, Boxes, MessageSquare, Edit2, Trash2, AtSign, Zap, BookOpen, Brain, MapPinned,
   User as UserIcon, Search, X, Check, UserCheck, Camera, MoreHorizontal, UserCog, ChevronDown, CornerDownRight
 } from 'lucide-react';
 import { useHeader } from '../../contexts/HeaderContext';
@@ -27,6 +28,10 @@ import { FeedPostCard } from '../../components/social/FeedPostCard';
 import ChurchServicesPreview from '../../components/culto-plus/ChurchServicesPreview';
 import CultoPlusPublicAgenda from '../../components/culto-plus/CultoPlusPublicAgenda';
 import { isAdminProfile, isGeneralManager, isGeneralPastor } from '../../utils/profileAccess';
+import { getChurchGroupCapabilities, hasActiveChurchRole } from '../../utils/churchGroupRules';
+import { postInteractionService } from '../../services/postInteractionService';
+import { generateShareLink } from '../../utils/shareUtils';
+import KingdomComposer from '../../components/social/KingdomComposer';
 
 type ChurchMuralItem =
     | (PrayerRequest & { muralType?: 'prayer' })
@@ -109,14 +114,17 @@ const ChurchProfilePage: React.FC = () => {
   const [church, setChurch] = useState<Church | null>(null);
   const [groups, setGroups] = useState<ChurchGroup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'mural' | 'cultos' | 'groups'>('mural');
+  const [activeTab, setActiveTab] = useState<'mural' | 'cultos' | 'groups' | 'about' | 'members'>('mural');
   const [prayers, setPrayers] = useState<ChurchMuralItem[]>([]);
   const [services, setServices] = useState<ChurchService[]>([]);
   const [isServiceCalendarOpen, setIsServiceCalendarOpen] = useState(false);
+  const [isKingdomComposerOpen, setIsKingdomComposerOpen] = useState(false);
   const [attendedServiceIds, setAttendedServiceIds] = useState<Set<string>>(new Set());
   const [newPrayer, setNewPrayer] = useState('');
   const [isPostingPrayer, setIsPostingPrayer] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [churchRoles, setChurchRoles] = useState<ChurchMemberRole[]>([]);
+  const [eligibleLeaderIds, setEligibleLeaderIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (church) {
@@ -131,7 +139,7 @@ const ChurchProfilePage: React.FC = () => {
   }, [church, setTitle, resetHeader, setBreadcrumbs, setIsHeaderHidden]);
   
   const [members, setMembers] = useState<UserProfile[]>([]);
-  const [followers, setFollowers] = useState<any[]>([]);
+  const [followers, setFollowers] = useState<UserProfile[]>([]);
   const [loadingPeople, setLoadingPeople] = useState(false);
   const [peoplePanel, setPeoplePanel] = useState<'members' | 'followers' | null>(null);
 
@@ -193,8 +201,22 @@ const ChurchProfilePage: React.FC = () => {
           if (data) {
               setChurch(data);
               
-              if (currentUser) {
-                  dbService.checkIsFollowing(currentUser.uid, data.id).then(setIsFollowing).catch(() => {});
+              if (currentUserId) {
+                  Promise.allSettled([
+                      dbService.isFollowingChurch(currentUserId, data.id),
+                      churchGroupService.getUserRoles(data.id, currentUserId),
+                      churchGroupService.getVisibleEligibleLeaderRoles(data.id),
+                  ]).then(([followResult, rolesResult, leadersResult]) => {
+                      setIsFollowing(followResult.status === 'fulfilled' ? followResult.value : false);
+                      const roles = rolesResult.status === 'fulfilled' ? rolesResult.value : [];
+                      setChurchRoles(roles);
+                      const visibleLeaderRoles = leadersResult.status === 'fulfilled' ? leadersResult.value : [];
+                      setEligibleLeaderIds(new Set([...roles, ...visibleLeaderRoles].map((role) => role.userId)));
+                  });
+              } else {
+                  setIsFollowing(false);
+                  setChurchRoles([]);
+                  setEligibleLeaderIds(new Set());
               }
 
               try {
@@ -248,7 +270,7 @@ const ChurchProfilePage: React.FC = () => {
       } finally { 
           setLoading(false); 
       }
-  }, [churchSlug, currentUser, currentUserId]);
+  }, [churchSlug, currentUserId]);
 
   useEffect(() => {
     loadChurchData();
@@ -280,7 +302,7 @@ const ChurchProfilePage: React.FC = () => {
         setIsSearchingLeader(true);
         try {
           const results = await dbService.searchUsersByUsername(normalizeUserSearchQuery(searchVal));
-          setLeaderResults(results);
+          setLeaderResults(results.filter((user) => eligibleLeaderIds.has(user.uid)));
         } catch (e) {
           console.error("Error searching for leader:", formatRuntimeError(e));
         } finally {
@@ -293,7 +315,7 @@ const ChurchProfilePage: React.FC = () => {
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
-  }, [newGroupLeader]);
+  }, [eligibleLeaderIds, newGroupLeader]);
 
   useEffect(() => {
     if (newGroupPrivacy !== 'private') {
@@ -308,8 +330,14 @@ const ChurchProfilePage: React.FC = () => {
       participantSearchTimeoutRef.current = setTimeout(async () => {
         setIsSearchingPrivateGroupParticipant(true);
         try {
-          const results = await dbService.searchUsersByUsername(normalizeUserSearchQuery(searchVal));
-          setPrivateGroupParticipantResults(results.filter(user => user.uid !== currentUserId));
+          const [results, churchMembers] = await Promise.all([
+              dbService.searchUsersByUsername(normalizeUserSearchQuery(searchVal)),
+              church ? dbService.getChurchMembers(church.id) : Promise.resolve([]),
+          ]);
+          const memberIds = new Set(churchMembers.map((member) => member.uid));
+          setPrivateGroupParticipantResults(results.filter(
+              (user) => user.uid !== currentUserId && memberIds.has(user.uid)
+          ));
         } catch (e) {
           console.error("Error searching private group participant:", formatRuntimeError(e));
         } finally {
@@ -323,7 +351,7 @@ const ChurchProfilePage: React.FC = () => {
     return () => {
       if (participantSearchTimeoutRef.current) clearTimeout(participantSearchTimeoutRef.current);
     };
-  }, [currentUserId, newGroupPrivacy, privateGroupParticipantQuery]);
+  }, [church, currentUserId, newGroupPrivacy, privateGroupParticipantQuery]);
 
   const handleSelectLeader = (user: UserProfile) => {
     setSelectedLeader(user);
@@ -374,7 +402,34 @@ const ChurchProfilePage: React.FC = () => {
   };
 
   const isMember = userProfile?.churchData?.churchId === church?.id;
-  const isOwner = currentUserId && church?.admins?.includes(currentUserId);
+  const isOwner = Boolean(currentUserId && church?.admins?.includes(currentUserId));
+  const rootGroupCapabilities = useMemo(
+      () => getChurchGroupCapabilities({ churchId: church?.id, roles: churchRoles }),
+      [church?.id, churchRoles]
+  );
+  const selectedParentCapabilities = useMemo(
+      () => getChurchGroupCapabilities({ churchId: church?.id, groupId: newGroupParentId || null, roles: churchRoles }),
+      [church?.id, churchRoles, newGroupParentId]
+  );
+  const canCreateSelectedGroup = Boolean(
+      isMember && (
+          newGroupParentId
+              ? selectedParentCapabilities.canCreateSubgroup
+              : rootGroupCapabilities.canCreateRootGroup
+      )
+  );
+  const canManageChurchIdentity = isOwner || hasActiveChurchRole(
+      churchRoles,
+      church?.id,
+      ['church_manager'],
+      ['church']
+  );
+  const canManageChurchServices = isOwner || hasActiveChurchRole(
+      churchRoles,
+      church?.id,
+      ['church_manager', 'pastor', 'leader'],
+      ['church', 'service']
+  );
   const churchFullAddress = [
       church?.location?.address,
       church?.location?.city,
@@ -431,10 +486,9 @@ const ChurchProfilePage: React.FC = () => {
           setIsLeavingChurch(false);
       }
   };
-  const isVisionary = userProfile?.subscriptionTier === 'gold';
   const requestedChurchRole = isAdminProfile(userProfile) ? 'admin' : 'pastor';
   const canRequestResponsibility = isMember && !isOwner && (isGeneralPastor(userProfile) || isGeneralManager(userProfile) || userProfile?.subscriptionTier === 'gold');
-  const canChangeLogo = isOwner || isVisionary;
+  const canChangeLogo = canManageChurchIdentity;
   const hasPendingResponsibilityRequest = responsibilityRequestStatus === 'pending';
 
   useEffect(() => {
@@ -546,7 +600,7 @@ const ChurchProfilePage: React.FC = () => {
     }));
 
     try {
-        await dbService.togglePrayerIntercession(prayer.id, currentUser.uid, !!isInterceding);
+        await dbService.togglePrayerIntercession(prayer.id, currentUser.uid, !isInterceding);
         if (!isInterceding) {
             showNotification("Intercedendo!", "success");
         }
@@ -584,29 +638,32 @@ const ChurchProfilePage: React.FC = () => {
   const handleCreateGroup = async () => {
       const currentUserId = currentUser?.uid || currentUser?.id;
       if (!newGroupName.trim() || !church || !currentUserId || isSavingGroupRef.current) return;
+      if (!canCreateSelectedGroup) {
+          showNotification('Somente pastor ou líder autorizado desta igreja pode criar este grupo.', 'error');
+          return;
+      }
+      if (selectedLeader && !eligibleLeaderIds.has(selectedLeader.uid)) {
+          showNotification('Escolha um pastor ou líder ativo vinculado a esta igreja.', 'error');
+          return;
+      }
       isSavingGroupRef.current = true;
       setIsSavingGroup(true);
       try {
           const slug = church.slug + '-' + generateSlug(newGroupName);
           let finalLeaderName = newGroupLeader.trim() || "Liderança não definida";
-          let leaderUid = selectedLeader?.uid || undefined;
+          const leaderUid = selectedLeader?.uid || undefined;
           if (selectedLeader) finalLeaderName = selectedLeader.displayName;
 
-          const groupData = {
+          const createdGroup = await churchGroupService.createGroup({
               churchId: church.id,
-              parentGroupId: newGroupParentId || undefined,
+              parentGroupId: newGroupParentId || null,
               name: newGroupName.trim(),
               slug,
               privacy: newGroupPrivacy,
-              stats: { memberCount: 1, totalMana: 0 },
               leaderName: finalLeaderName,
               leaderUid,
               createdBy: currentUserId,
-              createdAt: new Date().toISOString()
-          };
-
-          const id = await dbService.createCell(groupData);
-          const createdGroup = { id, ...groupData } as ChurchGroup;
+          });
           
           if (!newGroupParentId) {
               setGroups(prev => [...prev, createdGroup]);
@@ -638,7 +695,10 @@ const ChurchProfilePage: React.FC = () => {
       } catch (e) {
           console.error("Erro ao criar grupo:", formatRuntimeError(e));
           const message = formatRuntimeError(e);
-          showNotification(message.includes('Ja existe') ? message : "Erro ao criar grupo.", "error");
+          showNotification(
+              message.includes('existe') || message.includes('Somente') ? message : 'Erro ao criar grupo.',
+              'error'
+          );
       } finally {
           isSavingGroupRef.current = false;
           setIsSavingGroup(false);
@@ -665,7 +725,11 @@ const ChurchProfilePage: React.FC = () => {
       if (!currentUser) { openLogin(); return; }
       setLoading(true);
       try {
-          await dbService.joinCell(currentUser.uid, group.id, { name: group.name, slug: group.slug });
+          await dbService.joinCell(currentUser.uid, group.id, {
+              churchId: group.churchId,
+              name: group.name,
+              slug: group.slug,
+          });
           showNotification(`Bem-vindo ao grupo ${group.name}!`, "success");
           // Re-fetch groups to update status, but handle gracefully
           try {
@@ -676,6 +740,27 @@ const ChurchProfilePage: React.FC = () => {
           showNotification("Erro ao entrar no grupo.", "error");
       } finally {
           setLoading(false);
+      }
+  };
+
+  const handleChurchPostInteraction = async (post: Post, type: 'like' | 'comment' | 'share' | 'save') => {
+      if (type === 'share') {
+          const url = generateShareLink('post', { postId: post.id });
+          if (navigator.share) await navigator.share({ title: 'Culto+', url });
+          else { await navigator.clipboard.writeText(url); showNotification('Link copiado!', 'success'); }
+          return;
+      }
+      if (type === 'comment') { navigate(`/p/${post.id}`); return; }
+      if (!currentUser) { openLogin(); return; }
+      const previous = post;
+      try {
+          const persisted = type === 'like'
+              ? await postInteractionService.setLiked(post, currentUser.uid, !post.likedBy?.includes(currentUser.uid))
+              : await postInteractionService.setSaved(post, !post.saved);
+          setPrayers(current => current.map(item => isFeedPostMuralItem(item) && item.id === post.id ? { ...persisted, muralType: 'post' } : item));
+      } catch {
+          setPrayers(current => current.map(item => isFeedPostMuralItem(item) && item.id === post.id ? { ...previous, muralType: 'post' } : item));
+          showNotification('Não foi possível sincronizar esta ação.', 'error');
       }
   };
 
@@ -693,25 +778,10 @@ const ChurchProfilePage: React.FC = () => {
                 <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)', backgroundSize: '15px 15px' }} />
             )}
             <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black/45" />
-            <div className="absolute inset-x-0 top-4 z-10 mx-auto flex max-w-5xl items-center justify-between px-4">
+            <div className="absolute inset-x-0 top-4 z-10 mx-auto flex max-w-5xl items-center px-4">
                 <button onClick={() => navigate(-1)} className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-900 shadow-lg transition hover:bg-white" aria-label="Voltar">
                     <ArrowLeft size={18} />
                 </button>
-                <div className="flex items-center gap-2">
-                    <button onClick={handleFollowToggle} className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-lg transition hover:text-bible-gold" aria-label={isFollowing ? 'Seguindo' : 'Seguir'}>
-                        <Bell size={17} fill={isFollowing ? 'currentColor' : 'none'} />
-                    </button>
-                    <button
-                        onClick={async () => {
-                            if (navigator.share) await navigator.share({ title: church.name, url: window.location.href });
-                            else { await navigator.clipboard.writeText(window.location.href); showNotification('Link copiado!', 'success'); }
-                        }}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-lg transition hover:text-bible-gold"
-                        aria-label="Compartilhar igreja"
-                    >
-                        <MoreHorizontal size={18} />
-                    </button>
-                </div>
             </div>
         </div>
         
@@ -765,7 +835,7 @@ const ChurchProfilePage: React.FC = () => {
                             <div className="mb-2 flex items-center gap-2 text-sm font-bold text-bible-gold">
                                 <Crown size={15} className="fill-bible-gold/10" />
                                 {church.pastorName ? <span>Pastor(a): {church.pastorName}</span> : <span className="text-gray-400">Liderança não informada</span>}
-                                {isMember && (
+                                {canManageChurchIdentity && (
                                     <button
                                         onClick={() => setIsEditingPastor(true)}
                                         className="rounded-lg p-1 text-bible-gold transition hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -784,10 +854,11 @@ const ChurchProfilePage: React.FC = () => {
                         <div className="flex w-32 flex-col items-stretch gap-2 pt-2 md:w-40 md:pt-4">
                             <button
                                 onClick={handleFollowToggle}
-                                className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-[10px] font-black uppercase tracking-widest transition active:scale-95 ${isFollowing ? 'bg-gray-100 text-gray-500' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-black transition active:scale-95 ${isFollowing ? 'bg-gray-100 text-gray-600' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                                aria-pressed={isFollowing}
                             >
-                                <Bell size={14} fill={isFollowing ? 'currentColor' : 'none'} />
-                                {isFollowing ? 'Seguindo' : 'Seguir'}
+                                <Star size={15} fill={isFollowing ? 'currentColor' : 'none'} />
+                                {isFollowing ? 'Seguindo' : 'Seguir página'}
                             </button>
                             
                             <button
@@ -799,7 +870,8 @@ const ChurchProfilePage: React.FC = () => {
                                     }
                                 }}
                                 disabled={isJoiningChurch || isLeavingChurch}
-                                className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-[10px] font-black uppercase tracking-widest transition active:scale-95 disabled:opacity-60 ${
+                                aria-label={isMember ? 'Gerenciar vínculo com esta igreja' : 'Marcar que sou membro desta igreja'}
+                                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-black transition active:scale-95 disabled:opacity-60 ${
                                     isMember
                                         ? 'bg-green-600 text-white hover:bg-green-700 ring-1 ring-green-500'
                                         : 'bg-green-50 text-green-700 ring-1 ring-green-100 hover:bg-green-100'
@@ -812,7 +884,8 @@ const ChurchProfilePage: React.FC = () => {
                                 ) : (
                                     <LogIn size={14} />
                                 )}
-                                Sou Membro
+                                {isMember ? 'Membro' : 'Sou membro'}
+                                {isMember && <ChevronDown size={13} aria-hidden="true" />}
                             </button>
 
                             {(!church.admins || church.admins.length === 0) && (
@@ -825,10 +898,12 @@ const ChurchProfilePage: React.FC = () => {
                                 </button>
                             )}
 
-                            <button onClick={() => navigate('/workspace-pastoral')} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-gray-50 px-3 text-[10px] font-black uppercase tracking-widest text-gray-700 ring-1 ring-gray-100 transition hover:bg-gray-100 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-800">
-                                <Crown size={14} />
-                                Espaço
-                            </button>
+                            {hasActiveChurchRole(churchRoles, church.id, ['pastor'], ['church']) && (
+                                <button onClick={() => navigate('/workspace-pastoral')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gray-50 px-3 text-xs font-black text-gray-700 ring-1 ring-gray-100 transition hover:bg-gray-100 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-800">
+                                    <Crown size={14} />
+                                    Espaço pastoral
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -914,8 +989,10 @@ const ChurchProfilePage: React.FC = () => {
 
             <div className="flex bg-white dark:bg-bible-darkPaper p-1.5 rounded-[1.5rem] border border-gray-100 dark:border-gray-800 mb-8 shadow-sm overflow-x-auto no-scrollbar">
                 <button onClick={() => setActiveTab('mural')} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'mural' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><MessageSquareHeart size={16} /> Mural</button>
-                <button onClick={() => setIsServiceCalendarOpen(true)} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'cultos' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><Calendar size={16} /> Cultos</button>
+                <button onClick={() => setActiveTab('cultos')} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'cultos' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><Calendar size={16} /> Cultos</button>
                 <button onClick={() => setActiveTab('groups')} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'groups' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><Boxes size={16} /> Grupos</button>
+                <button onClick={() => setActiveTab('about')} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'about' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><Info size={16} /> Sobre</button>
+                {isMember && <button onClick={() => setActiveTab('members')} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'members' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><Users size={16} /> Membros</button>}
             </div>
 
             {isServiceCalendarOpen && (
@@ -956,17 +1033,11 @@ const ChurchProfilePage: React.FC = () => {
                 {activeTab === 'mural' && (
                     <div className="space-y-6 animate-in fade-in">
                         {isMember && (
-                            <div className="bg-white dark:bg-bible-darkPaper p-4 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm flex gap-3">
+                            <div className="relative flex gap-3 rounded-[1.35rem] border border-fuchsia-200 bg-white p-4 shadow-sm after:absolute after:-bottom-2 after:right-8 after:h-4 after:w-4 after:rotate-45 after:border-b after:border-r after:border-fuchsia-200 after:bg-white dark:border-fuchsia-400/20 dark:bg-[#1a1620] dark:after:border-fuchsia-400/20 dark:after:bg-[#1a1620]">
                                 <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden flex items-center justify-center shrink-0 border border-gray-200">
                                     {userProfile?.photoURL ? <img src={userProfile.photoURL} className="w-full h-full object-cover"/> : <UserIcon size={20} className="text-gray-400" />}
                                 </div>
-                                <div className="flex-1">
-                                    <textarea value={newPrayer} onChange={(e) => setNewPrayer(e.target.value)} placeholder="Compartilhe um pedido de oração ou testemunho com a igreja..." className="w-full bg-transparent outline-none text-sm resize-none h-12 pt-2 placeholder-gray-400" />
-                                    <div className="flex justify-between items-center mt-2 border-t border-gray-100 dark:border-gray-800 pt-2">
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase">Mural da Igreja</span>
-                                        <button onClick={handlePostPrayer} disabled={!newPrayer.trim() || isPostingPrayer} className="bg-bible-leather dark:bg-bible-gold text-white dark:text-black px-4 py-1.5 rounded-lg text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50 shadow-sm">Publicar</button>
-                                    </div>
-                                </div>
+                                <button type="button" onClick={() => setIsKingdomComposerOpen(true)} className="min-h-11 flex-1 rounded-xl px-2 text-left text-sm font-medium text-gray-500 hover:text-fuchsia-800 dark:text-gray-300 dark:hover:text-fuchsia-200">Abrir uma partilha para esta igreja</button>
                             </div>
                         )}
                         <div className="space-y-4">
@@ -978,10 +1049,7 @@ const ChurchProfilePage: React.FC = () => {
                                             post={item} 
                                             currentUser={currentUser}
                                             showNotification={showNotification}
-                                            onInteraction={async (postId, type) => {
-                                                if (type === 'like') await dbService.togglePostLike(postId, currentUser?.uid || '', !item.likedBy?.includes(currentUser?.uid || ''));
-                                                // Refresh local state if needed, or rely on re-fetch
-                                            }}
+                                            onInteraction={(_, type) => handleChurchPostInteraction(item, type)}
                                             onDelete={isOwner ? handleDeletePrayer : undefined}
                                         />
                                     );
@@ -1030,7 +1098,7 @@ const ChurchProfilePage: React.FC = () => {
 
                 {activeTab === 'cultos' && (
                     <div className="animate-in fade-in">
-                        <ChurchServicesPreview services={visibleServices} attendedServiceIds={attendedServiceIds} canManage={Boolean(isOwner || isMember)} />
+                        <ChurchServicesPreview services={visibleServices} attendedServiceIds={attendedServiceIds} canManage={canManageChurchServices} />
                     </div>
                 )}
 
@@ -1038,13 +1106,13 @@ const ChurchProfilePage: React.FC = () => {
                     <div className="space-y-6 animate-in fade-in">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-gray-800 dark:text-gray-200 text-sm uppercase tracking-wide flex items-center gap-2"><Boxes size={18} /> Grupos ({groups.length})</h3>
-                            {isMember && (
-                                <button onClick={() => setIsCreatingGroup(true)} className="text-[10px] font-black uppercase tracking-widest bg-bible-gold/10 text-bible-gold px-3 py-1.5 rounded-full flex items-center gap-1 hover:bg-bible-gold/20 transition-colors"><Plus size={14}/> Criar Grupo</button>
+                            {isMember && rootGroupCapabilities.canCreateRootGroup && (
+                                <button onClick={() => setIsCreatingGroup(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-bible-gold/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-bible-gold transition-colors hover:bg-bible-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold"><Plus size={16}/> Criar grupo</button>
                             )}
                         </div>
 
                         {/* Modal/Área de Criação de Grupo (mantido do anterior) */}
-                        {isCreatingGroup && (
+                        {isCreatingGroup && rootGroupCapabilities.canCreateRootGroup && (
                             <div className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] border-2 border-dashed border-bible-gold/30 mb-6 animate-in zoom-in-95 relative z-50">
                                 <h4 className="font-bold text-sm mb-4">Novo Grupo</h4>
                                 <div className="space-y-4">
@@ -1193,7 +1261,7 @@ const ChurchProfilePage: React.FC = () => {
                                 </div>
                                 <div className="flex gap-2 mt-6">
                                     <button onClick={() => { setIsCreatingGroup(false); setSelectedLeader(null); setNewGroupLeader(''); setNewGroupParentId(''); setNewGroupPrivacy('public'); setPrivateGroupParticipantQuery(''); setPrivateGroupParticipantResults([]); setSelectedPrivateGroupParticipants([]); }} disabled={isSavingGroup} className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-xl text-xs font-bold transition-colors disabled:opacity-50">Cancelar</button>
-                                    <button onClick={handleCreateGroup} disabled={!newGroupName.trim() || isSavingGroup} className="flex-1 py-3 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-xl text-xs font-bold shadow-lg disabled:opacity-50 transition-all">
+                                    <button onClick={handleCreateGroup} disabled={!newGroupName.trim() || isSavingGroup || !canCreateSelectedGroup} className="flex-1 py-3 bg-bible-leather dark:bg-bible-gold text-white dark:text-black rounded-xl text-xs font-bold shadow-lg disabled:opacity-50 transition-all">
                                         {isSavingGroup ? <Loader2 size={16} className="mx-auto animate-spin" /> : 'Criar'}
                                     </button>
                                 </div>
@@ -1204,7 +1272,13 @@ const ChurchProfilePage: React.FC = () => {
                             {groups.map(group => {
                                 const currentUserId = currentUser?.uid || currentUser?.id;
                                 const isMyGroup = userProfile?.churchData?.groupId === group.id;
-                                const canDeleteGroup = Boolean(currentUserId && (group.createdBy === currentUserId || group.leaderUid === currentUserId || isOwner));
+                                const groupCapabilities = getChurchGroupCapabilities({
+                                    churchId: church.id,
+                                    groupId: group.id,
+                                    parentGroupId: group.parentGroupId,
+                                    roles: churchRoles,
+                                });
+                                const canDeleteGroup = Boolean(isMember && groupCapabilities.canArchiveGroup);
                                 return (
                                     <div key={group.id} className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm group">
                                         <div className="flex justify-between items-start mb-4">
@@ -1212,13 +1286,10 @@ const ChurchProfilePage: React.FC = () => {
                                                 <h4 className="font-bold text-gray-900 dark:text-white group-hover:text-bible-gold transition-colors">{group.name}</h4>
                                                 <div className="flex items-center gap-1">
                                                     <span className="text-[10px] font-bold text-gray-400 uppercase">Líder:</span>
-                                                    {group.leaderUid ? (
-                                                        <Link href={`${basePath}/u/${group.leaderName?.replace('@','')}`} className="text-[10px] font-black text-bible-gold hover:underline flex items-center gap-1">
-                                                            {group.leaderName} <CheckCircle2 size={10} className="fill-bible-gold text-white" />
-                                                        </Link>
-                                                    ) : (
-                                                        <span className="text-[10px] font-bold text-gray-600 dark:text-gray-300">{group.leaderName || "Indefinido"}</span>
-                                                    )}
+                                                    <span className="flex items-center gap-1 text-[10px] font-bold text-gray-600 dark:text-gray-300">
+                                                        {group.leaderName || "Indefinido"}
+                                                        {group.leaderUid && <CheckCircle2 size={10} className="fill-bible-gold text-white" aria-label="Liderança vinculada" />}
+                                                    </span>
                                                 </div>
                                             </div>
                                             <div className="flex flex-col items-end gap-1">
@@ -1228,7 +1299,7 @@ const ChurchProfilePage: React.FC = () => {
                                         </div>
                                         <div className="flex gap-2">
                                             <button 
-                                                onClick={() => navigate(`${basePath}/grupo/${group.id}`)}
+                                                onClick={() => navigate(`/grupo/${group.slug || group.id}`)}
                                                 className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-bold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
                                             >
                                                 <MessageSquare size={14} /> Fórum
@@ -1259,6 +1330,32 @@ const ChurchProfilePage: React.FC = () => {
                         )}
                     </div>
                 )}
+
+                {activeTab === 'about' && (
+                    <section className="grid gap-4 animate-in fade-in md:grid-cols-2" aria-labelledby="church-about-title">
+                        <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-bible-darkPaper">
+                            <h2 id="church-about-title" className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white"><Info size={19} className="text-bible-gold" /> Sobre a igreja</h2>
+                            <dl className="mt-5 space-y-4 text-sm">
+                                <div><dt className="font-semibold text-gray-500">Denominação</dt><dd className="mt-1 text-gray-900 dark:text-white">{church.denomination || 'Não informada'}</dd></div>
+                                <div><dt className="font-semibold text-gray-500">Liderança pastoral</dt><dd className="mt-1 text-gray-900 dark:text-white">{church.pastorName || 'Não informada'}</dd></div>
+                            </dl>
+                        </div>
+                        <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-bible-darkPaper">
+                            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white"><MapPin size={19} className="text-bible-gold" /> Localização</h2>
+                            <p className="mt-5 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{[church.location?.address, church.location?.city, church.location?.state].filter(Boolean).join(' · ') || 'Endereço ainda não informado.'}</p>
+                        </div>
+                    </section>
+                )}
+
+                {activeTab === 'members' && isMember && (
+                    <section className="rounded-[1.5rem] border border-gray-100 bg-white p-5 shadow-sm animate-in fade-in dark:border-gray-800 dark:bg-bible-darkPaper" aria-labelledby="church-members-title">
+                        <div className="mb-4 flex items-center justify-between gap-3"><h2 id="church-members-title" className="text-lg font-bold text-gray-900 dark:text-white">Comunidade vinculada</h2><span className="text-sm font-semibold text-gray-500">{members.length} membros</span></div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                            {members.map(member => <Link key={member.uid} href={`/u/${member.username}`} className="flex min-h-14 items-center gap-3 rounded-xl p-3 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold dark:hover:bg-gray-900"><div className="h-10 w-10 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">{member.photoURL ? <img src={member.photoURL} alt="" className="h-full w-full object-cover" /> : <UserIcon className="m-auto mt-2.5 text-gray-400" size={18} />}</div><div className="min-w-0"><p className="truncate text-sm font-bold text-gray-900 dark:text-white">{member.displayName}</p><p className="truncate text-xs text-gray-500">@{member.username}</p></div></Link>)}
+                        </div>
+                        {members.length === 0 && <p className="py-10 text-center text-sm text-gray-500">Nenhum membro disponível neste diretório.</p>}
+                    </section>
+                )}
             </div>
         </div>
 
@@ -1281,7 +1378,7 @@ const ChurchProfilePage: React.FC = () => {
                             <div className="flex justify-center py-10"><Loader2 className="animate-spin text-bible-gold" size={28} /></div>
                         ) : (
                             (peoplePanel === 'members' ? members : followers).map((person: any) => (
-                                <Link key={person.uid || person.id} href={`${basePath}/u/${person.username}`} className="flex items-center gap-3 rounded-2xl p-3 transition hover:bg-gray-50 dark:hover:bg-gray-900" onClick={() => setPeoplePanel(null)}>
+                                <Link key={person.uid} href={`/u/${person.username}`} className="flex items-center gap-3 rounded-2xl p-3 transition hover:bg-gray-50 dark:hover:bg-gray-900" onClick={() => setPeoplePanel(null)}>
                                     <div className="h-11 w-11 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
                                         {person.photoURL ? <img src={person.photoURL} className="h-full w-full object-cover" alt={person.displayName} /> : <UserIcon className="m-auto mt-3 text-gray-400" size={20} />}
                                     </div>
@@ -1353,6 +1450,14 @@ const ChurchProfilePage: React.FC = () => {
             message={`Deseja deixar de ser membro da igreja ${church.name}?`}
             confirmText={isLeavingChurch ? "Saindo..." : "Sim, Sair"}
             variant="danger"
+        />
+
+        <KingdomComposer
+            isOpen={isKingdomComposerOpen}
+            onClose={() => setIsKingdomComposerOpen(false)}
+            onPostSuccess={() => { setIsKingdomComposerOpen(false); void loadChurchData(); }}
+            initialTab="reflection"
+            initialVisibility="church"
         />
     </div>
   );

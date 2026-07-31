@@ -142,6 +142,78 @@ export type ContentCreationScope = 'user' | 'church' | 'group';
 export type GroupAccessInviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
 export type GroupAccessInviteSource = 'invite' | 'mention';
 
+export type StudyBlockType =
+  | 'free-text'
+  | 'hero'
+  | 'authority'
+  | 'biblical'
+  | 'video'
+  | 'footer'
+  | 'study-content'
+  | 'slide'
+  | 'hero-split'
+  | 'study-outline'
+  | 'related-verses'
+  | 'reflection-question'
+  | 'references-chain'
+  | 'cta'
+  | 'rich-text'
+  | 'spacer';
+
+export type StudyLegacyLayoutWidth = '1/1' | '2/3' | '1/2' | '1/3';
+export type StudyLayoutSpan = 12 | 8 | 6 | 4;
+
+export interface StudyEditorBlock<TData extends Record<string, unknown> = Record<string, unknown>> {
+  id: string;
+  type: StudyBlockType;
+  data: TData;
+  layoutWidth?: StudyLegacyLayoutWidth;
+  layout?: {
+    span: StudyLayoutSpan;
+  };
+}
+
+export interface StudyDocumentV2 {
+  schemaVersion: 2;
+  id?: string;
+  revision: number;
+  context: 'standalone' | 'roomLesson';
+  title: string;
+  description: string;
+  category: string;
+  tags: string[];
+  bibleReference?: {
+    reference: string;
+    text?: string;
+    version?: string;
+  };
+  blocks: StudyEditorBlock[];
+  status: 'draft' | 'published';
+  updatedAt: string;
+}
+
+export interface StudyPersistenceState {
+  revision: number;
+  autosaveStatus: 'idle' | 'saving' | 'saved' | 'conflict' | 'error';
+}
+
+export type StudyStudioMode = 'standalone' | 'roomLesson';
+
+export interface StudyStudioCapabilities {
+  canConfigureAudience: boolean;
+  canExportPdf: boolean;
+  canPublishStandalone: boolean;
+  canShareToKingdom: boolean;
+  canUseAI: boolean;
+  finalActionLabel: 'Pré-visualizar' | 'Concluir aula';
+}
+
+export interface StudyStudioConfig {
+  mode: StudyStudioMode;
+  draftId: string;
+  capabilities: StudyStudioCapabilities;
+}
+
 export interface GroupAccessInvite {
   id: string;
   groupId: string;
@@ -284,6 +356,8 @@ export interface Note extends UserContent {
 
 // --- PLANS & ROOMS ---
 export interface CustomPlan extends UserContent {
+  revision?: number;
+  schemaVersion?: number;
   category: string;
   weeks: PlanWeek[];
   privacyType: 'public' | 'followers' | 'church' | 'group';
@@ -345,7 +419,7 @@ export interface Post {
   userDisplayName: string;
   userUsername: string;
   userPhotoURL?: string;
-  type: 'image' | 'prayer' | 'reflection' | 'devotional' | 'quiz' | 'feeling' | 'cell_meeting' | 'podcast' | 'study' | 'room';
+  type: 'image' | 'prayer' | 'reflection' | 'devotional' | 'quiz' | 'feeling' | 'checkin' | 'cell_meeting' | 'podcast' | 'study' | 'room';
   content: string;
   likesCount: number;
   commentsCount: number;
@@ -376,16 +450,41 @@ export interface Post {
   studyCoverUrl?: string;
   studyUrl?: string;
   studySourceLabel?: string;
+  devotionalId?: string;
+  devotionalTitle?: string;
+  devotionalVerse?: string;
+  devotionalReference?: string;
+  devotionalUrl?: string;
+  devotionalDate?: string;
   alsoShowOnChurch?: boolean;
   serviceId?: string;
   serviceTitle?: string;
+  sourceType?: string;
+  sourceId?: string;
+  dedupeKey?: string;
+  metadata?: Record<string, unknown>;
   authorProfilePublic?: boolean;
   authorChurchId?: string;
   authorCity?: string;
   authorState?: string;
 }
 
+export type DevotionalJourneyStep = 1 | 2 | 3 | 4 | 5;
+
+export interface DevotionalJourneyState {
+  devotionalId: string;
+  completedSteps: DevotionalJourneyStep[];
+  reflectionDraft: string;
+  practicalAction: string;
+  practicalActionCompleted: boolean;
+  completedAt: string | null;
+  feedSharedAt: string | null;
+  updatedAt: string;
+}
+
 export interface PostComment { id: string; postId: string; userId: string; userDisplayName: string; userPhotoURL?: string | null; content: string; createdAt: string; }
+export type PostReportReason = 'spam' | 'abuse' | 'misinformation' | 'privacy' | 'other';
+export interface PostInteractionState { likesCount: number; likedBy: string[]; saved: boolean; hidden: boolean; }
 export interface PrayerRequest { id: string; userId: string; userName: string; userPhotoURL?: string; content: string; createdAt: string; intercessorsCount: number; intercessors: string[]; targetType: 'church' | 'cell' | 'global'; targetId: string; churchId: string; cellName?: string; }
 
 export type ChurchServiceType =
@@ -488,6 +587,18 @@ export interface ServiceReactionSummary {
   hallelujah: number;
 }
 
+export interface ServiceReactionActor {
+  userId: string;
+  userName: string;
+  userPhotoURL?: string | null;
+}
+
+export interface ServiceReactionBurst extends ServiceReactionActor {
+  id: string;
+  reactionType: ServiceReactionType;
+  createdAt: string;
+}
+
 export interface ServicePrayerRequest {
   id: string;
   serviceId: string;
@@ -500,6 +611,30 @@ export interface ServicePrayerRequest {
   intercessorsCount: number;
   intercessedByMe?: boolean;
   createdAt: string;
+}
+
+export interface ServicePrayerTimelineEvent {
+  prayerId: string;
+  serviceId: string;
+  churchId: string;
+  userName: string;
+  userPhotoURL?: string | null;
+  isPrivate: boolean;
+  contentPreview?: string | null;
+  createdAt: string;
+}
+
+export interface ServiceLiturgyComment {
+  id: string;
+  serviceId: string;
+  churchId: string;
+  liturgyItemId: string;
+  userId: string;
+  userName: string;
+  userPhotoURL?: string | null;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ServicePersonalReflection {
@@ -781,7 +916,7 @@ export interface PlanDayContent {
     endVerse?: number;
     formatted: string;
   };
-  blocksConfig?: any[];
+  blocksConfig?: StudyEditorBlock<Record<string, any>>[];
   tags?: string[];
   category?: string;
 }
@@ -1102,6 +1237,8 @@ export interface ChurchQrForm {
   description: string;
   fields: ChurchQrFormField[];
   destination: string;
+  scopeType: ChurchRoleScopeType;
+  scopeId?: string | null;
   privacyText: string;
   confirmationText: string;
   allowAnonymous: boolean;
@@ -1237,6 +1374,24 @@ export interface AdminChurchManager {
   grantedAt?: string | null;
 }
 export interface ChurchGroup { id: string; churchId: string; parentGroupId?: string; name: string; slug: string; privacy?: GroupPrivacy; stats: { memberCount: number; totalMana: number }; leaderName?: string; leaderUid?: string; createdBy: string; createdAt: string; }
+export interface ChurchGroupCapabilities {
+  canCreateRootGroup: boolean;
+  canCreateSubgroup: boolean;
+  canEditGroup: boolean;
+  canInviteMembers: boolean;
+  canModerateGroup: boolean;
+  canArchiveGroup: boolean;
+}
+export interface ChurchGroupCreateInput {
+  churchId: string;
+  name: string;
+  slug: string;
+  privacy: GroupPrivacy;
+  createdBy: string;
+  parentGroupId?: string | null;
+  leaderUid?: string | null;
+  leaderName?: string | null;
+}
 export interface DailyReading { day: number; dateDisplay: string; readings: ReadingSection[]; }
 export interface ReadingSection { section: string; bookId: string; name: string; ref: string; startChapter: number; endChapter: number; }
 export interface SystemLog { id: string; type: 'error' | 'user_report' | 'admin_action'; message?: string; description?: string; stack?: string; timestamp: string; url: string; userAgent: string; userId?: string; severity?: 'low' | 'medium' | 'high'; action?: string; target?: string; details?: string; }

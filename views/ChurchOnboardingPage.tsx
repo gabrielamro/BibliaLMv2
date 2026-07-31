@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 import { dbService } from '../services/supabase';
+import { churchGroupService } from '../services/churchGroupService';
 import { generateSlug } from '../utils/textUtils';
 import { Church, MapPin, Search, Plus, ArrowRight, ArrowLeft, CheckCircle2, ShieldCheck, Users, Loader2, AlertCircle, Trophy, Palette, Home, LogOut, ChevronRight, MapPinned, AtSign, Check, User as UserIcon, Crown, Lock, Zap } from 'lucide-react';
 import { Church as ChurchType, ChurchGroup, UserProfile } from '../types';
@@ -175,8 +176,15 @@ const ChurchOnboardingPage: React.FC = () => {
               createdBy: currentUser.uid,
               createdAt: new Date().toISOString()
           };
-          const id = await dbService.createCell(newGroupData);
-          const groupWithId = { id, ...newGroupData } as ChurchGroup;
+          const groupWithId = await churchGroupService.createGroup({
+              churchId: newGroupData.churchId,
+              name: newGroupData.name,
+              slug: newGroupData.slug,
+              leaderName: newGroupData.leaderName,
+              leaderUid: newGroupData.leaderUid,
+              createdBy: newGroupData.createdBy,
+              privacy: 'public',
+          });
           setGroups(prev => [...prev, groupWithId]);
           setSelectedGroup(groupWithId);
           setIsCreatingGroup(false);
@@ -343,7 +351,9 @@ const ChurchOnboardingPage: React.FC = () => {
                               ) : (
                                   <p className="text-sm text-gray-400 text-center py-6 bg-gray-50 dark:bg-gray-900 rounded-2xl">Nenhum grupo ainda.</p>
                               )}
-                              <button onClick={() => setIsCreatingGroup(true)} className="w-full py-4 border-2 border-dashed border-gray-200 dark:border-gray-800 text-gray-400 font-bold rounded-xl hover:border-bible-gold hover:text-bible-gold transition-all flex items-center justify-center gap-2 group"><Plus size={20} /> Adicionar Grupo</button>
+                              <p className="rounded-xl border border-purple-100 bg-purple-50 p-4 text-center text-xs font-bold leading-relaxed text-purple-800 dark:border-purple-900/50 dark:bg-purple-950/20 dark:text-purple-200">
+                                  Novos grupos são criados na página da igreja por pastor ou líder ativo vinculado.
+                              </p>
                           </div>
                       ) : (
                           <div className="space-y-4">

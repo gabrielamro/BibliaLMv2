@@ -1,9 +1,6 @@
-"use client";
+import { redirect } from 'next/navigation';
 
-import ChurchProfilePage from '../../../../views/public/ChurchProfilePage';
-
-export default function Page() {
-  return (
-    <ChurchProfilePage />
-  );
+export default async function Page({ params }: { params: Promise<{ churchSlug: string }> }) {
+  const { churchSlug } = await params;
+  redirect(`/igreja/${encodeURIComponent(churchSlug)}`);
 }
