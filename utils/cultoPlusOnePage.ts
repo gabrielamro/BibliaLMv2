@@ -54,6 +54,35 @@ export const getLiveStatusLabel = (service: Pick<ChurchService, 'startsAt' | 'en
 export const getOfferingItem = (items: ServiceLiturgyItem[]) =>
   items.find((item) => item.kind === 'offering' && item.pixKey?.trim());
 
+const getServiceMomentDate = (serviceStartsAt: string, momentStartsAt: string) => {
+  const explicitDate = new Date(momentStartsAt);
+  if (momentStartsAt.includes('T') && !Number.isNaN(explicitDate.getTime())) return explicitDate;
+
+  const match = momentStartsAt.match(/^(\d{1,2}):(\d{2})$/);
+  const serviceDate = new Date(serviceStartsAt);
+  if (!match || Number.isNaN(serviceDate.getTime())) return null;
+
+  serviceDate.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  return serviceDate;
+};
+
+export const getNextServiceMomentDistanceLabel = (
+  service: Pick<ChurchService, 'startsAt'>,
+  momentStartsAt: string,
+  nowDate = new Date(),
+  referenceMomentStartsAt?: string,
+) => {
+  const nextDate = getServiceMomentDate(service.startsAt, momentStartsAt);
+  if (!nextDate) return '';
+
+  const referenceDate = referenceMomentStartsAt
+    ? getServiceMomentDate(service.startsAt, referenceMomentStartsAt) ?? nowDate
+    : nowDate;
+  const minutes = Math.max(0, Math.round((nextDate.getTime() - referenceDate.getTime()) / 60000));
+  if (minutes <= 0) return 'agora';
+  return `em ~${minutes} min`;
+};
+
 const escapeIcsText = (value: string) =>
   value
     .replace(/\\/g, '\\\\')

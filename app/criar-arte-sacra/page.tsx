@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, LayoutGrid, Loader2, Smartphone, Sparkles } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Download, LayoutGrid, Loader2, Send, Smartphone, Sparkles } from 'lucide-react';
 
 import SEO from '../../components/SEO';
+import CultoPlusPageShell from '../../components/CultoPlusPageShell';
 import dynamic from 'next/dynamic';
 
 const SacredArtCanvas = dynamic(() => import('../../components/sacred-art-editor/SacredArtCanvas'), { 
@@ -22,13 +23,12 @@ import { useHeader } from '../../contexts/HeaderContext';
 import { bibleService } from '../../services/bibleService';
 import { generateVerseImage } from '../../services/pastorAgent';
 import { dbService, uploadBlob } from '../../services/supabase';
+import { kingdomPublishingService } from '../../services/kingdomPublishingService';
 import { composeImageWithText, CompositionOptions } from '../../utils/imageCompositor';
 import { base64ToBlob, optimizeImage } from '../../utils/imageOptimizer';
 import { useLocation, useNavigate } from '../../utils/router';
 import {
-  EDITOR_LAYER_Z_INDEX,
   FONT_SCALE_LIMITS,
-  TOP_SEARCH_BAR_WIDTH_CLASS,
   VERSE_FONT_PX_LIMITS,
   getFontScaleFromVersePx,
   getResponsiveTextLayout,
@@ -108,7 +108,7 @@ export default function CriarArteSacraPage() {
   const [isPostingToFeed, setIsPostingToFeed] = useState(false);
   const [rawGeneratedBase64, setRawGeneratedBase64] = useState<string | null>(null);
   const [finalImg, setFinalImg] = useState<string | null>(null);
-  const [activeControlTab, setActiveControlTab] = useState<EditorControlTab>('templates');
+  const [activeControlTab, setActiveControlTab] = useState<EditorControlTab>(null);
   const [selectedLayer, setSelectedLayer] = useState<EditorLayer>(null);
   const [galleryImages, setGalleryImages] = useState<SacredArtGalleryItem[]>(HARDCODED_FREE_IMAGES);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -368,15 +368,18 @@ export default function CriarArteSacraPage() {
         ? `📖 ${foundVerse.ref}\n\n"${foundVerse.text}"`
         : customPrompt || 'Arte sacra criada no BíbliaLM';
 
-      await dbService.createPost({
-        userId: currentUser.uid,
-        userDisplayName: userProfile.displayName,
-        userUsername: userProfile.username,
-        userPhotoURL: userProfile.photoURL,
+      const post = await kingdomPublishingService.publish({
+        publisher: {
+          userId: currentUser.uid,
+          displayName: userProfile.displayName,
+          username: userProfile.username,
+          photoURL: userProfile.photoURL,
+        },
         type: 'image',
         content: caption,
-        image: imageUrl,
-        destination: 'global',
+        imageUrl,
+        sourceType: 'sacred_art',
+        metadata: foundVerse ? { verseReference: foundVerse.ref } : {},
       });
 
       try {
@@ -386,7 +389,7 @@ export default function CriarArteSacraPage() {
       }
 
       showNotification('Arte publicada no Reino!', 'success');
-      navigate('/social', { state: { refreshFeed: true } });
+      navigate('/social', { state: { refreshFeed: true, highlightPostId: post.id } });
     } catch (error) {
       console.error('Erro ao publicar arte no Reino:', error);
       showNotification('Erro ao publicar no Reino. Tente novamente.', 'error');
@@ -474,204 +477,140 @@ export default function CriarArteSacraPage() {
     }));
   };
 
+  const sharedDrawerProps = {
+    activeControlTab,
+    setActiveControlTab,
+    galleryImages,
+    currentUser: currentUser ? { uid: currentUser.uid } : null,
+    setGalleryImages,
+    setRawGeneratedBase64,
+    editOptions,
+    setEditOptions,
+    selectedStyle,
+    setSelectedStyle,
+    customPrompt,
+    setCustomPrompt,
+    handleCreateClick,
+    isGeneratingImg,
+    fileInputRef,
+    resetText,
+    fontSizePx: currentTextLayout.verseFontSizePx,
+    onFontSizePxChange: handleFontSizePxChange,
+    styles: STYLES,
+    fonts: FONTS,
+    colors: COLORS,
+    filters: FILTERS,
+    fallbackImages: HARDCODED_FREE_IMAGES,
+  };
+  const studioStep = !foundVerse ? 1 : !rawGeneratedBase64 ? 2 : selectedLayer ? 3 : 4;
+
   return (
-    <div className="h-full bg-gray-50 dark:bg-black flex flex-col relative overflow-hidden">
-      <SEO title="Criar Arte Sacra | Estúdio" />
+    <CultoPlusPageShell compactDesktop>
+    <div className="relative flex h-[calc(100dvh-89px)] min-h-0 flex-col overflow-hidden bg-[#f4efe7] text-[#17211f] dark:bg-[#0b0b0c] dark:text-gray-100 lg:h-[100dvh]">
+      <SEO title="Criar Arte Sacra | Culto+" />
 
-      <header
-        className="relative shrink-0 flex items-start justify-between gap-2 px-3 sm:px-4 md:px-8 pt-3 pb-3 pointer-events-none"
-        style={{ zIndex: EDITOR_LAYER_Z_INDEX.header }}
-      >
-        <div className="flex items-center gap-2 pointer-events-auto">
-          <button
-            onClick={() => navigate('/estudio-criativo')}
-            className="p-3 bg-white/80 dark:bg-black/60 shadow-lg rounded-full text-gray-400 hover:text-bible-gold transition-all backdrop-blur-md border border-gray-200 dark:border-white/5"
-          >
-            <ArrowLeft size={20} />
+      <header className="relative z-50 shrink-0 border-b border-[#ddd5ca] bg-[#fffdf9]/95 px-3 py-2.5 backdrop-blur-xl dark:border-white/10 dark:bg-[#111113]/95 md:px-5">
+        <div className="mx-auto flex max-w-[1920px] items-center gap-3">
+          <button type="button" onClick={() => navigate('/newhome?tab=criar')} aria-label="Voltar ao estúdio criativo" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#ddd5ca] bg-white text-gray-600 transition hover:border-[#c5a059] hover:text-[#8b611b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b5148] dark:border-white/10 dark:bg-white/5 dark:text-gray-200">
+            <ArrowLeft size={19} />
           </button>
-        </div>
-
-        <div className="min-w-0 flex-1 flex justify-center pointer-events-auto">
-          <div className="flex flex-col items-center gap-2 group">
-            <div className="flex w-full flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 md:gap-3">
-              {/* Search Bar (Text Entry Style) */}
-              <div className={`min-w-0 flex items-center gap-3 bg-[#101010]/95 py-3 px-4 sm:px-5 rounded-2xl border border-white/12 shadow-2xl transition-all focus-within:border-bible-gold/70 focus-within:ring-4 focus-within:ring-bible-gold/10 ${TOP_SEARCH_BAR_WIDTH_CLASS}`}>
-                <div className="w-1 h-5 bg-bible-gold rounded-full shrink-0" />
-                <input
-                  type="text"
-                  value={refInput}
-                  onChange={(e) => setRefInput(e.target.value)}
-                  className="min-w-0 w-full bg-transparent border-none focus:outline-none text-sm md:text-base font-semibold text-white caret-bible-gold placeholder:text-white/55"
-                  placeholder="Adicione o versículo..."
-                />
-              </div>
-
-              {/* Aspect Ratio Controls (Fora) */}
-              <div className="flex shrink-0 items-center justify-center gap-1 bg-[#101010]/85 backdrop-blur-md border border-white/10 rounded-full p-1 shadow-xl">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditOptions((current) => ({ ...current, aspectRatio: 'feed' }));
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${editOptions.aspectRatio === 'feed' ? 'bg-bible-gold text-black shadow-lg shadow-bible-gold/20' : 'text-white/65 hover:text-white hover:bg-white/10'}`}
-                >
-                  <LayoutGrid size={12} /> Feed
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditOptions((current) => ({ ...current, aspectRatio: 'story' }));
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${editOptions.aspectRatio === 'story' ? 'bg-bible-gold text-black shadow-lg shadow-bible-gold/20' : 'text-white/65 hover:text-white hover:bg-white/10'}`}
-                >
-                  <Smartphone size={12} /> Story
-                </button>
-              </div>
-
-              {/* AI Button (Fora) */}
-              <div className="flex items-center shrink-0">
-                {isSearchingVerse ? (
-                  <div className="p-2.5 bg-black/40 rounded-full border border-white/10">
-                    <Loader2 size={16} className="animate-spin text-bible-gold" />
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setActiveControlTab('ai')}
-                    className="p-3 bg-bible-gold text-black rounded-full hover:scale-110 active:scale-95 transition-all shadow-lg shadow-bible-gold/30 hover:shadow-bible-gold/40"
-                    title="Gerar com IA"
-                  >
-                    <Sparkles size={18} />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {foundVerse && (
-              <div className="animate-in slide-in-from-top-2 fade-in duration-300 mt-1">
-                <p className="text-xs md:text-sm text-white/62 font-serif italic text-center max-w-[620px] line-clamp-2 px-4 leading-relaxed">
-                  “{foundVerse.text}”
-                </p>
-              </div>
-            )}
+          <div className="min-w-0 border-l border-[#e6dfd5] pl-3 dark:border-white/10">
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8b611b]">Criar · Arte Sacra</p>
+            <h1 className="truncate font-serif text-lg font-bold text-[#14253a] dark:text-white md:text-xl">Estúdio de Arte Sacra</h1>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3 pointer-events-auto">
-          <div className="hidden md:flex items-center px-4 py-2 bg-black/40 rounded-full backdrop-blur-md border border-white/10 shadow-xl">
-            <div className="w-2 h-2 bg-bible-gold rounded-full animate-pulse mr-2" />
-            <span className="text-[8px] font-black text-white/80 uppercase tracking-widest">Estúdio Vivo</span>
+          <ol className="mx-auto hidden min-w-[420px] max-w-[560px] flex-1 items-center justify-center lg:flex" aria-label="Etapas da criação">
+            {['Palavra', 'Criar', 'Ajustar', 'Publicar'].map((label, index) => {
+              const step = index + 1;
+              const complete = studioStep > step;
+              const active = studioStep === step;
+              return <li key={label} className="flex flex-1 items-center last:flex-none"><span className="flex flex-col items-center gap-1"><span className={`flex h-7 w-7 items-center justify-center rounded-full border text-[10px] font-black ${complete ? 'border-[#0b5148] bg-[#0b5148] text-white' : active ? 'border-[#c5a059] bg-[#c5a059] text-[#17211f]' : 'border-[#d8d0c5] bg-white text-gray-400 dark:bg-white/5'}`}>{complete ? <Check size={14} /> : step}</span><small className={`text-[9px] font-bold ${active ? 'text-[#8b611b]' : 'text-gray-500'}`}>{label}</small></span>{step < 4 && <span className={`mx-2 h-px flex-1 ${complete ? 'bg-[#0b5148]' : 'bg-[#d8d0c5] dark:bg-white/10'}`} />}</li>;
+            })}
+          </ol>
+
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <button type="button" onClick={handleDownload} disabled={!finalImg} className="hidden min-h-11 items-center gap-2 rounded-xl border border-[#d8d0c5] bg-white px-4 text-xs font-black text-[#26342f] transition hover:border-[#c5a059] disabled:cursor-not-allowed disabled:opacity-40 sm:flex dark:border-white/10 dark:bg-white/5 dark:text-white"><Download size={16} /> Baixar</button>
+            <button type="button" onClick={handlePostToFeed} disabled={!finalImg || isPostingToFeed} className="flex min-h-11 items-center gap-2 rounded-xl bg-[#0b5148] px-3 text-xs font-black text-white shadow-sm transition hover:bg-[#073f38] disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"><Send size={16} /> <span className="hidden sm:inline">Publicar no Reino</span><span className="sm:hidden">Publicar</span></button>
           </div>
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 relative flex flex-col pb-24 md:pb-4 overflow-hidden">
-        <div className="min-h-0 flex-1 w-full grid grid-cols-1 md:grid-cols-[auto_132px_minmax(300px,390px)] items-stretch justify-center gap-3 px-4 md:px-6 pb-4 overflow-hidden">
-          <div className="min-h-0 flex items-center justify-center overflow-hidden">
-            <SacredArtCanvas
-              canvasContainerRef={canvasContainerRef}
-              rawGeneratedBase64={rawGeneratedBase64}
-              foundVerse={foundVerse}
-              editOptions={editOptions}
-              selectedLayer={selectedLayer}
-              setSelectedLayer={setSelectedLayer}
-              onBgDragEnd={handleBgDragEnd}
-              onTextDragEnd={handleDragEnd}
-              onOpenAi={() => setActiveControlTab('ai')}
-              onOpenTemplates={() => setActiveControlTab('templates')}
-              onCanvasResize={setCanvasSize}
-              onFontSizeScaleChange={(newScale) => {
-                setEditOptions(prev => ({ ...prev, fontSizeScale: Math.max(0.01, newScale) }));
-              }}
-              onBgScaleChange={(newScale) => {
-                setEditOptions(prev => ({ ...prev, bgScale: Math.max(1, Math.min(5, newScale)) }));
-              }}
-              getCSSFilters={getCSSFilters}
-            />
+      <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden p-2 md:p-3">
+        <section className="mb-2 shrink-0 rounded-2xl border border-[#ded7cd] bg-[#fffdf9] p-2.5 shadow-sm dark:border-white/10 dark:bg-[#151515] xl:hidden" aria-label="Escolher Palavra">
+          <div className="flex items-center gap-2">
+            <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#d9d1c6] bg-white px-3 focus-within:border-[#0b5148] dark:border-white/10 dark:bg-white/5">
+              <BookOpen size={16} className="shrink-0 text-[#0b5148]" />
+              <input type="text" value={refInput} onChange={(event) => setRefInput(event.target.value)} aria-label="Versículo ou referência" className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none" placeholder="Ex.: Filipenses 4:6–7" />
+              {isSearchingVerse && <Loader2 size={15} className="animate-spin text-[#c5a059]" />}
+            </div>
+            <button type="button" onClick={() => setActiveControlTab('ai')} aria-label="Criar com inteligência artificial" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#c5a059] text-[#17211f]"><Sparkles size={18} /></button>
           </div>
+          {foundVerse && <p className="mt-1.5 min-w-0 truncate px-1 font-serif text-[11px] text-gray-600 dark:text-gray-300">{foundVerse.ref} · “{foundVerse.text}”</p>}
+        </section>
+        <div className="mx-auto grid min-h-0 w-full max-w-[1920px] flex-1 grid-cols-1 gap-3 xl:grid-cols-[310px_minmax(420px,1fr)_330px]">
+          <aside className="hidden min-h-0 flex-col gap-3 overflow-hidden xl:flex" aria-label="Origem e criação da arte">
+            <section data-testid="sacred-art-word-panel" className="shrink-0 rounded-[20px] border border-[#ded7cd] bg-[#fffdf9] p-3 shadow-sm dark:border-white/10 dark:bg-[#151515]">
+              <div className="flex items-center gap-2"><BookOpen size={16} className="text-[#0b5148]" /><div><p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#8b611b]">Etapa 1</p><h2 className="font-serif text-base font-bold">Comece pela Palavra</h2></div></div>
+              <label htmlFor="sacred-art-verse" className="mt-2.5 block text-[8px] font-black uppercase tracking-[0.14em] text-gray-500">Versículo ou referência</label>
+              <div className="mt-1.5 flex min-h-10 items-center gap-2 rounded-xl border border-[#d9d1c6] bg-white px-3 focus-within:border-[#0b5148] focus-within:ring-2 focus-within:ring-[#0b5148]/10 dark:border-white/10 dark:bg-white/5">
+                <BookOpen size={16} className="shrink-0 text-[#0b5148]" />
+                <input id="sacred-art-verse" type="text" value={refInput} onChange={(event) => setRefInput(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none" placeholder="Ex.: Filipenses 4:6–7" />
+                {isSearchingVerse && <Loader2 size={15} className="animate-spin text-[#c5a059]" />}
+              </div>
+              {foundVerse ? <div className="mt-2 rounded-xl border border-emerald-900/10 bg-[#eef7f2] p-2.5 dark:bg-emerald-950/20"><p className="line-clamp-2 font-serif text-[11px] leading-4 text-[#33473f] dark:text-emerald-50">“{foundVerse.text}”</p><strong className="mt-1.5 block text-[8px] uppercase tracking-[0.14em] text-[#0b5148]">{foundVerse.ref}</strong></div> : <p className="mt-2 text-[10px] leading-4 text-gray-500">Digite uma referência e encontre o texto automaticamente.</p>}
+            </section>
+            <div className="min-h-0 flex-1"><SacredArtDrawer {...sharedDrawerProps} desktopInline mode="creation" /></div>
+          </aside>
 
-          {/* Dock Desktop (Ao lado da imagem) */}
-          <div className="hidden md:flex min-h-0 items-center justify-center animate-in slide-in-from-right-4 duration-500">
-              <SacredArtDock
-                activeControlTab={activeControlTab}
-                setActiveControlTab={setActiveControlTab}
-                onDownload={handleDownload}
-                onPostToFeed={handlePostToFeed}
-                canPostToFeed={!!finalImg && !isPostingToFeed}
-                isStatic
-              />
-          </div>
+          <section className="relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[26px] border border-black/10 bg-[#171a19] shadow-[0_24px_60px_-32px_rgba(0,0,0,0.55)]" aria-label="Canvas da arte">
+            <div data-testid="sacred-art-canvas-toolbar" className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-white/10 px-3 text-white/70 sm:px-4">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.12em]"><span className="h-2 w-2 rounded-full bg-emerald-400" /> Salvo automaticamente</span>
+              <div className="flex shrink-0 rounded-xl bg-white/5 p-1" role="group" aria-label="Formato da arte">
+                <button data-testid="sacred-art-format-feed" type="button" onClick={() => setEditOptions((current) => ({ ...current, aspectRatio: 'feed' }))} aria-pressed={editOptions.aspectRatio === 'feed'} className={`flex min-h-8 items-center gap-1.5 rounded-lg px-2.5 text-[9px] font-black uppercase transition sm:px-3 ${editOptions.aspectRatio === 'feed' ? 'bg-[#0b5148] text-white shadow-sm' : 'text-white/55 hover:bg-white/10 hover:text-white'}`}><LayoutGrid size={13} /> Feed <span className="hidden sm:inline">1:1</span></button>
+                <button data-testid="sacred-art-format-story" type="button" onClick={() => setEditOptions((current) => ({ ...current, aspectRatio: 'story' }))} aria-pressed={editOptions.aspectRatio === 'story'} className={`flex min-h-8 items-center gap-1.5 rounded-lg px-2.5 text-[9px] font-black uppercase transition sm:px-3 ${editOptions.aspectRatio === 'story' ? 'bg-[#0b5148] text-white shadow-sm' : 'text-white/55 hover:bg-white/10 hover:text-white'}`}><Smartphone size={13} /> Story <span className="hidden sm:inline">9:16</span></button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto p-3 sm:p-5">
+              <div className="flex min-h-full items-center justify-center">
+                <SacredArtCanvas
+                  canvasContainerRef={canvasContainerRef}
+                  rawGeneratedBase64={rawGeneratedBase64}
+                  foundVerse={foundVerse}
+                  editOptions={editOptions}
+                  selectedLayer={selectedLayer}
+                  setSelectedLayer={setSelectedLayer}
+                  onBgDragEnd={handleBgDragEnd}
+                  onTextDragEnd={handleDragEnd}
+                  onCanvasResize={setCanvasSize}
+                  onFontSizeScaleChange={(newScale) => setEditOptions((previous) => ({ ...previous, fontSizeScale: Math.max(0.01, newScale) }))}
+                  onBgScaleChange={(newScale) => setEditOptions((previous) => ({ ...previous, bgScale: Math.max(1, Math.min(5, newScale)) }))}
+                  getCSSFilters={getCSSFilters}
+                />
+              </div>
+            </div>
+            <div className="hidden min-h-14 shrink-0 items-center justify-center gap-2 border-t border-white/10 px-3 text-white/65 md:flex">
+              <button type="button" onClick={() => setSelectedLayer('bg')} className={`min-h-9 rounded-lg px-3 text-[10px] font-bold ${selectedLayer === 'bg' ? 'bg-[#c5a059] text-black' : 'bg-white/5 hover:bg-white/10'}`}>Imagem</button>
+              <button type="button" onClick={() => { setSelectedLayer('text'); setActiveControlTab('text'); }} className={`min-h-9 rounded-lg px-3 text-[10px] font-bold ${selectedLayer === 'text' ? 'bg-[#c5a059] text-black' : 'bg-white/5 hover:bg-white/10'}`}>Texto</button>
+              <span className="mx-1 h-5 w-px bg-white/10" />
+              <span className="text-[9px] uppercase tracking-[0.12em]">Arraste os elementos diretamente na arte</span>
+            </div>
+          </section>
 
-          <div className="hidden md:block min-h-0">
-            <SacredArtDrawer
-              activeControlTab={activeControlTab}
-              setActiveControlTab={setActiveControlTab}
-              galleryImages={galleryImages}
-              currentUser={currentUser ? { uid: currentUser.uid } : null}
-              setGalleryImages={setGalleryImages}
-              setRawGeneratedBase64={setRawGeneratedBase64}
-              editOptions={editOptions}
-              setEditOptions={setEditOptions}
-              selectedStyle={selectedStyle}
-              setSelectedStyle={setSelectedStyle}
-              customPrompt={customPrompt}
-              setCustomPrompt={setCustomPrompt}
-              handleCreateClick={handleCreateClick}
-              isGeneratingImg={isGeneratingImg}
-              fileInputRef={fileInputRef}
-              resetText={resetText}
-              fontSizePx={currentTextLayout.verseFontSizePx}
-              onFontSizePxChange={handleFontSizePxChange}
-              styles={STYLES}
-              fonts={FONTS}
-              colors={COLORS}
-              filters={FILTERS}
-              fallbackImages={HARDCODED_FREE_IMAGES}
-              desktopInline
-            />
-          </div>
+          <aside className="hidden min-h-0 flex-col gap-3 overflow-hidden xl:flex" aria-label="Ajustes e publicação">
+            <div className="min-h-0 flex-1"><SacredArtDrawer {...sharedDrawerProps} desktopInline mode="inspector" /></div>
+            <section className="shrink-0 rounded-[24px] border border-[#ded7cd] bg-[#fffdf9] p-3 shadow-sm dark:border-white/10 dark:bg-[#151515]">
+              <button type="button" onClick={handleDownload} disabled={!finalImg} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#d8d0c5] bg-white text-xs font-black disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/5"><Download size={16} /> Baixar PNG</button>
+              <button type="button" onClick={handlePostToFeed} disabled={!finalImg || isPostingToFeed} className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0b5148] text-xs font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-40"><Send size={16} /> {isPostingToFeed ? 'Publicando...' : 'Publicar no Reino'}</button>
+            </section>
+          </aside>
         </div>
 
-        {/* Dock Mobile (Rodapé) */}
-        <div className="md:hidden">
-          <SacredArtDock
-            activeControlTab={activeControlTab}
-            setActiveControlTab={setActiveControlTab}
-            onDownload={handleDownload}
-            onPostToFeed={handlePostToFeed}
-            canPostToFeed={!!finalImg && !isPostingToFeed}
-          />
-        </div>
-
-        <div className="md:hidden">
-          <SacredArtDrawer
-            activeControlTab={activeControlTab}
-            setActiveControlTab={setActiveControlTab}
-            galleryImages={galleryImages}
-            currentUser={currentUser ? { uid: currentUser.uid } : null}
-            setGalleryImages={setGalleryImages}
-            setRawGeneratedBase64={setRawGeneratedBase64}
-            editOptions={editOptions}
-            setEditOptions={setEditOptions}
-            selectedStyle={selectedStyle}
-            setSelectedStyle={setSelectedStyle}
-            customPrompt={customPrompt}
-            setCustomPrompt={setCustomPrompt}
-            handleCreateClick={handleCreateClick}
-            isGeneratingImg={isGeneratingImg}
-            fileInputRef={fileInputRef}
-            resetText={resetText}
-            fontSizePx={currentTextLayout.verseFontSizePx}
-            onFontSizePxChange={handleFontSizePxChange}
-            styles={STYLES}
-            fonts={FONTS}
-            colors={COLORS}
-            filters={FILTERS}
-            fallbackImages={HARDCODED_FREE_IMAGES}
-          />
-        </div>
+        <div className="xl:hidden"><SacredArtDock activeControlTab={activeControlTab} setActiveControlTab={setActiveControlTab} onDownload={handleDownload} onPostToFeed={handlePostToFeed} canPostToFeed={!!finalImg && !isPostingToFeed} /></div>
+        <div className="xl:hidden"><SacredArtDrawer {...sharedDrawerProps} /></div>
       </main>
 
       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
     </div>
+    </CultoPlusPageShell>
   );
 }

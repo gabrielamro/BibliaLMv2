@@ -64,6 +64,19 @@ test('churchManagementService.listAssignments returns empty list when schema is 
   assert.deepEqual(assignments, []);
 });
 
+test('createMemberCultoAssignment refuses an unknown team without creating a loose assignment', async () => {
+  await assert.rejects(
+    churchManagementService.createMemberCultoAssignment({
+      churchId: 'some-church-id',
+      serviceId: 'some-service-id',
+      teamId: 'some-team-id',
+      member: { uid: 'some-user-id', displayName: 'Membro', photoURL: null },
+      actorUserId: 'some-manager-id',
+    }),
+    /(Equipe não encontrada nesta igreja|Erro ao carregar equipe)/,
+  );
+});
+
 test('churchManagementService.listUserCultoAssignments returns only a safe empty state when schema is missing', async () => {
   const assignments = await churchManagementService.listUserCultoAssignments('some-church-id', 'some-user-id');
   assert.deepEqual(assignments, []);

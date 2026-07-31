@@ -8,7 +8,7 @@ import { BlockPickerMenu } from '../components/BlockPickerMenu';
 interface GhostBlockProps {
   id: string;
   width: string;
-  onAdd: (type: BlockType, width?: '1/3' | '1/2' | '1/1') => void;
+  onAdd: (type: BlockType, width?: '1/3' | '1/2' | '2/3' | '1/1') => void;
 }
 
 export const GhostBlock: React.FC<GhostBlockProps> = ({ id, width, onAdd }) => {
@@ -19,19 +19,16 @@ export const GhostBlock: React.FC<GhostBlockProps> = ({ id, width, onAdd }) => {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0 : 1,
+    gridColumn: `span ${width === '2/3' ? 8 : width === '1/2' ? 6 : width === '1/3' ? 4 : 12}`,
   };
 
-  const widthClass = {
-    '1/1': 'w-full',
-    '1/2': 'w-1/2',
-    '1/3': 'w-1/3',
-  }[width] || 'w-full';
+  const widthClass = 'w-full';
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative mb-4 inline-block h-[140px] px-1 align-top box-border ${widthClass}`}
+      className={`relative inline-block h-[140px] min-w-0 align-top box-border ${widthClass}`}
       {...attributes}
       {...listeners}
     >

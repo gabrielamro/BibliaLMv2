@@ -35,7 +35,7 @@ import { MobileToolbar } from '../components/Builder/MobileToolbar';
 import { MobilePropertiesSheet } from '../components/Builder/MobilePropertiesSheet';
 import { MobileAddBlockMenu } from '../components/Builder/MobileAddBlockMenu';
 import { UnifiedEditor, UnifiedEditorRef } from '../components/UnifiedEditor/UnifiedEditor';
-import CreateContentV3Page from './CreateContentV3Page';
+import StudyStudio from '../components/study-studio/StudyStudio';
 
 const getUnitLabel = (freq: PlanningFrequency, index: number) => {
     switch (freq) {
@@ -247,7 +247,7 @@ const PlanBuilderPage: React.FC = () => {
                 openEditor(targetDay.weekId, targetDay);
             } else if (urlLesson.match(/^\d+$/) || urlLesson.startsWith('type_')) {
                 // Se for um ID de rascunho (timestamp ou slug temporário) e não estiver no plano, 
-                // abre como aula nova para o CreateContentV3Page recuperar do cache local
+                // Abre como aula nova para o StudyStudio recuperar o rascunho local.
                 const firstWeekId = plan.weeks[0].id;
                 openEditor(firstWeekId, { 
                     id: urlLesson.replace('type_', ''), 
@@ -365,7 +365,7 @@ const PlanBuilderPage: React.FC = () => {
         loadTeams();
     }, [plan.isRanked, currentUser]);
 
-    // Busca automática e handleSearchBible removidos: Agora processados pelo CreateContentV3Page embutido
+    // Busca automática e handleSearchBible removidos: agora processados pelo StudyStudio embutido.
 
     const handleFrequencyChange = (freq: PlanningFrequency) => {
         if (plan.weeks && plan.weeks.length > 0 && plan.weeks[0].days.length > 0) {
@@ -515,7 +515,7 @@ const PlanBuilderPage: React.FC = () => {
         }
     };
 
-    // handleAiFill e saveDayContent removidos: delegados ao componente CreateContentV3Page embutido
+    // handleAiFill e saveDayContent removidos: delegados ao StudyStudio embutido.
 
     const handleDeleteDay = (weekId: string, dayId: string) => {
         setPendingDeleteDay({ weekId, dayId });
@@ -1077,7 +1077,9 @@ const PlanBuilderPage: React.FC = () => {
                     </div>
                 ) : (
                     <div className="flex flex-col h-full min-w-0 animate-in fade-in relative z-50">
-                        <CreateContentV3Page 
+                        <StudyStudio
+                            mode="roomLesson"
+                            draftId={editingDayId}
                             embeddedContext={{
                                 initialContent: {
                                      id: editingDayId,

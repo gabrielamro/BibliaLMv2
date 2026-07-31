@@ -1,6 +1,6 @@
 'use client';
-import CreateLandingPage from '../../views/CreateLandingPage';
+import StudyStudio from '../../components/study-studio/StudyStudio';
 
 export default function CriarConteudoPage() {
-  return <CreateLandingPage />;
+  return <StudyStudio mode="standalone" />;
 }

@@ -1,7 +1,15 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import CreateContentV3Page from '../../views/CreateContentV3Page';
+interface LegacyStudioPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
 
-export default function CriarConteudoV3Page() {
-  return <CreateContentV3Page />;
+export default async function CriarConteudoV3Page({ searchParams }: LegacyStudioPageProps) {
+  const params = await searchParams;
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (Array.isArray(value)) value.forEach((item) => query.append(key, item));
+    else if (value !== undefined) query.set(key, value);
+  });
+  redirect(`/criar-conteudo${query.size ? `?${query.toString()}` : ''}`);
 }

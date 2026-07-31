@@ -71,6 +71,7 @@ interface SacredArtDrawerProps {
   filters: FilterOption[];
   fallbackImages: SacredArtGalleryItem[];
   desktopInline?: boolean;
+  mode?: 'all' | 'creation' | 'inspector';
 }
 
 export default function SacredArtDrawer({
@@ -98,15 +99,28 @@ export default function SacredArtDrawer({
   filters,
   fallbackImages,
   desktopInline = false,
+  mode = 'all',
 }: SacredArtDrawerProps) {
-  if (!activeControlTab) return null;
+  if (!activeControlTab && mode === 'all') return null;
+
+  const requestedTab = activeControlTab ?? (mode === 'creation' ? 'templates' : 'text');
+  const effectiveTab: Exclude<EditorControlTab, null> = mode === 'creation'
+    ? (requestedTab === 'ai' ? 'ai' : 'templates')
+    : mode === 'inspector'
+      ? (requestedTab === 'style' ? 'style' : 'text')
+      : requestedTab;
+  const panelTabs = mode === 'creation'
+    ? ([['templates', 'Templates'], ['ai', 'Criar com IA']] as const)
+    : mode === 'inspector'
+      ? ([['text', 'Texto'], ['style', 'Imagem e estilo']] as const)
+      : [];
 
   return (
     <motion.div
       initial={{ x: '100%', opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: '100%', opacity: 0 }}
-      className={`${desktopInline ? 'md:static md:h-full md:w-full md:max-h-full' : 'md:top-24 md:bottom-24 md:left-auto md:right-32 md:w-[420px]'} fixed bottom-[150px] left-4 right-4 max-h-[58vh] md:max-h-none bg-white/80 dark:bg-[#0A0A0A]/90 backdrop-blur-3xl rounded-[32px] border border-gray-200/50 dark:border-white/5 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col`}
+      className={`${desktopInline ? 'static h-full w-full max-h-full' : 'md:top-24 md:bottom-24 md:left-auto md:right-32 md:w-[420px]'} fixed bottom-[150px] left-4 right-4 max-h-[58vh] md:max-h-none bg-white/95 dark:bg-[#0A0A0A]/95 backdrop-blur-3xl rounded-[24px] border border-[#ded7cd] dark:border-white/10 shadow-[0_22px_55px_-24px_rgba(23,33,31,0.35)] overflow-hidden flex flex-col`}
       style={{ zIndex: EDITOR_LAYER_Z_INDEX.drawer }}
     >
       {/* Header Visual handle */}
@@ -116,28 +130,45 @@ export default function SacredArtDrawer({
 
       <div className="flex flex-col h-full">
         {/* Navigation / Title */}
-        <div className="px-6 md:px-7 pt-8 md:pt-7 pb-5 flex justify-between items-end border-b border-gray-100 dark:border-white/5 bg-white/40 dark:bg-black/20">
+        <div className="px-5 pt-7 pb-4 flex justify-between items-end border-b border-[#ece5dc] dark:border-white/5 bg-white/50 dark:bg-black/20">
           <div>
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-bible-gold mb-1">
-              Editor Pro
+              {mode === 'creation' ? 'Biblioteca visual' : mode === 'inspector' ? 'Ajustes da arte' : 'Editor Pro'}
             </h2>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">
-              {activeControlTab === 'templates' && 'Galeria Sacra'}
-              {activeControlTab === 'ai' && 'Motor de Criação IA'}
-              {activeControlTab === 'text' && 'Tipografia e Layout'}
-              {activeControlTab === 'style' && 'Estética e Filtros'}
+              {effectiveTab === 'templates' && 'Galeria Sacra'}
+              {effectiveTab === 'ai' && 'Motor de Criação IA'}
+              {effectiveTab === 'text' && 'Tipografia e Layout'}
+              {effectiveTab === 'style' && 'Estética e Filtros'}
             </h3>
           </div>
           <button
             onClick={() => setActiveControlTab('templates')}
-            className={`${activeControlTab === 'templates' ? 'invisible pointer-events-none' : ''} w-10 h-10 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-400 hover:text-bible-gold transition-colors hover:scale-110 active:scale-95`}
+            className={`${mode !== 'all' || effectiveTab === 'templates' ? 'invisible pointer-events-none' : ''} w-10 h-10 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-400 hover:text-bible-gold transition-colors hover:scale-110 active:scale-95`}
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-6 md:p-7 custom-scrollbar space-y-7">
-          {activeControlTab === 'templates' && (
+        {panelTabs.length > 0 && (
+          <div className="grid grid-cols-2 gap-1 border-b border-[#ece5dc] bg-[#fbf8f3] p-2 dark:border-white/5 dark:bg-white/[0.03]" role="tablist" aria-label={mode === 'creation' ? 'Ferramentas de criação' : 'Ferramentas de ajuste'}>
+            {panelTabs.map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={effectiveTab === tab}
+                onClick={() => setActiveControlTab(tab)}
+                className={`min-h-10 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.1em] transition ${effectiveTab === tab ? 'bg-[#0b5148] text-white shadow-sm' : 'text-gray-500 hover:bg-white hover:text-[#0b5148] dark:hover:bg-white/10'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className={`min-h-0 flex-1 overflow-y-auto custom-scrollbar ${effectiveTab === 'ai' ? 'space-y-4 p-4' : 'space-y-7 p-5'}`}>
+          {effectiveTab === 'templates' && (
             <div className="space-y-6">
               {/* Categorias modernizadas */}
               <div className="space-y-3">
@@ -215,57 +246,42 @@ export default function SacredArtDrawer({
             </div>
           )}
 
-          {activeControlTab === 'ai' && (
-            <div className="space-y-8">
-              <div className="space-y-4">
+          {effectiveTab === 'ai' && (
+            <div data-testid="sacred-art-ai-engine" className="space-y-4">
+              <div className="space-y-2">
                 <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">Estilo Visual</label>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-5 gap-2">
                   {styles.map((style) => (
                     <button
                       key={style.id}
                       onClick={() => setSelectedStyle(style.id)}
-                      className={`aspect-square rounded-3xl border-2 flex flex-col items-center justify-center gap-2 transition-all group ${selectedStyle === style.id ? 'bg-bible-gold/10 border-bible-gold text-bible-gold shadow-lg shadow-bible-gold/10' : 'border-transparent bg-gray-50 dark:bg-white/5 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10'}`}
+                      className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl border-2 transition-all group ${selectedStyle === style.id ? 'bg-bible-gold/10 border-bible-gold text-bible-gold shadow-lg shadow-bible-gold/10' : 'border-transparent bg-gray-50 dark:bg-white/5 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10'}`}
                     >
-                      <span className="text-2xl group-hover:scale-110 transition-transform">{style.icon}</span>
+                      <span className="text-lg group-hover:scale-110 transition-transform">{style.icon}</span>
                       <span className="text-[8px] font-black uppercase tracking-tighter text-center leading-none px-1">{style.label}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-2">
                 <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">Prompt Personalizado</label>
                 <div className="relative">
                   <textarea
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
-                    className="w-full bg-gray-50 dark:bg-white/5 border-2 border-transparent focus:border-bible-gold/30 text-gray-900 dark:text-white rounded-3xl p-6 text-sm h-32 focus:outline-none transition-all resize-none shadow-inner"
+                    className="h-20 w-full resize-none rounded-xl border-2 border-transparent bg-gray-50 p-3 text-xs text-gray-900 shadow-inner transition-all focus:border-bible-gold/30 focus:outline-none dark:bg-white/5 dark:text-white"
                     placeholder="Ex: Uma montanha ao pôr do sol com luz celestial..."
                   />
-                  <div className="absolute bottom-4 right-4 opacity-30">
+                  <div className="absolute bottom-3 right-3 opacity-30">
                     <Sparkles size={16} />
                   </div>
                 </div>
               </div>
-
-              <button
-                onClick={handleCreateClick}
-                disabled={isGeneratingImg}
-                className={`w-full py-5 font-black uppercase tracking-[0.2em] text-[11px] rounded-[24px] flex items-center justify-center gap-3 shadow-2xl active:scale-95 transition-all ${!currentUser ? 'bg-gray-100 dark:bg-white/5 text-gray-500 border border-gray-200 dark:border-white/10' : 'bg-bible-gold text-black shadow-bible-gold/40 hover:shadow-bible-gold/60'}`}
-              >
-                {isGeneratingImg ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : !currentUser ? (
-                  <Lock size={18} />
-                ) : (
-                  <Zap size={18} />
-                )}
-                {isGeneratingImg ? 'Gerando sua Obra...' : !currentUser ? 'Login para IA' : 'Criar Arte Inédita'}
-              </button>
             </div>
           )}
 
-          {activeControlTab === 'text' && (
+          {effectiveTab === 'text' && (
             <div className="space-y-10">
               <div className="space-y-5">
                 <div className="flex justify-between items-center px-1">
@@ -347,7 +363,7 @@ export default function SacredArtDrawer({
             </div>
           )}
 
-          {activeControlTab === 'style' && (
+          {effectiveTab === 'style' && (
             <div className="space-y-10">
               <div className="space-y-5">
                 <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">Paleta do Texto</label>
@@ -398,6 +414,25 @@ export default function SacredArtDrawer({
             </div>
           )}
         </div>
+        {effectiveTab === 'ai' && (
+          <div className="shrink-0 border-t border-[#ece5dc] bg-white/90 p-3 backdrop-blur-xl dark:border-white/5 dark:bg-black/30">
+            <button
+              data-testid="sacred-art-create-button"
+              onClick={handleCreateClick}
+              disabled={isGeneratingImg}
+              className={`flex min-h-12 w-full items-center justify-center gap-3 rounded-xl px-4 text-[11px] font-black uppercase tracking-[0.16em] shadow-xl transition-all active:scale-[0.98] ${!currentUser ? 'border border-gray-200 bg-gray-100 text-gray-500 dark:border-white/10 dark:bg-white/5' : 'bg-bible-gold text-black shadow-bible-gold/30 hover:shadow-bible-gold/50'}`}
+            >
+              {isGeneratingImg ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : !currentUser ? (
+                <Lock size={18} />
+              ) : (
+                <Zap size={18} />
+              )}
+              {isGeneratingImg ? 'Gerando sua Obra...' : !currentUser ? 'Login para IA' : 'Criar Arte Inédita'}
+            </button>
+          </div>
+        )}
       </div>
     </motion.div>
   );

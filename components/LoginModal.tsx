@@ -1,5 +1,4 @@
 "use client";
-import { useNavigate } from '../utils/router';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Mail, Lock, User, Apple, AtSign, Eye, EyeOff, MapPin, Loader2, AlertCircle, ShieldCheck, Crown, Users, Church, CheckCircle2 } from 'lucide-react';
@@ -19,7 +18,6 @@ interface LoginModalProps {
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     const { signIn, signInWithApple, signInWithEmail, signUpWithEmail, currentUser } = useAuth();
-    const navigate = useNavigate();
     const [mode, setMode] = useState<'login' | 'register'>('login');
     const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
@@ -47,9 +45,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
         if (currentUser && isOpen) {
             setLoading(false);
             onClose();
-            navigate('/'); // Garante redirecionamento ao Santuário
         }
-    }, [currentUser, isOpen, onClose, navigate]);
+    }, [currentUser, isOpen, onClose]);
 
     // Limpa erro ao trocar de modo (Login/Registro)
     useEffect(() => {

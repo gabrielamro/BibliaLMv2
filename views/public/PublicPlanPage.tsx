@@ -5,6 +5,7 @@ import { useNavigate, useParams, useSearchParams } from '../../utils/router';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 
 import { dbService } from '../../services/supabase';
+import { kingdomPublishingService } from '../../services/kingdomPublishingService';
 import { CustomPlan, PlanComment, PlanDayContent, PlanParticipant, PlanTeam, SavedStudy } from '../../types';
 import {
     Loader2, ArrowLeft, Calendar, Play, Lock, Trophy, BookOpen, CheckCircle2,
@@ -17,6 +18,7 @@ import { useHeader } from '../../contexts/HeaderContext';
 import StandardHeader from '../../components/ui/StandardHeader';
 import { ContentBuilder } from '../../components/Builder/ContentBuilder';
 import { BlockRenderer } from '../../components/Builder/BlockRenderer';
+import { StudyDocumentRenderer } from '../../components/study-studio';
 import PlanOwnerPreviewActions from '../../components/plan/PlanOwnerPreviewActions';
 import PlanShareModal from '../../components/plan/PlanShareModal';
 import { buildPlanSharePostContent, canUserAccessPlan, getPlanSharePath, getPlanShareUrl } from '../../utils/planSharing';
@@ -849,44 +851,13 @@ const PublicPlanPage: React.FC = () => {
                                 {readingDay.blocksConfig.map(renderFocusedBlock)}
                             </article>
                         ) : readingDay.blocksConfig && readingDay.blocksConfig.length > 0 ? (
-                            <div
-                                className="reader-content flex flex-wrap justify-center items-start animate-in fade-in duration-700"
-                                style={{ fontSize: `${fontSize}px`, ['--reader-font-size' as string]: `${fontSize}px` }}
-                            >
-                                {readingDay.blocksConfig.map((block, index) => {
-                                    const layoutWidth = block.layoutWidth || block.data?.layoutWidth || '1/1';
-                                    const isMobileOutline = block.type === 'study-outline';
-                                    const widthClass = isMobileOutline
-                                        ? 'w-full md:w-1/3'
-                                        : layoutWidth === '1/2'
-                                            ? 'w-full md:w-1/2'
-                                            : layoutWidth === '1/3'
-                                                ? 'w-full md:w-1/3'
-                                                : layoutWidth === '2/3'
-                                                    ? 'w-full md:w-2/3'
-                                                    : 'w-full';
-                                    const topSpacing = index === 0 ? 0 : Math.max(0, Number(block.data?.padding?.top ?? 0));
-                                    const bottomSpacing = Math.max(40, Number(block.data?.padding?.bottom ?? 0));
-
-                                    return (
-                                        <div
-                                            key={block.id}
-                                            className={`${widthClass} px-1`}
-                                            style={{ marginTop: topSpacing, marginBottom: bottomSpacing }}
-                                            data-testid={`published-lesson-block-${block.type}-${index}`}
-                                            data-width={layoutWidth}
-                                        >
-                                            <BlockRenderer
-                                                block={block}
-                                                isEditing={false}
-                                                authorName={plan.authorName}
-                                                canvasWidth="desktop"
-                                                layoutWidth={layoutWidth}
-                                            />
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                            <StudyDocumentRenderer
+                                blocks={readingDay.blocksConfig}
+                                canvasWidth="desktop"
+                                studyId={plan.id}
+                                studyTitle={readingDay.title}
+                                className="reader-content animate-in fade-in duration-700"
+                            />
                         ) : (
                             <div
                                 className={isFocusedMode ? "reader-content reader-html focused-prose font-serif text-stone-800 dark:text-stone-100 empty:hidden" : "reader-content reader-html prose dark:prose-invert max-w-none font-serif leading-relaxed text-gray-800 dark:text-gray-200 empty:hidden [&_h1]:text-[1.5rem] [&_h1]:font-black [&_h1]:mb-6"}
@@ -1089,15 +1060,19 @@ const PublicPlanPage: React.FC = () => {
         }
         setIsSharingToFeed(true);
         try {
-            await dbService.createPost({
-                userId: currentUser.uid,
-                userDisplayName: userProfile.displayName,
-                userUsername: userProfile.username,
-                userPhotoURL: userProfile.photoURL,
+            const post = await kingdomPublishingService.publish({
+                publisher: {
+                    userId: currentUser.uid,
+                    displayName: userProfile.displayName,
+                    username: userProfile.username,
+                    photoURL: userProfile.photoURL,
+                },
                 type: 'room',
-                image: plan.coverUrl,
-                destination: 'global',
+                imageUrl: plan.coverUrl,
                 content: buildPlanSharePostContent(plan, sharePath, description),
+                sourceType: 'public_room',
+                sourceId: plan.id,
+                metadata: { title: plan.title, sharePath },
             });
             try {
                 await dbService.updateCustomPlan(plan.id, { lastSharedAt: new Date().toISOString() });
@@ -1111,7 +1086,7 @@ const PublicPlanPage: React.FC = () => {
             }
             showNotification("Sala compartilhada no Feed do Reino.", "success");
             setShowShareModal(false);
-            navigate('/social', { state: { refreshFeed: true } });
+            navigate('/social', { state: { refreshFeed: true, highlightPostId: post.id } });
         } catch (error) {
             console.error(error);
             showNotification("Erro ao compartilhar sala no Feed.", "error");

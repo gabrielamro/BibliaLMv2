@@ -30,14 +30,9 @@ const cardMotion = {
 
 const quickLinks = [
   { label: "Jornada", href: "/gestao-igreja/jornada" },
-  { label: "Permissoes", href: "/gestao-igreja/permissoes" },
-  { label: "Pessoas", href: "/gestao-igreja/pessoas" },
-  { label: "Designacoes", href: "/gestao-igreja/designacoes" },
-  { label: "Voluntariado", href: "/gestao-igreja/voluntariado" },
-  { label: "Equipes", href: "/gestao-igreja/equipes" },
+  { label: "Pessoas e equipes", href: "/gestao-igreja/pessoas" },
   { label: "Cultos/Eventos", href: "/gestao-igreja/cultos" },
   { label: "Grupos/Celulas", href: "/gestao-igreja/grupos" },
-  { label: "QR Codes", href: "/gestao-igreja/qrcodes" },
   { label: "Inbox", href: "/gestao-igreja/inbox" },
   { label: "Notificacoes", href: "/gestao-igreja/notificacoes" },
   { label: "Pedidos", href: "/gestao-igreja/pedidos" },
@@ -133,7 +128,7 @@ export default function ChurchManagementPreview() {
                 Ver jornada
               </Link>
               <Link
-                href="/minha-igreja"
+                href="/meus-cultos"
                 className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/15 px-4 text-sm font-black uppercase tracking-wider text-white transition hover:bg-white/10"
               >
                 Area do membro

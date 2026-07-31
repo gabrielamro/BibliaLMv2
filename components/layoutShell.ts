@@ -12,7 +12,7 @@ interface LayoutShellState {
   sidebarStartsCollapsed: boolean;
 }
 
-const COLLAPSED_SIDEBAR_FOCUS_PATHS = new Set(['/criar-sala']);
+const COLLAPSED_SIDEBAR_FOCUS_PATHS = new Set<string>();
 
 export const getLayoutShellState = ({
   pathname,

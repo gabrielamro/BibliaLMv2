@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function MemberChurchJourneyPage() {
-  redirect("/minha-igreja#acompanhamento");
+  redirect("/meus-cultos#solicitacoes");
 }

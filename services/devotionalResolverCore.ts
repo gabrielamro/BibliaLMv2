@@ -1,5 +1,6 @@
 export interface ResolvedDevotionalCandidate {
   id: string;
+  contentId?: string;
   date: string;
   title: string;
   verseReference: string;
@@ -7,6 +8,9 @@ export interface ResolvedDevotionalCandidate {
   content: string;
   prayer: string;
   source?: 'official' | 'catalog' | 'generated';
+  refreshAvailable?: boolean;
+  refreshUsedAt?: string | null;
+  personalized?: boolean;
 }
 
 interface PickResolvedDevotionalInput {

@@ -1,5 +1,5 @@
-import ChurchTeamsDashboard from "../../../components/church-management/ChurchTeamsDashboard";
+import { redirect } from "next/navigation";
 
 export default function ChurchManagementTeamsPage() {
-  return <ChurchTeamsDashboard />;
+  redirect("/gestao-igreja/pessoas?panel=teams");
 }

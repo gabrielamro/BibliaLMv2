@@ -15,6 +15,8 @@ const requiredTables = [
   'service_live_states',
   'service_ai_contents',
   'service_public_invites',
+  'service_prayer_timeline_events',
+  'service_liturgy_comments',
 ];
 
 const requiredColumns = [
@@ -31,13 +33,17 @@ const requiredColumns = [
   ['service_public_invites', 'status'],
   ['service_public_invites', 'invited_by_user_id'],
   ['service_public_invites', 'invited_user_id'],
+  ['service_prayer_timeline_events', 'content_preview'],
+  ['service_prayer_timeline_events', 'is_private'],
+  ['service_liturgy_comments', 'liturgy_item_id'],
+  ['service_liturgy_comments', 'content'],
 ];
 
 const requiredPolicies = [
-  ['church_services', 'Public can read published church services'],
-  ['church_services', 'Authors can read own church services'],
-  ['church_services', 'Church members can create services'],
-  ['church_services', 'Authors can update their services'],
+  ['church_services', 'Anonymous users read published church services'],
+  ['church_services', 'Authenticated users read allowed church services'],
+  ['church_services', 'Church managers create services'],
+  ['church_services', 'Church managers update services'],
   ['service_checkins', 'Users can check in themselves'],
   ['service_notes', 'Users can read own service notes'],
   ['service_notes', 'Users can delete own service notes'],
@@ -48,6 +54,11 @@ const requiredPolicies = [
   ['service_public_invites', 'Public can read service invites by token'],
   ['service_public_invites', 'Authenticated users can create service invites'],
   ['service_public_invites', 'Invite actors can update service invites'],
+  ['service_prayer_timeline_events', 'Public can read redacted service prayer timeline'],
+  ['service_liturgy_comments', 'Public can read service liturgy comments'],
+  ['service_liturgy_comments', 'Users can create one comment per liturgy moment'],
+  ['service_liturgy_comments', 'Users can update own liturgy comment'],
+  ['service_liturgy_comments', 'Users can delete own liturgy comment'],
 ];
 
 const requiredIndexes = [
@@ -58,11 +69,18 @@ const requiredIndexes = [
   'service_visits_service_id_idx',
   'service_notes_service_user_idx',
   'service_reactions_service_id_idx',
+  'service_reactions_service_created_at_idx',
+  'service_reactions_user_id_idx',
   'service_prayer_requests_service_id_idx',
   'service_schedule_assignments_service_id_idx',
   'service_live_states_church_id_idx',
   'service_public_invites_service_status_idx',
   'service_public_invites_token_idx',
+  'service_prayer_timeline_service_created_idx',
+  'service_liturgy_comments_service_item_created_idx',
+  'service_prayer_timeline_events_church_id_idx',
+  'service_liturgy_comments_church_id_idx',
+  'service_liturgy_comments_user_id_idx',
 ];
 
 const requiredGrants = [
@@ -76,6 +94,9 @@ const requiredGrants = [
   ['service_public_invites', 'anon', 'SELECT'],
   ['service_public_invites', 'authenticated', 'INSERT'],
   ['service_public_invites', 'authenticated', 'UPDATE'],
+  ['service_prayer_timeline_events', 'anon', 'SELECT'],
+  ['service_liturgy_comments', 'anon', 'SELECT'],
+  ['service_liturgy_comments', 'authenticated', 'INSERT'],
 ];
 
 const requiredRealtimeTables = [
@@ -88,6 +109,8 @@ const requiredRealtimeTables = [
   'service_visits',
   'service_verse_saves',
   'service_schedule_assignments',
+  'service_prayer_timeline_events',
+  'service_liturgy_comments',
 ];
 
 const connection = getConnectionString();
@@ -151,6 +174,18 @@ try {
     const hasStatusConstraint = constraints.length > 0;
     printCheck('constraint public.church_services.church_services_status_check', hasStatusConstraint);
     if (!hasStatusConstraint) failures += 1;
+
+    const { rows: reactionUniquenessConstraints } = await client.query(
+      `
+        select conname
+        from pg_constraint
+        where conrelid = 'public.service_reactions'::regclass
+          and conname = 'service_reactions_service_id_user_id_reaction_type_key'
+      `,
+    );
+    const repeatedReactionsEnabled = reactionUniquenessConstraints.length === 0;
+    printCheck('service reactions accept repeated events from the same user', repeatedReactionsEnabled);
+    if (!repeatedReactionsEnabled) failures += 1;
 
     const { rows: policies } = await client.query(
       `

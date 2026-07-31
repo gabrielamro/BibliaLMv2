@@ -44,7 +44,8 @@ export const BlockExtension = Node.create({
   renderHTML({ node, HTMLAttributes }) {
     const width = node.attrs.layoutWidth || '1/1';
     let widthClass = 'w-full';
-    if (width === '1/2') widthClass = 'w-1/2';
+    if (width === '2/3') widthClass = 'w-2/3';
+    else if (width === '1/2') widthClass = 'w-1/2';
     else if (width === '1/3') widthClass = 'w-1/3';
 
     return ['div', mergeAttributes(HTMLAttributes, { 
@@ -68,6 +69,7 @@ export const BlockExtension = Node.create({
   addProseMirrorPlugins() {
     const widthMap: Record<string, string> = {
       '1/1': '100%',
+      '2/3': '66.6667%',
       '1/2': '50%',
       '1/3': '33.3333%',
     };

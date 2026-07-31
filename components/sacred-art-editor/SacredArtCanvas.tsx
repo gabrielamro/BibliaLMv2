@@ -22,8 +22,6 @@ export default function SacredArtCanvas({
   setSelectedLayer,
   onBgDragEnd,
   onTextDragEnd,
-  onOpenAi,
-  onOpenTemplates,
   onCanvasResize,
   onFontSizeScaleChange,
   onBgScaleChange,
@@ -217,28 +215,20 @@ export default function SacredArtCanvas({
         ref={canvasContainerRef}
         className={`relative isolate overflow-hidden rounded-[28px] bg-gray-900 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-500 select-none flex items-center justify-center ${canvasFrameClass(editOptions.aspectRatio)}`}
       >
-        <div className="flex flex-col items-center justify-center text-center p-8 space-y-8 z-10">
+        <div className="z-10 flex flex-col items-center justify-center space-y-5 p-5 text-center sm:space-y-6 sm:p-8">
           <div className="relative">
-            <div className="w-24 h-24 bg-gradient-to-br from-gray-900 to-black rounded-3xl flex items-center justify-center text-bible-gold border border-white/10 shadow-2xl animate-pulse">
-              <Sparkles size={44} />
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-gray-900 to-black text-bible-gold shadow-2xl sm:h-20 sm:w-20 sm:rounded-3xl">
+              <Sparkles className="h-8 w-8 sm:h-9 sm:w-9" />
             </div>
-            <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-bible-gold text-black rounded-full flex items-center justify-center shadow-lg">
-              <Plus size={20} />
+            <div className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-bible-gold text-black shadow-lg">
+              <Plus size={17} />
             </div>
           </div>
-          <div className="space-y-3">
-            <h3 className="text-2xl font-serif font-black text-white tracking-tight uppercase">Crie sua Obra-Prima</h3>
-            <p className="text-base text-gray-300 max-w-sm leading-relaxed">
-              Busque um versículo acima e use a força do <span className="text-bible-gold font-bold underline decoration-bible-gold/30 underline-offset-4">Nano Banana IA</span> para dar vida às Escrituras.
+          <div className="space-y-2">
+            <h3 className="font-serif text-xl font-black tracking-tight text-white sm:text-2xl">Dê forma visual à Palavra</h3>
+            <p className="max-w-xs text-sm leading-6 text-gray-300 sm:max-w-sm sm:text-base sm:leading-relaxed">
+              Escolha um versículo e use a <span className="text-bible-gold font-bold underline decoration-bible-gold/30 underline-offset-4">IA do Culto+</span> para criar uma arte com propósito.
             </p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button onClick={onOpenAi} className="px-8 py-4 bg-bible-gold text-black rounded-2xl text-[12px] font-black uppercase tracking-widest shadow-xl shadow-bible-gold/20 hover:scale-105 transition-all flex items-center gap-2">
-              <Sparkles size={18} /> Gerar Arte Inédita
-            </button>
-            <button onClick={onOpenTemplates} className="px-8 py-4 bg-white/5 text-gray-400 rounded-2xl text-[12px] font-black uppercase tracking-widest border border-white/10 hover:bg-white/10 hover:text-white transition-all">
-              Explorar Acervo
-            </button>
           </div>
         </div>
       </div>
@@ -440,7 +430,7 @@ export default function SacredArtCanvas({
         {/* Layer 5: Watermark / Branding */}
         <Layer listening={false}>
           <KonvaText
-            text="BibliaLM App"
+            text="Culto+"
             x={0}
             y={canvasSize.height - (editOptions.aspectRatio === 'story' ? 40 : 30)}
             width={canvasSize.width}

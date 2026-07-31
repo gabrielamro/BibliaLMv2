@@ -45,6 +45,9 @@ const SortableLessonRow: React.FC<SortableLessonRowProps> = ({
   onDeleteLesson,
   onOpenLesson,
 }) => {
+  // O mesmo lesson.id pode existir em unidades diferentes. O ID composto é
+  // apenas visual/interativo; callbacks continuam recebendo o ID persistido.
+  const dragId = `${unitId}:${lesson.id}:${lessonIndex}`;
   const {
     attributes,
     listeners,
@@ -53,7 +56,7 @@ const SortableLessonRow: React.FC<SortableLessonRowProps> = ({
     transition,
     isDragging,
   } = useSortable({
-    id: lesson.id,
+    id: dragId,
     data: { unitId, index: lessonIndex } satisfies LessonDragData,
   });
 
@@ -239,13 +242,13 @@ const LessonStructurePanel: React.FC<LessonStructurePanelProps> = ({
                   </button>
                 </div>
 
-                <SortableContext items={unit.days.map((lesson) => lesson.id)} strategy={verticalListSortingStrategy}>
+                <SortableContext items={unit.days.map((lesson, lessonIndex) => `${unit.id}:${lesson.id}:${lessonIndex}`)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-3 p-4">
                       {unit.days.length === 0 && <EmptyUnitDropZone unitId={unit.id} />}
 
                       {unit.days.map((lesson, lessonIndex) => (
                         <SortableLessonRow
-                          key={lesson.id}
+                          key={`${unit.id}:${lesson.id}:${lessonIndex}`}
                           unitId={unit.id}
                           lesson={lesson}
                           lessonIndex={lessonIndex}

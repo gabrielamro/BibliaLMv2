@@ -1,5 +1,5 @@
-import ChurchVolunteerPipelinePage from "../../../components/church-management/ChurchVolunteerPipelinePage";
+import { redirect } from "next/navigation";
 
 export default function ChurchVolunteerPipelineRoute() {
-  return <ChurchVolunteerPipelinePage />;
+  redirect("/gestao-igreja/pessoas?panel=volunteers");
 }

@@ -11,11 +11,38 @@ export type ServiceExperienceMoment = ServiceLiturgyItem & {
   momentStatus: ServiceLiturgyMomentStatus;
 };
 
-const getLiturgyItemDate = (service: Pick<ChurchService, 'startsAt'>, startsAt: string) => {
-  const [hours, minutes] = startsAt.split(':').map(Number);
+export const getLiturgyItemDate = (service: Pick<ChurchService, 'startsAt'>, startsAt: string) => {
+  const explicitDate = new Date(startsAt);
+  if (startsAt.includes('T') && !Number.isNaN(explicitDate.getTime())) return explicitDate;
+
+  const match = startsAt.match(/^(\d{1,2}):(\d{2})$/);
   const date = new Date(service.startsAt);
-  date.setHours(hours ?? 0, minutes ?? 0, 0, 0);
+  if (!match || Number.isNaN(date.getTime())) return date;
+  date.setHours(Number(match[1]), Number(match[2]), 0, 0);
   return date;
+};
+
+export const getLiturgyMomentForTimestamp = (
+  service: Pick<ChurchService, 'startsAt' | 'endsAt' | 'liturgyItems'>,
+  timestamp: string,
+) => {
+  const eventDate = new Date(timestamp);
+  if (Number.isNaN(eventDate.getTime())) return service.liturgyItems[0] ?? null;
+
+  const matchedMoment = service.liturgyItems.find((item, index) => {
+    const startsAt = getLiturgyItemDate(service, item.startsAt);
+    const nextItem = service.liturgyItems[index + 1];
+    const endsAt = nextItem ? getLiturgyItemDate(service, nextItem.startsAt) : new Date(service.endsAt);
+    return eventDate >= startsAt && eventDate < endsAt;
+  });
+  if (matchedMoment) return matchedMoment;
+
+  const firstMoment = service.liturgyItems[0] ?? null;
+  if (!firstMoment) return null;
+  const firstMomentStartsAt = getLiturgyItemDate(service, firstMoment.startsAt);
+  return eventDate < firstMomentStartsAt
+    ? firstMoment
+    : service.liturgyItems[service.liturgyItems.length - 1] ?? null;
 };
 
 export const resolveServiceStreamStatus = (

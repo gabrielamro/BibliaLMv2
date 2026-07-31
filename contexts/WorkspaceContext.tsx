@@ -141,24 +141,17 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
     const uid = currentUser.id ?? currentUser.uid;
     try {
       const finalData = {
-        author_id: uid,
         title: (quizData as any).title,
-        description: (quizData as any).description ?? null,
+        description: (quizData as any).description ?? '',
         category: (quizData as any).category ?? 'Geral',
-        questions: JSON.stringify((quizData as any).questions ?? []),
-        game_mode: (quizData as any).gameMode ?? 'individual',
-        ai_config: (quizData as any).aiConfig ? JSON.stringify((quizData as any).aiConfig) : null,
-        is_active: true,
-        created_at: new Date().toISOString(),
+        type: (quizData as any).type ?? 'manual',
+        questions: (quizData as any).questions ?? [],
+        gameMode: (quizData as any).gameMode ?? 'classic',
+        aiConfig: (quizData as any).aiConfig ?? null,
+        isActive: true,
       };
 
-      const { data: res, error } = await supabase
-        .from('custom_quizzes')
-        .insert(finalData)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const res = await dbService.add(uid, 'custom_quizzes', finalData);
 
       const newQuiz = { id: res.id, authorId: uid, isActive: true, createdAt: res.created_at, ...quizData } as CustomQuiz;
       setQuizzes(prev => [...prev, newQuiz]);
@@ -172,8 +165,8 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
   const deleteQuiz = async (id: string) => {
     if (!currentUser) return;
     try {
-      const { error } = await supabase.from('custom_quizzes').delete().eq('id', id);
-      if (error) throw error;
+      const uid = currentUser.id ?? currentUser.uid;
+      await dbService.delete(uid, 'custom_quizzes', id);
       setQuizzes(prev => prev.filter(q => q.id !== id));
       showNotification("Quiz excluído.", "info");
     } catch (e) {

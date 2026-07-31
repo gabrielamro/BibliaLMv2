@@ -23,6 +23,7 @@ export const RelatedVersesBlock: React.FC<RelatedVersesBlockProps> = ({ data, la
   const getGridClass = () => {
     switch (layoutWidth) {
       case '1/1': return 'md:grid-cols-3';
+      case '2/3': return 'md:grid-cols-2';
       case '1/2': return 'md:grid-cols-2';
       case '1/3': return 'md:grid-cols-1';
       default: return 'md:grid-cols-3';

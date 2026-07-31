@@ -8,6 +8,7 @@ const testEntries = [
   'tests/churchManagementRules.test.ts',
   'tests/churchVolunteerCategories.test.ts',
   'tests/churchManagerAlerts.test.ts',
+  'tests/churchPeopleOperations.test.ts',
 ];
 
 function run(command, args) {

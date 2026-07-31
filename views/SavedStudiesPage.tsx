@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { dbService } from '../services/supabase';
+import { kingdomPublishingService } from '../services/kingdomPublishingService';
 import { SavedStudy, Note } from '../types';
 import {
   PlusCircle, BookOpen, Trash2, Search, Loader2,
@@ -166,14 +167,15 @@ const SavedStudiesPage: React.FC = () => {
     const sourceLabel = getSourceLabel(studyToShare.source);
 
     try {
-      await dbService.createPost({
-        userId: currentUser.uid,
-        userDisplayName: userProfile.displayName,
-        userUsername: userProfile.username,
-        userPhotoURL: userProfile.photoURL,
+      const post = await kingdomPublishingService.publish({
+        publisher: {
+          userId: currentUser.uid,
+          displayName: userProfile.displayName,
+          username: userProfile.username,
+          photoURL: userProfile.photoURL,
+        },
         type: 'study',
-        image: coverUrl,
-        destination: 'global',
+        imageUrl: coverUrl,
         content: buildStudyShareContent({
           kind: 'study_share',
           studyId: studyToShare.id,
@@ -183,6 +185,9 @@ const SavedStudiesPage: React.FC = () => {
           description,
           sourceLabel,
         }),
+        sourceType: 'saved_study',
+        sourceId: studyToShare.id,
+        metadata: { title: studyToShare.title, sourceLabel },
       });
 
       try {
@@ -193,7 +198,7 @@ const SavedStudiesPage: React.FC = () => {
 
       showNotification('Estudo compartilhado no Feed do Reino.', 'success');
       setStudyToShare(null);
-      navigate('/social', { state: { refreshFeed: true } });
+      navigate('/social', { state: { refreshFeed: true, highlightPostId: post.id } });
     } catch (error) {
       console.error(error);
       showNotification('Erro ao compartilhar estudo no Feed.', 'error');

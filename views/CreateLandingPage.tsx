@@ -3,9 +3,10 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from '../utils/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
+import { useSettings } from '../contexts/SettingsContext';
 import { dbService } from '../services/supabase';
+import { kingdomPublishingService } from '../services/kingdomPublishingService';
 import { bibleService } from '../services/bibleService';
-import { generateDailyDevotional, generateStructuredStudy, generateAIOnePage } from '../services/pastorAgent';
 import { MobileToolbar } from '../components/Builder/MobileToolbar';
 import { MobilePropertiesSheet } from '../components/Builder/MobilePropertiesSheet';
 import { MobileAddBlockMenu } from '../components/Builder/MobileAddBlockMenu';
@@ -20,6 +21,13 @@ import {
   Baseline, Maximize, Move, Palette, Sliders, Type as TextIcon, FileDown
 } from 'lucide-react';
 import { UnifiedEditor } from '../components/UnifiedEditor';
+import {
+  StudyDocumentRenderer,
+  AIProposalReview,
+  StudioAssistantPanel,
+  StudioToolRail,
+  type StudyAIProposal,
+} from '../components/study-studio';
 import SEO from '../components/SEO';
 import SocialNavigation from '../components/SocialNavigation';
 import RichTextEditor from '../components/RichTextEditor';
@@ -38,12 +46,23 @@ import {
   normalizeAIBuildBlocks
 } from '../components/Builder';
 import { ImageUploadButton } from '../components/Builder/ImageUploadButton';
-import type { ContentPrivacyLevel } from '../types';
+import type { ContentPrivacyLevel, StudyStudioConfig } from '../types';
 import {
   buildContentSharePostContent,
   getContentShareUrl,
   normalizeContentShareSettings,
 } from '../utils/contentSharing';
+import { normalizeStudyBlocks, parseStudyBlocks } from '../utils/studyDocument';
+import { studioAIService } from '../services/studyStudio/studioAIService';
+import { createStudyStudioConfig } from '../services/studyStudio/studioCapabilities';
+import { useStudyDirtyState } from '../hooks/studyStudio/useStudyDirtyState';
+import { useStudyDraftRecovery } from '../hooks/studyStudio/useStudyDraftRecovery';
+import { useStudyAutosave } from '../hooks/studyStudio/useStudyAutosave';
+import {
+  studyDocumentService,
+  StudyRevisionConflictError,
+} from '../services/studyStudio/studyDocumentService';
+import { createStudyDocumentV2 } from '../utils/studyDocument';
 
 // Tipos locais
 type ContentType = 'article' | 'devotional' | 'series';
@@ -52,6 +71,7 @@ type CreationMode = 'manual' | 'ai';
 
 interface ContentData {
   id?: string;
+  revision?: number;
   type: ContentType;
   status: ContentStatus;
   slug: string;
@@ -81,9 +101,9 @@ interface ContentData {
 // Template de estrutura por tipo (Roadmap V2)
 const coreOnePageBlocks: BlockType[] = ['hero-split', 'biblical', 'study-outline', 'rich-text', 'related-verses', 'slide', 'reflection-question', 'authority', 'footer'];
 
-const initialOnePageLayout: { type: BlockType; layoutWidth?: '1/1' | '1/2' | '1/3' }[] = [
+const initialOnePageLayout: { type: BlockType; layoutWidth?: NonNullable<Block['layoutWidth']> }[] = [
   { type: 'hero-split', layoutWidth: '1/1' },
-  { type: 'biblical', layoutWidth: '1/2' },
+  { type: 'biblical', layoutWidth: '2/3' },
   { type: 'study-outline', layoutWidth: '1/3' },
   { type: 'rich-text', layoutWidth: '1/1' },
   { type: 'slide', layoutWidth: '1/1' },
@@ -95,7 +115,7 @@ const initialOnePageLayout: { type: BlockType; layoutWidth?: '1/1' | '1/2' | '1/
 
 const aiOnePageLayoutWidths: Partial<Record<BlockType, NonNullable<Block['layoutWidth']>>> = {
   'hero-split': '1/1',
-  biblical: '1/2',
+  biblical: '2/3',
   'study-outline': '1/3',
   'rich-text': '1/1',
   slide: '1/1',
@@ -104,6 +124,19 @@ const aiOnePageLayoutWidths: Partial<Record<BlockType, NonNullable<Block['layout
   footer: '1/1',
   'reflection-question': '1/1',
 };
+
+type BlockLibraryGroup = 'all' | 'text' | 'bible' | 'media' | 'interaction' | 'layout';
+
+const blockLibraryGroups: Record<Exclude<BlockLibraryGroup, 'all'>, BlockType[]> = {
+  text: ['rich-text', 'study-content', 'authority', 'footer'],
+  bible: ['biblical', 'related-verses', 'references-chain', 'study-outline'],
+  media: ['hero', 'hero-split', 'video', 'slide'],
+  interaction: ['reflection-question', 'cta'],
+  layout: ['spacer'],
+};
+
+const getBlockLibraryGroup = (type: BlockType) =>
+  (Object.entries(blockLibraryGroups).find(([, types]) => types.includes(type))?.[0] || 'layout') as Exclude<BlockLibraryGroup, 'all'>;
 
 const contentTemplates: Record<ContentType, any[]> = {
   article: initialOnePageLayout,
@@ -126,18 +159,38 @@ const isCoreBlock = (_type: BlockType) => false;
 // Interface para uso embutido (ex: dentro do Criador de Jornadas)
 export interface EmbeddedContext {
   initialContent: any;
-  onSave: (content: any, status: ContentStatus) => void;
+  onSave: (content: any, status: ContentStatus) => Promise<void> | void;
   onClose: () => void;
   isEmbedded: boolean;
+  displayTitle?: string;
 }
 
 // Componente principal para criação de Landing Pages e Estudos Bíblicos
-const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ embeddedContext }) => {
+interface CreateLandingPageProps {
+  embeddedContext?: EmbeddedContext;
+  studioConfig?: StudyStudioConfig;
+}
+
+const CreateLandingPage: React.FC<CreateLandingPageProps> = ({ embeddedContext, studioConfig }) => {
+  const resolvedStudioConfig = studioConfig ?? createStudyStudioConfig(
+    embeddedContext ? 'roomLesson' : 'standalone',
+    embeddedContext?.initialContent?.id || 'new',
+  );
   // Hooks de navegação, autenticação e cabeçalho global
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser, userProfile, earnMana, showNotification, recordActivity } = useAuth();
+  const {
+    currentUser,
+    userProfile,
+    earnMana,
+    showNotification,
+    recordActivity,
+    checkFeatureAccess,
+    incrementUsage,
+    openSubscription,
+  } = useAuth();
   const { setTitle, setBreadcrumbs, resetHeader, setIsHeaderHidden } = useHeader();
+  const { setIsFocusMode } = useSettings();
 
   // Estados principais de controle do fluxo (Criação, Preview, Publicação)
   const [currentStep, setCurrentStep] = useState<'create' | 'preview' | 'publish'>('create');
@@ -159,6 +212,85 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   });
+  const [isContentReady, setIsContentReady] = useState(false);
+  const [category, setCategory] = useState('Geral');
+  const [draftOwnerId, setDraftOwnerId] = useState<string | null>(null);
+  const baselineKeyRef = useRef<string | null>(null);
+  const { isDirty, markSaved } = useStudyDirtyState(content);
+  const draftStorageKey = draftOwnerId && isContentReady
+    ? `cultoplus:study-studio:v2:${draftOwnerId}:${resolvedStudioConfig.mode}:${content.id || resolvedStudioConfig.draftId}`
+    : null;
+  const contentIsDirty = isContentReady && isDirty(content);
+  const {
+    recoverableDraft,
+    consumeDraft,
+    discardDraft,
+  } = useStudyDraftRecovery({
+    storageKey: draftStorageKey,
+    value: content,
+    enabled: contentIsDirty,
+  });
+
+  const persistExistingStudy = useCallback(async (nextContent: ContentData) => {
+    if (!nextContent.id || embeddedContext) return;
+    const document = createStudyDocumentV2({
+      id: nextContent.id,
+      revision: nextContent.revision || 0,
+      context: 'standalone',
+      title: nextContent.meta.title,
+      description: nextContent.meta.description,
+      category: category || 'Geral',
+      tags: nextContent.meta.tags || [],
+      blocks: normalizeStudyBlocks(nextContent.blocks),
+      status: nextContent.status === 'published' ? 'published' : 'draft',
+      updatedAt: new Date().toISOString(),
+    });
+    const persisted = await studyDocumentService.save(
+      nextContent.id,
+      document,
+      nextContent.revision || 0,
+    );
+    setContent((current) => {
+      if (current.id !== persisted.id || (current.revision || 0) !== (nextContent.revision || 0)) {
+        return current;
+      }
+      const currentSnapshot = JSON.stringify({ ...current, revision: nextContent.revision || 0 });
+      const savedSnapshot = JSON.stringify({ ...nextContent, revision: nextContent.revision || 0 });
+      const saved = {
+        ...current,
+        revision: persisted.revision,
+        updatedAt: persisted.updatedAt,
+      };
+      if (currentSnapshot === savedSnapshot) markSaved(saved);
+      return saved;
+    });
+    discardDraft();
+  }, [category, discardDraft, embeddedContext, markSaved]);
+
+  const autosaveStatus = useStudyAutosave({
+    value: content,
+    enabled: Boolean(
+      currentUser
+      && content.id
+      && isContentReady
+      && contentIsDirty
+      && !embeddedContext
+      && content.status !== 'published'
+    ),
+    onSave: persistExistingStudy,
+  });
+
+  useEffect(() => {
+    if (currentUser?.uid) {
+      setDraftOwnerId(currentUser.uid);
+      return;
+    }
+    const sessionKey = 'cultoplus:study-studio:guest-session';
+    const existing = window.sessionStorage.getItem(sessionKey);
+    const guestId = existing || `guest-${crypto.randomUUID()}`;
+    if (!existing) window.sessionStorage.setItem(sessionKey, guestId);
+    setDraftOwnerId(guestId);
+  }, [currentUser?.uid]);
 
   // Estados de interface (bloco selecionado, largura do canvas, etc)
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
@@ -200,10 +332,16 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
   const [isUndoing, setIsUndoing] = useState(false);
 
   const [showCreationInfo, setShowCreationInfo] = useState(true);
-  const [showCreationHelper, setShowCreationHelper] = useState(true);
+  const [showCreationHelper, setShowCreationHelper] = useState(false);
+  const [activeStudioPanel, setActiveStudioPanel] = useState<'structure' | 'insert' | 'models' | 'bible' | 'ai'>('insert');
+  const [rightPanelMode, setRightPanelMode] = useState<'properties' | 'ai'>('ai');
+  const [blockSearch, setBlockSearch] = useState('');
+  const [blockGroup, setBlockGroup] = useState<BlockLibraryGroup>('all');
+  const [recentBlockTypes, setRecentBlockTypes] = useState<BlockType[]>([]);
 
   // Estados e Refs para o Construtor com IA (Fase 3)
   const [showAIBuilderModal, setShowAIBuilderModal] = useState(false);
+  const [aiProposal, setAIProposal] = useState<StudyAIProposal | null>(null);
   const [aiBuilderPrompt, setAIBuilderPrompt] = useState('');
   const [isAIBuilding, setIsAIBuilding] = useState(false);
   const aiBuilderTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -215,7 +353,6 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
   const [verseText, setVerseText] = useState('');
   const [verseRef, setVerseRef] = useState('');
   const [isSearchingVerse, setIsSearchingVerse] = useState(false);
-  const [category, setCategory] = useState('Geral');
   const searchTimeoutRef = useRef<any>(null);
 
 
@@ -260,10 +397,36 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
     return () => resetHeader();
   }, [currentStep, content.meta.title, setTitle, setBreadcrumbs, resetHeader]);
 
+  useEffect(() => {
+    setIsFocusMode(true);
+    return () => {
+      setIsFocusMode(false);
+      setIsHeaderHidden(false);
+    };
+  }, [setIsFocusMode, setIsHeaderHidden]);
+
+  useEffect(() => {
+    if (!isContentReady || !draftStorageKey) return;
+    if (baselineKeyRef.current === draftStorageKey) return;
+    baselineKeyRef.current = draftStorageKey;
+    markSaved(content);
+  }, [content, draftStorageKey, isContentReady, markSaved]);
+
+  useEffect(() => {
+    if (!contentIsDirty) return;
+    const preventAccidentalExit = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', preventAccidentalExit);
+    return () => window.removeEventListener('beforeunload', preventAccidentalExit);
+  }, [contentIsDirty]);
+
   // Função principal de inicialização: carrega estudo existente ou inicializa um novo
   useEffect(() => {
 
     const loadContent = async () => {
+      setIsContentReady(false);
       const state = location.state as any;
       const urlParams = new URLSearchParams(location.search);
       const targetId = state?.contentId || urlParams.get('id');
@@ -271,7 +434,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
       // Se estiver em modo embutido, pular lógica de URL e DB
       if (embeddedContext) {
         const data = embeddedContext.initialContent;
-        const parsedBlocks = typeof data.blocks === 'string' ? JSON.parse(data.blocks) : (data.blocks || []);
+        const parsedBlocks = parseStudyBlocks(data.blocks);
         const parsedMeta = typeof data.meta === 'string' ? JSON.parse(data.meta) : (data.meta || { title: '', description: '', tags: [], visibility: 'public' });
         setContent({
           ...data,
@@ -281,6 +444,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
         setContentType(data.type || 'article');
         setCurrentStep('create');
         setIsLoading(false);
+        setIsContentReady(true);
         return;
       }
 
@@ -294,6 +458,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
           meta: { ...prev.meta, title: 'Novo Estudo Bíblico' }
         }));
         setCurrentStep('create');
+        setIsContentReady(true);
         return;
       }
 
@@ -302,12 +467,13 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
       try {
         const data = targetId ? await dbService.getPublicStudyById(targetId) : null;
         if (data) {
-          const parsedBlocks = typeof data.blocks === 'string' ? JSON.parse(data.blocks) : (data.blocks || []);
+          const parsedBlocks = parseStudyBlocks(data.blocks);
           const parsedMeta = typeof data.meta === 'string' ? JSON.parse(data.meta) : (data.meta || { title: '', description: '', tags: [], visibility: 'public' });
           if (!parsedMeta.visibility) parsedMeta.visibility = 'public';
 
           setContent({
             ...data,
+            revision: Number(data.revision || data.document?.revision || 0),
             blocks: parsedBlocks,
             meta: parsedMeta
           });
@@ -315,7 +481,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
         } else if (state?.studyData) {
           // Fallback para estudo legado ou draft da tabela studies
           const legacyData = state.studyData;
-          const parsedBlocks = typeof legacyData.blocks === 'string' ? JSON.parse(legacyData.blocks) : (legacyData.blocks || []);
+          const parsedBlocks = parseStudyBlocks(legacyData.blocks);
           const parsedMeta = typeof legacyData.meta === 'string' ? JSON.parse(legacyData.meta) : (legacyData.meta || { visibility: 'public' });
           if (!parsedMeta.visibility) parsedMeta.visibility = 'public';
 
@@ -363,6 +529,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
         console.error('Erro ao carregar conteúdo:', e);
       }
       setIsLoading(false);
+      setIsContentReady(true);
     };
     loadContent();
   }, [location.state, location.search]);
@@ -421,7 +588,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
     if (verseRef && verseText) {
       if (editorRef.current?.updateBlock) {
         // Se o editor estiver montado (TipTap), usamos a ref imperativa
-        editorRef.current.updateBlock('biblical', { reference: verseRef, text: verseText, verse: verseRef });
+        editorRef.current.updateFirstBlockByType('biblical', { reference: verseRef, text: verseText, verse: verseRef });
       } else {
         // Caso contrário (estado inicial legível como array), atualizamos o estado
         setContent(prev => {
@@ -624,7 +791,88 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
     };
   };
   // Aciona a Inteligência Artificial para gerar toda a estrutura da página com base no prompt do usuário
+  const normalizeAIProposalBlocks = (blocks: unknown): Block[] =>
+    normalizeAIBuildBlocks(blocks).map((block: any, blockIndex: number) => {
+      const enforcedWidth = aiOnePageLayoutWidths[block.type as BlockType]
+        || block.layoutWidth
+        || block.data?.layoutWidth
+        || '1/1';
+      const slides = block.type === 'slide' && Array.isArray(block.data?.slides)
+        ? block.data.slides.map((slide: any, slideIndex: number) => ({
+          ...slide,
+          id: slide.id || `slide-${Date.now()}-${blockIndex}-${slideIndex}`,
+        }))
+        : block.data?.slides;
+      return {
+        ...block,
+        id: block.id || `ai-block-${Date.now()}-${blockIndex}`,
+        layoutWidth: enforcedWidth,
+        data: {
+          ...(block.data || {}),
+          ...(slides ? { slides } : {}),
+          layoutWidth: enforcedWidth,
+        },
+      } as Block;
+    });
+
+  const applyAIBlocks = (
+    proposal: StudyAIProposal,
+    blockIds: string[],
+    mode: 'replace-all' | 'merge' | 'append',
+  ) => {
+    const selected = proposal.blocks.filter((block) => blockIds.includes(block.id));
+    setContent((current) => {
+      const currentBlocks = parseStudyBlocks(current.blocks) as Block[];
+      let nextBlocks: Block[];
+      if (mode === 'replace-all') {
+        nextBlocks = selected;
+      } else if (mode === 'append') {
+        nextBlocks = [...currentBlocks, ...selected.map((block, index) => ({
+          ...block,
+          id: `${block.id}-copy-${Date.now()}-${index}`,
+        }))];
+      } else {
+        const replacements = new Map(selected.map((block) => [block.type, block]));
+        const replacedTypes = new Set<BlockType>();
+        nextBlocks = currentBlocks.map((block) => {
+          const replacement = replacements.get(block.type);
+          if (!replacement || replacedTypes.has(block.type)) return block;
+          replacedTypes.add(block.type);
+          return { ...replacement, id: block.id };
+        });
+        selected.forEach((block) => {
+          if (!replacedTypes.has(block.type)) nextBlocks.push(block);
+        });
+      }
+      const nextContent = {
+        ...current,
+        meta: {
+          ...current.meta,
+          title: proposal.title || current.meta.title,
+          description: proposal.description || current.meta.description,
+        },
+        slug: proposal.slug || current.slug,
+        blocks: normalizeStudyBlocks(nextBlocks),
+      };
+      window.setTimeout(() => editorRef.current?.setContent(nextContent.blocks), 50);
+      return nextContent;
+    });
+    setAIProposal(null);
+    showNotification(
+      mode === 'append' ? 'Blocos da IA adicionados ao estudo.' : 'Sugestões da IA aplicadas.',
+      'success',
+    );
+  };
+
   const handleAIAutoBuilder = async () => {
+    if (!currentUser) {
+      showNotification('Entre na sua conta para usar o Obreiro IA.', 'warning');
+      return;
+    }
+    if (!checkFeatureAccess('aiDeepAnalysis')) {
+      openSubscription();
+      return;
+    }
     const userPrompt = aiBuilderPrompt.trim();
     if (!userPrompt && !verseRef) {
       showNotification('Escreva o que a IA deve criar ou adicione uma referência bíblica', 'warning');
@@ -638,7 +886,24 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
         userPrompt ? `TEMA / COMPLEMENTO: ${userPrompt}` : ''
       ].filter(Boolean).join('\n');
 
-      const result = await generateAIOnePage(enrichedPrompt, currentUser?.displayName || undefined);
+      const result = await studioAIService.generateOnePage({
+        prompt: enrichedPrompt,
+        authorName: currentUser.displayName || undefined,
+      });
+      const proposedBlocks = normalizeAIProposalBlocks(result?.blocks);
+      if (!proposedBlocks.length) throw new Error('A IA retornou uma estrutura sem blocos editaveis.');
+      setAIProposal({
+        title: result.meta?.title,
+        description: result.meta?.description,
+        slug: result.slug,
+        blocks: proposedBlocks,
+      });
+      await incrementUsage('analysis').catch((usageError) => {
+        console.warn('Estudo gerado, mas o uso de IA nao foi atualizado.', usageError);
+      });
+      setShowAIBuilderModal(false);
+      setAIBuilderPrompt('');
+      return;
       if (!result?.blocks) throw new Error('Estrutura inválida retornada pela IA');
 
       setContent(prev => {
@@ -712,6 +977,9 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
       });
 
       showNotification('✨ One-page criada com sucesso pela IA!', 'success');
+      await incrementUsage('analysis').catch((usageError) => {
+        console.warn('Estudo gerado, mas o uso de IA não foi atualizado.', usageError);
+      });
       setShowAIBuilderModal(false);
       setAIBuilderPrompt('');
     } catch (e: any) {
@@ -722,6 +990,36 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
     }
   };
 
+
+  const restoreRecoveredDraft = () => {
+    const recovered = consumeDraft();
+    if (!recovered) return;
+    setContent({
+      ...recovered,
+      blocks: parseStudyBlocks(recovered.blocks),
+      meta: {
+        ...content.meta,
+        ...(recovered.meta || {}),
+      },
+    });
+    showNotification('Rascunho local recuperado.', 'success');
+  };
+
+  const discardRecoveredDraft = () => {
+    discardDraft();
+    showNotification('Rascunho local descartado.', 'success');
+  };
+
+  const handleExitStudio = () => {
+    if (
+      contentIsDirty
+      && !window.confirm('Existem alterações ainda não salvas no servidor. Deseja sair mesmo assim?')
+    ) {
+      return;
+    }
+    if (embeddedContext) embeddedContext.onClose();
+    else navigate(-1);
+  };
 
   // Salva o estado atual do estudo no banco de dados como rascunho
   const handleSave = async (asStatus?: ContentStatus) => {
@@ -746,19 +1044,27 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
     try {
       const dataToSave = {
         ...content,
+        blocks: Array.isArray(content.blocks) ? normalizeStudyBlocks(content.blocks) : content.blocks,
         status: asStatus || 'draft',
         updatedAt: new Date().toISOString()
       };
 
       if (embeddedContext) {
         await embeddedContext.onSave(dataToSave, asStatus || 'draft');
+        markSaved(dataToSave);
+        discardDraft();
         showNotification('Aula salva no plano!', 'success');
         setIsSaving(false);
         return;
       }
 
       if (content.id) {
-        await dbService.updatePublicStudy(content.id, dataToSave);
+        if (!embeddedContext) {
+          await persistExistingStudy(dataToSave);
+        } else {
+          await dbService.updatePublicStudy(content.id, dataToSave);
+          markSaved(dataToSave);
+        }
       } else {
         const result = await dbService.createPublicStudy({
           ...dataToSave,
@@ -766,15 +1072,23 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
           authorName: currentUser.displayName,
           authorPhoto: currentUser.photoURL
         });
-        setContent(prev => ({ ...prev, id: result.id }));
+        const persistedContent = { ...dataToSave, id: result.id };
+        setContent(persistedContent);
+        markSaved(persistedContent);
       }
+      discardDraft();
 
       showNotification(asStatus === 'preview' ? 'Preview gerado!' : 'Salvo como rascunho', 'success');
       if (asStatus === 'preview') setCurrentStep('preview');
     } catch (e: any) {
       const errMsg = e?.message || e?.details || (typeof e === 'object' ? JSON.stringify(e) : String(e));
       console.error('Erro ao salvar:', errMsg, e);
-      showNotification(`Erro ao salvar: ${errMsg}`, 'error');
+      showNotification(
+        e instanceof StudyRevisionConflictError
+          ? 'Este estudo mudou em outra sessão. Reabra-o para evitar sobrescrever alterações.'
+          : `Erro ao salvar: ${errMsg}`,
+        'error',
+      );
     } finally {
       setIsSaving(false);
     }
@@ -916,14 +1230,15 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
 
     setIsSharingToFeed(true);
     try {
-      await dbService.createPost({
-        userId: currentUser.uid,
-        userDisplayName: userProfile?.displayName || currentUser.displayName || 'Autor',
-        userUsername: userProfile?.username || currentUser.email || 'autor',
-        userPhotoURL: userProfile?.photoURL || currentUser.photoURL,
+      const post = await kingdomPublishingService.publish({
+        publisher: {
+          userId: currentUser.uid,
+          displayName: userProfile?.displayName || currentUser.displayName || 'Autor',
+          username: userProfile?.username || currentUser.email || 'autor',
+          photoURL: userProfile?.photoURL || currentUser.photoURL,
+        },
         type: 'study',
-        image: content.meta.coverImage,
-        destination: 'global',
+        imageUrl: content.meta.coverImage,
         content: buildContentSharePostContent(
           {
             id: content.id,
@@ -934,6 +1249,9 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
           getPreviewShareUrl(),
           shareFeedDescription,
         ),
+        sourceType: 'published_content',
+        sourceId: content.id,
+        metadata: { title: content.meta.title, slug: content.slug },
       });
       try {
         await recordActivity?.('social_post', `Compartilhou o estudo ${content.meta.title || 'sem titulo'} no Reino`);
@@ -942,7 +1260,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
       }
       showNotification('Conteúdo compartilhado no Feed do Reino.', 'success');
       setShowShareSettings(false);
-      navigate('/social', { state: { refreshFeed: true } });
+      navigate('/social', { state: { refreshFeed: true, highlightPostId: post.id } });
     } catch (error) {
       console.error('Erro ao compartilhar no feed:', error);
       showNotification('Erro ao compartilhar no Feed do Reino.', 'error');
@@ -953,6 +1271,12 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
 
 
   const selectedBlockData = activeBlockData || (Array.isArray(content.blocks) ? content.blocks.find((b: any) => b.id === selectedBlock) : null);
+  const openStudioAI = (prompt?: string) => {
+    if (prompt) setAIBuilderPrompt(prompt);
+    setRightPanelMode('ai');
+    setShowAIBuilderModal(true);
+    setTimeout(() => aiBuilderTextareaRef.current?.focus(), 100);
+  };
 
   // RENDER: Helper Functions
 
@@ -963,29 +1287,40 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
       case 'create':
         return (
           <>
-            <div className="min-h-screen md:h-screen w-full max-w-[100vw] flex flex-col bg-gray-100 dark:bg-bible-darkPaper overflow-y-auto overflow-x-clip md:overflow-hidden">
-              <SEO title="Editor de Conteúdo" />
+            <div
+              data-testid="study-studio-shell"
+              className="min-h-screen md:h-screen w-full max-w-[100vw] flex flex-col bg-[#f3f1ec] dark:bg-gray-950 overflow-y-auto overflow-x-clip md:overflow-hidden"
+            >
+              <SEO title="Estúdio da Palavra" />
+              <h1 className="sr-only">Novo Estudo Bíblico</h1>
 
               {/* Barra de Ferramentas Superior (Header do Editor) - Contém ações globais como Undo, Redo, Preview e Botão de IA */}
-              <header className="w-full bg-white dark:bg-bible-darkPaper border-b border-gray-200 dark:border-gray-800 px-3 md:px-4 py-3 shadow-sm z-30">
+              <header className="z-30 w-full border-b border-[#e8e4dc] bg-[#fffefa] px-3 py-2.5 dark:border-gray-800 dark:bg-bible-darkPaper md:px-4">
 
                 <div className="flex flex-col lg:flex-row justify-between w-full mx-auto gap-3">
 
                   {/* Top row mobile / Left desktop */}
                   <div className="flex items-center justify-between w-full lg:w-auto gap-4">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <img
+                        src="/brand/culto-plus-logo.png"
+                        alt="Culto+"
+                        className="hidden h-10 w-auto object-contain sm:block"
+                      />
+                      <div className="hidden h-8 w-px bg-gray-200 sm:block dark:bg-gray-700" />
                       <button
-                        onClick={() => embeddedContext ? embeddedContext.onClose() : navigate(-1)}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300 flex-shrink-0"
+                        onClick={handleExitStudio}
+                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                        aria-label="Voltar"
                       >
                         <ArrowLeft size={20} />
                       </button>
                       <div className="flex-1 min-w-0 pr-2">
-                        <h1 className="text-lg font-bold text-bible-ink dark:text-white truncate">
-                          {content.meta.title || `Novo ${typeLabels[content.type].singular}`}
-                        </h1>
-                        <p className="text-[10px] sm:text-xs font-bold text-bible-gold mt-0.5 truncate">
-                          {typeLabels[content.type].singular} • Rascunho
+                        <p className="truncate text-sm font-bold text-bible-ink dark:text-white sm:text-base">
+                          Estúdio da Palavra
+                        </p>
+                        <p className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                          {embeddedContext ? 'Sala · Aula' : `${typeLabels[content.type].singular} · Rascunho`}
                         </p>
                       </div>
                     </div>
@@ -1011,7 +1346,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
 
                       <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
 
-                      {!embeddedContext && (
+                      {resolvedStudioConfig.capabilities.canConfigureAudience && (
                         <button
                           onClick={() => setShowSettingsOverlay(true)}
                           className="p-1.5 sm:p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
@@ -1033,6 +1368,18 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
 
                   {/* Bottom row mobile / Right desktop shrink */}
                   <div className="flex items-center gap-2 w-full lg:w-auto">
+                    <div className="hidden items-center gap-1.5 whitespace-nowrap px-2 text-[10px] font-bold text-emerald-700 xl:flex dark:text-emerald-400" aria-live="polite">
+                      {(isSaving || autosaveStatus === 'saving') ? <Loader2 size={14} className="animate-spin" /> : contentIsDirty ? <Clock size={14} /> : <Check size={14} />}
+                      {isSaving || autosaveStatus === 'saving'
+                        ? 'Salvando...'
+                        : autosaveStatus === 'conflict'
+                          ? 'Conflito de versão'
+                          : autosaveStatus === 'error'
+                            ? 'Falha no autosave'
+                            : contentIsDirty
+                              ? 'Alterações não salvas'
+                              : 'Salvo'}
+                    </div>
 
                     {/* Responsive layout preview buttons (hidden on mobile) */}
                     {!embeddedContext && (
@@ -1060,31 +1407,33 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
 
                     {/* Big Buttons */}
                     <div className="flex flex-1 items-center gap-2">
-                      <button
-                        onClick={() => { setShowAIBuilderModal(true); setTimeout(() => aiBuilderTextareaRef.current?.focus(), 100); }}
-                        className="flex-1 lg:flex-none flex justify-center items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:from-violet-700 hover:to-purple-700 transition-all shadow-xl shadow-purple-200/50 dark:shadow-purple-900/30 active:scale-95 whitespace-nowrap"
-                      >
-                        <Sparkles size={18} />
-                        <span>Gerar Build c/ IA</span>
-                      </button>
+                      {resolvedStudioConfig.capabilities.canUseAI && (
+                        <button
+                          onClick={() => openStudioAI()}
+                          className="flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs font-bold text-violet-700 transition-colors hover:bg-violet-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600 lg:flex-none dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300"
+                        >
+                          <Sparkles size={18} />
+                          <span>Obreiro IA</span>
+                        </button>
+                      )}
 
                       {embeddedContext ? (
                         <button
                           onClick={() => handleSave('draft')}
                           disabled={isSaving}
-                          className="flex-1 lg:flex-none flex justify-center items-center gap-2 px-4 py-2.5 bg-bible-gold text-white rounded-xl font-bold text-sm hover:bg-bible-gold/90 transition-all active:scale-95 disabled:opacity-50"
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-800 lg:flex-none disabled:opacity-50"
                         >
                           {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                          <span>Concluir Aula</span>
+                          <span>{resolvedStudioConfig.capabilities.finalActionLabel}</span>
                         </button>
                       ) : (
                         <button
                           onClick={() => handleSave('preview')}
                           disabled={isSaving}
-                          className="flex-1 lg:flex-none flex justify-center items-center gap-2 px-4 py-2.5 bg-bible-gold text-white rounded-xl font-bold text-sm hover:bg-bible-gold/90 transition-all active:scale-95 disabled:opacity-50"
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-800 lg:flex-none disabled:opacity-50"
                         >
                           {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Eye size={18} />}
-                          <span>Preview</span>
+                          <span>Pré-visualizar</span>
                         </button>
                       )}
                     </div>
@@ -1095,12 +1444,32 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
 
               {/* Editor Body */}
               <div className="flex-1 flex overflow-x-clip md:overflow-hidden">
+                <StudioToolRail
+                  active={activeStudioPanel}
+                  onChange={(panel) => {
+                    setActiveStudioPanel(panel);
+                    if (panel === 'ai') setRightPanelMode('ai');
+                  }}
+                />
                 {/* Barra Lateral Esquerda - Painel de controle de referências e menu de adição de blocos por clique/arrasto */}
-                <aside className="w-72 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-r border-gray-200 dark:border-gray-800 overflow-y-auto hidden lg:block">
+                <aside className="hidden w-[286px] flex-shrink-0 overflow-y-auto border-r border-[#e8e4dc] bg-white lg:block dark:border-gray-800 dark:bg-bible-darkPaper">
 
                   <div className="p-4">
+                    <div className="mb-5">
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-400">
+                        {activeStudioPanel === 'insert' ? 'Biblioteca completa' : 'Estúdio da Palavra'}
+                      </p>
+                      <h2 className="mt-1 text-lg font-bold text-bible-ink dark:text-white">
+                        {activeStudioPanel === 'structure' && 'Estrutura do estudo'}
+                        {activeStudioPanel === 'insert' && 'Inserir bloco'}
+                        {activeStudioPanel === 'models' && 'Modelos de estudo'}
+                        {activeStudioPanel === 'bible' && 'Bíblia e referência'}
+                        {activeStudioPanel === 'ai' && 'Obreiro IA'}
+                      </h2>
+                    </div>
 
                     {/* Referência Bíblica */}
+                    {activeStudioPanel === 'bible' && (
                     <div className="mb-6 p-4 bg-gradient-to-br from-bible-gold/10 to-amber-50 dark:to-amber-900/10 rounded-2xl border border-bible-gold/20">
                       <h3 className="text-xs font-bold text-bible-gold uppercase tracking-wider mb-3 flex items-center gap-2">
                         <BookOpen size={14} />
@@ -1129,16 +1498,19 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                         )}
                       </div>
                     </div>
+                    )}
 
                     {/* Título e Categoria */}
+                    {activeStudioPanel === 'structure' && (
                     <div className="mb-6">
                       <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
                         Informações
                       </h3>
                       <div className="space-y-3">
                         <div>
-                          <label className="text-xs text-gray-500 block mb-1">Título</label>
+                          <label htmlFor="study-studio-title" className="text-xs text-gray-500 block mb-1">Título</label>
                           <input
+                            id="study-studio-title"
                             type="text"
                             value={content.meta.title}
                             onChange={(e) => updateMeta('title', e.target.value)}
@@ -1147,8 +1519,9 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-500 block mb-1">Categoria</label>
+                          <label htmlFor="study-studio-category" className="text-xs text-gray-500 block mb-1">Categoria</label>
                           <select
+                            id="study-studio-category"
                             value={category}
                             onChange={(e) => setCategory(e.target.value)}
                             className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm outline-none focus:border-bible-gold"
@@ -1166,14 +1539,62 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                         </div>
                       </div>
                     </div>
+                    )}
 
                     {/* Blocos Disponíveis */}
-                    <div className="mt-8">
+                    {activeStudioPanel === 'insert' && (
+                    <div>
+                      <label htmlFor="study-block-search" className="sr-only">Buscar bloco</label>
+                      <div className="relative mb-3">
+                        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          id="study-block-search"
+                          type="search"
+                          value={blockSearch}
+                          onChange={(event) => setBlockSearch(event.target.value)}
+                          placeholder="Buscar bloco..."
+                          className="min-h-11 w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-bible-gold focus:ring-2 focus:ring-bible-gold/20 dark:border-gray-700 dark:bg-gray-900"
+                        />
+                      </div>
+                      <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1" aria-label="Categorias de blocos">
+                        {([
+                          ['all', 'Todos'],
+                          ['text', 'Texto'],
+                          ['bible', 'Bíblia'],
+                          ['media', 'Mídia'],
+                          ['interaction', 'Interação'],
+                          ['layout', 'Layout'],
+                        ] as const).map(([value, label]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            aria-pressed={blockGroup === value}
+                            onClick={() => setBlockGroup(value)}
+                            className={`min-h-9 whitespace-nowrap rounded-full px-3 text-[10px] font-bold transition-colors ${blockGroup === value ? 'bg-emerald-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300'}`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      {recentBlockTypes.length > 0 && !blockSearch && blockGroup === 'all' && (
+                        <p className="mb-2 px-1 text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                          Recentes: {recentBlockTypes.slice(0, 3).map((type) => blockLabels[type].label).join(' · ')}
+                        </p>
+                      )}
                       <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-1">
                         Conteúdo da Página
                       </h3>
                       <div className="space-y-3 pr-2">
-                        {(Object.keys(blockLabels) as BlockType[]).filter(t => t !== 'study-content').map((type, idx) => {
+                        {(Object.keys(blockLabels) as BlockType[])
+                          .filter((type) => type !== 'study-content')
+                          .filter((type) => blockGroup === 'all' || getBlockLibraryGroup(type) === blockGroup)
+                          .filter((type) => {
+                            const query = blockSearch.trim().toLocaleLowerCase('pt-BR');
+                            if (!query) return true;
+                            const item = blockLabels[type];
+                            return `${item.label} ${item.description}`.toLocaleLowerCase('pt-BR').includes(query);
+                          })
+                          .map((type, idx) => {
                           const isLockedBase = isCoreBlock(type);
                           const count = content.blocks?.filter?.((b: any) => b.type === type)?.length || 0;
                           return (
@@ -1183,7 +1604,20 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                               onDragStart={(e) => {
                                 e.dataTransfer.setData('application/x-tiptap-block', type);
                               }}
-                              onClick={() => addBlock(type)}
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Adicionar bloco ${blockLabels[type].label}`}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  addBlock(type);
+                                  setRecentBlockTypes((current) => [type, ...current.filter((item) => item !== type)].slice(0, 5));
+                                }
+                              }}
+                              onClick={() => {
+                                addBlock(type);
+                                setRecentBlockTypes((current) => [type, ...current.filter((item) => item !== type)].slice(0, 5));
+                              }}
                               className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left group ${isLockedBase
                                 ? 'bg-gray-100 dark:bg-gray-800/50 opacity-50 cursor-not-allowed'
                                 : 'bg-gray-50 dark:bg-gray-900 hover:bg-bible-gold/10 active:scale-[0.98] cursor-grab active:cursor-grabbing'
@@ -1217,8 +1651,10 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                         })}
                       </div>
                     </div>
+                    )}
 
                     {/* Tags */}
+                    {activeStudioPanel === 'structure' && (
                     <div className="mt-6">
                       <label className="text-xs text-gray-500 block mb-1">Tags (separadas por vírgula)</label>
                       <input
@@ -1229,12 +1665,115 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                         className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm outline-none focus:border-bible-gold"
                       />
                     </div>
+                    )}
+
+                    {activeStudioPanel === 'models' && (
+                      <div className="space-y-3">
+                        {[
+                          ['Estudo profundo', '9 blocos · Bíblia, reflexão e aplicação', initialOnePageLayout],
+                          ['Mensagem objetiva', 'Capa, texto bíblico, reflexão e ação', initialOnePageLayout.filter((_, index) => [0, 1, 3, 8].includes(index))],
+                          ['Aula com slides', 'Estrutura visual para sala e discipulado', initialOnePageLayout.filter((_, index) => [0, 1, 2, 4, 6].includes(index))],
+                          ['Devocional guiado', 'Palavra, meditacao, pergunta e oracao', initialOnePageLayout.filter((_, index) => [0, 1, 3, 5, 8].includes(index))],
+                          ['Esboco de mensagem', 'Texto-base, pontos, referencias e apelo', initialOnePageLayout.filter((_, index) => [0, 1, 2, 3, 5, 7].includes(index))],
+                        ].map(([title, description, layout]) => (
+                          <button
+                            key={title as string}
+                            type="button"
+                            onClick={() => {
+                              const blocks = buildBaseBlocks(layout as typeof initialOnePageLayout);
+                              setContent((current) => ({ ...current, blocks: normalizeStudyBlocks(blocks) }));
+                              showNotification(`Modelo ${title} aplicado.`, 'success');
+                            }}
+                            className="w-full rounded-2xl border border-gray-200 bg-[#fffefa] p-4 text-left transition-colors hover:border-bible-gold/40 hover:bg-bible-gold/5 dark:border-gray-800 dark:bg-gray-900"
+                          >
+                            <span className="block text-sm font-bold text-bible-ink dark:text-white">{title as string}</span>
+                            <span className="mt-1 block text-[11px] leading-relaxed text-gray-500">{description as string}</span>
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setContent((current) => ({ ...current, blocks: [] }));
+                            showNotification('Documento em branco criado.', 'success');
+                          }}
+                          className="w-full rounded-2xl border border-dashed border-gray-300 bg-transparent p-4 text-left transition-colors hover:border-bible-gold/60 hover:bg-bible-gold/5 dark:border-gray-700"
+                        >
+                          <span className="block text-sm font-bold text-bible-ink dark:text-white">Comecar em branco</span>
+                          <span className="mt-1 block text-[11px] leading-relaxed text-gray-500">Monte livremente com blocos em ate tres colunas.</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {activeStudioPanel === 'ai' && (
+                      <StudioAssistantPanel
+                        verseReference={verseRef}
+                        selectedBlockLabel={selectedBlockData ? blockLabels[selectedBlockData.type as BlockType]?.label : undefined}
+                        onOpenBuilder={openStudioAI}
+                      />
+                    )}
                   </div>
                 </aside>
 
                 {/* Área Central de Edição (Canvas) - Onde o documento é visualizado e editado via TipTap */}
                 {/* Área Central de Edição (Canvas) - Onde o documento é visualizado e editado via TipTap */}
-                <main className="flex-1 overflow-x-clip overflow-y-auto w-full max-w-[100vw] text-break-words p-3 pb-28 sm:p-4 lg:p-10 lg:px-14" onScroll={handleMainScroll}>
+                <main className="flex-1 overflow-x-clip overflow-y-auto w-full max-w-[100vw] text-break-words bg-[#f3f1ec] p-3 pb-28 sm:p-4 lg:p-6 dark:bg-gray-950" onScroll={handleMainScroll}>
+
+                  {recoverableDraft && (
+                    <section
+                      role="status"
+                      aria-label="Rascunho local disponível"
+                      data-testid="study-draft-recovery"
+                      className="mx-auto mb-4 flex max-w-7xl flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100"
+                    >
+                      <div>
+                        <p className="text-sm font-bold">Encontramos alterações não salvas</p>
+                        <p className="mt-0.5 text-xs opacity-75">
+                          Recuperação local de {new Date(recoverableDraft.savedAt).toLocaleString('pt-BR')}.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={discardRecoveredDraft}
+                          className="min-h-11 rounded-xl border border-amber-300 px-4 text-xs font-bold transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700 dark:border-amber-800 dark:hover:bg-amber-900"
+                        >
+                          Descartar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={restoreRecoveredDraft}
+                          className="min-h-11 rounded-xl bg-amber-800 px-4 text-xs font-bold text-white transition-colors hover:bg-amber-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-800"
+                        >
+                          Recuperar
+                        </button>
+                      </div>
+                    </section>
+                  )}
+
+                  {(autosaveStatus === 'conflict' || autosaveStatus === 'error') && (
+                    <section
+                      role="alert"
+                      className="mx-auto mb-4 flex max-w-7xl flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-900 sm:flex-row sm:items-center sm:justify-between dark:border-red-900 dark:bg-red-950/40 dark:text-red-100"
+                    >
+                      <div>
+                        <p className="text-sm font-bold">
+                          {autosaveStatus === 'conflict' ? 'Este estudo mudou em outra sessão' : 'Não foi possível salvar automaticamente'}
+                        </p>
+                        <p className="mt-0.5 text-xs opacity-75">
+                          {autosaveStatus === 'conflict'
+                            ? 'Reabra o estudo para comparar a versão mais recente antes de continuar.'
+                            : 'Suas alterações continuam protegidas neste dispositivo. Tente salvar novamente.'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => window.location.reload()}
+                        className="min-h-11 rounded-xl bg-red-700 px-4 text-xs font-bold text-white hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+                      >
+                        Recarregar versão
+                      </button>
+                    </section>
+                  )}
 
                   {showCreationHelper && (
                     <div className="max-w-3xl mx-auto mb-3 sm:mb-4 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -1258,7 +1797,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                       </div>
                     </div>
                   )}
-                  <div className={`mx-auto bg-bible-paper dark:bg-bible-darkPaper rounded-3xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1),_inset_0_0_20px_rgba(197,160,89,0.05)] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-transparent via-bible-gold/5 to-transparent border border-bible-gold/10 transition-all duration-300 canvas-${canvasWidth} ${canvasWidth === 'mobile' ? 'w-full max-w-[390px] rounded-[1.75rem] border border-bible-gold/20 shadow-[0_14px_34px_-18px_rgba(0,0,0,0.35)]'
+                  <div className={`mx-auto bg-bible-paper dark:bg-bible-darkPaper rounded-2xl shadow-[0_18px_48px_-18px_rgba(45,42,38,0.22)] border border-[#ded8cd] transition-all duration-300 canvas-${canvasWidth} ${canvasWidth === 'mobile' ? 'w-full max-w-[390px] rounded-[1.75rem] border border-bible-gold/20 shadow-[0_14px_34px_-18px_rgba(0,0,0,0.35)]'
                     : canvasWidth === 'tablet' ? 'w-full max-w-[768px]'
                       : canvasWidth === 'full' ? 'w-full max-w-full'
                         : 'w-full max-w-7xl'
@@ -1267,10 +1806,14 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                     <UnifiedEditor
                       ref={editorRef}
                       content={content.blocks || ''}
-                      onChange={(json) => setContent(prev => ({ ...prev, blocks: json }))}
+                      onChange={(json) => setContent(prev => ({
+                        ...prev,
+                        blocks: Array.isArray(json) ? normalizeStudyBlocks(json) : json,
+                      }))}
                       onBlockSelect={(blockData) => {
                         setSelectedBlock(blockData?.id || null);
                         setActiveBlockData(blockData || null);
+                        if (blockData) setRightPanelMode('properties');
                       }}
                       readOnly={currentStep !== 'create'}
                       canvasWidth={canvasWidth}
@@ -1282,39 +1825,73 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                 </main>
 
                 {/* Barra Lateral Direita - Configurações detalhadas do bloco selecionado no momento */}
-                {selectedBlockData && (
-                  <aside className="w-80 flex-shrink-0 bg-white dark:bg-bible-darkPaper border-l border-gray-200 dark:border-gray-800 overflow-y-auto hidden xl:block">
+                <aside className="hidden w-[336px] flex-shrink-0 overflow-y-auto border-l border-[#e8e4dc] bg-white 2xl:block dark:border-gray-800 dark:bg-bible-darkPaper">
+                  <div className="sticky top-0 z-10 grid grid-cols-2 gap-1 border-b border-gray-100 bg-white p-2 dark:border-gray-800 dark:bg-bible-darkPaper">
+                    <button
+                      type="button"
+                      disabled={!selectedBlockData}
+                      onClick={() => setRightPanelMode('properties')}
+                      className={`min-h-9 rounded-lg text-[10px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                        rightPanelMode === 'properties'
+                          ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                          : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-900'
+                      }`}
+                    >
+                      Propriedades
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRightPanelMode('ai')}
+                      className={`min-h-9 rounded-lg text-[10px] font-bold transition-colors ${
+                        rightPanelMode === 'ai'
+                          ? 'bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300'
+                          : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-900'
+                      }`}
+                    >
+                      Obreiro IA
+                    </button>
+                  </div>
 
+                  {rightPanelMode === 'properties' && selectedBlockData ? (
                     <div className="p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-bible-ink dark:text-white">
-                          {blockLabels[selectedBlockData.type as keyof typeof blockLabels]?.label || 'Bloco'}
-                        </h3>
+                      <div className="mb-4 flex items-center justify-between">
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-emerald-700">Bloco selecionado</p>
+                          <h3 className="mt-1 font-bold text-bible-ink dark:text-white">
+                            {blockLabels[selectedBlockData.type as keyof typeof blockLabels]?.label || 'Bloco'}
+                          </h3>
+                        </div>
                         <button
                           onClick={() => {
                             setSelectedBlock(null);
                             setActiveBlockData(null);
+                            setRightPanelMode('ai');
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 dark:bg-red-900/10 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest border border-red-200/50 dark:border-red-900/30"
+                          className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-800"
+                          aria-label="Fechar propriedades"
                         >
-                          <X size={14} /> Fechar e Desativar
+                          <X size={16} />
                         </button>
                       </div>
-
-                      {selectedBlockData && (
-                        <BlockProperties
-                          block={selectedBlockData}
-                          onUpdate={(data) => updateBlock(selectedBlockData.id, data)}
-                          onClose={() => {
-                            setSelectedBlock(null);
-                            setActiveBlockData(null);
-                          }}
-                          isEditing={currentStep === 'create'}
-                        />
-                      )}
+                      <BlockProperties
+                        block={selectedBlockData}
+                        onUpdate={(data) => updateBlock(selectedBlockData.id, data)}
+                        onClose={() => {
+                          setSelectedBlock(null);
+                          setActiveBlockData(null);
+                          setRightPanelMode('ai');
+                        }}
+                        isEditing={currentStep === 'create'}
+                      />
                     </div>
-                  </aside>
-                )}
+                  ) : (
+                    <StudioAssistantPanel
+                      verseReference={verseRef}
+                      selectedBlockLabel={selectedBlockData ? blockLabels[selectedBlockData.type as BlockType]?.label : undefined}
+                      onOpenBuilder={openStudioAI}
+                    />
+                  )}
+                </aside>
               </div>
 
               {/* Mobile Editing Tools */}
@@ -1596,6 +2173,16 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
               )}
 
               {/* ======== AI AUTO-BUILDER MODAL (Fase 3) ======== */}
+              {aiProposal && (
+                <AIProposalReview
+                  proposal={aiProposal}
+                  onDiscard={() => setAIProposal(null)}
+                  onApplyAll={() => applyAIBlocks(aiProposal, aiProposal.blocks.map((block) => block.id), 'replace-all')}
+                  onApplySelected={(blockIds) => applyAIBlocks(aiProposal, blockIds, 'merge')}
+                  onInsertSelected={(blockIds) => applyAIBlocks(aiProposal, blockIds, 'append')}
+                />
+              )}
+
               {showAIBuilderModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowAIBuilderModal(false)}>
                   {/* Backdrop */}
@@ -1748,7 +2335,7 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                         </button>
                         <button
                           onClick={handleAIAutoBuilder}
-                          disabled={isAIBuilding || !aiBuilderPrompt.trim()}
+                          disabled={isAIBuilding || (!aiBuilderPrompt.trim() && !verseRef)}
                           className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-2xl font-bold text-sm hover:from-violet-700 hover:to-purple-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-purple-200 dark:shadow-purple-900/30"
                         >
                           {isAIBuilding ? (
@@ -1838,10 +2425,8 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
                       : 'max-w-7xl rounded-2xl'
                   }`}>
                   <div className="w-full h-full p-6 md:p-12 lg:px-20">
-                    <UnifiedEditor
-                      content={content.blocks}
-                      readOnly={true}
-                      onChange={() => { }}
+                    <StudyDocumentRenderer
+                      blocks={content.blocks}
                       canvasWidth={canvasWidth}
                       studyId={content.id || content.slug}
                       studyTitle={content.meta.title}
@@ -2032,10 +2617,8 @@ const CreateLandingPage: React.FC<{ embeddedContext?: EmbeddedContext }> = ({ em
               </div>
             </div>
             <div className="hidden print:block w-full bg-white">
-              <UnifiedEditor
-                content={content.blocks}
-                readOnly={true}
-                onChange={() => { }}
+              <StudyDocumentRenderer
+                blocks={content.blocks}
                 studyId={content.id || content.slug}
                 studyTitle={content.meta.title}
               />

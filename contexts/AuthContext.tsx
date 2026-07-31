@@ -11,6 +11,7 @@ import { UserProfile, Badge, ActionType, ReadingPosition, UserActivity, UserStat
 import { BADGES, SUBSCRIPTION_PLANS } from '../constants';
 import { applyActivityRules } from '../utils/activityRules';
 import { canAccessPastoralWorkspace, toManaActorRole } from '../utils/profileAccess';
+import { getSafeAuthReturnPath, readAuthReturnPath, storeAuthReturnPath } from '../utils/authIntent';
 
 const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   general: { maintenanceMode: false, welcomeMessage: "Bem-vindo" },
@@ -138,18 +139,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [subscriptionPrompt, setSubscriptionPrompt] = useState<string | null>(null);
   const [isBuyCreditsModalOpen, setIsBuyCreditsModalOpen] = useState(false);
-  const [intendedPath, setIntendedPath] = useState<string | null>(null);
+  const [intendedPath, setIntendedPathState] = useState<string | null>(() => readAuthReturnPath());
 
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'info' | 'badge' | 'error' | 'warning' } | null>(null);
   const [newUnlockedBadge, setNewUnlockedBadge] = useState<Badge | null>(null);
 
   const unreadNotificationsCount = notifications.filter(n => !n.read).length;
 
-  const openLogin = (path?: string) => {
+  const setIntendedPath = useCallback((path: string | null) => {
+    const safePath = storeAuthReturnPath(path);
+    setIntendedPathState(safePath);
+  }, []);
+
+  const openLogin = useCallback((path?: string) => {
     if (path) setIntendedPath(path);
     setIsLoginModalOpen(true);
-  };
-  const closeLogin = () => setIsLoginModalOpen(false);
+  }, [setIntendedPath]);
+  const closeLogin = useCallback(() => setIsLoginModalOpen(false), []);
+
+  useEffect(() => {
+    if (loading || !currentUser || !intendedPath) return;
+
+    const destination = getSafeAuthReturnPath(intendedPath);
+    const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    setIntendedPath(null);
+    setIsLoginModalOpen(false);
+
+    if (currentPath !== destination) {
+      navigate(destination, { replace: true });
+    }
+  }, [currentUser, intendedPath, loading, navigate, setIntendedPath]);
 
   const openBuyCredits = () => setIsBuyCreditsModalOpen(true);
   const closeBuyCredits = () => setIsBuyCreditsModalOpen(false);

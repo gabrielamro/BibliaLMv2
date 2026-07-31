@@ -1,33 +1,59 @@
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 
-test('criar-sala opens the new studio layout', async ({ page }) => {
+test('criar-sala protege o estúdio pastoral para visitantes', async ({ page }) => {
   await page.goto('/criar-sala', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByRole('heading', { name: /Criar sala/i })).toBeVisible();
-  await expect(page.getByText('Dados essenciais', { exact: true })).toBeVisible();
-  await expect(page.getByText('Estrutura da sala', { exact: true })).toBeVisible();
-  await expect(page.getByText('Checklist da sala', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Nova aula/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Criar Sala/i })).toBeVisible();
+  await expect(page.getByText(/plano pastoral ou igreja/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /Entrar na Conta/i })).toBeVisible();
 });
 
-test('criar-sala exposes evaluation as its own workspace section', async ({ page }) => {
-  await page.goto('/criar-sala', { waitUntil: 'domcontentloaded' });
+test('a edição de aula usa o componente canônico StudyStudio', async () => {
+  const source = await readFile(
+    path.join(process.cwd(), 'views', 'CreateRoomStudioPage.tsx'),
+    'utf8',
+  );
 
-  await page.getByRole('tab', { name: /Avaliacao/i }).click();
-
-  await expect(page.getByRole('heading', { name: /Avaliacao da sala/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Criar avaliacao/i })).toBeVisible();
-  await expect(page.getByText(/Salve a sala antes de criar a avaliacao/i)).toBeVisible();
+  expect(source).toContain("import StudyStudio from '../components/study-studio/StudyStudio'");
+  expect(source).toContain('<StudyStudio');
+  expect(source).toContain('mode="roomLesson"');
+  expect(source).not.toContain('<CreateContentV3Page');
 });
 
-test('criar-sala lets users attach cover images and create lessons with the template editor in the same route', async ({ page }) => {
-  await page.goto('/criar-sala', { waitUntil: 'domcontentloaded' });
+test('as rotas legadas convergem para a rota canônica', async () => {
+  const standalone = await readFile(
+    path.join(process.cwd(), 'app', 'criar-conteudo', 'page.tsx'),
+    'utf8',
+  );
+  const v3 = await readFile(
+    path.join(process.cwd(), 'app', 'criar-conteudo-v3', 'page.tsx'),
+    'utf8',
+  );
+  const v2 = await readFile(
+    path.join(process.cwd(), 'app', 'criar-conteudo-v2', 'page.tsx'),
+    'utf8',
+  );
 
-  await expect(page.getByRole('button', { name: /Anexar imagem/i })).toBeVisible();
+  expect(standalone).toContain('components/study-studio/StudyStudio');
+  expect(standalone).toContain('mode="standalone"');
+  expect(v3).toContain("redirect(`/criar-conteudo");
+  expect(v2).toContain("redirect(`/criar-conteudo");
+});
 
-  await page.getByRole('button', { name: /Nova aula/i }).click();
+test('a estrutura da sala usa chave composta para aulas duplicadas em unidades distintas', async () => {
+  const panel = await readFile(
+    path.join(process.cwd(), 'components', 'PlanStudio', 'LessonStructurePanel.tsx'),
+    'utf8',
+  );
+  const room = await readFile(
+    path.join(process.cwd(), 'views', 'CreateRoomStudioPage.tsx'),
+    'utf8',
+  );
 
-  await expect(page).toHaveURL(/\/criar-sala\?lesson=/);
-  await expect(page.getByText(/Template Estudo Profundo V3/i)).toBeVisible();
-  await expect(page.getByRole('button', { name: /Concluir Aula/i })).toBeVisible();
+  expect(panel).toContain('const dragId = `${unitId}:${lesson.id}:${lessonIndex}`;');
+  expect(panel).toContain('key={`${unit.id}:${lesson.id}:${lessonIndex}`}');
+  expect(panel).toContain('`${unit.id}:${lesson.id}:${lessonIndex}`');
+  expect(room).toContain('key={`${unitId}:${lesson.id}:${index}`}');
 });

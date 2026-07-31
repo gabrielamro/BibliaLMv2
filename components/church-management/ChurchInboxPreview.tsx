@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   UserCheck,
   UserRound,
+  UserX,
   UsersRound,
   X,
 } from "lucide-react";
@@ -28,7 +29,7 @@ import { type ChurchInboxItemPreview, type ChurchInboxStatus } from "../../servi
 import { churchManagementService } from "../../services/churchManagementService";
 import { useAuth } from "../../contexts/AuthContext";
 import type { ChurchFormSubmission, ChurchServiceTeam, ChurchSubmissionPriority, ChurchSubmissionStatus, ChurchTeamFunction } from "../../types";
-import { getInboxAssignmentUpdate, getInboxStatusToggleUpdate } from "../../utils/churchManagementRules";
+import { getInboxAssignmentUpdate, getInboxStatusToggleUpdate, VOLUNTEER_REJECTION_PUBLIC_STATUS } from "../../utils/churchManagementRules";
 
 const statusFilters: Array<ChurchInboxStatus | "Todos"> = ["Todos", "Recebido", "Atribuido", "Em acompanhamento", "Aguardando membro", "Encerrado"];
 
@@ -72,12 +73,17 @@ export default function ChurchInboxPreview() {
   const [isLoadingFunctions, setIsLoadingFunctions] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [approvalFeedback, setApprovalFeedback] = useState("");
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [isRejectionConfirmationOpen, setIsRejectionConfirmationOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectionFeedback, setRejectionFeedback] = useState("");
   const [quickApprovalId, setQuickApprovalId] = useState("");
   const [listFeedback, setListFeedback] = useState("");
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const quickCloseButtonRef = useRef<HTMLButtonElement>(null);
   const modalRef = useRef<HTMLElement>(null);
   const quickModalRef = useRef<HTMLElement>(null);
+  const approvalQueryHandledRef = useRef("");
   const activeChurchId = userProfile?.churchData?.churchId;
   const currentUserId = currentUser?.id ?? currentUser?.uid ?? "";
 
@@ -99,6 +105,20 @@ export default function ChurchInboxPreview() {
     return () => { active = false; };
   }, [activeChurchId]);
 
+  useEffect(() => {
+    const submissionId = new URLSearchParams(window.location.search).get("approve") ?? "";
+    if (!submissionId || approvalQueryHandledRef.current === submissionId) return;
+    const submission = submissions.find((item) => item.id === submissionId);
+    if (!submission || submission.formType !== "volunteer") return;
+    approvalQueryHandledRef.current = submissionId;
+    setSelectedId("");
+    setApprovalTeamId(teams.length === 1 ? teams[0].id : "");
+    setApprovalFunctionId("");
+    setApprovalFeedback("");
+    setListFeedback("");
+    setQuickApprovalId(submissionId);
+  }, [submissions, teams]);
+
   const displayItems = useMemo(() => submissions.map(mapSubmissionToDisplay), [submissions]);
   const normalizedSearch = searchTerm.trim().toLocaleLowerCase("pt-BR");
   const filteredItems = useMemo(() => displayItems.filter((item) => {
@@ -112,6 +132,8 @@ export default function ChurchInboxPreview() {
   const quickApprovalSubmission = submissions.find((item) => item.id === quickApprovalId) ?? null;
   const isVolunteerCandidate = selectedSubmission?.formType === "volunteer";
   const isVolunteerApproved = isVolunteerCandidate && selectedSubmission.publicStatus === "Aprovado para servir";
+  const isVolunteerRejected = isVolunteerCandidate && selectedSubmission.publicStatus === VOLUNTEER_REJECTION_PUBLIC_STATUS;
+  const isVolunteerResolved = isVolunteerApproved || isVolunteerRejected;
 
   useEffect(() => {
     if (!selectedItem) return;
@@ -123,7 +145,13 @@ export default function ChurchInboxPreview() {
   }, [selectedItem, submissions]);
 
   useEffect(() => {
-    if (!isVolunteerCandidate || isVolunteerApproved) {
+    setIsRejectionConfirmationOpen(false);
+    setRejectionReason("");
+    setRejectionFeedback("");
+  }, [selectedSubmission?.id]);
+
+  useEffect(() => {
+    if (!isVolunteerCandidate || isVolunteerResolved) {
       setApprovalTeamId("");
       setApprovalFunctionId("");
       setTeamFunctions([]);
@@ -131,7 +159,7 @@ export default function ChurchInboxPreview() {
     }
     setApprovalTeamId(teams.length === 1 ? teams[0].id : "");
     setApprovalFunctionId("");
-  }, [isVolunteerApproved, selectedSubmission?.id, teams]);
+  }, [isVolunteerCandidate, isVolunteerResolved, selectedSubmission?.id, teams]);
 
   useEffect(() => {
     if (!activeChurchId || !approvalTeamId) {
@@ -257,6 +285,26 @@ export default function ChurchInboxPreview() {
     }
   };
 
+  const rejectVolunteer = async () => {
+    if (!selectedSubmission) return;
+    setIsRejecting(true);
+    setRejectionFeedback("");
+    try {
+      const updated = await churchManagementService.rejectVolunteerSubmission({
+        submissionId: selectedSubmission.id,
+        rejectedBy: currentUserId || null,
+        reason: rejectionReason || null,
+      });
+      setSubmissions((items) => items.map((item) => item.id === updated.id ? updated : item));
+      setIsRejectionConfirmationOpen(false);
+      setRejectionReason("");
+    } catch (error) {
+      setRejectionFeedback(error instanceof Error ? error.message : "Não foi possível recusar esta solicitação agora.");
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
   const openQuickApproval = (submissionId: string) => {
     setSelectedId("");
     setApprovalTeamId(teams.length === 1 ? teams[0].id : "");
@@ -340,7 +388,8 @@ export default function ChurchInboxPreview() {
               const submission = submissions.find((candidate) => candidate.id === item.realId);
               const isVolunteer = submission?.formType === "volunteer";
               const isApproved = isVolunteer && submission.publicStatus === "Aprovado para servir";
-              const canQuickApprove = Boolean(isVolunteer && submission?.submitterUserId && !isApproved && !["closed", "archived"].includes(submission.status));
+              const isRejected = isVolunteer && submission.publicStatus === VOLUNTEER_REJECTION_PUBLIC_STATUS;
+              const canQuickApprove = Boolean(isVolunteer && submission?.submitterUserId && !isApproved && !isRejected && !["closed", "archived"].includes(submission.status));
               return (
                 <article key={item.id} className="grid w-full gap-4 px-4 py-4 text-left transition hover:bg-emerald-50/40 sm:px-5 lg:grid-cols-[minmax(250px,1.35fr)_minmax(170px,0.9fr)_150px_140px_145px_210px] lg:items-center dark:hover:bg-emerald-400/5">
                   <span className="flex min-w-0 gap-3">
@@ -348,7 +397,7 @@ export default function ChurchInboxPreview() {
                     <span className="min-w-0"><strong className="block truncate text-sm text-slate-900 dark:text-white">{item.title}</strong><small className="mt-1 line-clamp-1 block text-xs text-slate-500">{item.summary}</small><span className={`mt-2 inline-flex rounded-full px-2 py-1 text-[9px] font-black uppercase ${priorityClass[item.priority]}`}>{item.priority}</span></span>
                   </span>
                   <span className="min-w-0"><strong className="block truncate text-xs text-slate-800 dark:text-slate-100">{item.submittedBy}</strong><small className="mt-1 block truncate text-[11px] text-slate-500">{item.contact}</small></span>
-                  <span><span className={`inline-flex rounded-full px-2.5 py-1.5 text-[9px] font-black uppercase ${isApproved ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-200" : statusClass[item.status]}`}>{isApproved ? "Aprovado" : getStatusLabel(item.status)}</span></span>
+                  <span><span className={`inline-flex rounded-full px-2.5 py-1.5 text-[9px] font-black uppercase ${isApproved ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-200" : isRejected ? "bg-rose-100 text-rose-800 dark:bg-rose-400/15 dark:text-rose-200" : statusClass[item.status]}`}>{isApproved ? "Aprovado" : isRejected ? "Recusado" : getStatusLabel(item.status)}</span></span>
                   <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{item.assignee}</span>
                   <span className="text-xs text-slate-500"><CalendarClock size={14} className="mb-1" />{item.submittedAt}</span>
                   <span className="grid grid-cols-2 gap-2">
@@ -425,7 +474,7 @@ export default function ChurchInboxPreview() {
               <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(300px,0.7fr)]">
                 <div className="space-y-5">
                   <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.04]">
-                    <div className="flex flex-wrap gap-2"><span className={`rounded-full px-2.5 py-1.5 text-[9px] font-black uppercase ${statusClass[selectedItem.status]}`}>{getStatusLabel(selectedItem.status)}</span><span className={`rounded-full px-2.5 py-1.5 text-[9px] font-black uppercase ${priorityClass[selectedItem.priority]}`}>{selectedItem.priority}</span>{selectedItem.privacy.includes("Restrito") ? <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1.5 text-[9px] font-black uppercase text-rose-700 dark:bg-rose-400/15 dark:text-rose-200"><Lock size={11} /> Restrito</span> : null}</div>
+                    <div className="flex flex-wrap gap-2"><span className={`rounded-full px-2.5 py-1.5 text-[9px] font-black uppercase ${isVolunteerApproved ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-200" : isVolunteerRejected ? "bg-rose-100 text-rose-800 dark:bg-rose-400/15 dark:text-rose-200" : statusClass[selectedItem.status]}`}>{isVolunteerApproved ? "Aprovado" : isVolunteerRejected ? "Recusado" : getStatusLabel(selectedItem.status)}</span><span className={`rounded-full px-2.5 py-1.5 text-[9px] font-black uppercase ${priorityClass[selectedItem.priority]}`}>{selectedItem.priority}</span>{selectedItem.privacy.includes("Restrito") ? <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1.5 text-[9px] font-black uppercase text-rose-700 dark:bg-rose-400/15 dark:text-rose-200"><Lock size={11} /> Restrito</span> : null}</div>
                     <h3 className="mt-4 text-sm font-black uppercase tracking-wider text-slate-500">Resumo</h3><p className="mt-2 text-sm leading-7 text-slate-700 dark:text-slate-200">{selectedItem.summary}</p>
                     <div className="mt-5 grid gap-3 sm:grid-cols-2">
                       <Info icon={CircleUserRound} label="Enviado por" value={selectedItem.submittedBy} />
@@ -450,7 +499,7 @@ export default function ChurchInboxPreview() {
 
                 <aside className="space-y-4">
                   {isVolunteerCandidate ? (
-                    <section className={`rounded-2xl border p-5 ${isVolunteerApproved ? "border-emerald-200 bg-emerald-50 dark:border-emerald-300/20 dark:bg-emerald-400/10" : "border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.04]"}`}>
+                    <section className={`rounded-2xl border p-5 ${isVolunteerApproved ? "border-emerald-200 bg-emerald-50 dark:border-emerald-300/20 dark:bg-emerald-400/10" : isVolunteerRejected ? "border-rose-200 bg-rose-50 dark:border-rose-300/20 dark:bg-rose-400/10" : "border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.04]"}`}>
                       {isVolunteerApproved ? (
                         <div className="flex gap-3">
                           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white"><BadgeCheck size={21} /></span>
@@ -459,6 +508,38 @@ export default function ChurchInboxPreview() {
                             <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800 dark:text-emerald-200">{selectedSubmission.publicFeedback || "O membro já está vinculado à equipe e recebeu o retorno da aprovação."}</p>
                           </div>
                         </div>
+                      ) : isVolunteerRejected ? (
+                        <div className="flex gap-3">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-600 text-white"><UserX size={21} /></span>
+                          <div>
+                            <h3 className="font-black text-rose-900 dark:text-rose-100">Solicitação recusada</h3>
+                            <p className="mt-1 text-xs font-semibold leading-5 text-rose-800 dark:text-rose-200">{selectedSubmission.publicFeedback || "A solicitação foi encerrada e o usuário pode enviar uma nova candidatura."}</p>
+                            <p className="mt-2 text-[11px] font-bold leading-5 text-rose-700 dark:text-rose-200">O usuário foi notificado e pode solicitar novamente.</p>
+                          </div>
+                        </div>
+                      ) : isRejectionConfirmationOpen ? (
+                        <>
+                          <div className="flex gap-3">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-200"><UserX size={21} /></span>
+                            <div>
+                              <h3 className="font-black">Recusar solicitação?</h3>
+                              <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">Esta ação encerra somente o pedido atual. O usuário será notificado e poderá enviar uma nova solicitação depois.</p>
+                            </div>
+                          </div>
+                          <label className="mt-4 block">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Mensagem para o usuário <span className="font-semibold normal-case tracking-normal">(opcional)</span></span>
+                            <textarea value={rejectionReason} onChange={(event) => { setRejectionReason(event.target.value); setRejectionFeedback(""); }} maxLength={500} rows={4} placeholder="Explique com cuidado o motivo ou a orientação para uma próxima tentativa." className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm leading-6 outline-none transition focus:border-rose-500 focus:ring-2 focus:ring-rose-100 dark:border-white/10 dark:bg-[#11161d] dark:focus:ring-rose-500/20" />
+                            <span className="mt-1 block text-right text-[10px] font-semibold text-slate-400">{rejectionReason.length}/500</span>
+                          </label>
+                          {rejectionFeedback ? <p role="alert" className="mt-3 rounded-xl bg-rose-100 p-3 text-xs font-semibold leading-5 text-rose-800 dark:bg-rose-400/15 dark:text-rose-200">{rejectionFeedback}</p> : null}
+                          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            <button type="button" onClick={() => { setIsRejectionConfirmationOpen(false); setRejectionReason(""); setRejectionFeedback(""); }} disabled={isRejecting} className="min-h-11 rounded-xl border border-slate-200 px-3 text-xs font-black uppercase tracking-wider text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10">Cancelar</button>
+                            <button type="button" onClick={rejectVolunteer} disabled={isRejecting} aria-busy={isRejecting} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-rose-600 px-3 text-xs font-black uppercase tracking-wider text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60">
+                              {isRejecting ? <Loader2 size={16} className="animate-spin" /> : <UserX size={16} />}
+                              {isRejecting ? "Recusando..." : "Confirmar recusa"}
+                            </button>
+                          </div>
+                        </>
                       ) : (
                         <>
                           <h3 className="flex items-center gap-2 font-black"><UsersRound size={18} className="text-emerald-700 dark:text-emerald-300" /> Aprovar voluntário</h3>
@@ -493,13 +574,17 @@ export default function ChurchInboxPreview() {
                             </>
                           )}
                           {approvalFeedback ? <p role="status" className="mt-3 rounded-xl bg-slate-100 p-3 text-xs font-semibold leading-5 text-slate-700 dark:bg-white/10 dark:text-slate-200">{approvalFeedback}</p> : null}
+                          <div className="mt-4 border-t border-slate-200 pt-4 dark:border-white/10">
+                            <button type="button" onClick={() => { setIsRejectionConfirmationOpen(true); setApprovalFeedback(""); setRejectionFeedback(""); }} disabled={!selectedSubmission?.submitterUserId || isApproving} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-rose-200 px-4 text-xs font-black uppercase tracking-wider text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-300/20 dark:text-rose-200 dark:hover:bg-rose-400/10"><UserX size={16} /> Recusar solicitação</button>
+                            {!selectedSubmission?.submitterUserId ? <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-500">É necessário identificar o usuário para enviar a notificação da recusa.</p> : null}
+                          </div>
                         </>
                       )}
                     </section>
                   ) : null}
                   <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.04]">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Próxima ação</p><p className="mt-2 text-sm font-bold leading-6">{selectedItem.nextAction}</p>
-                    <button type="button" onClick={updateSelectedStatus} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#082f2b] px-4 text-xs font-black uppercase tracking-wider text-white transition hover:bg-emerald-900"><CheckCircle2 size={16} /> Atualizar status</button>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">{isVolunteerResolved ? "Situação" : "Próxima ação"}</p><p className="mt-2 text-sm font-bold leading-6">{selectedItem.nextAction}</p>
+                    {!isVolunteerResolved ? <button type="button" onClick={updateSelectedStatus} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#082f2b] px-4 text-xs font-black uppercase tracking-wider text-white transition hover:bg-emerald-900"><CheckCircle2 size={16} /> Atualizar status</button> : null}
                   </section>
 
                   <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.04]">

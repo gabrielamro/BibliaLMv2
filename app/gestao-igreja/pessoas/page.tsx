@@ -1,5 +1,5 @@
-import ChurchPeoplePreview from "../../../components/church-management/ChurchPeoplePreview";
+import ChurchPeopleOperationsHub from "../../../components/church-management/ChurchPeopleOperationsHub";
 
 export default function ChurchManagementPeoplePage() {
-  return <ChurchPeoplePreview />;
+  return <ChurchPeopleOperationsHub />;
 }

@@ -250,7 +250,7 @@ export default function ChurchOperationalPhasePreview({ phase }: { phase: Operat
         scope: getRoleScopeSummary(roles),
         people: roles.length,
         canSeeSensitiveCare: option.value === "pastor",
-        canManageOperations: option.value === "church_manager" || option.value === "pastor" || option.value === "leader",
+        canManageOperations: option.value === "church_manager" || option.value === "leader",
         guardrail: getRoleGuardrail(option.value),
         icon: KeyRound,
       };

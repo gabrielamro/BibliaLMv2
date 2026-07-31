@@ -1,7 +1,5 @@
-"use client";
-
-import MemberChurchPreview from "../../components/church-management/MemberChurchPreview";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <MemberChurchPreview />;
+  redirect("/meus-cultos");
 }

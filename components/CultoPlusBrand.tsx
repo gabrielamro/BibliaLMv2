@@ -17,7 +17,7 @@ export default function CultoPlusBrand({ compact = false, className = "" }: Cult
         <img
           src="/brand/culto-plus-logo.png"
           alt="Culto+"
-          className="h-full w-[200%] max-w-none object-cover object-left"
+          className="h-full w-[300%] max-w-none object-cover object-left"
         />
       </div>
     );

@@ -1,5 +1,5 @@
-import MemberAssignmentsPreview from "../../../components/church-management/MemberAssignmentsPreview";
+import { redirect } from "next/navigation";
 
 export default function MemberChurchAssignmentsPage() {
-  return <MemberAssignmentsPreview />;
+  redirect("/meus-cultos#escala");
 }

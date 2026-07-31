@@ -323,6 +323,7 @@ export const RichTextBlock: React.FC<RichTextBlockProps> = ({ data, onUpdate, is
   const contentPadding = 
     canvasWidth === 'mobile' ? 'px-4 py-5' :
     layoutWidth === '1/3' ? 'px-4 py-5' :
+    layoutWidth === '2/3' ? 'px-6 py-6' :
     layoutWidth === '1/2' ? 'px-6 py-6' :
     'px-8 py-8';
 

@@ -21,7 +21,7 @@ import { churchManagementService } from "../../services/churchManagementService"
 import { dbService } from "../../services/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import type { Church as ChurchType, ChurchQrForm, ChurchQrFormType } from "../../types";
-import { extractQrSubmitterFields } from "../../utils/churchManagementRules";
+import { extractQrSubmitterFields, getVolunteerApplicantIdentity } from "../../utils/churchManagementRules";
 import CultoPlusBrand from "../CultoPlusBrand";
 
 const formTypeIcons: Record<ChurchQrFormType, LucideIcon> = {
@@ -54,6 +54,13 @@ export default function ChurchQrPublicFormPreview({ form }: { form: ChurchQrForm
   const destinationTeamId = getTeamIdFromDestination(form.destination);
   const requiresChurchMembership = form.formType === "volunteer" && !isPreview;
   const canSubmitVolunteerApplication = !requiresChurchMembership || (Boolean(currentUserId) && isChurchMember && !isChurchCardLoading);
+  const applicantIdentity = getVolunteerApplicantIdentity({
+    displayName: userProfile?.displayName,
+    username: userProfile?.username ?? currentUser?.user_metadata?.username,
+    email: userProfile?.email ?? currentUser?.email,
+    metadataDisplayName: currentUser?.user_metadata?.display_name ?? currentUser?.user_metadata?.displayName,
+    metadataFullName: currentUser?.user_metadata?.full_name,
+  });
 
   useEffect(() => {
     if (isPreview) {
@@ -146,8 +153,8 @@ export default function ChurchQrPublicFormPreview({ form }: { form: ChurchQrForm
         await churchManagementService.submitQrForm({
           form,
           submitterUserId: userId,
-          submitterName: submitter.submitterName || userProfile?.displayName || null,
-          submitterContact: submitter.submitterContact || null,
+          submitterName: submitter.submitterName || applicantIdentity.name || null,
+          submitterContact: submitter.submitterContact || applicantIdentity.handle || null,
           payload,
         });
 
@@ -198,7 +205,7 @@ export default function ChurchQrPublicFormPreview({ form }: { form: ChurchQrForm
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
               {currentUserId ? (
-                <Link href="/minha-igreja#acompanhamento" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-black uppercase tracking-wider text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950">
+                <Link href="/meus-cultos#solicitacoes" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-black uppercase tracking-wider text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950">
                   Ver acompanhamento
                 </Link>
               ) : (
@@ -376,7 +383,7 @@ export default function ChurchQrPublicFormPreview({ form }: { form: ChurchQrForm
           ) : null}
         </aside>
 
-        <form id="candidatura" key={`${form.id}:${currentUserId ?? "visitor"}`} onSubmit={handleSubmit} className="order-1 scroll-mt-20 rounded-3xl border border-[#eadfd2] bg-white p-4 shadow-xl shadow-[#321b50]/5 sm:p-5 md:p-8 dark:border-white/10 dark:bg-white/[0.04] lg:order-none lg:col-start-2 lg:row-start-1">
+        <form id="candidatura" key={`${form.id}:${currentUserId ?? "visitor"}:${applicantIdentity.handle}:${applicantIdentity.name}`} onSubmit={handleSubmit} className="order-1 scroll-mt-20 rounded-3xl border border-[#eadfd2] bg-white p-4 shadow-xl shadow-[#321b50]/5 sm:p-5 md:p-8 dark:border-white/10 dark:bg-white/[0.04] lg:order-none lg:col-start-2 lg:row-start-1">
           <div className="border-b border-slate-100 pb-5 dark:border-white/10">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Candidatura de voluntariado</p>
             <h2 className="mt-2 text-2xl font-black">Vamos começar?</h2>
@@ -384,17 +391,21 @@ export default function ChurchQrPublicFormPreview({ form }: { form: ChurchQrForm
           </div>
           <div className="grid gap-4">
             {publicFields.map((field) => {
-              const shouldMaskPhone = isPhoneContactField(field.label, field.type);
+              const usesUsername = isVolunteerUsernameContactField(field.label, form.formType);
+              const shouldMaskPhone = !usesUsername && isPhoneContactField(field.label, field.type);
+              const prefilledValue = getPrefilledValue(field.label, form, applicantIdentity, currentUser, userProfile);
+              const placeholder = isNameField(field.label) ? "Seu nome completo" : usesUsername ? "@seuusuario" : shouldMaskPhone ? "(00) 99999-9999" : undefined;
               return (
               <label key={field.label} className="grid gap-2">
                 <span className="text-sm font-black text-slate-800 dark:text-slate-100">
                   {field.label}
                   {field.required ? <span className="text-red-600"> *</span> : null}
+                  {usesUsername ? <span className="ml-2 text-xs font-semibold text-slate-500 dark:text-slate-400">Seu @ no Culto+</span> : null}
                 </span>
                 {field.type === "textarea" ? (
-                  <textarea name={field.label} defaultValue={getPrefilledValue(field.label, form, currentUser, userProfile)} required={field.required} rows={4} className="min-h-28 rounded-xl border border-slate-200 bg-white px-3 py-3 text-base outline-none transition focus:border-[#6d36a3] focus:ring-2 focus:ring-purple-100 dark:border-white/10 dark:bg-[#0f172a] dark:focus:border-purple-300" />
+                  <textarea name={field.label} defaultValue={prefilledValue} required={field.required} rows={4} className="min-h-28 rounded-xl border border-slate-200 bg-white px-3 py-3 text-base outline-none transition focus:border-[#6d36a3] focus:ring-2 focus:ring-purple-100 dark:border-white/10 dark:bg-[#0f172a] dark:focus:border-purple-300" />
                 ) : field.type === "select" ? (
-                  <select name={field.label} defaultValue={getPrefilledValue(field.label, form, currentUser, userProfile)} required={field.required} className="min-h-12 rounded-xl border border-slate-200 bg-white px-3 text-base outline-none transition focus:border-[#6d36a3] focus:ring-2 focus:ring-purple-100 dark:border-white/10 dark:bg-[#0f172a] dark:focus:border-purple-300">
+                  <select name={field.label} defaultValue={prefilledValue} required={field.required} className="min-h-12 rounded-xl border border-slate-200 bg-white px-3 text-base outline-none transition focus:border-[#6d36a3] focus:ring-2 focus:ring-purple-100 dark:border-white/10 dark:bg-[#0f172a] dark:focus:border-purple-300">
                     <option value="">Selecionar</option>
                     {field.options?.map((option) => (
                       <option key={option} value={option}>{option}</option>
@@ -403,12 +414,12 @@ export default function ChurchQrPublicFormPreview({ form }: { form: ChurchQrForm
                 ) : (
                   <input
                     name={field.label}
-                    defaultValue={getPrefilledValue(field.label, form, currentUser, userProfile)}
+                    defaultValue={prefilledValue}
                     required={field.required}
-                    type={shouldMaskPhone ? "tel" : field.type}
+                    type={usesUsername ? "text" : shouldMaskPhone ? "tel" : field.type}
                     inputMode={shouldMaskPhone ? "numeric" : undefined}
                     maxLength={shouldMaskPhone ? 15 : undefined}
-                    placeholder={shouldMaskPhone ? "(00) 99999-9999" : undefined}
+                    placeholder={placeholder}
                     onChange={shouldMaskPhone ? (event) => { event.currentTarget.value = formatBrazilianPhone(event.currentTarget.value); } : undefined}
                     className="min-h-12 rounded-xl border border-slate-200 bg-white px-3 text-base outline-none transition focus:border-[#6d36a3] focus:ring-2 focus:ring-purple-100 dark:border-white/10 dark:bg-[#0f172a] dark:focus:border-purple-300"
                   />
@@ -473,6 +484,17 @@ function isPhoneContactField(label: string, type: string) {
   return type === "tel" || /\b(contato|telefone|celular|whatsapp|zap)\b/.test(normalized);
 }
 
+function isVolunteerUsernameContactField(label: string, formType: ChurchQrFormType) {
+  if (formType !== "volunteer") return false;
+  const normalized = label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return /\b(contato|usuario|username|perfil)\b/.test(normalized) && !/\b(email|e-mail)\b/.test(normalized);
+}
+
+function isNameField(label: string) {
+  const normalized = label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return /\b(nome|name)\b/.test(normalized);
+}
+
 function isTeamField(label: string) {
   const normalized = label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   return /\b(equipe|time|team)\b/.test(normalized);
@@ -490,10 +512,11 @@ function extractTeamFunctions(description: string) {
     });
 }
 
-function getPrefilledValue(label: string, form: ChurchQrForm, currentUser: any, userProfile: any) {
+function getPrefilledValue(label: string, form: ChurchQrForm, applicantIdentity: { name: string; handle: string }, currentUser: any, userProfile: any) {
   const normalized = label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  if (/\b(nome|name)\b/.test(normalized)) return userProfile?.displayName || currentUser?.user_metadata?.display_name || "";
+  if (/\b(nome|name)\b/.test(normalized)) return applicantIdentity.name;
   if (/\b(email|e-mail)\b/.test(normalized)) return userProfile?.email || currentUser?.email || "";
+  if (isVolunteerUsernameContactField(label, form.formType)) return applicantIdentity.handle;
   if (/\b(contato|telefone|celular|whatsapp|zap)\b/.test(normalized)) return userProfile?.phoneNumber || "";
   if (/\b(equipe|time|team)\b/.test(normalized)) return getTeamTitle(form.title);
   return "";

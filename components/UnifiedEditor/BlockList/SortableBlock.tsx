@@ -64,24 +64,30 @@ export const SortableBlock: React.FC<SortableBlockProps> = ({
     transition,
     zIndex: isDragging ? 100 : 'auto',
     opacity: isDragging ? 0.5 : 1,
-    ...(layoutPercent && !isMobileCanvas
-      ? {
-          width: `${layoutPercent}%`,
-          maxWidth: `${layoutPercent}%`,
-          flexBasis: `${layoutPercent}%`,
-        }
-      : {}),
+    gridColumn: `span ${
+      isMobileCanvas
+        ? 12
+        : layoutWidth === '2/3'
+          ? 8
+          : layoutWidth === '1/2'
+            ? 6
+            : layoutWidth === '1/3'
+              ? 4
+              : 12
+    } / span ${
+      isMobileCanvas
+        ? 12
+        : layoutWidth === '2/3'
+          ? 8
+          : layoutWidth === '1/2'
+            ? 6
+            : layoutWidth === '1/3'
+              ? 4
+              : 12
+    }`,
   };
 
-  const widthClass = layoutPercent && !isMobileCanvas
-    ? ''
-    : isMobileCanvas
-    ? 'w-full'
-    : ({
-      '1/1': 'w-full',
-      '1/2': 'w-1/2',
-      '1/3': 'w-1/3',
-      }[effectiveLayoutWidth] || 'w-full');
+  const widthClass = 'w-full';
 
   const openTextToolboxForTarget = (target: EventTarget | null) => {
     if (!isEditing || !(target instanceof HTMLElement)) return;
@@ -135,7 +141,8 @@ export const SortableBlock: React.FC<SortableBlockProps> = ({
       ref={setNodeRef}
       style={style}
       data-testid="sortable-block"
-      className={`relative group flex px-1 transition-all duration-300 box-border ${isMobileCanvas ? 'mb-6' : 'mb-10'} ${widthClass}`}
+      data-layout-width={effectiveLayoutWidth}
+      className={`relative group flex min-w-0 transition-all duration-300 box-border ${widthClass}`}
       onClick={() => onSelect?.()}
       onFocusCapture={(event) => openTextToolboxForTarget(event.target)}
       onMouseDownCapture={(event) => openTextToolboxForTarget(event.target)}
@@ -185,6 +192,7 @@ export const SortableBlock: React.FC<SortableBlockProps> = ({
              {[
                  { label: '1/3', value: '1/3' },
                  { label: '1/2', value: '1/2' },
+                 { label: '2/3', value: '2/3' },
                  { label: '1/1', value: '1/1' },
                ].map(opt => (
                  <button

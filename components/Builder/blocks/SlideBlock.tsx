@@ -172,7 +172,7 @@ export const SlideBlock: React.FC<SlideBlockProps> = ({ data, onUpdate, isEditin
               </div>
               {currentSlideData.mediaUrl && currentSlideData.type !== 'text' && (
                  <div className="flex-1 w-full flex justify-center">
-                    <img src={currentSlideData.mediaUrl} className="w-full max-w-[200px] md:max-w-sm h-auto object-cover rounded-2xl shadow-2xl border border-white/20" />
+                    <img src={currentSlideData.mediaUrl} alt="" loading="lazy" decoding="async" className="w-full max-w-[200px] md:max-w-sm h-auto object-cover rounded-2xl shadow-2xl border border-white/20" />
                  </div>
               )}
            </div>

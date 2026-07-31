@@ -13,7 +13,10 @@ const MobileBottomNav: React.FC = () => {
   const churchPath = userProfile?.churchData?.churchSlug
     ? `/igreja/${userProfile.churchData.churchSlug}`
     : '/social/igrejas';
-  const isCultoPlusShell = location.pathname === '/newhome' || location.pathname === '/meus-cultos';
+  const isBibleExperience = ['/bibliasagrada', '/biblia', '/devocional', '/oracoes', '/plano', '/quiz'].includes(location.pathname);
+  const isCultoPlusShell = location.pathname === '/newhome'
+    || location.pathname === '/meus-cultos'
+    || isBibleExperience;
   const homePath = isCultoPlusShell ? '/newhome' : '/';
 
   const navItems = isCultoPlusShell ? [
@@ -22,6 +25,7 @@ const MobileBottomNav: React.FC = () => {
       label: 'Início',
       icon: Home,
       path: '/newhome',
+      module: 'home',
       protected: false
     },
     {
@@ -29,13 +33,15 @@ const MobileBottomNav: React.FC = () => {
       label: 'Bíblia',
       icon: BookOpen,
       path: '/bibliasagrada',
+      module: 'bible',
       protected: false
     },
     {
       id: 'cultos',
       label: 'Cultos',
       icon: Church,
-      path: '/culto',
+      path: '/meus-cultos',
+      module: 'cultos',
       protected: false
     },
     {
@@ -43,6 +49,7 @@ const MobileBottomNav: React.FC = () => {
       label: 'Reino',
       icon: Crown,
       path: '/social',
+      module: 'kingdom',
       hasBadge: true,
       protected: false
     },
@@ -51,6 +58,7 @@ const MobileBottomNav: React.FC = () => {
       label: 'Perfil',
       icon: UserRound,
       path: '/perfil',
+      module: 'neutral',
       protected: true
     }
   ] : [
@@ -59,6 +67,7 @@ const MobileBottomNav: React.FC = () => {
       label: 'Início',
       icon: Home,
       path: homePath,
+      module: 'home',
       protected: true
     },
     {
@@ -66,6 +75,7 @@ const MobileBottomNav: React.FC = () => {
       label: 'Bíblia',
       icon: BookOpen,
       path: '/bibliasagrada',
+      module: 'bible',
       protected: false
     },
     {
@@ -73,6 +83,7 @@ const MobileBottomNav: React.FC = () => {
       label: 'Reino',
       icon: Crown,
       path: '/social',
+      module: 'kingdom',
       hasBadge: true,
       protected: false // Feed é público, interação é protegida internamente
     },
@@ -81,6 +92,7 @@ const MobileBottomNav: React.FC = () => {
       label: 'Igreja',
       icon: Church,
       path: churchPath,
+      module: 'kingdom',
       protected: false
     },
     {
@@ -88,6 +100,7 @@ const MobileBottomNav: React.FC = () => {
       label: 'Explorar',
       icon: Search,
       path: '/social/explore',
+      module: 'kingdom',
       protected: false
     }
   ];
@@ -112,7 +125,11 @@ const MobileBottomNav: React.FC = () => {
   };
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 pb-safe">
+    <nav
+      aria-label="Navegação principal mobile"
+      data-testid={isCultoPlusShell ? 'cultoplus-mobile-bottom-nav' : 'mobile-bottom-nav'}
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 pb-safe"
+    >
       {/* Glassmorphism Container */}
       <div className="bg-white/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl border-t border-white/20 dark:border-white/5 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
         <div className="flex items-center justify-around h-[var(--mobile-bottom-nav-height)] px-2">
@@ -129,6 +146,8 @@ const MobileBottomNav: React.FC = () => {
               );
             } else if (item.id === 'cultos') {
               isActive = location.pathname.startsWith('/culto') || location.pathname.startsWith('/meus-cultos');
+            } else if (item.id === 'bible') {
+              isActive = isBibleExperience;
             } else if (item.id === 'church') {
               isActive = location.pathname.startsWith('/igreja') ||
                 location.pathname.startsWith('/social/igreja') ||
@@ -144,13 +163,14 @@ const MobileBottomNav: React.FC = () => {
             return (
               <button
                 key={item.id}
+                data-module-theme={item.module}
                 onClick={() => handleNavigation(item.path, item.protected, isActive)}
-                className={`relative flex flex-col items-center justify-center w-full h-full space-y-1 transition-all duration-300 ${isActive ? 'text-bible-gold' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                className={`module-focus relative flex flex-col items-center justify-center w-full h-full space-y-1 transition-all duration-300 ${isActive ? 'module-accent-text' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
                   }`}
               >
                 {/* Active Indicator Line */}
                 {isActive && (
-                  <div className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-8 h-[2px] bg-bible-gold rounded-full shadow-[0_0_10px_#c5a059]" />
+                  <div className="absolute -top-[1px] left-1/2 -translate-x-1/2 h-[3px] w-8 rounded-full bg-[var(--module-primary)]" />
                 )}
 
                 <div className="relative">
@@ -177,7 +197,7 @@ const MobileBottomNav: React.FC = () => {
           })}
         </div>
       </div>
-    </div>
+    </nav>
   );
 };
 

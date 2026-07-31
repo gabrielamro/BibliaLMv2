@@ -244,13 +244,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
       protected: true,
       children: [
         { label: 'Dashboard', path: '/gestao-igreja', icon: <Home size={16} />, protected: true },
-        { label: 'Pessoas', path: '/gestao-igreja/pessoas', icon: <Users size={16} />, protected: true },
-        { label: 'Permissoes', path: '/gestao-igreja/permissoes', icon: <KeyRound size={16} />, protected: true },
-        { label: 'Designacoes', path: '/gestao-igreja/designacoes', icon: <ClipboardList size={16} />, protected: true },
-        { label: 'Equipes', path: '/gestao-igreja/equipes', icon: <Users size={16} />, protected: true },
+        { label: 'Pessoas e equipes', path: '/gestao-igreja/pessoas', icon: <Users size={16} />, protected: true },
         { label: 'Cultos/Eventos', path: '/gestao-igreja/cultos', icon: <CalendarDays size={16} />, protected: true },
         { label: 'Grupos/Celulas', path: '/gestao-igreja/grupos', icon: <Network size={16} />, protected: true },
-        { label: 'QR Codes', path: '/gestao-igreja/qrcodes', icon: <QrCode size={16} />, protected: true },
         { label: 'Inbox', path: '/gestao-igreja/inbox', icon: <Inbox size={16} />, protected: true },
         { label: 'Notificacoes', path: '/gestao-igreja/notificacoes', icon: <Bell size={16} />, protected: true },
         { label: 'Conquistas', path: '/gestao-igreja/insignias', icon: <Medal size={16} />, protected: true },
@@ -258,7 +254,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
         { label: 'Configuracoes', path: '/gestao-igreja/configuracoes', icon: <SlidersHorizontal size={16} />, protected: true },
       ],
     },
-    { label: 'Minha Igreja', path: '/minha-igreja', icon: <Users size={20} />, protected: true },
     { label: 'Explorar', path: '/social/explore', icon: <Compass size={20} /> },
     { label: 'Planos', path: '/planos', icon: <Crown size={20} /> },
   ];

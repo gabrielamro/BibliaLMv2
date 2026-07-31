@@ -1,5 +1,5 @@
-import WorkerJourneyPage from "../../../components/church-management/WorkerJourneyPage";
+import { redirect } from "next/navigation";
 
 export default function MyChurchWorkerJourneyPage() {
-  return <WorkerJourneyPage />;
+  redirect("/meus-cultos");
 }

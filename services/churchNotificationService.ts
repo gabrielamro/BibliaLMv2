@@ -27,6 +27,7 @@ const EVENT_DEFAULTS: Record<string, Pick<Required<ChurchNotificationEventInput>
   qr_form_created: { severity: 'info', channel: 'dashboard' },
   submission_created: { severity: 'action', channel: 'dashboard' },
   submission_status_updated: { severity: 'action', channel: 'member' },
+  volunteer_submission_declined: { severity: 'info', channel: 'member' },
   volunteer_badge_awarded: { severity: 'info', channel: 'member' },
   badge_awarded: { severity: 'info', channel: 'member' },
 };

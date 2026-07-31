@@ -59,6 +59,7 @@ test_*.ts
 test-results/
 playwright-report/
 .tmp-tests/
+.qa-fixture.local.json
 
 # Local scratch/debug artifacts
 scratch/

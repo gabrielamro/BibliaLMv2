@@ -11,7 +11,7 @@ import SEO from '../components/SEO';
 import EvaluationBuilderModal, { EvaluationSourceLesson } from '../components/EvaluationBuilderModal';
 import PlanStudioShell from '../components/PlanStudio/PlanStudioShell';
 import type { StudioTab } from '../components/PlanStudio/types';
-import CreateContentV3Page from './CreateContentV3Page';
+import StudyStudio from '../components/study-studio/StudyStudio';
 import { buildBaseBlocks } from '../components/Builder/utils';
 import { ArrowLeft, BookOpen, CheckCircle2, Copy, Edit3, Eye, GraduationCap, Lock, Plus, Share2, ShieldCheck, Users } from 'lucide-react';
 import { getContentDefaultsFromSearchParams, toLegacyPlanPrivacyType } from '../utils/contentPrivacy';
@@ -62,6 +62,7 @@ const createLessonTemplateBlocks = () => buildBaseBlocks([
 const getRoomLessons = (plan: Partial<CustomPlan>) => (
   (plan.weeks ?? []).flatMap((unit, unitIndex) =>
     unit.days.map((lesson, lessonIndex) => ({
+      unitId: unit.id,
       unitTitle: unit.title || getUnitLabel(plan.planningFrequency ?? 'weekly', unitIndex + 1),
       lesson,
       index: lessonIndex + 1,
@@ -294,9 +295,9 @@ const PublishedRoomSuccess: React.FC<PublishedRoomSuccessProps> = ({
               </div>
             ) : (
               <div className="space-y-3">
-                {lessons.map(({ lesson, unitTitle, index }) => (
+                {lessons.map(({ lesson, unitId, unitTitle, index }) => (
                   <div
-                    key={lesson.id}
+                    key={`${unitId}:${lesson.id}:${index}`}
                     className="flex items-center gap-4 rounded-2xl border border-purple-100 bg-purple-50/60 p-4 dark:border-purple-900/40 dark:bg-gray-900"
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-sm font-black text-purple-700 shadow-sm dark:bg-black dark:text-violet-200">
@@ -569,11 +570,11 @@ const CreateRoomStudioPage: React.FC = () => {
     window.history.replaceState({}, '', `/criar-sala?${params.toString()}`);
   };
 
-  const closeLessonEditor = () => {
+  const closeLessonEditor = (planId = savedPlanId) => {
     setActiveUnitId(null);
     setEditingLessonId(null);
     const params = new URLSearchParams();
-    if (savedPlanId) params.set('id', savedPlanId);
+    if (planId) params.set('id', planId);
     window.history.replaceState({}, '', params.toString() ? `/criar-sala?${params.toString()}` : '/criar-sala');
   };
 
@@ -669,30 +670,30 @@ const CreateRoomStudioPage: React.FC = () => {
     }
   };
 
-  const buildPayload = (targetStatus: 'draft' | 'published') => {
+  const buildPayload = (targetStatus: 'draft' | 'published', sourcePlan = plan) => {
     const timestamp = new Date().toISOString();
     return {
-      ...plan,
-      title: plan.title?.trim() || 'Nova sala',
-      description: plan.description?.trim() || '',
+      ...sourcePlan,
+      title: sourcePlan.title?.trim() || 'Nova sala',
+      description: sourcePlan.description?.trim() || '',
       authorId: currentUser?.uid,
       authorName: userProfile?.displayName || currentUser?.email || 'Pastor',
       authorPhoto: userProfile?.photoURL ?? undefined,
       isPublic: targetStatus === 'published',
       status: targetStatus,
       updatedAt: timestamp,
-      createdAt: plan.createdAt ?? timestamp,
-      subscribersCount: plan.subscribersCount ?? 0,
-      planningFrequency: plan.planningFrequency ?? 'weekly',
-      privacyType: plan.privacyType ?? 'followers',
-      privacyLevel: plan.privacyLevel ?? contentDefaults.visibility,
-      churchId: plan.churchId ?? contentDefaults.churchId,
-      groupId: plan.groupId ?? contentDefaults.groupId,
-      createdFromContext: plan.createdFromContext ?? contentDefaults.scope,
-      inviteRequired: plan.inviteRequired ?? (plan.privacyLevel === 'invite_only'),
-      isRanked: plan.isRanked ?? false,
-      teams: plan.teams ?? [],
-      weeks: plan.weeks ?? [],
+      createdAt: sourcePlan.createdAt ?? timestamp,
+      subscribersCount: sourcePlan.subscribersCount ?? 0,
+      planningFrequency: sourcePlan.planningFrequency ?? 'weekly',
+      privacyType: sourcePlan.privacyType ?? 'followers',
+      privacyLevel: sourcePlan.privacyLevel ?? contentDefaults.visibility,
+      churchId: sourcePlan.churchId ?? contentDefaults.churchId,
+      groupId: sourcePlan.groupId ?? contentDefaults.groupId,
+      createdFromContext: sourcePlan.createdFromContext ?? contentDefaults.scope,
+      inviteRequired: sourcePlan.inviteRequired ?? (sourcePlan.privacyLevel === 'invite_only'),
+      isRanked: sourcePlan.isRanked ?? false,
+      teams: sourcePlan.teams ?? [],
+      weeks: sourcePlan.weeks ?? [],
     };
   };
 
@@ -714,21 +715,37 @@ const CreateRoomStudioPage: React.FC = () => {
     try {
       const payload = buildPayload(targetStatus);
       let nextPlanId = savedPlanId;
+      let nextRevision = Number(plan.revision || 0);
       if (savedPlanId) {
-        await dbService.updateCustomPlan(savedPlanId, payload);
+        nextRevision = await dbService.updateCustomPlanWithRevision(
+          savedPlanId,
+          payload,
+          Number(plan.revision || 0),
+        );
       } else {
         const created = await dbService.createCustomPlan(payload);
         nextPlanId = created.id;
+        nextRevision = created.revision;
         setSavedPlanId(created.id);
         window.history.replaceState({}, '', `/criar-sala?id=${created.id}`);
       }
-      setPlan((current) => ({ ...current, status: targetStatus, isPublic: targetStatus === 'published' }));
+      setPlan((current) => ({
+        ...current,
+        revision: nextRevision,
+        status: targetStatus,
+        isPublic: targetStatus === 'published',
+      }));
       showNotification(targetStatus === 'published' ? 'Sala publicada.' : 'Rascunho salvo.', 'success');
       if (targetStatus === 'published' && nextPlanId) {
         setPublishedSuccessPlanId(nextPlanId);
       }
-    } catch {
-      showNotification('Nao foi possivel salvar a sala.', 'error');
+    } catch (error) {
+      showNotification(
+        error instanceof Error && error.name === 'StudyRevisionConflictError'
+          ? error.message
+          : 'Nao foi possivel salvar a sala.',
+        'error',
+      );
     } finally {
       setIsSaving(false);
       setIsPublishing(false);
@@ -819,6 +836,10 @@ const CreateRoomStudioPage: React.FC = () => {
 
   const saveLessonContent = async (content: any) => {
     if (!activeUnitId || !editingLessonId) return;
+    if (!currentUser) {
+      openLogin();
+      throw new Error('AUTH_REQUIRED');
+    }
 
     const nextLesson: PlanDayContent = {
       id: editingLessonId,
@@ -831,17 +852,41 @@ const CreateRoomStudioPage: React.FC = () => {
       isCompleted: activeLesson?.isCompleted ?? false,
     };
 
-    setPlan((current) => ({
-      ...current,
-      weeks: (current.weeks ?? []).map((unit) => {
-        if (unit.id !== activeUnitId) return unit;
-        return {
-          ...unit,
-          days: unit.days.map((lesson) => (lesson.id === editingLessonId ? nextLesson : lesson)),
-        };
-      }),
-    }));
-    closeLessonEditor();
+    const nextWeeks = (plan.weeks ?? []).map((unit) => {
+      if (unit.id !== activeUnitId) return unit;
+      return {
+        ...unit,
+        days: unit.days.map((lesson) => (lesson.id === editingLessonId ? nextLesson : lesson)),
+      };
+    });
+    const targetStatus = plan.status === 'published' ? 'published' : 'draft';
+    const nextPlan: Partial<CustomPlan> = { ...plan, weeks: nextWeeks };
+
+    setIsSaving(true);
+    try {
+      let persistedPlanId = savedPlanId;
+      const payload = buildPayload(targetStatus, nextPlan);
+      if (savedPlanId) {
+        const revision = await dbService.updateCustomPlanWithRevision(
+          savedPlanId,
+          payload,
+          Number(plan.revision || 0),
+        );
+        nextPlan.revision = revision;
+      } else {
+        const created = await dbService.createCustomPlan(payload);
+        persistedPlanId = created.id;
+        setSavedPlanId(created.id);
+        nextPlan.revision = created.revision;
+      }
+      setPlan(nextPlan);
+      closeLessonEditor(persistedPlanId);
+    } catch (error) {
+      showNotification('Não foi possível salvar a aula. O editor continuará aberto.', 'error');
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (activeUnitId && editingLessonId && activeLesson) {
@@ -849,8 +894,10 @@ const CreateRoomStudioPage: React.FC = () => {
     return (
       <>
         <SEO title={activeLesson.title || 'Nova Aula'} />
-        <div className="h-[100dvh] overflow-y-auto overscroll-contain bg-bible-paper dark:bg-black">
-          <CreateContentV3Page
+        <div className="h-[100dvh] overflow-hidden bg-bible-paper dark:bg-black">
+          <StudyStudio
+            mode="roomLesson"
+            draftId={editingLessonId}
             embeddedContext={{
               initialContent: {
                 id: editingLessonId,

@@ -18,7 +18,7 @@ export const HeroSplitBlock: React.FC<HeroSplitBlockProps> = ({ data, isEditing,
     <section className="grid overflow-hidden rounded-[1.75rem] border border-[#eadfcf] bg-[linear-gradient(135deg,_#f6efe3_0%,_#f4ede2_50%,_#efe4d5_100%)] sm:rounded-[2rem] lg:grid-cols-[1.05fr_0.95fr]">
       <div className="relative min-h-[200px] overflow-hidden bg-[radial-gradient(circle_at_25%_20%,_rgba(252,226,176,0.35),_transparent_35%),linear-gradient(135deg,_rgba(78,59,35,0.88)_0%,_rgba(35,28,21,0.86)_44%,_rgba(18,14,10,0.94)_100%)] sm:min-h-[240px]">
         {data.imageUrl ? (
-          <img src={data.imageUrl} alt={data.imageAlt || 'Hero split'} className="absolute inset-0 h-full w-full object-cover" />
+          <img src={data.imageUrl} alt={data.imageAlt || 'Hero split'} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
           <div
             role={isEditing ? 'button' : undefined}

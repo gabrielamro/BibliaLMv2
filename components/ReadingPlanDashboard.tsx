@@ -129,7 +129,7 @@ const ReadingPlanDashboard: React.FC = () => {
         lastNotificationSent.current = currentTimeString;
 
         if (Notification.permission === 'granted') {
-          new Notification('BibliaLM - Hora da Leitura', {
+          new Notification('Culto+ - Hora da Leitura', {
             body: `O plano de leitura do Dia ${viewDay} esta te esperando.`,
             icon: '/icon.png',
             badge: '/icon.png',
@@ -260,49 +260,49 @@ const ReadingPlanDashboard: React.FC = () => {
     profundo: 'profundo',
   }[progressSummary.readingPaceLabel];
   const heroProgressStyle = {
-    background: `conic-gradient(#d4a64f ${progressSummary.dayPercent * 3.6}deg, rgba(255,255,255,0.16) 0deg)`,
+    background: `conic-gradient(#6ee7b7 ${progressSummary.dayPercent * 3.6}deg, rgba(255,255,255,0.16) 0deg)`,
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#f5f7f4] dark:bg-black/30">
+    <div className="flex-1 overflow-y-auto bg-[#fdfbf7] dark:bg-[#0b0b0c]">
       <div className="max-w-6xl mx-auto space-y-6 p-4 md:p-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex items-start gap-3">
             <button
               type="button"
               onClick={handleBack}
-              className="mt-1 flex min-h-11 min-w-11 items-center justify-center rounded-full border border-white/80 bg-white/80 text-gray-500 shadow-sm transition-colors hover:text-bible-leather dark:border-gray-800 dark:bg-bible-darkPaper dark:text-gray-400 dark:hover:text-bible-gold"
+              className="mt-1 flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#e6e0d8] bg-white text-gray-500 shadow-sm transition-colors hover:border-emerald-200 hover:text-emerald-700 dark:border-white/10 dark:bg-[#111113] dark:text-gray-400 dark:hover:text-emerald-300"
               aria-label="Voltar"
               title="Voltar"
             >
               <ArrowLeft size={20} />
             </button>
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-bible-gold">Jornada diaria</p>
-              <h1 className="mt-1 font-serif text-3xl font-bold text-bible-leather dark:text-bible-gold md:text-4xl">Meta de Leitura</h1>
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-emerald-700 dark:text-emerald-300">Jornada diária</p>
+              <h1 className="mt-1 font-serif text-3xl font-bold text-[#0b1530] dark:text-white md:text-4xl">Meta de Leitura</h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                 Acompanhe presenca, progresso e constancia sem perder o foco principal: voltar para a Palavra hoje.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 self-start rounded-2xl border border-white/80 bg-white/80 px-3 py-2 shadow-sm dark:border-gray-800 dark:bg-bible-darkPaper">
+          <div className="flex items-center gap-2 self-start rounded-2xl border border-[#e6e0d8] bg-white px-3 py-2 shadow-sm dark:border-white/10 dark:bg-[#111113]">
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{scopeLabel[planSettings.planScope]}</span>
             <button onClick={() => setResetModalOpen(true)} className="p-2 hover:text-red-500 text-gray-400 transition-colors" title="Reiniciar Plano"><RotateCcw size={18} /></button>
           </div>
         </div>
 
-        <div className="rounded-[28px] border border-white/80 bg-white/90 p-3 shadow-sm dark:border-gray-800 dark:bg-bible-darkPaper md:p-5">
+        <div className="rounded-[28px] border border-[#e6e0d8] bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#111113] md:p-5">
           <div className="flex items-center justify-between mb-5">
             <div className="flex flex-wrap gap-2 flex-1 rounded-2xl bg-gray-100/80 p-1 dark:bg-gray-900">
               {[{ id: 'progress', label: 'Leitura', icon: <BookOpen size={14} /> }, { id: 'routine', label: 'Rotina', icon: <ListTodo size={14} /> }, { id: 'settings', label: 'Ajustes', icon: <Settings size={14} /> }].map((tab) => (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2 text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-bible-leather shadow-sm dark:bg-gray-800 dark:text-bible-gold' : 'text-gray-500 hover:bg-white/70 dark:hover:bg-gray-800'}`}>{tab.icon} {tab.label}</button>
+                <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2 text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-emerald-700 shadow-sm dark:bg-emerald-900/30 dark:text-emerald-300' : 'text-gray-500 hover:bg-white/70 dark:hover:bg-gray-800'}`}>{tab.icon} {tab.label}</button>
               ))}
             </div>
           </div>
 
           {activeTab === 'progress' && (
             <div className="animate-in fade-in space-y-5">
-              <section className="overflow-hidden rounded-3xl bg-bible-leather text-white shadow-xl shadow-bible-leather/10">
+              <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-[#0b1530] via-[#063f3a] to-[#087a6b] text-white shadow-xl shadow-emerald-950/10">
                 <div className="grid gap-6 p-5 md:grid-cols-[1fr_280px] md:p-7">
                   <div className="space-y-5">
                     <div className="space-y-3">
@@ -341,7 +341,7 @@ const ReadingPlanDashboard: React.FC = () => {
                     </div>
 
                     <div className="flex flex-col gap-2 sm:flex-row">
-                      <button onClick={() => handleStartReading(0)} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-bible-gold px-5 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-black/10 transition-transform hover:scale-[1.01]">
+                      <button onClick={() => handleStartReading(0)} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-xs font-black uppercase tracking-widest text-[#064e45] shadow-lg shadow-black/10 transition-transform hover:scale-[1.01] hover:bg-emerald-50">
                         <BookOpen size={17} />
                         {progressSummary.completedChapters > 0 ? 'Continuar leitura' : 'Comecar leitura'}
                       </button>
@@ -354,7 +354,7 @@ const ReadingPlanDashboard: React.FC = () => {
 
                   <div className="flex flex-col items-center justify-center rounded-3xl border border-white/10 bg-white/10 p-5">
                     <div className="grid size-40 place-items-center rounded-full p-3" style={heroProgressStyle}>
-                      <div className="grid size-32 place-items-center rounded-full bg-bible-leather text-center shadow-inner">
+                      <div className="grid size-32 place-items-center rounded-full bg-[#063f3a] text-center shadow-inner">
                         <div>
                           <p className="text-4xl font-black">{progressSummary.dayPercent}%</p>
                           <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-white/55">do dia</p>
@@ -367,7 +367,7 @@ const ReadingPlanDashboard: React.FC = () => {
                         <span>{dailyReading?.dateDisplay}</span>
                       </div>
                       <div className="h-2 rounded-full bg-white/15">
-                        <div className="h-2 rounded-full bg-bible-gold transition-all" style={{ width: `${progressSummary.dayPercent}%` }} />
+                        <div className="h-2 rounded-full bg-emerald-300 transition-all" style={{ width: `${progressSummary.dayPercent}%` }} />
                       </div>
                     </div>
                   </div>

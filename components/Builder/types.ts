@@ -1,27 +1,15 @@
-export type BlockType =
-  | 'free-text'
-  | 'hero'
-  | 'authority'
-  | 'biblical'
-  | 'video'
-  | 'footer'
-  | 'study-content'
-  | 'slide'
-  | 'hero-split'
-  | 'study-outline'
-  | 'related-verses'
-  | 'reflection-question'
-  | 'references-chain'
-  | 'cta'
-  | 'rich-text'
-  | 'spacer';
+import type {
+  StudyBlockType,
+  StudyEditorBlock,
+  StudyLegacyLayoutWidth,
+} from '../../types';
 
-export interface Block {
-  id: string;
-  type: BlockType;
-  data: any;
-  layoutWidth?: '1/1' | '1/2' | '1/3' | '2/3';
-}
+export type BlockType = StudyBlockType;
+export type BlockLayoutWidth = StudyLegacyLayoutWidth;
+
+// Os renderers legados ainda possuem dados heterogêneos. O `any` fica restrito
+// a este adapter enquanto o documento canônico usa `StudyEditorBlock`.
+export type Block = StudyEditorBlock<Record<string, any>>;
 
 export interface ContentData {
   id?: string;

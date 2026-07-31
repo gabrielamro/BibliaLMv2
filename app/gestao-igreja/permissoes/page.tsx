@@ -1,5 +1,5 @@
-import ChurchOperationalPhasePreview from "../../../components/church-management/ChurchOperationalPhasePreview";
+import { redirect } from "next/navigation";
 
 export default function ChurchManagementPermissionsPage() {
-  return <ChurchOperationalPhasePreview phase="permissoes" />;
+  redirect("/gestao-igreja/pessoas?panel=permissions");
 }

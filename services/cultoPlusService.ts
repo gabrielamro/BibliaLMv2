@@ -1,4 +1,5 @@
 import { dbService, supabase } from './supabase';
+import { kingdomPublishingService } from './kingdomPublishingService';
 import {
   ChurchService,
   ChurchServiceStatus,
@@ -8,15 +9,18 @@ import {
   ServiceAiContentKind,
   ServiceCheckin,
   ServiceLiveState,
+  ServiceLiturgyComment,
   ServiceLiturgyItem,
   ServiceLiturgyKind,
   ServiceMinistry,
   ServiceMinistryMember,
   ServiceNote,
   ServicePrayerRequest,
+  ServicePrayerTimelineEvent,
   ServicePublicInvite,
   ServicePublicInviteStatus,
   ServiceReactionSummary,
+  ServiceReactionActor,
   ServiceReactionType,
   ServiceScheduleAssignment,
   ServiceScheduleStatus,
@@ -58,6 +62,14 @@ type CreateChurchServiceInput = {
 
 type ServicePostInput = {
   service: ChurchService;
+  user: any;
+  profile: UserProfile;
+  content: string;
+};
+
+type SaveServiceLiturgyCommentInput = {
+  service: ChurchService;
+  liturgyItemId: string;
   user: any;
   profile: UserProfile;
   content: string;
@@ -133,6 +145,9 @@ export type ServiceExperienceDTO = {
     savedKeyVerse: boolean;
   };
   content: {
+    checkins: ServiceCheckin[];
+    prayerTimelineEvents: ServicePrayerTimelineEvent[];
+    liturgyComments: ServiceLiturgyComment[];
     publicPrayers: ServicePrayerRequest[];
     posts: Post[];
     scheduleAssignments: ServiceScheduleAssignment[];
@@ -145,6 +160,7 @@ const CHECKIN_STORAGE_KEY = 'biblialm.cultoPlus.checkins';
 const NOTE_STORAGE_KEY = 'biblialm.cultoPlus.notes';
 const REACTION_STORAGE_KEY = 'biblialm.cultoPlus.reactions';
 const PRAYER_STORAGE_KEY = 'biblialm.cultoPlus.prayers';
+const LITURGY_COMMENT_STORAGE_KEY = 'biblialm.cultoPlus.liturgyComments';
 const PRAYER_INTERCESSION_STORAGE_KEY = 'biblialm.cultoPlus.prayerIntercessions';
 const VERSE_SAVE_STORAGE_KEY = 'biblialm.cultoPlus.verseSaves';
 const VISIT_STORAGE_KEY = 'biblialm.cultoPlus.visits';
@@ -295,6 +311,30 @@ const mapServiceNote = (data: any): ServiceNote => ({
   updatedAt: data.updated_at,
 });
 
+const mapServicePrayerTimelineEvent = (data: any): ServicePrayerTimelineEvent => ({
+  prayerId: data.prayer_id,
+  serviceId: data.service_id,
+  churchId: data.church_id,
+  userName: data.user_name ?? 'Membro',
+  userPhotoURL: data.user_photo_url ?? null,
+  isPrivate: data.is_private ?? false,
+  contentPreview: data.is_private ? null : data.content_preview ?? null,
+  createdAt: data.created_at,
+});
+
+const mapServiceLiturgyComment = (data: any): ServiceLiturgyComment => ({
+  id: data.id,
+  serviceId: data.service_id,
+  churchId: data.church_id,
+  liturgyItemId: data.liturgy_item_id,
+  userId: data.user_id,
+  userName: data.user_name ?? 'Membro',
+  userPhotoURL: data.user_photo_url ?? null,
+  content: data.content ?? '',
+  createdAt: data.created_at,
+  updatedAt: data.updated_at,
+});
+
 const getLocalServiceNotes = (serviceId: string, userId: string) =>
   readStorage<ServiceNote[]>(NOTE_STORAGE_KEY, [])
     .filter((note) => note.serviceId === serviceId && note.userId === userId)
@@ -360,7 +400,7 @@ const getServiceViewerPermissions = async (service: ChurchService, userId?: stri
     const legacyAdmins = Array.isArray(church?.admins) ? church.admins : [];
     const isLegacyChurchAdmin = legacyAdmins.includes(userId);
     const isChurchManager = (roles ?? []).some((role: any) =>
-      role.role === 'church_manager' || role.role === 'pastor'
+      role.role === 'church_manager'
     );
     const isTeamLeader = (teams ?? []).some((team: any) => team.leader_id === userId);
     const isTeamMember = (roles ?? []).some((role: any) =>
@@ -867,6 +907,9 @@ export const cultoPlusService = {
       stats,
       liveState,
       reactions,
+      checkins,
+      prayerTimelineEvents,
+      liturgyComments,
       publicPrayers,
       posts,
       scheduleAssignments,
@@ -880,6 +923,9 @@ export const cultoPlusService = {
         ? cultoPlusService.getLiveState(service.id).catch(() => null)
         : Promise.resolve(null),
       cultoPlusService.getReactionSummary(service.id).catch(() => emptyReactionSummary()),
+      cultoPlusService.getServiceCheckins(service.id).catch(() => []),
+      cultoPlusService.getPrayerTimelineEvents(service.id).catch(() => []),
+      cultoPlusService.getLiturgyComments(service.id).catch(() => []),
       cultoPlusService.getPublicPrayerRequests(service.id).catch(() => []),
       cultoPlusService.getServicePosts(service.id).catch(() => []),
       cultoPlusService.getScheduleAssignments(service.id).catch(() => []),
@@ -929,6 +975,9 @@ export const cultoPlusService = {
         savedKeyVerse: false,
       },
       content: {
+        checkins,
+        prayerTimelineEvents,
+        liturgyComments,
         publicPrayers,
         posts,
         scheduleAssignments,
@@ -1096,6 +1145,144 @@ export const cultoPlusService = {
       if (!isMissingServiceSchema(error)) return [];
       return readStorage<ServiceCheckin[]>(CHECKIN_STORAGE_KEY, []).filter((item) => item.serviceId === serviceId);
     }
+  },
+
+  getPrayerTimelineEvents: async (serviceId: string): Promise<ServicePrayerTimelineEvent[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('service_prayer_timeline_events')
+        .select('prayer_id,service_id,church_id,user_name,user_photo_url,is_private,content_preview,created_at')
+        .eq('service_id', serviceId)
+        .order('created_at', { ascending: true })
+        .limit(80);
+      if (error) throw error;
+      return (data ?? []).map(mapServicePrayerTimelineEvent);
+    } catch (error) {
+      if (!isMissingServiceSchema(error) && !formatSupabaseError(error).toLowerCase().includes('service_prayer_timeline_events')) return [];
+      return readStorage<ServicePrayerRequest[]>(PRAYER_STORAGE_KEY, [])
+        .filter((item) => item.serviceId === serviceId)
+        .map((item) => ({
+          prayerId: item.id,
+          serviceId: item.serviceId,
+          churchId: item.churchId,
+          userName: item.userName,
+          userPhotoURL: item.userPhotoURL,
+          isPrivate: item.isPrivate,
+          contentPreview: item.isPrivate ? null : item.content.replace(/\s+/g, ' ').trim().slice(0, 120),
+          createdAt: item.createdAt,
+        }))
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    }
+  },
+
+  getLiturgyComments: async (serviceId: string): Promise<ServiceLiturgyComment[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('service_liturgy_comments')
+        .select('*')
+        .eq('service_id', serviceId)
+        .order('created_at', { ascending: true })
+        .limit(200);
+      if (error) throw error;
+      return (data ?? []).map(mapServiceLiturgyComment);
+    } catch (error) {
+      if (!isMissingServiceSchema(error) && !formatSupabaseError(error).toLowerCase().includes('service_liturgy_comments')) return [];
+      return readStorage<ServiceLiturgyComment[]>(LITURGY_COMMENT_STORAGE_KEY, [])
+        .filter((item) => item.serviceId === serviceId)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    }
+  },
+
+  saveLiturgyComment: async ({
+    service,
+    liturgyItemId,
+    user,
+    profile,
+    content,
+  }: SaveServiceLiturgyCommentInput): Promise<ServiceLiturgyComment> => {
+    const userId = user.uid ?? user.id;
+    const timestamp = now();
+    const normalizedContent = content.trim().slice(0, 500);
+    const fallbackComment: ServiceLiturgyComment = {
+      id: makeId('slc'),
+      serviceId: service.id,
+      churchId: service.churchId,
+      liturgyItemId,
+      userId,
+      userName: profile.displayName,
+      userPhotoURL: profile.photoURL,
+      content: normalizedContent,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    try {
+      const { data: existing, error: existingError } = await supabase
+        .from('service_liturgy_comments')
+        .select('id')
+        .eq('service_id', service.id)
+        .eq('liturgy_item_id', liturgyItemId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (existingError) throw existingError;
+
+      const query = existing?.id
+        ? supabase
+          .from('service_liturgy_comments')
+          .update({ content: normalizedContent, updated_at: timestamp })
+          .eq('id', existing.id)
+          .eq('user_id', userId)
+        : supabase
+          .from('service_liturgy_comments')
+          .insert({
+            service_id: service.id,
+            church_id: service.churchId,
+            liturgy_item_id: liturgyItemId,
+            user_id: userId,
+            user_name: profile.displayName,
+            user_photo_url: profile.photoURL ?? null,
+            content: normalizedContent,
+            updated_at: timestamp,
+          });
+
+      const { data, error } = await query
+        .select()
+        .single();
+      if (error) throw error;
+      return mapServiceLiturgyComment(data);
+    } catch (error) {
+      if (!isMissingServiceSchema(error) && !formatSupabaseError(error).toLowerCase().includes('service_liturgy_comments')) {
+        throw new Error(`Erro ao salvar comentário do culto. ${formatSupabaseError(error)}`);
+      }
+      const comments = readStorage<ServiceLiturgyComment[]>(LITURGY_COMMENT_STORAGE_KEY, []);
+      const existing = comments.find((item) => item.serviceId === service.id && item.liturgyItemId === liturgyItemId && item.userId === userId);
+      const nextComment = existing
+        ? { ...existing, content: normalizedContent, updatedAt: timestamp }
+        : fallbackComment;
+      writeStorage(LITURGY_COMMENT_STORAGE_KEY, [
+        nextComment,
+        ...comments.filter((item) => item.id !== nextComment.id),
+      ]);
+      return nextComment;
+    }
+  },
+
+  deleteLiturgyComment: async (commentId: string, userId: string): Promise<void> => {
+    try {
+      const { error } = await supabase
+        .from('service_liturgy_comments')
+        .delete()
+        .eq('id', commentId)
+        .eq('user_id', userId);
+      if (error) throw error;
+    } catch (error) {
+      if (!isMissingServiceSchema(error) && !formatSupabaseError(error).toLowerCase().includes('service_liturgy_comments')) {
+        throw new Error(`Erro ao excluir comentário do culto. ${formatSupabaseError(error)}`);
+      }
+    }
+
+    const comments = readStorage<ServiceLiturgyComment[]>(LITURGY_COMMENT_STORAGE_KEY, []);
+    writeStorage(LITURGY_COMMENT_STORAGE_KEY, comments.filter((item) => !(item.id === commentId && item.userId === userId)));
   },
 
   getMinistriesByChurch: async (churchId: string): Promise<ServiceMinistry[]> => {
@@ -1698,22 +1885,42 @@ export const cultoPlusService = {
 
   reactToService: async (serviceId: string, userId: string, reactionType: ServiceReactionType): Promise<ServiceReactionSummary> => {
     try {
-      const { error } = await supabase.from('service_reactions').upsert({
+      const { error } = await supabase.from('service_reactions').insert({
         service_id: serviceId,
         user_id: userId,
         reaction_type: reactionType,
         created_at: now(),
-      }, { onConflict: 'service_id,user_id,reaction_type' });
+      });
       if (error) throw error;
     } catch (error) {
       if (!isMissingServiceSchema(error) && !formatSupabaseError(error).toLowerCase().includes('service_reactions')) {
         throw new Error(`Erro ao registrar reação. ${formatSupabaseError(error)}`);
       }
       const reactions = readStorage<Array<{ serviceId: string; userId: string; reactionType: ServiceReactionType }>>(REACTION_STORAGE_KEY, []);
-      const exists = reactions.some((item) => item.serviceId === serviceId && item.userId === userId && item.reactionType === reactionType);
-      if (!exists) writeStorage(REACTION_STORAGE_KEY, [{ serviceId, userId, reactionType }, ...reactions]);
+      writeStorage(REACTION_STORAGE_KEY, [{ serviceId, userId, reactionType }, ...reactions]);
     }
     return cultoPlusService.getReactionSummary(serviceId);
+  },
+
+  getReactionActor: async (userId: string): Promise<ServiceReactionActor> => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, display_name, username, photo_url, is_profile_public')
+        .eq('id', userId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data || data.is_profile_public === false) {
+        return { userId, userName: 'Participante', userPhotoURL: null };
+      }
+      return {
+        userId,
+        userName: data.display_name || data.username || 'Participante',
+        userPhotoURL: data.photo_url ?? null,
+      };
+    } catch {
+      return { userId, userName: 'Participante', userPhotoURL: null };
+    }
   },
 
   createPrayerRequest: async (service: ChurchService, user: any, profile: UserProfile, content: string, isPrivate: boolean): Promise<ServicePrayerRequest> => {
@@ -2061,28 +2268,25 @@ export const cultoPlusService = {
   },
 
   createServicePost: async ({ service, user, profile, content }: ServicePostInput): Promise<void> => {
-    await dbService.createPost({
-      userId: user.uid ?? user.id,
-      userDisplayName: profile.displayName,
-      userUsername: profile.username,
-      userPhotoURL: profile.photoURL,
+    await kingdomPublishingService.publish({
+      publisher: {
+        userId: user.uid ?? user.id,
+        displayName: profile.displayName,
+        username: profile.username,
+        photoURL: profile.photoURL,
+      },
       type: 'reflection',
       content,
-      destination: 'church',
-      churchId: service.churchId,
-      alsoShowOnChurch: true,
+      audience: {
+        destination: 'church',
+        churchId: service.churchId,
+        alsoShowOnChurch: true,
+      },
       serviceId: service.id,
       serviceTitle: service.title,
-      location: service.churchName,
-      createdAt: now(),
-      likesCount: 0,
-      commentsCount: 0,
-      shares: 0,
-      likes: 0,
-      comments: 0,
-      saved: false,
-      likedBy: [],
-      time: 'Agora',
+      sourceType: 'service_reflection',
+      sourceId: service.id,
+      metadata: { churchName: service.churchName },
     });
   },
 

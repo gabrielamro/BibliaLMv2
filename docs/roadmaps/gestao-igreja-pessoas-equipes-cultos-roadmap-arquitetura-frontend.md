@@ -13,6 +13,21 @@ Evoluir a Gestao da Igreja para um modulo operacional integrado, onde o gestor c
 - notificar voluntarios e exigir aceite individual por culto ou evento;
 - detectar conflitos, substituir pessoas e registrar participacao ou falta.
 
+## Contrato visual vigente - v2.5.1
+
+O mockup aprovado substitui a proposta inicial de várias páginas e abas por um fluxo único orientado pela pessoa:
+
+- `/gestao-igreja/pessoas` começa diretamente na lista, sem abas de módulos;
+- indicadores são compactos e a única faixa de destaque representa pendências acionáveis;
+- busca e filtros rápidos precedem a lista em largura total;
+- equipe, escala, voluntariado, convite/QR e permissão são ações contextuais;
+- módulos globais abrem em pop-ups e o perfil selecionado abre em drawer temporário;
+- o drawer não possui abas: próximas escalas, equipes, acessos e contato aparecem em sequência;
+- a agenda mensal é aberta pela ação “Escalar” e continua diferenciando vínculo permanente de escala pontual;
+- “Adicionar à equipe” cria convite pendente e só ativa o vínculo depois do aceite do membro.
+
+As descrições históricas de cabeçalho escuro, painel lateral persistente e páginas separadas abaixo servem como referência do roadmap original, mas não são mais o contrato de interface vigente.
+
 ## Leitura das imagens
 
 ### Pessoas

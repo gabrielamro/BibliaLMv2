@@ -15,14 +15,14 @@ import { blockLabels } from '../../Builder/constants';
 import type { BlockType } from '../../Builder/types';
 
 interface BlockPickerMenuProps {
-  onSelect: (type: BlockType, width?: '1/3' | '1/2' | '1/1') => void;
+  onSelect: (type: BlockType, width?: '1/3' | '1/2' | '2/3' | '1/1') => void;
   title?: string;
   description?: string;
   testId?: string;
   compact?: boolean;
 }
 
-const spacerSizes: Array<'1/3' | '1/2' | '1/1'> = ['1/3', '1/2', '1/1'];
+const spacerSizes: Array<'1/3' | '1/2' | '2/3' | '1/1'> = ['1/3', '1/2', '2/3', '1/1'];
 
 const iconByType: Record<BlockType, any> = {
   hero: LayoutTemplate,
@@ -61,7 +61,7 @@ export const BlockPickerMenu: React.FC<BlockPickerMenuProps> = ({
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-bible-gold">Escolha o tamanho do espaçador</p>
             <p className="mt-1 text-[11px] text-gray-500">Defina a largura antes de inserir o bloco.</p>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {spacerSizes.map((size) => (
               <button
                 key={size}

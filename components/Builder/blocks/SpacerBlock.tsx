@@ -3,7 +3,7 @@ import { Move, Maximize2 } from 'lucide-react';
 
 interface SpacerBlockProps {
   data: {
-    layoutWidth?: '1/1' | '1/2' | '1/3';
+    layoutWidth?: '1/1' | '2/3' | '1/2' | '1/3';
     height?: number;
     backgroundColor?: string;
   };
@@ -17,6 +17,7 @@ export const SpacerBlock: React.FC<SpacerBlockProps> = ({ data, isEditing, onUpd
   // Mapear largura para classes Tailwind
   const widthClasses = {
     '1/1': 'w-full',
+    '2/3': 'w-2/3 mx-auto',
     '1/2': 'w-1/2 mx-auto',
     '1/3': 'w-1/3 mx-auto'
   };
@@ -46,6 +47,12 @@ export const SpacerBlock: React.FC<SpacerBlockProps> = ({ data, isEditing, onUpd
                className={`p-1.5 rounded-lg text-[10px] font-bold ${data.layoutWidth === '1/2' ? 'bg-bible-gold text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400'}`}
              >
                1/2
+             </button>
+             <button 
+               onClick={() => onUpdate?.({ ...data, layoutWidth: '2/3' })}
+               className={`p-1.5 rounded-lg text-[10px] font-bold ${data.layoutWidth === '2/3' ? 'bg-bible-gold text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400'}`}
+             >
+               2/3
              </button>
              <button 
                onClick={() => onUpdate?.({ ...data, layoutWidth: '1/1' })}

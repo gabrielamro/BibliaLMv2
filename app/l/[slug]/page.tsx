@@ -7,6 +7,7 @@ import {
   BookOpen, Share, Copy, Check, ExternalLink, Loader2
 } from 'lucide-react';
 import { supabase } from '../../../services/supabase';
+import { StudyDocumentRenderer } from '../../../components/study-studio';
 
 interface Block {
   id: string;
@@ -324,9 +325,14 @@ export default function PublicContentPage() {
       {/* Conteúdo Principal */}
       <main>
         {/* Blocos */}
-        {content.blocks.map(block => (
-          <PublicBlock key={block.id} block={block} />
-        ))}
+        <div className="mx-auto w-full max-w-7xl px-3 py-6 sm:px-5 md:py-10">
+          <StudyDocumentRenderer
+            blocks={content.blocks}
+            canvasWidth="full"
+            studyId={content.id}
+            studyTitle={content.title}
+          />
+        </div>
 
         {/* Meta Footer */}
         <div className="bg-gray-50 dark:bg-gray-900 py-8">
@@ -387,11 +393,11 @@ export default function PublicContentPage() {
         </div>
       </main>
 
-      {/* Footer BiblesLM */}
+      {/* Footer Culto+ */}
       <footer className="py-8 text-center text-sm text-gray-400 border-t border-gray-100 dark:border-gray-800">
         <p>Powered by</p>
         <Link href="/" className="font-bold text-bible-gold hover:underline">
-          BíbliaLM
+          Culto+
         </Link>
       </footer>
     </div>

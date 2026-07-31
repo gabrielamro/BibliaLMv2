@@ -24,6 +24,7 @@ import type { ChurchServiceTeam, ServiceLiturgyItem, ServiceScheduleStatus } fro
 import ChurchCultoDetailPage from "./ChurchCultoDetailPage";
 import ChurchTeamCreateModal from "./ChurchTeamCreateModal";
 import ChurchTeamDetailDashboard from "./ChurchTeamDetailDashboard";
+import CultosInboxShortcut from "./CultosInboxShortcut";
 
 type OperationalFilter = "all" | "pending" | "confirmed" | "unmanaged";
 type SuggestedService = {
@@ -469,8 +470,10 @@ export default function ChurchCultosDashboard() {
   return (
     <main className="min-h-screen bg-[#fdfbf7] text-[#1f2937] dark:bg-[#0b0b0c] dark:text-gray-100">
       <section className="w-full px-4 py-5 md:px-6 md:py-6 xl:px-8">
-        <header className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-900 p-4 text-white shadow-sm md:p-5">
-          <div className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-emerald-400/15 blur-3xl" />
+        <header className="relative z-30 overflow-visible rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-900 p-4 text-white shadow-sm md:p-5">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+            <div className="absolute -right-16 -top-24 h-56 w-56 rounded-full bg-emerald-400/15 blur-3xl" />
+          </div>
           <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-emerald-200 ring-1 ring-white/15">
@@ -481,6 +484,7 @@ export default function ChurchCultosDashboard() {
             <p className="mt-1.5 max-w-2xl text-sm font-medium leading-5 text-slate-300">Cultos, equipes, escalas e confirmações em um só lugar.</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
+            <CultosInboxShortcut churchId={activeChurchId} />
             <button
               type="button"
               onClick={openSuggestionModal}
@@ -668,20 +672,20 @@ export default function ChurchCultosDashboard() {
                     </div>
                   </div>
 
-                  <div>
+                  <div className="min-w-0 lg:self-center">
                     {managementStatus === "Sem equipes" || managementStatus === "Aguardando voluntários" || managementStatus === "Escalar voluntários" ? (
                       <button
                         type="button"
                         onClick={() => managementStatus === "Aguardando voluntários" && teamNeedingVolunteers ? setOperationalTeamModal({ item, team: teamNeedingVolunteers }) : setScaleModal(item)}
                         aria-label={`${managementStatus} para ${item.service.title}`}
-                        className={`inline-flex min-h-8 items-center text-[10px] font-black uppercase underline-offset-4 transition hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${managementStatus === "Aguardando voluntários" ? "text-amber-700 hover:text-amber-800" : "text-orange-700 hover:text-orange-800"}`}
+                        className={`inline-flex min-h-10 max-w-full items-center justify-start whitespace-normal text-left text-[10px] font-black uppercase leading-4 underline-offset-4 transition hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 lg:w-full ${managementStatus === "Aguardando voluntários" ? "text-amber-700 hover:text-amber-800" : "text-orange-700 hover:text-orange-800"}`}
                       >
-                        {managementStatus}
+                        <span className="block max-w-full">{managementStatus}</span>
                       </button>
                     ) : (
-                      <span className={`inline-flex min-h-8 items-center rounded-md px-3 text-[10px] font-black uppercase ${managementStatus === "Concluído" ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-600"}`}>{managementStatus}</span>
+                      <span className={`inline-flex min-h-10 max-w-full items-center justify-start whitespace-normal rounded-md px-3 text-left text-[10px] font-black uppercase leading-4 lg:w-full ${managementStatus === "Concluído" ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-600"}`}>{managementStatus}</span>
                     )}
-                    <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">Confirmações dos voluntários</p>
+                    <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">Confirmações dos voluntários</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">

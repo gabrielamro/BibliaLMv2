@@ -25,6 +25,7 @@ import { GhostBlock } from './GhostBlock';
 import { BlockRenderer } from '../../Builder/BlockRenderer';
 import { Block } from '../../Builder/types';
 import { useAuth } from '../../../contexts/AuthContext';
+import { getStudyBlockSpan, getStudyBlockWidth } from '../../../utils/studyDocument';
 
 interface BlockListEditorProps {
   blocks: Block[];
@@ -37,13 +38,7 @@ interface BlockListEditorProps {
 
 type GridItem = { type: 'block'; block: Block; id: string } | { type: 'ghost'; id: string; width: string };
 
-const getTemplateVisualFraction = (block: Block, width: string) => {
-  if (block.type === 'biblical' && width === '1/2') return 0.7;
-  if (block.type === 'study-outline' && width === '1/3') return 0.3;
-  if (width === '1/1') return 1;
-  if (width === '1/2') return 0.5;
-  return 1 / 3;
-};
+const getTemplateVisualFraction = (block: Block) => getStudyBlockSpan(block) / 12;
 
 export const BlockListEditor: React.FC<BlockListEditorProps> = ({
   blocks,
@@ -154,7 +149,16 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
 
   const handleLayoutWidthChange = (id: string, width: string) => {
     const newBlocks = blocks.map(block => 
-      block.id === id ? { ...block, layoutWidth: width as '1/1' | '1/2' | '1/3', data: { ...block.data, layoutWidth: width } } : block
+      block.id === id
+        ? {
+            ...block,
+            layoutWidth: width as Block['layoutWidth'],
+            layout: {
+              span: (width === '2/3' ? 8 : width === '1/2' ? 6 : width === '1/3' ? 4 : 12) as 12 | 8 | 6 | 4,
+            },
+            data: { ...block.data, layoutWidth: width },
+          }
+        : block
     );
     onChange(newBlocks);
   };
@@ -180,8 +184,7 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
     };
 
     blocks.forEach((block) => {
-      const widthStr = block.layoutWidth || block.data?.layoutWidth || '1/1';
-      const widthVal = getTemplateVisualFraction(block, widthStr);
+      const widthVal = getTemplateVisualFraction(block);
 
       if (currentRowWidth + widthVal > 1.05) {
         fillRow(currentRowWidth, result, rowId++);
@@ -285,7 +288,7 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
           items={gridItems.map(item => item.id)}
           strategy={rectSortingStrategy}
         >
-          <div className="flex flex-wrap items-stretch justify-center w-full -mx-1">
+          <div className="grid w-full grid-cols-12 items-stretch gap-x-3 gap-y-8">
             {gridItems.map((item) => {
               if (item.type === 'ghost') {
                 return (
@@ -295,9 +298,12 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
                     width={item.width} 
                     onAdd={(type, selectedWidth) => {
                         import('../../Builder').then(({ createBlock }) => {
-                            const nextWidth = (selectedWidth || item.width) as '1/1' | '1/2' | '1/3';
+                            const nextWidth = (selectedWidth || item.width) as NonNullable<Block['layoutWidth']>;
                             const newBlock = createBlock(type as any);
                             newBlock.layoutWidth = nextWidth;
+                            newBlock.layout = {
+                              span: nextWidth === '2/3' ? 8 : nextWidth === '1/2' ? 6 : nextWidth === '1/3' ? 4 : 12,
+                            };
                             newBlock.data = { ...newBlock.data, layoutWidth: nextWidth };
                             
                             // Encontrar o índice correto de inserção
@@ -319,8 +325,8 @@ export const BlockListEditor: React.FC<BlockListEditorProps> = ({
               }
 
               const { block } = item;
-              const blockLayoutWidth = block.layoutWidth || block.data?.layoutWidth || '1/1';
-              const layoutPercent = getTemplateVisualFraction(block, blockLayoutWidth) * 100;
+              const blockLayoutWidth = getStudyBlockWidth(block);
+              const layoutPercent = getTemplateVisualFraction(block) * 100;
               return (
                 <SortableBlock
                   key={block.id}

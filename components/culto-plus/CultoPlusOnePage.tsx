@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, BookOpen, Bookmark, CalendarDays, CheckCircle2, Clock, Copy, Download, Edit3, Eye, Gift, HandHeart, Heart, Loader2, MessageSquarePlus, NotebookPen, PlayCircle, QrCode, Radio, Save, Send, Share2, Sparkles, UserPlus, Users, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -8,10 +8,12 @@ import { useHeader } from '../../contexts/HeaderContext';
 import { cultoPlusService } from '../../services/cultoPlusService';
 import { dbService, supabase } from '../../services/supabase';
 import { FeedPostCard } from '../social/FeedPostCard';
+import CultoLiveTimeline from './CultoLiveTimeline';
 import CultoPlusTopActions from './CultoPlusTopActions';
-import { ChurchService, Post, ServiceAdvancedAnalytics, ServiceAiContent, ServiceAiContentKind, ServiceLiturgyKind, ServiceLiveState, ServiceNote, ServicePrayerRequest, ServiceReactionSummary, ServiceReactionType, ServiceScheduleAssignment, ServiceScheduleStatus } from '../../types';
-import { buildServiceCalendarEvent, getLiveStatusLabel, getOfferingItem, getServiceCounterParts } from '../../utils/cultoPlusOnePage';
+import { ChurchService, Post, ServiceAdvancedAnalytics, ServiceAiContent, ServiceAiContentKind, ServiceCheckin, ServiceLiturgyComment, ServiceLiturgyKind, ServiceLiveState, ServiceNote, ServicePrayerRequest, ServicePrayerTimelineEvent, ServiceReactionBurst, ServiceReactionSummary, ServiceReactionType, ServiceScheduleAssignment, ServiceScheduleStatus } from '../../types';
+import { buildServiceCalendarEvent, getLiveStatusLabel, getNextServiceMomentDistanceLabel, getOfferingItem, getServiceCounterParts } from '../../utils/cultoPlusOnePage';
 import { getCurrentLiturgyMoment, getExperienceMoments, getNextLiturgyMoment, resolveServiceStreamStatus, resolveWorshipExperienceMode } from '../../utils/cultoPlusExperience';
+import { consumePendingCultoReaction, storePendingCultoReaction } from '../../utils/authIntent';
 
 type CultoPlusOnePageProps = {
   serviceSlug: string;
@@ -168,20 +170,6 @@ const getServiceLiveProgressPercent = (service: Pick<ChurchService, 'startsAt' |
   return Math.max(0, Math.min(100, Math.round(((now - start) / (end - start)) * 100)));
 };
 
-const getServiceMomentDate = (service: Pick<ChurchService, 'startsAt'>, startsAt: string) => {
-  const [hours, minutes] = startsAt.split(':').map(Number);
-  const date = new Date(service.startsAt);
-  date.setHours(hours ?? 0, minutes ?? 0, 0, 0);
-  return date;
-};
-
-const getNextMomentDistanceLabel = (service: Pick<ChurchService, 'startsAt'>, startsAt: string, nowDate = new Date()) => {
-  const nextDate = getServiceMomentDate(service, startsAt);
-  const minutes = Math.max(0, Math.round((nextDate.getTime() - nowDate.getTime()) / 60000));
-  if (minutes <= 0) return 'agora';
-  return `em ~${minutes} min`;
-};
-
 const getInitials = (value: string) => {
   const words = value.trim().split(/\s+/).filter(Boolean);
   return (words[0]?.[0] ?? 'C') + (words[1]?.[0] ?? '+');
@@ -230,6 +218,11 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
   const [posting, setPosting] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [reactions, setReactions] = useState<ServiceReactionSummary>(emptyReactions);
+  const [reactionBursts, setReactionBursts] = useState<ServiceReactionBurst[]>([]);
+  const [reactingType, setReactingType] = useState<ServiceReactionType | null>(null);
+  const [serviceCheckins, setServiceCheckins] = useState<ServiceCheckin[]>([]);
+  const [prayerTimelineEvents, setPrayerTimelineEvents] = useState<ServicePrayerTimelineEvent[]>([]);
+  const [liturgyComments, setLiturgyComments] = useState<ServiceLiturgyComment[]>([]);
   const [publicPrayers, setPublicPrayers] = useState<ServicePrayerRequest[]>([]);
   const [scheduleAssignments, setScheduleAssignments] = useState<ServiceScheduleAssignment[]>([]);
   const [nextService, setNextService] = useState<ChurchService | null>(null);
@@ -242,6 +235,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
   const [prayerContent, setPrayerContent] = useState('');
   const [isPrayerPrivate, setIsPrayerPrivate] = useState(false);
   const [savingPrayer, setSavingPrayer] = useState(false);
+  const [savingLiturgyComment, setSavingLiturgyComment] = useState(false);
   const [savingVerse, setSavingVerse] = useState(false);
   const [verseSavesCount, setVerseSavesCount] = useState(0);
   const [checkinUrl, setCheckinUrl] = useState('');
@@ -256,8 +250,25 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
   const [nowDate, setNowDate] = useState(() => new Date());
   const currentSectionRef = useRef<HTMLDivElement>(null);
   const postComposerRef = useRef<HTMLTextAreaElement>(null);
+  const reactionBurstTimersRef = useRef<Map<string, number>>(new Map());
+  const pendingReactionHandledRef = useRef(false);
 
   const userId = currentUser?.uid ?? currentUser?.id;
+
+  const enqueueReactionBurst = useCallback((burst: Omit<ServiceReactionBurst, 'id'>) => {
+    const id = `${burst.userId}_${burst.reactionType}_${burst.createdAt}_${Math.random().toString(36).slice(2, 7)}`;
+    setReactionBursts((items) => [...items.slice(-5), { ...burst, id }]);
+    const timer = window.setTimeout(() => {
+      setReactionBursts((items) => items.filter((item) => item.id !== id));
+      reactionBurstTimersRef.current.delete(id);
+    }, 2500);
+    reactionBurstTimersRef.current.set(id, timer);
+  }, []);
+
+  useEffect(() => () => {
+    reactionBurstTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    reactionBurstTimersRef.current.clear();
+  }, []);
 
   useEffect(() => {
     setIsHeaderHidden(true);
@@ -282,6 +293,9 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           setNoteComments(experience.viewer.notes);
           setPosts(experience.content.posts);
           setReactions(experience.participation.reactions);
+          setServiceCheckins(experience.content.checkins);
+          setPrayerTimelineEvents(experience.content.prayerTimelineEvents);
+          setLiturgyComments(experience.content.liturgyComments);
           setPublicPrayers(experience.content.publicPrayers);
           setScheduleAssignments(experience.content.scheduleAssignments);
           setNextService(experience.content.nextService ?? null);
@@ -323,6 +337,9 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
         setService(experience.service);
         setCheckedIn(experience.viewer.checkedIn);
         setNoteComments(experience.viewer.notes);
+        setServiceCheckins(experience.content.checkins);
+        setPrayerTimelineEvents(experience.content.prayerTimelineEvents);
+        setLiturgyComments(experience.content.liturgyComments);
         setScheduleAssignments(experience.content.scheduleAssignments);
         setNextService(experience.content.nextService ?? null);
         setLiveState(experience.liveState);
@@ -345,10 +362,26 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           if (isMounted) setLiveState(next);
         }).catch(() => {});
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_reactions', filter: `service_id=eq.${service.id}` }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_reactions', filter: `service_id=eq.${service.id}` }, (payload: any) => {
         cultoPlusService.getReactionSummary(service.id).then((next) => {
           if (isMounted) setReactions(next);
         }).catch(() => {});
+        const reaction = payload?.new as { user_id?: string; reaction_type?: ServiceReactionType; created_at?: string } | undefined;
+        if (
+          reaction?.user_id
+          && reaction.reaction_type
+          && reaction.user_id !== userId
+          && ['amen', 'glory', 'hallelujah'].includes(reaction.reaction_type)
+        ) {
+          cultoPlusService.getReactionActor(reaction.user_id).then((actor) => {
+            if (!isMounted) return;
+            enqueueReactionBurst({
+              ...actor,
+              reactionType: reaction.reaction_type!,
+              createdAt: reaction.created_at || new Date().toISOString(),
+            });
+          }).catch(() => {});
+        }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'service_prayer_requests', filter: `service_id=eq.${service.id}` }, () => {
         Promise.all([
@@ -356,6 +389,16 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           refreshStats(),
         ]).then(([nextPrayers]) => {
           if (isMounted) setPublicPrayers(nextPrayers);
+        }).catch(() => {});
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_prayer_timeline_events', filter: `service_id=eq.${service.id}` }, () => {
+        cultoPlusService.getPrayerTimelineEvents(service.id).then((next) => {
+          if (isMounted) setPrayerTimelineEvents(next);
+        }).catch(() => {});
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_liturgy_comments', filter: `service_id=eq.${service.id}` }, () => {
+        cultoPlusService.getLiturgyComments(service.id).then((next) => {
+          if (isMounted) setLiturgyComments(next);
         }).catch(() => {});
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'posts', filter: `service_id=eq.${service.id}` }, () => {
@@ -367,7 +410,12 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
         }).catch(() => {});
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'service_checkins', filter: `service_id=eq.${service.id}` }, () => {
-        refreshStats();
+        Promise.all([
+          cultoPlusService.getServiceCheckins(service.id),
+          refreshStats(),
+        ]).then(([nextCheckins]) => {
+          if (isMounted) setServiceCheckins(nextCheckins);
+        }).catch(() => {});
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'service_visits', filter: `service_id=eq.${service.id}` }, () => {
         refreshStats();
@@ -386,7 +434,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       isMounted = false;
       supabase.removeChannel(channel);
     };
-  }, [service, serviceSlug, userId]);
+  }, [enqueueReactionBurst, service, serviceSlug, userId]);
 
   useEffect(() => {
     if (!service || (service.status !== 'live' && service.status !== 'in_progress')) return;
@@ -454,7 +502,14 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
   const currentMomentResponsible = currentStep?.responsible || publicPreacherName || service?.preacherName || service?.churchName || '';
   const currentMomentVerseRef = liveState?.currentVerseRef || currentStep?.verseRef || service?.keyVerseRef || '';
   const currentMomentVerseText = liveState?.currentVerseText || currentStep?.verseText || service?.keyVerseText || '';
-  const nextMomentDistanceLabel = service && nextStep ? getNextMomentDistanceLabel(service, nextStep.startsAt, nowDate) : '';
+  const nextMomentDistanceLabel = service && nextStep
+    ? getNextServiceMomentDistanceLabel(
+      service,
+      nextStep.startsAt,
+      nowDate,
+      counterParts?.mode === 'upcoming' ? currentStep?.startsAt : undefined,
+    )
+    : '';
   const participantCount = Math.max(checkinsCount, visitorsCount);
   const participantAvatars = useMemo(() => {
     const labels = [
@@ -495,10 +550,11 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
     };
   }, [isAfterCult, service]);
 
-  const requireLogin = () => {
-    openLogin(window.location.pathname);
+  const requireLogin = useCallback(() => {
+    const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    openLogin(returnPath);
     showNotification('Entre para participar do culto.', 'info');
-  };
+  }, [openLogin, showNotification]);
 
   const handleCheckin = async () => {
     if (!service) return;
@@ -511,6 +567,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       await cultoPlusService.checkIn(service, currentUser, userProfile);
       setCheckedIn(true);
       setCheckinsCount((count) => checkedIn ? count : count + 1);
+      setServiceCheckins(await cultoPlusService.getServiceCheckins(service.id));
       await recordActivity('social_interaction', `Check-in no culto: ${service.title}`, { serviceId: service.id });
       showNotification('Check-in registrado.', 'success');
     } catch (error: any) {
@@ -564,6 +621,56 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       showNotification(error?.message || 'Não foi possível publicar no feed.', 'error');
     } finally {
       setPosting(false);
+    }
+  };
+
+  const handleSaveLiturgyComment = async (liturgyItemId: string, content: string) => {
+    if (!service) return;
+    if (!currentUser || !userProfile) {
+      requireLogin();
+      return;
+    }
+
+    setSavingLiturgyComment(true);
+    try {
+      const savedComment = await cultoPlusService.saveLiturgyComment({
+        service,
+        liturgyItemId,
+        user: currentUser,
+        profile: userProfile,
+        content,
+      });
+      setLiturgyComments((items) => [
+        ...items.filter((item) => item.id !== savedComment.id),
+        savedComment,
+      ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
+      await recordActivity('social_interaction', `Comentou na liturgia do culto: ${service.title}`, {
+        serviceId: service.id,
+        liturgyItemId,
+      });
+      showNotification('Comentário publicado na timeline.', 'success');
+    } catch (error: any) {
+      showNotification(error?.message || 'Não foi possível publicar o comentário.', 'error');
+    } finally {
+      setSavingLiturgyComment(false);
+    }
+  };
+
+  const handleDeleteLiturgyComment = async (commentId: string) => {
+    if (!currentUser) {
+      requireLogin();
+      return;
+    }
+
+    setSavingLiturgyComment(true);
+    try {
+      await cultoPlusService.deleteLiturgyComment(commentId, userId);
+      setLiturgyComments((items) => items.filter((item) => item.id !== commentId));
+      showNotification('Comentário removido da timeline.', 'success');
+    } catch (error: any) {
+      showNotification(error?.message || 'Não foi possível remover o comentário.', 'error');
+    } finally {
+      setSavingLiturgyComment(false);
     }
   };
 
@@ -718,20 +825,48 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
     currentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const handleReaction = async (reactionType: ServiceReactionType) => {
+  const handleReaction = useCallback(async (reactionType: ServiceReactionType) => {
     if (!service) return;
     if (!currentUser || !userProfile) {
+      storePendingCultoReaction({ serviceSlug, reactionType });
       requireLogin();
       return;
     }
+    setReactingType(reactionType);
     try {
       const next = await cultoPlusService.reactToService(service.id, userId, reactionType);
       setReactions(next);
+      enqueueReactionBurst({
+        userId,
+        userName: userProfile.displayName || userProfile.username || 'Você',
+        userPhotoURL: userProfile.photoURL ?? null,
+        reactionType,
+        createdAt: new Date().toISOString(),
+      });
       await recordActivity('social_interaction', `Reagiu ao culto: ${service.title}`, { serviceId: service.id, reactionType });
     } catch (error: any) {
       showNotification(error?.message || 'Não foi possível registrar a reação.', 'error');
     }
-  };
+  }, [
+    currentUser,
+    enqueueReactionBurst,
+    recordActivity,
+    requireLogin,
+    service,
+    serviceSlug,
+    showNotification,
+    userId,
+    userProfile,
+  ]);
+
+  useEffect(() => {
+    if (!service || !currentUser || !userProfile || pendingReactionHandledRef.current) return;
+    const pendingReaction = consumePendingCultoReaction(serviceSlug);
+    if (!pendingReaction) return;
+
+    pendingReactionHandledRef.current = true;
+    void handleReaction(pendingReaction.reactionType);
+  }, [currentUser, handleReaction, service, serviceSlug, userProfile]);
 
   useEffect(() => {
     if (!service || checkinIntentHandled) return;
@@ -779,6 +914,16 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
     try {
       const prayer = await cultoPlusService.createPrayerRequest(service, currentUser, userProfile, prayerContent.trim(), isPrayerPrivate);
       if (!prayer.isPrivate) setPublicPrayers((items) => [prayer, ...items]);
+      setPrayerTimelineEvents((items) => [{
+        prayerId: prayer.id,
+        serviceId: prayer.serviceId,
+        churchId: prayer.churchId,
+        userName: prayer.userName,
+        userPhotoURL: prayer.userPhotoURL,
+        isPrivate: prayer.isPrivate,
+        contentPreview: prayer.isPrivate ? null : prayer.content.replace(/\s+/g, ' ').trim().slice(0, 120),
+        createdAt: prayer.createdAt,
+      }, ...items.filter((item) => item.prayerId !== prayer.id)]);
       setPrayerContent('');
       setIsPrayerPrivate(false);
       setIsPrayerModalOpen(false);
@@ -804,6 +949,8 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       showNotification('Intercessao registrada.', 'success');
     } catch (error: any) {
       showNotification(error?.message || 'Não foi possível registrar a intercessão.', 'error');
+    } finally {
+      setReactingType(null);
     }
   };
 
@@ -858,8 +1005,8 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       onClick: handleFollowAction,
     }] : []),
     {
-      label: 'Anotacoes',
-      hint: isAfterCult ? 'Rever suas notas' : 'Faca suas notas',
+      label: 'Anotações',
+      hint: isAfterCult ? 'Rever suas notas' : 'Faça suas notas',
       title: 'Abrir o painel para escrever suas anotações pessoais do culto.',
       icon: <NotebookPen size={20} />,
       onClick: () => setIsNotePanelOpen(true),
@@ -909,27 +1056,34 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
 
   return (
     <main className="min-h-screen bg-[#f4fbf8] text-gray-900 dark:bg-black dark:text-white">
-      <section className="relative overflow-hidden bg-[#073b35] text-white">
+      <section className="culto-compact-shell relative min-h-[100svh] overflow-hidden bg-[#073b35] text-white">
         {service.bannerUrl && <img src={service.bannerUrl} alt={service.title} className="absolute inset-0 h-full w-full object-cover opacity-30" />}
         <div className="absolute inset-0 bg-gradient-to-br from-[#031f1c]/95 via-[#073b35]/90 to-[#d8b15f]/70" />
-        <CultoPlusTopActions
-          backHref={service.churchSlug ? `/igreja/${service.churchSlug}` : '/social/igrejas'}
-          onNotify={() => showNotification('Notificações do culto em breve.', 'info')}
-          items={[
-            { label: 'Compartilhar culto', icon: <Share2 size={15} />, onClick: handleShare },
-            ...(checkinUrl ? [{ label: 'QR de check-in', icon: <QrCode size={15} />, onClick: () => setIsQrModalOpen(true) }] : []),
-            { label: 'Ver igreja', icon: <Users size={15} />, href: service.churchSlug ? `/igreja/${service.churchSlug}` : '/social/igrejas' },
-          ]}
-        />
-        <div className="relative w-full px-5 pb-8 pt-24 md:px-8 md:pb-10 md:pt-28">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(440px,520px)] lg:items-start">
-            <div className="min-w-0">
-              <h1 className="max-w-4xl text-2xl font-semibold leading-tight text-white md:text-4xl xl:text-[2.75rem]">{service.title}</h1>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-medium text-white/78 md:text-base">
+        <div className="culto-compact-container relative w-full p-4 md:p-5 lg:p-6">
+          <div className="culto-compact-grid grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] lg:items-stretch xl:gap-5">
+            <div className="culto-compact-main relative flex min-w-0 flex-col">
+              <CultoPlusTopActions
+                contained
+                backHref={service.churchSlug ? `/igreja/${service.churchSlug}` : '/social/igrejas'}
+                onNotify={() => showNotification('Notificações do culto em breve.', 'info')}
+                items={[
+                  { label: 'Compartilhar culto', icon: <Share2 size={15} />, onClick: handleShare },
+                  ...(checkinUrl ? [{ label: 'QR de check-in', icon: <QrCode size={15} />, onClick: () => setIsQrModalOpen(true) }] : []),
+                  ...(canOpenSchedule ? [{ label: 'Ver escala', icon: <Users size={15} />, onClick: () => setIsScheduleModalOpen(true) }] : []),
+                  ...(canManageService ? [{
+                    label: 'Editar culto',
+                    icon: <Edit3 size={15} />,
+                    href: `/workspace-pastoral/cultos?serviceId=${encodeURIComponent(service.id)}&edit=1`,
+                  }] : []),
+                  { label: 'Ver igreja', icon: <Users size={15} />, href: service.churchSlug ? `/igreja/${service.churchSlug}` : '/social/igrejas' },
+                ]}
+              />
+              <h1 className="culto-compact-title max-w-4xl pl-12 pr-24 text-2xl font-semibold leading-tight text-white md:text-3xl xl:text-[2.1rem]">{service.title}</h1>
+              <div className="culto-compact-church mt-1 flex flex-wrap items-center gap-2 pl-12 text-xs font-medium text-white/78 md:text-sm">
                 <span>{service.churchName}</span>
                 <CheckCircle2 size={15} className="text-emerald-400" />
               </div>
-              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/82 md:text-base">
+              <div className="culto-compact-meta mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 pl-12 text-xs text-white/82 md:text-sm">
                 <span className="inline-flex items-center gap-2">
                   <CalendarDays size={17} />
                   {formatWeekdayDate(service.startsAt)}
@@ -947,7 +1101,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
               </div>
 
               {(canOpenSchedule || canManageService) && (
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                <div className="culto-compact-management mt-3 flex flex-col gap-2 pl-12 sm:flex-row">
                   {canOpenSchedule && (
                     <button
                       type="button"
@@ -970,8 +1124,8 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                 </div>
               )}
 
-              <div className="mt-6 w-full max-w-5xl overflow-hidden rounded-2xl border border-white/15 bg-black shadow-2xl shadow-black/25">
-                <div className="relative aspect-video bg-[#031f1c]">
+              <div className="culto-compact-player-frame mt-4 w-full overflow-hidden rounded-2xl border border-white/15 bg-black shadow-2xl shadow-black/25">
+                <div className="culto-compact-player relative aspect-video bg-[#031f1c]">
                   {liveEmbedUrl ? (
                     <iframe
                       src={liveEmbedUrl}
@@ -1026,9 +1180,55 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                   </div>
                 </div>
               </div>
+
+              <div className={`culto-quick-actions mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 ${quickActions.length >= 6 ? 'culto-quick-actions--six' : 'culto-quick-actions--three'}`}>
+                {quickActions.map((action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={action.onClick}
+                    title={action.title}
+                    className="culto-quick-action group flex min-h-[3.75rem] min-w-0 items-center gap-2 rounded-xl border border-white/12 bg-white/10 p-2 text-left backdrop-blur transition hover:bg-white/16 focus:outline-none focus:ring-2 focus:ring-[#f3d28a]/70"
+                  >
+                    <span className="culto-quick-action-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f3d28a]/14 text-[#f3d28a] transition group-hover:bg-[#f3d28a]/24">{action.icon}</span>
+                    <span className="min-w-0">
+                      <span className="culto-quick-action-label block truncate text-xs font-semibold text-white">{action.label}</span>
+                      <span className="culto-quick-action-hint mt-0.5 block truncate text-[10px] text-white/60">{action.hint}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <aside className="rounded-2xl border border-white/15 bg-white/10 p-5 shadow-2xl shadow-black/15 backdrop-blur-md">
+            <CultoLiveTimeline
+              service={service}
+              moments={experienceMoments}
+              currentMoment={currentStep ?? null}
+              currentMomentTitle={isAfterCult ? afterCultTitle : currentMomentTitle}
+              currentMomentResponsible={currentMomentResponsible}
+              currentMomentVerseRef={currentMomentVerseRef}
+              currentMomentVerseText={currentMomentVerseText}
+              checkins={serviceCheckins}
+              prayerEvents={prayerTimelineEvents}
+              posts={posts}
+              comments={liturgyComments}
+              participantCount={participantCount}
+              participantAvatars={participantAvatars}
+              counterParts={counterParts}
+              currentUserId={userId || undefined}
+              isAuthenticated={Boolean(currentUser && userProfile)}
+              isAfterCult={isAfterCult}
+              savingComment={savingLiturgyComment}
+              reactions={reactions}
+              reactionBursts={reactionBursts}
+              reactingType={reactingType}
+              onRequireLogin={requireLogin}
+              onReact={handleReaction}
+              onSaveComment={handleSaveLiturgyComment}
+              onDeleteComment={handleDeleteLiturgyComment}
+            />
+
+            {false && <aside className="rounded-2xl border border-white/15 bg-white/10 p-4 shadow-2xl shadow-black/15 backdrop-blur-md lg:h-full">
               <div className="mb-4 rounded-2xl border border-white/12 bg-white/8 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -1078,7 +1278,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                   <div className="mt-5 flex items-center justify-between gap-4">
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-widest text-white/52">Próximo momento</p>
-                      <p className="mt-1 text-sm font-black text-white">{nextStep.title}</p>
+                      <p className="mt-1 text-sm font-black text-white">{nextStep!.title}</p>
                     </div>
                     <span className="shrink-0 text-xs font-bold text-white/70">{nextMomentDistanceLabel}</span>
                   </div>
@@ -1122,9 +1322,9 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                   </div>
                 </>
               )}
-              {service.liveUrl ? (
+              {service!.liveUrl ? (
                 <a
-                  href={service.liveUrl}
+                  href={service!.liveUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   title={isAfterCult ? 'Abrir a gravação ou transmissão vinculada a este culto.' : 'Abrir a transmissão ao vivo deste culto em uma nova aba.'}
@@ -1159,26 +1359,9 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                   Adicionar ao calendario
                 </button>
               )}
-            </aside>
+            </aside>}
           </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-            {quickActions.map((action) => (
-              <button
-                key={action.label}
-                type="button"
-                onClick={action.onClick}
-                title={action.title}
-                className="group flex min-h-16 items-center gap-3 rounded-2xl border border-white/12 bg-white/10 p-3 text-left backdrop-blur transition hover:bg-white/16 focus:outline-none focus:ring-2 focus:ring-[#f3d28a]/70"
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f3d28a]/14 text-[#f3d28a] transition group-hover:bg-[#f3d28a]/24">{action.icon}</span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-white">{action.label}</span>
-                  <span className="mt-0.5 block truncate text-xs text-white/60">{action.hint}</span>
-                </span>
-              </button>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -1994,7 +2177,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
         </div>
       ) : (
         <>
-          <div className="fixed bottom-36 right-4 z-[80] flex flex-col items-end gap-2 md:bottom-24 md:right-6">
+          <div className="hidden">
             {isReactionPanelOpen && (
               <div className="mb-1 grid gap-2 rounded-[1.5rem] border border-emerald-100 bg-white p-2 shadow-2xl shadow-emerald-950/15 dark:border-emerald-900/40 dark:bg-bible-darkPaper">
                 {REACTION_OPTIONS.map((reaction) => (
@@ -2029,7 +2212,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
             type="button"
             onClick={() => setIsNotePanelOpen(true)}
             title="Abrir o campo para criar uma anotação pessoal."
-            className="fixed bottom-20 right-4 z-[80] inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#073b35] via-[#0f5d51] to-[#d8b15f] px-5 text-[10px] font-black uppercase tracking-widest text-white shadow-2xl shadow-emerald-950/20 ring-4 ring-white transition hover:-translate-y-0.5 dark:ring-black md:bottom-6 md:right-6"
+            className="hidden"
             aria-label="Abrir campo de anotação"
           >
             <NotebookPen size={18} />
@@ -2037,6 +2220,127 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           </button>
         </>
       )}
+      <style jsx global>{`
+        @media (orientation: landscape) and (max-height: 520px) and (max-width: 900px) {
+          .culto-compact-container {
+            padding: 4px 8px;
+          }
+
+          .culto-compact-grid {
+            display: block;
+          }
+
+          .culto-compact-main {
+            min-height: calc(100svh - 8px);
+          }
+
+          .culto-compact-title {
+            padding-left: 32px;
+            padding-right: 72px;
+            font-size: 18px;
+            line-height: 1.1;
+          }
+
+          .culto-compact-church {
+            margin-top: 1px;
+            gap: 4px;
+            padding-left: 32px;
+            font-size: 8px;
+            line-height: 1.1;
+          }
+
+          .culto-compact-church svg,
+          .culto-compact-meta svg {
+            height: 11px;
+            width: 11px;
+          }
+
+          .culto-compact-meta {
+            margin-top: 3px;
+            flex-wrap: nowrap;
+            column-gap: 12px;
+            padding-left: 32px;
+            font-size: 8px;
+            line-height: 1;
+          }
+
+          .culto-compact-management {
+            display: none;
+          }
+
+          .culto-top-back,
+          .culto-top-button {
+            height: 28px;
+            width: 28px;
+          }
+
+          .culto-top-tools {
+            gap: 4px;
+          }
+
+          .culto-compact-player-frame {
+            margin-top: 5px;
+            min-height: 0;
+            flex: 1 1 auto;
+            position: relative;
+            border-radius: 10px;
+          }
+
+          .culto-compact-player {
+            position: absolute;
+            inset: 0;
+            height: auto;
+            min-height: 100%;
+            aspect-ratio: auto;
+          }
+
+          .culto-quick-actions {
+            margin-top: 4px;
+            gap: 4px;
+          }
+
+          .culto-quick-actions--six {
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+          }
+
+          .culto-quick-actions--three {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+
+          .culto-quick-action {
+            min-height: 38px;
+            gap: 4px;
+            border-radius: 8px;
+            padding: 3px 5px;
+          }
+
+          .culto-quick-action-icon {
+            height: 24px;
+            width: 24px;
+          }
+
+          .culto-quick-action-icon svg {
+            height: 13px;
+            width: 13px;
+          }
+
+          .culto-quick-action-label {
+            font-size: 8px;
+            line-height: 1.1;
+          }
+
+          .culto-quick-action-hint {
+            margin-top: 1px;
+            font-size: 7px;
+            line-height: 1.1;
+          }
+
+          .culto-compact-grid > aside {
+            margin-top: 8px;
+            max-height: calc(100svh - 8px);
+          }
+        }
+      `}</style>
     </main>
   );
 };

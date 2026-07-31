@@ -1,290 +1,106 @@
-import { generateDailyDevotional } from './pastorAgent';
 import { DAILY_BREAD } from '../constants';
-import { dbService } from './supabase';
-import {
-  normalizeVerseReference,
-  pickResolvedDevotional,
-  pickSeenVerseReferencesFromDevotionals,
-  type ResolvedDevotionalCandidate,
-} from './devotionalResolverCore';
+import { dbService, supabase } from './supabase';
+import type { ResolvedDevotionalCandidate } from './devotionalResolverCore';
 
 interface ResolveUserDailyDevotionalInput {
   userId?: string | null;
   forceNew?: boolean;
 }
 
-const USER_DEVOTIONAL_SETTING_PREFIX = 'user_devotional_resolution';
-const SIX_MONTHS_IN_DAYS = 183;
+export class DailyDevotionalError extends Error {
+  code?: string;
+  status: number;
 
-const toDateId = (value?: string | null) => (value || new Date().toISOString().split('T')[0]).replace(/\//g, '-');
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = 'DailyDevotionalError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+const getManausDate = () => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Manaus',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}).format(new Date());
+
+const toDateId = (value?: string | null) => (value || getManausDate()).replace(/\//g, '-');
 
 export const normalizeDevotionalCandidate = (data: any, fallbackDate?: string): ResolvedDevotionalCandidate | null => {
   if (!data) return null;
-
   const date = toDateId(data.date || fallbackDate);
-  const stableId =
-    typeof data.id === 'string' && data.id.startsWith('daily:')
-      ? data.id
-      : `daily:${date}`;
+  const verseReference = String(data.verseReference ?? data.verse_reference ?? data.reference ?? '').trim();
+  const verseText = String(data.verseText ?? data.verse_text ?? data.verse ?? '').trim();
+  const content = String(data.content ?? data.text ?? '').trim();
+  const prayer = String(data.prayer ?? '').trim();
+  if (!verseReference || !verseText || !content || !prayer) return null;
 
   return {
-    id: stableId,
+    id: String(data.id || `daily:${date}`),
+    contentId: data.contentId ?? data.content_id,
     date,
-    title: data.title || 'Pao Diario',
-    verseReference: data.verseReference ?? data.verse_reference ?? data.reference ?? '',
-    verseText: data.verseText ?? data.verse_text ?? data.verse ?? '',
-    content: data.content ?? data.text ?? '',
-    prayer: data.prayer ?? '',
+    title: String(data.title || 'Pão Diário'),
+    verseReference,
+    verseText,
+    content,
+    prayer,
     source: data.source,
+    refreshAvailable: Boolean(data.refreshAvailable),
+    refreshUsedAt: data.refreshUsedAt ?? null,
+    personalized: Boolean(data.personalized),
   };
 };
 
-const getUserResolutionKey = (userId: string, date: string) => `${USER_DEVOTIONAL_SETTING_PREFIX}:${userId}:${date}`;
-
-const getSixMonthWindowStart = () => {
-  const date = new Date();
-  date.setDate(date.getDate() - SIX_MONTHS_IN_DAYS);
-  return date.toISOString().split('T')[0];
+const getAccessToken = async () => {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
 };
 
-const buildGeneratedAltId = (date: string, verseReference: string) => {
-  const slug = normalizeVerseReference(verseReference).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  return `daily:${date}:alt:${slug || 'generated'}`;
-};
-
-const createGeneratedCandidate = (raw: any, date: string): ResolvedDevotionalCandidate | null => {
-  const normalized = normalizeDevotionalCandidate(raw, date);
-  if (!normalized) return null;
-  return {
-    ...normalized,
-    id: buildGeneratedAltId(date, normalized.verseReference),
-    date,
-    source: 'generated',
-  };
-};
-
-const createDailyBreadCandidate = (date: string): ResolvedDevotionalCandidate => {
-  const candidate = normalizeDevotionalCandidate(DAILY_BREAD, date);
-  return {
-    ...candidate!,
-    id: buildGeneratedAltId(date, DAILY_BREAD.verseReference),
-    date,
-    source: 'generated',
-  };
-};
-
-const collectSeenVerseReferences = async (userId: string) => {
-  const history = await dbService.getUserDevotionalHistory(userId, 240);
-  const windowStart = getSixMonthWindowStart();
-  const recentHistory = history.filter((entry: any) => {
-      const entryDate = toDateId(entry.date || entry.created_at);
-      return entryDate >= windowStart;
-    });
-
-  const contentIds = recentHistory.map((entry: any) => entry.content_id).filter(Boolean);
-
-  if (contentIds.length === 0) {
-    return [];
+const loadFromServer = async (forceNew: boolean) => {
+  const accessToken = await getAccessToken();
+  const response = await fetch('/api/devotional/daily', {
+    method: forceNew ? 'POST' : 'GET',
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    cache: 'no-store',
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new DailyDevotionalError(
+      payload?.error || 'Não foi possível carregar o Pão Diário.',
+      response.status,
+      payload?.code,
+    );
   }
-
-  const devotionals = await dbService.getDailyDevotionalsByContentIds(contentIds);
-  const verseReferences = pickSeenVerseReferencesFromDevotionals(devotionals);
-
-  for (const entry of recentHistory) {
-    if (typeof entry.content_id !== 'string' || !entry.content_id.includes(':alt:')) {
-      continue;
-    }
-
-    const entryDate = toDateId(entry.date || entry.created_at);
-    const persisted = await dbService.getUserScopedSetting(getUserResolutionKey(userId, entryDate));
-    if (persisted?.id === entry.content_id && persisted?.verseReference) {
-      verseReferences.push(persisted.verseReference);
-    }
-  }
-
-  return verseReferences;
+  return normalizeDevotionalCandidate(payload);
 };
 
-const persistUserResolution = async (userId: string, candidate: ResolvedDevotionalCandidate) => {
-  await dbService.saveUserScopedSetting(getUserResolutionKey(userId, candidate.date), candidate);
-  await dbService.saveUserDevotionalAction(userId, candidate.id, 'view');
-};
-
-const generateUniqueFallback = async (date: string, seenVerseReferences: string[]) => {
-  const seen = new Set(seenVerseReferences.map(normalizeVerseReference));
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const generated = await generateDailyDevotional(true, 'gemini', { excludedVerseReferences: seenVerseReferences });
-    const candidate = createGeneratedCandidate(generated, date);
-
-    if (!candidate) {
-      continue;
-    }
-
-    if (!seen.has(normalizeVerseReference(candidate.verseReference))) {
-      return candidate;
-    }
-  }
-
-  return null;
-};
-
-export const resolveUserDailyDevotional = async ({ userId, forceNew }: ResolveUserDailyDevotionalInput) => {
-  const todayDate = toDateId(new Date().toISOString());
-  const safeDailyBread = () => createDailyBreadCandidate(todayDate);
-
-  // Se o usuário pediu para atualizar, gera um exclusivo para ele
-  if (forceNew && userId) {
-    try {
-      const seenVerseReferences = await collectSeenVerseReferences(userId);
-      const fallback = await generateUniqueFallback(todayDate, seenVerseReferences);
-
-      let candidate = fallback;
-      if (!candidate) {
-        const generated = await generateDailyDevotional(true);
-        candidate = createGeneratedCandidate(generated, todayDate);
-      }
-
-      if (candidate) {
-        await persistUserResolution(userId, candidate);
-        return candidate;
-      }
-    } catch (error) {
-      console.warn('Devotional refresh fell back to DAILY_BREAD:', error);
-      return safeDailyBread();
-    }
-  }
-
-  // Verificar se O USUÁRIO já tem um devocional (oficial gerado localmente ou um personalizado que foi gerado em sessões anteriores) para hoje! 
-  // Isso previne chamadas infinitas caso o ADMIN DEVOTIONAL DB falhe em salvar o novo gerado.
-  if (userId) {
-     const settingsKey = getUserResolutionKey(userId, todayDate);
-     // 1. Tenta recuperar do localStorage (cache relâmpago local infalível)
-     if (typeof window !== 'undefined') {
-         const localCached = localStorage.getItem(settingsKey);
-         if (localCached) {
-             const parsed = normalizeDevotionalCandidate(JSON.parse(localCached), todayDate);
-             if (parsed) return parsed;
-         }
-     }
-     
-     // 2. Se não tem no localStorage, tenta do DB (pode falhar se a tabela não existir)
-     try {
-     const persisted = normalizeDevotionalCandidate(
-        await dbService.getUserScopedSetting(settingsKey),
-        todayDate
-     );
-     if (persisted) {
-         if (typeof window !== 'undefined') localStorage.setItem(settingsKey, JSON.stringify(persisted));
-         return persisted; // Se tem, usa ele e nem tenta gerar um oficial novo!
-     }
-     } catch (error) {
-       console.warn('Devotional user setting lookup failed:', error);
-     }
-  }
-
-  // Tenta puxar o oficial do banco
-  let officialRaw: any = null;
+const loadReadOnlyFallback = async () => {
+  const date = getManausDate();
   try {
-    officialRaw = await dbService.getDailyDevotional();
+    const legacy = normalizeDevotionalCandidate(await dbService.getDailyDevotional(), date);
+    if (legacy) return { ...legacy, refreshAvailable: false };
   } catch (error) {
-    console.warn('Daily devotional lookup failed:', error);
+    console.warn('Daily devotional read-only fallback failed:', error);
   }
-  const isFromToday = officialRaw?.date === todayDate;
+  return normalizeDevotionalCandidate({
+    ...DAILY_BREAD,
+    id: `daily:${date}:fallback`,
+    date,
+    source: 'catalog',
+    refreshAvailable: false,
+  }, date);
+};
 
-  // Se o banco está atrasado, a IA gera um pra hoje
-  if (!officialRaw || !isFromToday) {
-    try {
-    // Busca devocionais do último ano para não repetir referências
-    const pastYearDevotionals = await dbService.getRecentDailyDevotionals(365);
-    const seenReferences = pickSeenVerseReferencesFromDevotionals(pastYearDevotionals);
-
-    const generatedOfficial = await generateDailyDevotional(true, 'gemini', { excludedVerseReferences: seenReferences });
-    if (generatedOfficial) {
-      officialRaw = {
-        date: todayDate,
-        title: generatedOfficial.title,
-        reference: generatedOfficial.verseReference || generatedOfficial.reference,
-        verse: generatedOfficial.verseText || generatedOfficial.verse,
-        text: generatedOfficial.content || generatedOfficial.text,
-        prayer: generatedOfficial.prayer,
-      };
-      // Tenta salvar no banco como "oficial do dia"
-      await dbService.saveAdminDevotional(officialRaw);
-    }
-    } catch (error) {
-      console.warn('Daily devotional generation fell back to DAILY_BREAD:', error);
-      officialRaw = DAILY_BREAD;
-    }
+export const resolveUserDailyDevotional = async ({ forceNew = false }: ResolveUserDailyDevotionalInput) => {
+  try {
+    const resolved = await loadFromServer(forceNew);
+    if (resolved) return resolved;
+    throw new DailyDevotionalError('O conteúdo recebido está incompleto.', 502);
+  } catch (error) {
+    if (forceNew) throw error;
+    console.warn('Daily devotional API unavailable; using read-only fallback:', error);
+    return loadReadOnlyFallback();
   }
-
-  const official = normalizeDevotionalCandidate(officialRaw);
-
-  if (!official) {
-    return null;
-  }
-
-  if (userId) {
-     let seenVerseReferences: string[] = [];
-     try {
-       seenVerseReferences = await collectSeenVerseReferences(userId);
-     } catch (error) {
-       console.warn('Daily devotional history lookup failed:', error);
-     }
-     let picked = pickResolvedDevotional({
-       official: { ...official, source: 'official' },
-       persistedForToday: null,
-       fallbackPool: [],
-       seenVerseReferences,
-     }) as ResolvedDevotionalCandidate | null;
-
-     if (!picked) {
-       let fallbackPool: ResolvedDevotionalCandidate[] = [];
-       try {
-         fallbackPool = (await dbService.getRecentDailyDevotionals(240))
-           .map((item: any) => normalizeDevotionalCandidate(item))
-           .filter((item: ResolvedDevotionalCandidate | null): item is ResolvedDevotionalCandidate => Boolean(item))
-           .map((item: ResolvedDevotionalCandidate) => ({
-             ...item,
-             id: buildGeneratedAltId(todayDate, item.verseReference),
-             date: todayDate,
-             source: 'catalog' as const,
-           }));
-       } catch (error) {
-         console.warn('Daily devotional fallback pool lookup failed:', error);
-       }
-
-       picked = pickResolvedDevotional({
-         official: null,
-         persistedForToday: null,
-         fallbackPool,
-         seenVerseReferences,
-       });
-     }
-
-     if (!picked) {
-       try {
-         picked = await generateUniqueFallback(todayDate, seenVerseReferences);
-       } catch (error) {
-         console.warn('Daily devotional unique fallback generation failed:', error);
-       }
-     }
-
-     // Se nao houver alternativa unica disponivel, preserva o Pao Diario oficial.
-     picked = picked ?? ({ ...official, source: 'official' } as ResolvedDevotionalCandidate);
-     try {
-       await persistUserResolution(userId, picked);
-     } catch (error) {
-       console.warn('Daily devotional persistence failed:', error);
-     }
-     
-     // Força no cache local para blindar contra falha silenciosa de DB (RLS ou tabela inexistente)
-     if (typeof window !== 'undefined') {
-         localStorage.setItem(getUserResolutionKey(userId, todayDate), JSON.stringify(picked));
-     }
-     
-     return picked;
-  }
-
-  return official;
 };

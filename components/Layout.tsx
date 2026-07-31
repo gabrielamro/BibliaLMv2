@@ -33,6 +33,7 @@ import ObreiroIAChatbot from './ObreiroIAChatbot';
 import { SYSTEM_VERSION } from '../constants';
 import { getLayoutShellState } from './layoutShell';
 import { canAccessPastoralWorkspace } from '../utils/profileAccess';
+import { getAppModuleForRoute } from '../utils/moduleTheme';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -78,7 +79,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const isStandaloneChurchManagementShell = location.pathname.startsWith('/gestao-igreja');
     const isStandalonePastoralWorkspaceShell = location.pathname.startsWith('/workspace-pastoral');
     const isStandalonePublicQrShell = location.pathname.startsWith('/qr/');
-    const isStandaloneCultoPlusShell = isStandaloneNewHome || location.pathname === '/meus-cultos' || isStandaloneChurchManagementShell || isStandalonePastoralWorkspaceShell || isStandalonePublicQrShell;
+    const isCultoPlusOnePage = location.pathname.startsWith('/culto/');
+    const isStandaloneBibleModuleShell = ['/bibliasagrada', '/biblia', '/devocional', '/oracoes', '/plano', '/quiz'].includes(location.pathname);
+    const isStandaloneSocialShell = ['/social', '/social/igrejas', '/social/explore'].includes(location.pathname);
+    const isStandaloneCreativeStudioShell = location.pathname === '/criar-arte-sacra';
+    const isImmersiveDevotional = location.pathname === '/devocional';
+    const isStandaloneCultoPlusShell = isStandaloneNewHome || isCultoPlusOnePage || location.pathname === '/meus-cultos' || isStandaloneBibleModuleShell || isStandaloneSocialShell || isStandaloneCreativeStudioShell || isStandaloneChurchManagementShell || isStandalonePastoralWorkspaceShell || isStandalonePublicQrShell;
+    const activeAppModule = getAppModuleForRoute(location.pathname, location.search);
 
     const rootPaths = [
         '/',
@@ -95,14 +102,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     ];
 
     const showBackButton = !rootPaths.includes(location.pathname);
-    const isCultoPlusOnePage = location.pathname.startsWith('/culto/');
     const { showMobileShell, showMobileNav, showSidebar, sidebarStartsCollapsed } = getLayoutShellState({
         pathname: location.pathname,
         isFocusMode,
         isCustomHomeShell,
         isHeaderHidden,
     });
-    const showGlobalMobileNav = showMobileNav && !isStandaloneChurchManagementShell && !isStandalonePastoralWorkspaceShell && !isStandalonePublicQrShell;
+    const showGlobalMobileNav = showMobileNav && !isStandaloneChurchManagementShell && !isStandalonePastoralWorkspaceShell && !isStandalonePublicQrShell && !isStandaloneCreativeStudioShell && !isImmersiveDevotional && !isCultoPlusOnePage;
 
     const isAdmin = userProfile?.username === 'gabrielamaro' || currentUser?.email === 'gabrielamaro@live.com';
     const isPastor = canAccessPastoralWorkspace(userProfile);
@@ -346,7 +352,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     );
 
     return (
-        <div className="flex flex-col h-[100dvh] bg-bible-paper dark:bg-black transition-colors duration-300 font-sans overflow-hidden w-full max-w-[100vw]">
+        <div data-module={activeAppModule} className="flex flex-col h-[100dvh] bg-bible-paper dark:bg-black transition-colors duration-300 font-sans overflow-hidden w-full max-w-[100vw]">
 
             {/* Mobile Header - Hidden in Focus Mode / Home */}
             <header
@@ -457,7 +463,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <main
                     ref={scrollContainerRef}
                     onScroll={handleScroll}
-                    className={`flex-1 overflow-y-auto overflow-x-hidden scroll-smooth relative w-full ${isFocusMode ? 'bg-black' : ''} ${showMobileShell ? 'mobile-header-offset md:pt-0' : 'pt-0'}`}
+                    className={`flex-1 overflow-y-auto overflow-x-hidden scroll-smooth relative w-full ${isFocusMode ? 'bg-black' : ''} ${showMobileShell && !isStandaloneCultoPlusShell ? 'mobile-header-offset md:pt-0' : 'pt-0'}`}
                 >
                     {notification && (
                         <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[110] px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 fade-in duration-300 border ${notification.type === 'error' ? 'bg-red-500 text-white border-red-600' :
@@ -478,7 +484,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 
 
-                    <div className={`app-fluid-content ${showGlobalMobileNav ? 'pb-[var(--mobile-bottom-nav-height)] md:pb-0' : ''}`}>
+                    <div className={`app-fluid-content ${isStandaloneCultoPlusShell ? 'h-full' : ''} ${showGlobalMobileNav ? 'pb-[var(--mobile-bottom-nav-height)] md:pb-0' : ''}`}>
                         {children}
                     </div>
 
@@ -486,7 +492,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <SupportModal isOpen={isSupportModalOpen} onClose={() => setIsSupportModalOpen(false)} />
                     <BuyCreditsModal isOpen={isBuyCreditsModalOpen} onClose={closeBuyCredits} />
                     <SystemTutorialModal isOpen={isTutorialOpen} onClose={() => setIsTutorialOpen(false)} />
-                    {!isCultoPlusOnePage && !isStandaloneCultoPlusShell && <ObreiroIAChatbot />}
+                    {!isCultoPlusOnePage && !isImmersiveDevotional && (!isStandaloneCultoPlusShell || isStandaloneBibleModuleShell) && <ObreiroIAChatbot />}
                 </main>
 
                 {showGlobalMobileNav && <MobileBottomNav />}

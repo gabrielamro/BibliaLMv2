@@ -1,5 +1,5 @@
-import MemberOperationalPhasePreview from "../../../components/church-management/MemberOperationalPhasePreview";
+import { redirect } from "next/navigation";
 
 export default function MemberChurchBadgesPage() {
-  return <MemberOperationalPhasePreview phase="insignias" />;
+  redirect("/meus-cultos");
 }

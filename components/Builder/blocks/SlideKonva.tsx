@@ -101,7 +101,7 @@ const SlideKonva: React.FC<SlideKonvaProps> = ({
             </div>
             {(currentSlideData.type !== 'text' || currentSlideData.mediaUrl) && (
               <div className={`${isCompact ? 'w-full flex-none' : 'flex-1 w-full'} flex justify-center min-w-0`}>
-                 <img src={currentSlideData.mediaUrl} className={`w-full ${isCompact ? 'max-w-[128px] max-h-[96px] rounded-xl' : 'max-w-[200px] md:max-w-sm rounded-2xl'} h-auto object-cover shadow-2xl border border-white/20`} />
+                 <img src={currentSlideData.mediaUrl} alt="" loading="lazy" decoding="async" className={`w-full ${isCompact ? 'max-w-[128px] max-h-[96px] rounded-xl' : 'max-w-[200px] md:max-w-sm rounded-2xl'} h-auto object-cover shadow-2xl border border-white/20`} />
               </div>
             )}
           </div>

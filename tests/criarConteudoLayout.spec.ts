@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('empty top-level paragraphs do not break two half-width blocks into separate rows', async ({ page }) => {
   await page.goto('/criar-conteudo', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByRole('heading', { name: /Novo Estudo B.blico/i })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('study-studio-shell')).toBeVisible({ timeout: 20000 });
 
   const layout = await page.evaluate(async () => {
     const sandbox = document.createElement('div');
@@ -46,7 +46,7 @@ test('empty top-level paragraphs do not break two half-width blocks into separat
 test('shows related verses as a slider when the editor canvas is in mobile mode', async ({ page }) => {
   await page.goto('/criar-conteudo', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByRole('heading', { name: /Novo Estudo B.blico/i })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('study-studio-shell')).toBeVisible({ timeout: 20000 });
   await page.getByTitle('Mobile (375px)').click();
 
   const relatedSection = page
@@ -63,7 +63,7 @@ test('shows related verses as a slider when the editor canvas is in mobile mode'
 test('does not render blocks hidden for the current editor canvas', async ({ page }) => {
   await page.goto('/criar-conteudo', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByRole('heading', { name: /Novo Estudo B.blico/i })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('study-studio-shell')).toBeVisible({ timeout: 20000 });
   await page.getByTitle('Mobile (375px)').click();
 
   await expect(page.getByText(/Oculto nesta visualiza/i)).toHaveCount(0);
@@ -81,7 +81,7 @@ test('keeps the criar-conteudo editor fitted in mobile canvas', async ({ page })
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/criar-conteudo', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByRole('heading', { name: /Novo Estudo B.blico/i })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('study-studio-shell')).toBeVisible({ timeout: 20000 });
 
   const metrics = await page.evaluate(() => {
     const viewportWidth = document.documentElement.clientWidth;

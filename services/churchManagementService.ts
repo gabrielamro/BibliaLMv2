@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import { formatSupabaseError } from '../utils/supabaseErrors';
 import { churchNotificationService } from './churchNotificationService';
 import { cultoPlusService } from './cultoPlusService';
-import { getNotificationStatePatch, getQrSubmissionRouting } from '../utils/churchManagementRules';
+import { getNotificationStatePatch, getQrSubmissionRouting, getVolunteerRejectionUpdate } from '../utils/churchManagementRules';
 import {
   ChurchAssignment,
   ChurchAssignmentStatus,
@@ -111,6 +111,13 @@ const now = () => new Date().toISOString();
 const makeId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const makeToken = (title: string) =>
   `${title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)}-${Math.random().toString(36).slice(2, 8)}`;
+const TEAM_DESTINATION_PATTERN = /^team:([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
+const getQrScopeFromDestination = (destination?: string): { scopeType: ChurchRoleScopeType; scopeId: string | null } => {
+  const teamId = destination?.match(TEAM_DESTINATION_PATTERN)?.[1] ?? null;
+  return teamId
+    ? { scopeType: 'team', scopeId: teamId }
+    : { scopeType: 'church', scopeId: null };
+};
 const createOperationalNotification = churchNotificationService.createOperationalNotification;
 const ASSIGNMENT_SELECT = 'id, church_id, team_id, title, description, assignee_user_id, leader_user_id, scope_type, scope_id, status, requires_acceptance, starts_at, ends_at, public_feedback, created_by, source_type, source_id, accepted_at, declined_at, created_at, updated_at';
 
@@ -350,6 +357,8 @@ const mapQrForm = (row: any): ChurchQrForm => ({
   description: row.description ?? '',
   fields: Array.isArray(row.fields) ? row.fields : [],
   destination: row.destination ?? 'inbox',
+  scopeType: row.scope_type ?? 'church',
+  scopeId: row.scope_id,
   privacyText: row.privacy_text ?? '',
   confirmationText: row.confirmation_text ?? '',
   allowAnonymous: Boolean(row.allow_anonymous),
@@ -1376,6 +1385,80 @@ export const churchManagementService = {
     return assignment;
   },
 
+  createMemberCultoAssignment: async (input: {
+    churchId: string;
+    serviceId: string;
+    teamId: string;
+    member: Pick<UserProfile, 'uid' | 'displayName' | 'photoURL'>;
+    actorUserId: string;
+    role?: string;
+    notes?: string;
+  }): Promise<ChurchAssignment> => {
+    const team = await churchManagementService.getTeam(input.teamId);
+    if (!team || team.churchId !== input.churchId) throw new Error('Equipe não encontrada nesta igreja.');
+
+    const service = await cultoPlusService.getServiceById(input.serviceId);
+    if (!service || service.churchId !== input.churchId) throw new Error('Culto não encontrado nesta igreja.');
+
+    const [isMember, churchRoles, memberAssignments] = await Promise.all([
+      churchManagementService.isChurchMember(input.churchId, input.member.uid),
+      churchManagementService.listRoles(input.churchId, { limit: 500 }),
+      churchManagementService.listAssignments(input.churchId, { assigneeUserId: input.member.uid, limit: 500 }),
+    ]);
+
+    if (!isMember) throw new Error('A pessoa precisa ser membro da igreja antes de entrar na escala.');
+
+    const activeActorRoles = churchRoles.filter((role) => role.userId === input.actorUserId && role.status === 'active');
+    const canManageChurch = activeActorRoles.some((role) => role.role === 'church_manager');
+    const canLeadTeam = team.leaderId === input.actorUserId || team.createdBy === input.actorUserId || activeActorRoles.some((role) =>
+      role.role === 'leader' && (role.scopeType === 'church' || (role.scopeType === 'team' && role.scopeId === team.id)),
+    );
+    if (!canManageChurch && !canLeadTeam) throw new Error('Você não tem permissão para escalar pessoas nesta equipe.');
+
+    const isTeamMember = team.leaderId === input.member.uid || churchRoles.some((role) =>
+      role.userId === input.member.uid && role.status === 'active' && role.scopeType === 'team' && role.scopeId === team.id,
+    );
+    if (!isTeamMember) throw new Error('A pessoa não está vinculada à equipe selecionada.');
+
+    const candidateWindow = { startsAt: service.startsAt, endsAt: service.endsAt || null };
+    const duplicate = memberAssignments.find((assignment) =>
+      assignment.status !== 'removed' && getCultoAssignmentServiceId(assignment) === service.id && assignment.teamId === team.id,
+    );
+    if (duplicate) throw new Error('Esta pessoa já está escalada por esta equipe neste culto.');
+
+    const conflict = memberAssignments.find((assignment) =>
+      ['pending', 'accepted'].includes(assignment.status) && assignmentWindowsOverlap(candidateWindow, assignment),
+    );
+    if (conflict) throw new Error(`Conflito de horário com a escala “${conflict.title}”.`);
+
+    const ministry = await ensureServiceMinistryForTeam(input.churchId, input.actorUserId, team);
+    const sourceId = buildTeamMemberServiceSourceId(service.id, team.id, ministry.id, input.member.uid);
+    const existingBySource = await findAssignmentBySourceKey(input.churchId, 'gestao_culto_member', sourceId);
+    if (existingBySource) throw new Error('Esta escala já foi criada anteriormente.');
+
+    const memberProfile = input.member as UserProfile;
+    const roleLabel = input.role?.trim() || team.name;
+    await cultoPlusService.addMinistryMember(ministry, memberProfile, roleLabel);
+    await cultoPlusService.createScheduleAssignment(service, ministry, memberProfile, roleLabel);
+
+    return churchManagementService.createAssignment({
+      churchId: input.churchId,
+      teamId: team.id,
+      title: `${team.name}: ${service.title}`,
+      description: input.notes?.trim() || `Escala pontual criada pelo calendário para o culto ${service.title}.`,
+      assigneeUserId: input.member.uid,
+      leaderUserId: team.leaderId ?? input.actorUserId,
+      scopeType: 'service',
+      scopeId: service.id,
+      startsAt: service.startsAt,
+      endsAt: service.endsAt || null,
+      publicFeedback: `Você foi escalado em ${team.name} para ${service.title}. Confirme sua disponibilidade.`,
+      createdBy: input.actorUserId,
+      sourceType: 'gestao_culto_member',
+      sourceId,
+    });
+  },
+
   getAssignment: async (assignmentId: string): Promise<ChurchAssignment | null> => {
     const { data, error } = await supabase
       .from('church_assignments')
@@ -1443,6 +1526,35 @@ export const churchManagementService = {
       .single();
     if (error) throw new Error(`Erro ao responder designacao. ${formatSupabaseError(error)}`);
     const assignment = mapAssignment(data);
+    if (
+      response === 'accepted'
+      && assignment.sourceType === 'team_membership_invite'
+      && assignment.scopeType === 'team'
+      && assignment.teamId
+    ) {
+      try {
+        // O convite só vira vínculo de equipe depois do aceite explícito do membro.
+        await churchManagementService.grantRole({
+          churchId: assignment.churchId,
+          userId,
+          role: 'volunteer',
+          scopeType: 'team',
+          scopeId: assignment.teamId,
+          grantedBy: assignment.leaderUserId ?? assignment.createdBy ?? null,
+          notify: false,
+          meta: {
+            source_assignment_id: assignment.id,
+            accepted_at: assignment.acceptedAt ?? now(),
+          },
+        });
+      } catch (membershipError) {
+        await supabase
+          .from('church_assignments')
+          .update({ status: 'pending', accepted_at: null, updated_at: now() })
+          .eq('id', assignment.id);
+        throw new Error(`Não foi possível concluir o vínculo com a equipe. ${membershipError instanceof Error ? membershipError.message : formatSupabaseError(membershipError)}`);
+      }
+    }
     await createOperationalNotification({
       churchId: assignment.churchId,
       userId: assignment.leaderUserId ?? assignment.createdBy ?? null,
@@ -1571,7 +1683,7 @@ export const churchManagementService = {
 
   listQrForms: async (churchId: string, options?: PageOptions): Promise<ChurchQrForm[]> => {
     try {
-      let query = supabase.from('church_qr_forms').select('id, church_id, token, title, form_type, description, fields, destination, privacy_text, confirmation_text, allow_anonymous, status, scans_count, submissions_count, expires_at, created_by, created_at, updated_at').eq('church_id', churchId).order('created_at', { ascending: false });
+      let query = supabase.from('church_qr_forms').select('id, church_id, token, title, form_type, description, fields, destination, scope_type, scope_id, privacy_text, confirmation_text, allow_anonymous, status, scans_count, submissions_count, expires_at, created_by, created_at, updated_at').eq('church_id', churchId).order('created_at', { ascending: false });
       const { data, error } = await rangeQuery(query, options);
       if (error) throw error;
       return (data ?? []).map(mapQrForm);
@@ -1583,7 +1695,7 @@ export const churchManagementService = {
 
   getQrFormByToken: async (token: string): Promise<ChurchQrForm | null> => {
     try {
-      const { data, error } = await supabase.from('church_qr_forms').select('id, church_id, token, title, form_type, description, fields, destination, privacy_text, confirmation_text, allow_anonymous, status, scans_count, submissions_count, expires_at, created_by, created_at, updated_at').eq('token', token).eq('status', 'active').maybeSingle();
+      const { data, error } = await supabase.from('church_qr_forms').select('id, church_id, token, title, form_type, description, fields, destination, scope_type, scope_id, privacy_text, confirmation_text, allow_anonymous, status, scans_count, submissions_count, expires_at, created_by, created_at, updated_at').eq('token', token).eq('status', 'active').maybeSingle();
       if (error) throw error;
       return data ? mapQrForm(data) : null;
     } catch (error) {
@@ -1601,6 +1713,8 @@ export const churchManagementService = {
   },
 
   createQrForm: async (input: { churchId: string; title: string; formType: ChurchQrFormType; description?: string; fields: ChurchQrFormField[]; destination?: string; privacyText?: string; confirmationText?: string; allowAnonymous?: boolean; expiresAt?: string | null; createdBy?: string | null }): Promise<ChurchQrForm> => {
+    const destination = input.destination ?? 'inbox';
+    const scope = getQrScopeFromDestination(destination);
     const payload = {
       church_id: input.churchId,
       token: makeToken(input.title),
@@ -1608,7 +1722,9 @@ export const churchManagementService = {
       form_type: input.formType,
       description: input.description ?? '',
       fields: input.fields,
-      destination: input.destination ?? 'inbox',
+      destination,
+      scope_type: scope.scopeType,
+      scope_id: scope.scopeId,
       privacy_text: input.privacyText ?? '',
       confirmation_text: input.confirmationText ?? '',
       allow_anonymous: input.formType === 'volunteer' ? false : (input.allowAnonymous ?? true),
@@ -1637,19 +1753,38 @@ export const churchManagementService = {
   getQrForm: async (formId: string): Promise<ChurchQrForm | null> => {
     const { data, error } = await supabase
       .from('church_qr_forms')
-      .select('id, church_id, token, title, form_type, description, fields, destination, privacy_text, confirmation_text, allow_anonymous, status, scans_count, submissions_count, expires_at, created_by, created_at, updated_at')
+      .select('id, church_id, token, title, form_type, description, fields, destination, scope_type, scope_id, privacy_text, confirmation_text, allow_anonymous, status, scans_count, submissions_count, expires_at, created_by, created_at, updated_at')
       .eq('id', formId)
       .maybeSingle();
     if (error) throw new Error(`Erro ao carregar QR/formulario. ${formatSupabaseError(error)}`);
     return data ? mapQrForm(data) : null;
   },
 
+  getVolunteerRetryForm: async (submission: Pick<ChurchFormSubmission, 'churchId' | 'formId' | 'formType'>): Promise<ChurchQrForm> => {
+    if (submission.formType !== 'volunteer' || !submission.formId) {
+      throw new Error('O formulário original desta solicitação não está disponível.');
+    }
+
+    const form = await churchManagementService.getQrForm(submission.formId);
+    const expiresAt = form?.expiresAt ? new Date(form.expiresAt).getTime() : null;
+    const isExpired = expiresAt !== null && Number.isFinite(expiresAt) && expiresAt < Date.now();
+
+    if (!form || form.churchId !== submission.churchId || form.formType !== 'volunteer' || form.status !== 'active' || isExpired) {
+      throw new Error('O formulário original não está mais ativo. Solicite um novo link à igreja.');
+    }
+
+    return form;
+  },
+
   updateQrForm: async (formId: string, updates: { title?: string; formType?: ChurchQrFormType; description?: string; destination?: string; privacyText?: string; confirmationText?: string; allowAnonymous?: boolean; status?: ChurchQrFormStatus }): Promise<ChurchQrForm> => {
+    const scope = updates.destination ? getQrScopeFromDestination(updates.destination) : null;
     const payload = {
       title: updates.title,
       form_type: updates.formType,
       description: updates.description,
       destination: updates.destination,
+      scope_type: scope?.scopeType,
+      scope_id: scope?.scopeId,
       privacy_text: updates.privacyText,
       confirmation_text: updates.confirmationText,
       allow_anonymous: updates.formType === 'volunteer' ? false : updates.allowAnonymous,
@@ -1804,7 +1939,36 @@ export const churchManagementService = {
     return { submission: updatedSubmission, role };
   },
 
-  updateSubmissionStatus: async (submissionId: string, updates: { status?: ChurchSubmissionStatus; publicStatus?: string; assignedTo?: string | null; priority?: ChurchSubmissionPriority; nextAction?: string; publicFeedback?: string }): Promise<ChurchFormSubmission> => {
+  rejectVolunteerSubmission: async (input: { submissionId: string; rejectedBy?: string | null; reason?: string | null }): Promise<ChurchFormSubmission> => {
+    const submission = await churchManagementService.getSubmission(input.submissionId);
+    if (!submission) throw new Error('Solicitação de voluntariado não encontrada.');
+    if (submission.formType !== 'volunteer') throw new Error('Esta solicitação não é uma candidatura de voluntariado.');
+    if (!submission.submitterUserId) throw new Error('A solicitação precisa estar vinculada a um usuário para que ele seja notificado.');
+    if (submission.publicStatus === 'Aprovado para servir') throw new Error('Esta solicitação já foi aprovada.');
+    if (submission.status === 'closed' || submission.status === 'archived') throw new Error('Esta solicitação já foi encerrada.');
+
+    return churchManagementService.updateSubmissionStatus(submission.id, {
+      ...getVolunteerRejectionUpdate(input.reason),
+      assignedTo: input.rejectedBy ?? submission.assignedTo ?? null,
+      notificationTitle: 'Retorno sobre sua solicitação de voluntariado',
+      notificationEventType: 'volunteer_submission_declined',
+      notificationDedupeKey: `volunteer_submission_declined:${submission.id}`,
+      notificationLink: '/meus-cultos#solicitacoes',
+    });
+  },
+
+  updateSubmissionStatus: async (submissionId: string, updates: {
+    status?: ChurchSubmissionStatus;
+    publicStatus?: string;
+    assignedTo?: string | null;
+    priority?: ChurchSubmissionPriority;
+    nextAction?: string;
+    publicFeedback?: string;
+    notificationTitle?: string;
+    notificationEventType?: string;
+    notificationDedupeKey?: string;
+    notificationLink?: string;
+  }): Promise<ChurchFormSubmission> => {
     const payload = {
       status: updates.status,
       public_status: updates.publicStatus,
@@ -1823,15 +1987,15 @@ export const churchManagementService = {
       await createOperationalNotification({
         churchId: submission.churchId,
         userId: submission.submitterUserId,
-        title: 'Atualizacao do seu acompanhamento',
+        title: updates.notificationTitle ?? 'Atualização do seu acompanhamento',
         message: submission.publicFeedback || submission.publicStatus || 'A igreja atualizou o status do seu pedido.',
-        eventType: 'submission_status_updated',
+        eventType: updates.notificationEventType ?? 'submission_status_updated',
         severity: updates.status === 'closed' ? 'info' : 'action',
         channel: 'member',
-        link: '/minha-igreja/acompanhamento',
+        link: updates.notificationLink ?? '/meus-cultos#solicitacoes',
         sourceType: 'form_submission',
         sourceId: submission.id,
-        dedupeKey: `submission_status_updated:${submission.id}:${submission.status}`,
+        dedupeKey: updates.notificationDedupeKey ?? `submission_status_updated:${submission.id}:${submission.status}`,
       });
     }
     return submission;

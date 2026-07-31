@@ -6,6 +6,17 @@
   :root {
     --mobile-header-height: 60px;
     --mobile-bottom-nav-height: 64px;
+    --module-primary: #475569;
+    --module-primary-hover: #334155;
+    --module-secondary: #94a3b8;
+    --module-surface: #f8fafc;
+    --module-surface-strong: #e2e8f0;
+    --module-border: #cbd5e1;
+    --module-text: #334155;
+    --module-text-muted: #64748b;
+    --module-on-primary: #ffffff;
+    --module-focus: #475569;
+    --module-gradient: linear-gradient(135deg, #475569, #94a3b8);
   }
 
   body {
@@ -36,6 +47,381 @@
 
   html.dark {
     color-scheme: dark;
+  }
+}
+
+@layer components {
+  [data-module="neutral"],
+  [data-module-theme="neutral"] {
+    --module-primary: #475569;
+    --module-primary-hover: #334155;
+    --module-secondary: #94a3b8;
+    --module-surface: #f8fafc;
+    --module-surface-strong: #e2e8f0;
+    --module-border: #cbd5e1;
+    --module-text: #334155;
+    --module-text-muted: #64748b;
+    --module-on-primary: #ffffff;
+    --module-focus: #475569;
+    --module-gradient: linear-gradient(135deg, #475569, #94a3b8);
+  }
+
+  [data-module="home"],
+  [data-module-theme="home"] {
+    --module-primary: #171319;
+    --module-primary-hover: #2b2133;
+    --module-secondary: #f2ab1d;
+    --module-surface: #fff9ec;
+    --module-surface-strong: #f8e6b8;
+    --module-border: #dec47e;
+    --module-text: #171319;
+    --module-text-muted: #665d55;
+    --module-on-primary: #ffffff;
+    --module-focus: #b97500;
+    --module-gradient: linear-gradient(135deg, #171319, #2b2133 72%, #8a5b00);
+  }
+
+  [data-module="bible"],
+  [data-module-theme="bible"] {
+    --module-primary: #74451f;
+    --module-primary-hover: #5f3518;
+    --module-secondary: #c9a45c;
+    --module-surface: #fff7e7;
+    --module-surface-strong: #f3e3c4;
+    --module-border: #d7bb88;
+    --module-text: #3a2416;
+    --module-text-muted: #765f4c;
+    --module-on-primary: #ffffff;
+    --module-focus: #8a5a25;
+    --module-gradient: linear-gradient(135deg, #3a2416, #74451f 70%, #c9a45c);
+  }
+
+  [data-module="kingdom"],
+  [data-module-theme="kingdom"] {
+    --module-primary: #5b2a86;
+    --module-primary-hover: #472069;
+    --module-secondary: #c13c8a;
+    --module-surface: #fff4f7;
+    --module-surface-strong: #f7dce9;
+    --module-border: #dda8c6;
+    --module-text: #431e5e;
+    --module-text-muted: #77566f;
+    --module-on-primary: #ffffff;
+    --module-focus: #9d2f76;
+    --module-gradient: linear-gradient(135deg, #5b2a86, #c13c8a 58%, #e76f51);
+  }
+
+  [data-module="cultos"],
+  [data-module-theme="cultos"] {
+    --module-primary: #073b35;
+    --module-primary-hover: #052e2a;
+    --module-secondary: #0f6b5d;
+    --module-surface: #eff8f4;
+    --module-surface-strong: #d7eee5;
+    --module-border: #91c8b5;
+    --module-text: #073b35;
+    --module-text-muted: #496d64;
+    --module-on-primary: #ffffff;
+    --module-focus: #0f6b5d;
+    --module-gradient: linear-gradient(135deg, #073b35, #0f6b5d);
+  }
+
+  [data-module="create"],
+  [data-module-theme="create"] {
+    --module-primary: #4f2aa7;
+    --module-primary-hover: #3e2086;
+    --module-secondary: #ef4b5f;
+    --module-surface: #fff5f2;
+    --module-surface-strong: #f7dce8;
+    --module-border: #d6a5ca;
+    --module-text: #3f216f;
+    --module-text-muted: #74566f;
+    --module-on-primary: #ffffff;
+    --module-focus: #9b348d;
+    --module-gradient: linear-gradient(135deg, #4f2aa7, #c13c8a 48%, #ef4b5f 75%, #f2a81d);
+  }
+
+  [data-module="management"],
+  [data-module-theme="management"] {
+    --module-primary: #111315;
+    --module-primary-hover: #292d31;
+    --module-secondary: #aab1b7;
+    --module-surface: #f4f5f6;
+    --module-surface-strong: #dfe2e5;
+    --module-border: #b8bec4;
+    --module-text: #111315;
+    --module-text-muted: #5d656c;
+    --module-on-primary: #ffffff;
+    --module-focus: #555d64;
+    --module-gradient: linear-gradient(135deg, #111315, #2b2f33);
+  }
+
+  [data-module="pastoral"],
+  [data-module-theme="pastoral"] {
+    --module-primary: #5b2b87;
+    --module-primary-hover: #461f6b;
+    --module-secondary: #8b5bb5;
+    --module-surface: #f7f0fc;
+    --module-surface-strong: #e9daf5;
+    --module-border: #c3a4dc;
+    --module-text: #462064;
+    --module-text-muted: #705a7e;
+    --module-on-primary: #ffffff;
+    --module-focus: #75439e;
+    --module-gradient: linear-gradient(135deg, #3d185f, #7a3fa0);
+  }
+
+  .dark [data-module="home"],
+  .dark [data-module-theme="home"] {
+    --module-primary: #f2ab1d;
+    --module-primary-hover: #ffc34d;
+    --module-secondary: #f2ab1d;
+    --module-surface: #171319;
+    --module-surface-strong: #2b2133;
+    --module-border: #6e572f;
+    --module-text: #fff5dc;
+    --module-text-muted: #c9baa6;
+    --module-on-primary: #171319;
+    --module-focus: #f2ab1d;
+  }
+
+  .dark [data-module="neutral"],
+  .dark [data-module-theme="neutral"] {
+    --module-primary: #cbd5e1;
+    --module-primary-hover: #f1f5f9;
+    --module-secondary: #94a3b8;
+    --module-surface: #111827;
+    --module-surface-strong: #273449;
+    --module-border: #526078;
+    --module-text: #f1f5f9;
+    --module-text-muted: #a8b3c4;
+    --module-on-primary: #111827;
+    --module-focus: #cbd5e1;
+  }
+
+  .dark [data-module="bible"],
+  .dark [data-module-theme="bible"] {
+    --module-primary: #e7c77f;
+    --module-primary-hover: #f0d99f;
+    --module-secondary: #c9a45c;
+    --module-surface: #15110e;
+    --module-surface-strong: #2d2119;
+    --module-border: #654b38;
+    --module-text: #e7e0d4;
+    --module-text-muted: #b7aa98;
+    --module-on-primary: #2c1d12;
+    --module-focus: #e7c77f;
+  }
+
+  .dark [data-module="kingdom"],
+  .dark [data-module-theme="kingdom"] {
+    --module-primary: #ed80bf;
+    --module-primary-hover: #f1a0ce;
+    --module-secondary: #f18b76;
+    --module-surface: #17101b;
+    --module-surface-strong: #30203a;
+    --module-border: #71466c;
+    --module-text: #fdebf6;
+    --module-text-muted: #c9aac0;
+    --module-on-primary: #241126;
+    --module-focus: #ed80bf;
+  }
+
+  .dark [data-module="cultos"],
+  .dark [data-module-theme="cultos"] {
+    --module-primary: #63cdb5;
+    --module-primary-hover: #8cddca;
+    --module-secondary: #3ba892;
+    --module-surface: #071c19;
+    --module-surface-strong: #12352f;
+    --module-border: #326a5e;
+    --module-text: #e3f6f0;
+    --module-text-muted: #9bbfb6;
+    --module-on-primary: #06231f;
+    --module-focus: #63cdb5;
+  }
+
+  .dark [data-module="create"],
+  .dark [data-module-theme="create"] {
+    --module-primary: #bc8cff;
+    --module-primary-hover: #d1b0ff;
+    --module-secondary: #ff7e8d;
+    --module-surface: #17101d;
+    --module-surface-strong: #33213d;
+    --module-border: #774d79;
+    --module-text: #f9ecff;
+    --module-text-muted: #ccb0cb;
+    --module-on-primary: #24112e;
+    --module-focus: #d791c7;
+  }
+
+  .dark [data-module="management"],
+  .dark [data-module-theme="management"] {
+    --module-primary: #dce1e5;
+    --module-primary-hover: #ffffff;
+    --module-secondary: #aab1b7;
+    --module-surface: #090a0b;
+    --module-surface-strong: #202326;
+    --module-border: #4b5157;
+    --module-text: #f2f4f5;
+    --module-text-muted: #aab1b7;
+    --module-on-primary: #111315;
+    --module-focus: #dce1e5;
+  }
+
+  .dark [data-module="pastoral"],
+  .dark [data-module-theme="pastoral"] {
+    --module-primary: #c59ae8;
+    --module-primary-hover: #d9b9f1;
+    --module-secondary: #9f6bc8;
+    --module-surface: #160d20;
+    --module-surface-strong: #2e1b3f;
+    --module-border: #684985;
+    --module-text: #f5eafe;
+    --module-text-muted: #c0a8ce;
+    --module-on-primary: #251032;
+    --module-focus: #c59ae8;
+  }
+
+  .module-accent-text {
+    color: var(--module-primary);
+  }
+
+  .module-muted-text {
+    color: var(--module-text-muted);
+  }
+
+  .module-icon {
+    background: var(--module-surface-strong);
+    color: var(--module-primary);
+  }
+
+  .module-accent-bg {
+    background: var(--module-primary);
+    color: var(--module-on-primary);
+  }
+
+  .module-gradient {
+    background-image: var(--module-gradient);
+    color: #ffffff;
+  }
+
+  .module-soft-surface {
+    background: var(--module-surface);
+    color: var(--module-text);
+  }
+
+  .module-border {
+    border-color: var(--module-border);
+  }
+
+  .module-nav-active {
+    border-color: var(--module-primary);
+    background: linear-gradient(90deg, var(--module-surface), color-mix(in srgb, var(--module-surface) 42%, transparent));
+    color: var(--module-text);
+  }
+
+  .module-nav-link:hover {
+    background: var(--module-surface);
+    color: var(--module-text);
+  }
+
+  .module-submenu {
+    border-color: var(--module-border);
+    background: color-mix(in srgb, var(--module-surface) 78%, transparent);
+  }
+
+  .module-tab-indicator {
+    background: var(--module-gradient);
+  }
+
+  .module-focus:focus-visible,
+  .module-focus-within:focus-within {
+    outline: 2px solid var(--module-focus);
+    outline-offset: 2px;
+  }
+
+  /* A NewHome mantém a base neutra e usa a cor da aba como orientação. */
+  .newhome-shell {
+    background:
+      radial-gradient(circle at 78% -12%, color-mix(in srgb, var(--module-secondary) 12%, transparent), transparent 34rem),
+      color-mix(in srgb, var(--module-surface) 18%, #fbfaf7);
+    color: #292724;
+  }
+
+  .newhome-chrome {
+    border-color: color-mix(in srgb, var(--module-border) 42%, #ddd8d0);
+    background: color-mix(in srgb, #ffffff 94%, var(--module-surface));
+    color: #292724;
+  }
+
+  .newhome-input,
+  .newhome-card {
+    border-color: color-mix(in srgb, var(--module-border) 34%, #ddd8d0);
+    background: color-mix(in srgb, #ffffff 96%, var(--module-surface));
+    color: #292724;
+  }
+
+  .newhome-card {
+    box-shadow: 0 1px 2px rgb(45 42 38 / 0.04);
+  }
+
+  .newhome-card-interactive:hover {
+    border-color: color-mix(in srgb, var(--module-primary) 52%, #ddd8d0);
+    box-shadow: 0 14px 32px color-mix(in srgb, var(--module-primary) 10%, transparent);
+  }
+
+  .newhome-soft {
+    border-color: color-mix(in srgb, var(--module-border) 55%, transparent);
+    background: color-mix(in srgb, var(--module-surface) 82%, #ffffff);
+    color: var(--module-text);
+  }
+
+  .newhome-hero {
+    background-image: var(--module-gradient);
+    color: #ffffff;
+    box-shadow: 0 18px 45px color-mix(in srgb, var(--module-primary) 18%, transparent);
+  }
+
+  .newhome-hero-muted {
+    color: rgb(255 255 255 / 0.78);
+  }
+
+  .newhome-cta {
+    background: var(--module-primary);
+    color: var(--module-on-primary);
+  }
+
+  .newhome-cta:hover {
+    background: var(--module-primary-hover);
+  }
+
+  .newhome-rule {
+    border-color: color-mix(in srgb, var(--module-border) 38%, #ddd8d0);
+  }
+
+  .dark .newhome-shell {
+    background:
+      radial-gradient(circle at 78% -12%, color-mix(in srgb, var(--module-primary) 12%, transparent), transparent 34rem),
+      color-mix(in srgb, var(--module-surface) 16%, #0b0b0d);
+    color: #f4f1ed;
+  }
+
+  .dark .newhome-chrome {
+    border-color: color-mix(in srgb, var(--module-border) 45%, rgb(255 255 255 / 0.08));
+    background: color-mix(in srgb, #111113 92%, var(--module-surface));
+    color: #f4f1ed;
+  }
+
+  .dark .newhome-input,
+  .dark .newhome-card {
+    border-color: color-mix(in srgb, var(--module-border) 36%, rgb(255 255 255 / 0.08));
+    background: color-mix(in srgb, #171719 92%, var(--module-surface));
+    color: #f4f1ed;
+  }
+
+  .dark .newhome-soft {
+    background: color-mix(in srgb, var(--module-surface-strong) 52%, #171719);
   }
 }
 
@@ -116,6 +502,19 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+}
+
+[data-module]:not([data-module="neutral"]) main > .app-fluid-content {
+  box-shadow: inset 0 3px 0 var(--module-primary);
+}
+
+[data-module] main :where(a, button, input, textarea, select):focus-visible {
+  outline-color: var(--module-focus);
+}
+
+[data-module] ::selection {
+  background: var(--module-secondary);
+  color: var(--module-on-primary);
 }
 
 /* Custom Scrollbar */

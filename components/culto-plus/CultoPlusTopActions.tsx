@@ -13,6 +13,7 @@ export type CultoPlusTopActionItem = {
 
 type CultoPlusTopActionsProps = {
   backHref: string;
+  contained?: boolean;
   menuLabel?: string;
   onNotify?: () => void;
   items: CultoPlusTopActionItem[];
@@ -20,6 +21,7 @@ type CultoPlusTopActionsProps = {
 
 const CultoPlusTopActions: React.FC<CultoPlusTopActionsProps> = ({
   backHref,
+  contained = false,
   menuLabel = 'Abrir configurações',
   onNotify,
   items,
@@ -32,17 +34,17 @@ const CultoPlusTopActions: React.FC<CultoPlusTopActionsProps> = ({
     <>
       <Link
         href={backHref}
-        className="absolute left-5 top-5 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-900 shadow-lg transition hover:bg-white"
+        className={`culto-top-back absolute z-20 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-900 shadow-lg transition hover:bg-white ${contained ? 'left-0 top-0' : 'left-5 top-5'}`}
         aria-label="Voltar"
       >
         <ArrowLeft size={18} />
       </Link>
 
-      <div className="absolute right-5 top-5 z-20 flex items-center gap-2">
+      <div className={`culto-top-tools absolute z-20 flex items-center gap-2 ${contained ? 'right-0 top-0' : 'right-5 top-5'}`}>
         <button
           type="button"
           onClick={onNotify}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-900 shadow-lg transition hover:bg-white"
+          className="culto-top-button inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-900 shadow-lg transition hover:bg-white"
           aria-label="Notificações"
         >
           <Bell size={17} />
@@ -51,7 +53,7 @@ const CultoPlusTopActions: React.FC<CultoPlusTopActionsProps> = ({
           <button
             type="button"
             onClick={() => setIsOpen((current) => !current)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-900 shadow-lg transition hover:bg-white"
+            className="culto-top-button inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-900 shadow-lg transition hover:bg-white"
             aria-label={menuLabel}
             aria-expanded={isOpen}
           >

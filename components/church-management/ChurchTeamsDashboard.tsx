@@ -56,7 +56,7 @@ const INITIAL_CHURCH_TEAMS = [
   { name: "Time Eventos", area: "Apoio geral", capacity: 12, description: "Suporte para conferencias, vigilia, encontros especiais, credenciamento e bastidores." },
 ];
 
-export default function ChurchTeamsDashboard() {
+export default function ChurchTeamsDashboard({ embedded = false }: { embedded?: boolean }) {
   const { currentUser, userProfile } = useAuth();
   const activeChurchId = userProfile?.churchData?.churchId;
   const currentUserId = currentUser?.id ?? currentUser?.uid ?? userProfile?.uid ?? null;
@@ -173,8 +173,8 @@ export default function ChurchTeamsDashboard() {
 
   return (
     <main className="min-h-screen bg-[#f8fafc] text-[#071735]">
-      <section className="mx-auto max-w-7xl px-5 py-8 md:px-8">
-        <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+      <section className={`${embedded ? "w-full" : "mx-auto max-w-7xl"} px-5 py-8 md:px-8`}>
+        {!embedded ? <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">Gestao da Igreja</p>
             <h1 className="mt-4 text-4xl font-black tracking-normal">Equipes</h1>
@@ -195,7 +195,7 @@ export default function ChurchTeamsDashboard() {
               Nova Equipe
             </button>
           </div>
-        </header>
+        </header> : null}
 
         <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric) => <MetricCard key={metric.label} metric={metric} />)}

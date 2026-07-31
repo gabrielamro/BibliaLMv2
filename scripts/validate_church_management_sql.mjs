@@ -11,6 +11,11 @@ const requiredTables = [
   'church_volunteer_badges',
   'church_management_settings',
   'church_analytics_snapshots',
+  'church_team_functions',
+  'church_service_scale_slots',
+  'church_service_invites',
+  'church_participation_logs',
+  'custom_quizzes',
 ];
 
 const requiredFunctions = [
@@ -24,14 +29,19 @@ const requiredFunctions = [
 const requiredPolicies = [
   ['church_member_roles', 'Church roles readable by church operators and self'],
   ['church_service_teams', 'Church teams readable by members'],
-  ['church_assignments', 'Assignments readable by operators leaders and assignee'],
-  ['church_qr_forms', 'Active QR forms public by token'],
+  ['church_assignments', 'Assignments readable by scoped operators and assignee'],
+  ['church_qr_forms', 'Authenticated users read allowed QR forms'],
   ['church_form_submissions', 'Public can create active form submissions'],
   ['church_management_notifications', 'Notifications readable by recipient or church operators'],
   ['church_notification_events', 'Notification events readable by recipient or church operators'],
   ['church_volunteer_badges', 'Badges readable by user and church roles'],
   ['church_management_settings', 'Church settings readable by operators'],
-  ['church_analytics_snapshots', 'Church analytics readable by operators'],
+  ['church_analytics_snapshots', 'Church analytics readable by managers'],
+  ['church_team_functions', 'Scoped operators create team functions'],
+  ['church_service_scale_slots', 'Scoped operators create scale slots'],
+  ['church_service_invites', 'Invites readable by assignee or scoped operators'],
+  ['church_participation_logs', 'Participation readable by member or scoped operators'],
+  ['custom_quizzes', 'Authors create quizzes'],
 ];
 
 const requiredColumns = [
@@ -39,6 +49,8 @@ const requiredColumns = [
   ['church_assignments', 'source_id'],
   ['church_form_submissions', 'source_type'],
   ['church_form_submissions', 'source_id'],
+  ['church_qr_forms', 'scope_type'],
+  ['church_qr_forms', 'scope_id'],
 ];
 
 const connection = getConnectionString();

@@ -1,5 +1,5 @@
-import ChurchAssignmentsPreview from "../../../components/church-management/ChurchAssignmentsPreview";
+import { redirect } from "next/navigation";
 
 export default function ChurchManagementAssignmentsPage() {
-  return <ChurchAssignmentsPreview />;
+  redirect("/gestao-igreja/pessoas?panel=assignments");
 }

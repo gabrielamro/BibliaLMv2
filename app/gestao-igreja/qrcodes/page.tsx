@@ -1,5 +1,5 @@
-import ChurchQrCodesPreview from "../../../components/church-management/ChurchQrCodesPreview";
+import { redirect } from "next/navigation";
 
 export default function ChurchQrCodesPage() {
-  return <ChurchQrCodesPreview />;
+  redirect("/gestao-igreja/pessoas?panel=invites");
 }

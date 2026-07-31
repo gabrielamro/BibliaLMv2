@@ -25,6 +25,7 @@ import { BlockPickerMenu } from './BlockPickerMenu';
 
 const widthToClass: Record<string, string> = {
   '1/1': 'w-full',
+  '2/3': 'w-2/3',
   '1/2': 'w-1/2',
   '1/3': 'w-1/3',
 };
@@ -128,7 +129,7 @@ export const BlockNodeView = (props: any) => {
   const widthClass = widthToClass[layoutWidth] || 'w-full';
   const blockInfo = blockLabels[blockData.type as keyof typeof blockLabels];
 
-  const handleAddNew = (type: BlockType, nextLayoutWidth?: '1/3' | '1/2' | '1/1') => {
+  const handleAddNew = (type: BlockType, nextLayoutWidth?: '1/3' | '1/2' | '2/3' | '1/1') => {
     import('../../Builder').then(({ createBlock }) => {
       const newBlock = createBlock(type);
       const targetWidth = nextLayoutWidth || layoutWidth;
@@ -207,6 +208,7 @@ export const BlockNodeView = (props: any) => {
   // Calcular quantos ghost slots cabem com base nos vizinhos na mesma "linha"
   const widthFraction = (lw: string): number => {
     if (lw === '1/1') return 1;
+    if (lw === '2/3') return 2/3;
     if (lw === '1/2') return 1/2;
     if (lw === '1/3') return 1/3;
     return 1;
@@ -354,7 +356,7 @@ export const BlockNodeView = (props: any) => {
             </button>
 
             <div className="pointer-events-auto absolute bottom-3 right-3 flex items-center gap-1 rounded-full border border-gray-100 bg-white p-1 shadow-lg">
-              {['1/3', '1/2', '1/1'].map((option) => (
+              {['1/3', '1/2', '2/3', '1/1'].map((option) => (
                 <button
                   key={option}
                   onClick={(event) => setWidth(option, event)}

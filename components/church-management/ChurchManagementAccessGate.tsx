@@ -189,7 +189,7 @@ export default function ChurchManagementAccessGate({
         <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
           {accessDecision === "management_intent_waiting_authorization"
             ? `Seu perfil geral como ${profileLabel.toLowerCase()} nao concede administracao automaticamente. Solicite responsabilidade nesta igreja ou aguarde um gestor conceder seu papel.`
-            : "Esta area exige papel ativo de gestor da igreja, pastor autorizado ou lider dentro do escopo da igreja."}
+            : "Esta area exige papel ativo de gestor da igreja ou lider dentro do escopo recebido."}
         </p>
         {roleError ? (
           <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
@@ -202,7 +202,7 @@ export default function ChurchManagementAccessGate({
               Solicitar responsabilidade
             </Link>
           ) : null}
-          <Link href="/minha-igreja" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-black uppercase tracking-wider text-slate-700 dark:border-white/10 dark:text-slate-200">
+          <Link href="/meus-cultos" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-black uppercase tracking-wider text-slate-700 dark:border-white/10 dark:text-slate-200">
             Ir para Minha Igreja
           </Link>
         </div>

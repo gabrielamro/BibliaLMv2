@@ -21,7 +21,7 @@ export const AuthorityBlock: React.FC<AuthorityBlockProps> = ({ data, onUpdate, 
       <div className="text-center max-w-2xl bg-gray-50 dark:bg-gray-800/50 p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm relative group">
         <div className="w-24 h-24 rounded-full bg-gray-200 mx-auto mb-6 overflow-hidden ring-4 ring-bible-gold/20 relative group/photo">
           {data.photo ? (
-            <img src={data.photo} alt={data.name} className="w-full h-full object-cover" />
+            <img src={data.photo} alt={data.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400">
               <User size={40} />

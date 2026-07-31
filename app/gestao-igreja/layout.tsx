@@ -5,5 +5,7 @@ import ChurchManagementAccessGate from "../../components/church-management/Churc
 import ChurchManagementShell from "../../components/church-management/ChurchManagementShell";
 
 export default function ChurchManagementLayout({ children }: { children: ReactNode }) {
-  return <ChurchManagementAccessGate><ChurchManagementShell>{children}</ChurchManagementShell></ChurchManagementAccessGate>;
+  // O menu pertence ao contexto da gestão e deve permanecer visível durante
+  // validação, ausência de vínculo ou solicitação de responsabilidade.
+  return <ChurchManagementShell><ChurchManagementAccessGate>{children}</ChurchManagementAccessGate></ChurchManagementShell>;
 }

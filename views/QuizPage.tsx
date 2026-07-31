@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFeatures } from '../contexts/FeatureContext';
 import { generateBibleQuiz } from '../services/pastorAgent';
 import { dbService } from '../services/supabase';
+import { kingdomPublishingService } from '../services/kingdomPublishingService';
 import { QuizQuestion, CustomQuiz } from '../types';
 import { ArrowLeft, Loader2, CheckCircle2, XCircle, Brain, Trophy, Zap, ChevronRight, Play, Crown, X, Scroll, Fish, Flame, Lightbulb, Map, Heart, Swords, Lock, User, Share2, Clock, LogIn, Info, ArrowRight, Sparkles, Rss, Dices } from 'lucide-react';
 import SEO from '../components/SEO';
@@ -57,6 +58,7 @@ const QuizPage: React.FC = () => {
   const [timerActive, setTimerActive] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isPublishingToFeed, setIsPublishingToFeed] = useState(false);
 
   const timerRef = useRef<any>(null);
 
@@ -252,18 +254,29 @@ const QuizPage: React.FC = () => {
     setView('ranked_setup');
   };
 
-  const handlePostToFeed = () => {
+  const handlePostToFeed = async () => {
       if (!currentUser) { openLogin(); return; }
-      navigate('/social', { 
-          state: { 
-              openCreate: 'quiz', 
-              quizData: { 
-                  topic, 
-                  score, 
-                  xp: xpGained 
-              } 
-          } 
-      });
+      if (!userProfile || isPublishingToFeed) return;
+      setIsPublishingToFeed(true);
+      try {
+          const post = await kingdomPublishingService.publishQuizResult({
+              publisher: {
+                  userId: currentUser.uid,
+                  displayName: userProfile.displayName,
+                  username: userProfile.username,
+                  photoURL: userProfile.photoURL,
+              },
+              topic,
+              score,
+              xp: xpGained,
+          });
+          navigate('/social', { state: { refreshFeed: true, highlightPostId: post.id } });
+      } catch (error) {
+          console.error('Erro ao publicar resultado do quiz:', error);
+          alert(error instanceof Error ? error.message : 'Não foi possível publicar o resultado.');
+      } finally {
+          setIsPublishingToFeed(false);
+      }
   };
 
   if (view === 'loading') return (
@@ -427,8 +440,8 @@ const QuizPage: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-                <button onClick={handlePostToFeed} className="w-full py-4 bg-bible-leather dark:bg-bible-gold text-white dark:text-black font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 shadow-xl hover:opacity-90 transition-all">
-                    <Rss size={18} /> Postar no Feed
+                <button disabled={isPublishingToFeed} onClick={handlePostToFeed} className="w-full py-4 bg-bible-leather dark:bg-bible-gold text-white dark:text-black font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 shadow-xl hover:opacity-90 transition-all disabled:cursor-wait disabled:opacity-60">
+                    {isPublishingToFeed ? <Loader2 className="animate-spin" size={18} /> : <Rss size={18} />} {isPublishingToFeed ? 'Publicando...' : 'Postar no Feed'}
                 </button>
                 <button onClick={() => setShowShareModal(true)} className="w-full py-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-bold rounded-2xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2">
                     <Share2 size={18} /> Compartilhar Externo
@@ -441,31 +454,40 @@ const QuizPage: React.FC = () => {
   );
 
   return (
-    <div className="h-full overflow-y-auto bg-gray-50 dark:bg-black/20 p-4 md:p-8">
-      <SEO title="Quiz Bíblico - Desafio da Sabedoria" />
+    <div className="h-full overflow-y-auto bg-[#fdfbf7] p-4 text-[#0b1530] dark:bg-[#0b0b0c] dark:text-white md:p-8">
+      <SEO title="Quiz Bíblico - Desafio da Sabedoria" name="Culto+" image="/brand/culto-plus-logo.png" />
       <div className="max-w-4xl mx-auto space-y-6 pb-24">
         
         {view === 'menu' && (
-            <div className="flex items-center gap-4 mb-2">
-                <button onClick={() => navigate(-1)} className="p-2 bg-white dark:bg-gray-800 rounded-full text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shadow-sm transition-colors">
-                    <ArrowLeft size={24} />
-                </button>
-                <div>
-                    <h1 className="text-2xl font-serif font-bold text-bible-leather dark:text-bible-gold">Desafio da Sabedoria</h1>
-                    <p className="text-sm text-gray-500">Treine sua mente e espírito.</p>
+            <header className="relative overflow-hidden rounded-[2rem] bg-gradient-to-r from-[#0b1530] via-[#063f3a] to-[#087a6b] px-5 py-6 text-white shadow-[0_18px_45px_rgba(11,21,48,0.18)] sm:px-7">
+                <div className="pointer-events-none absolute -right-10 -top-16 h-44 w-44 rounded-full bg-violet-400/15 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-16 left-1/3 h-36 w-36 rounded-full bg-amber-300/15 blur-3xl" />
+                <div className="relative flex items-center gap-4">
+                    <button
+                        onClick={() => navigate(-1)}
+                        aria-label="Voltar"
+                        className="rounded-2xl border border-white/15 bg-white/10 p-2.5 text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                    >
+                        <ArrowLeft size={22} />
+                    </button>
+                    <div>
+                        <p className="mb-1 text-[10px] font-black uppercase tracking-[0.24em] text-emerald-200">Culto+ · Bíblia</p>
+                        <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Desafio da Sabedoria</h1>
+                        <p className="mt-1 text-sm text-white/70">Treine sua mente e espírito.</p>
+                    </div>
                 </div>
-            </div>
+            </header>
         )}
 
         {view === 'menu' && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4">
-                <div onClick={() => setView('journey_map')} className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 cursor-pointer hover:border-purple-500 hover:shadow-xl transition-all group flex flex-col items-center text-center">
-                    <div className="p-4 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-2xl mb-4 group-hover:scale-110 transition-transform"><Map size={32} /></div>
+                <div onClick={() => setView('journey_map')} className="group flex cursor-pointer flex-col items-center rounded-[2.5rem] border border-[#e6e0d7] bg-white p-8 text-center shadow-sm transition-all hover:border-emerald-400 hover:shadow-xl dark:border-white/10 dark:bg-[#121a20]">
+                    <div className="mb-4 rounded-2xl bg-emerald-100 p-4 text-emerald-700 transition-transform group-hover:scale-110 dark:bg-emerald-900/30 dark:text-emerald-300"><Map size={32} /></div>
                     <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Jornada do Sábio</h2>
                     <p className="text-xs text-gray-500 leading-relaxed">Siga o mapa bíblico e complete níveis de dificuldade crescente.</p>
                 </div>
 
-                <div onClick={openRankedSetup} className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 cursor-pointer hover:border-orange-500 hover:shadow-xl transition-all group flex flex-col items-center text-center relative overflow-hidden">
+                <div onClick={openRankedSetup} className="group relative flex cursor-pointer flex-col items-center overflow-hidden rounded-[2.5rem] border border-[#e6e0d7] bg-white p-8 text-center shadow-sm transition-all hover:border-orange-500 hover:shadow-xl dark:border-white/10 dark:bg-[#121a20]">
                     {!currentUser && (
                         <div className="absolute top-4 right-4 bg-gray-100 dark:bg-gray-800 p-2 rounded-full text-gray-400">
                             <Lock size={16} />
@@ -476,7 +498,7 @@ const QuizPage: React.FC = () => {
                     <p className="text-xs text-gray-500 leading-relaxed">Valendo pontos no ranking mundial e bônus de Maná. Infinito enquanto tiver vidas.</p>
                 </div>
 
-                <div onClick={() => setView('topic_select')} className="bg-white dark:bg-bible-darkPaper p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 cursor-pointer hover:border-bible-gold hover:shadow-xl transition-all group flex flex-col items-center text-center">
+                <div onClick={() => setView('topic_select')} className="group flex cursor-pointer flex-col items-center rounded-[2.5rem] border border-[#e6e0d7] bg-white p-8 text-center shadow-sm transition-all hover:border-violet-400 hover:shadow-xl dark:border-white/10 dark:bg-[#121a20]">
                     <div className="p-4 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 rounded-2xl mb-4 group-hover:scale-110 transition-transform"><Scroll size={32} /></div>
                     <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Estudo Livre</h2>
                     <p className="text-xs text-gray-500 leading-relaxed">Escolha um tema ou livro específico para treinar sua mente.</p>
@@ -521,7 +543,7 @@ const QuizPage: React.FC = () => {
                                 <button key={d} onClick={() => setDifficulty(d as any)} className={`py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${difficulty === d ? 'bg-bible-gold text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:bg-gray-200'}`}>{d}</button>
                             ))}
                         </div>
-                        <button onClick={() => startGame('classic', topic || 'Conhecimentos Gerais', difficulty)} disabled={!topic} className="w-full py-5 bg-bible-leather dark:bg-bible-gold text-white dark:text-black font-black uppercase tracking-widest rounded-2xl shadow-xl flex items-center justify-center gap-3 hover:opacity-90 transition-all disabled:opacity-30 active:scale-[0.98]">
+                        <button onClick={() => startGame('classic', topic || 'Conhecimentos Gerais', difficulty)} disabled={!topic} className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#075e52] py-5 font-black uppercase tracking-widest text-white shadow-xl transition-all hover:bg-[#064e45] disabled:opacity-30 active:scale-[0.98]">
                             Começar Treino <Zap size={20} />
                         </button>
                     </div>

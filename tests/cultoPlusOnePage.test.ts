@@ -1,7 +1,8 @@
 import test from 'node:test';
 import * as assert from 'node:assert/strict';
 
-import { buildServiceCalendarEvent, getLiveStatusLabel, getOfferingItem, getServiceCounterParts, isSafeLiveUrl } from '../utils/cultoPlusOnePage.ts';
+import { buildServiceCalendarEvent, getLiveStatusLabel, getNextServiceMomentDistanceLabel, getOfferingItem, getServiceCounterParts, isSafeLiveUrl } from '../utils/cultoPlusOnePage.ts';
+import { getLiturgyMomentForTimestamp } from '../utils/cultoPlusExperience.ts';
 import type { ChurchService } from '../types.ts';
 
 const makeService = (overrides: Partial<ChurchService> = {}): ChurchService => ({
@@ -57,6 +58,19 @@ test('finds offering item with pix key', () => {
   assert.equal(offering?.id, 'offering');
 });
 
+test('formats the next liturgy moment from time or ISO timestamps', () => {
+  const service = makeService({ startsAt: '2026-05-21T23:00:00.000Z' });
+  const now = new Date('2026-05-21T22:15:00.000Z');
+
+  assert.equal(getNextServiceMomentDistanceLabel(service, '19:30', now), 'em ~75 min');
+  assert.equal(getNextServiceMomentDistanceLabel(service, '2026-05-21T23:30:00.000Z', now), 'em ~75 min');
+  assert.equal(
+    getNextServiceMomentDistanceLabel(service, '2026-05-22T00:00:00.000Z', now, '2026-05-21T23:00:00.000Z'),
+    'em ~60 min',
+  );
+  assert.equal(getNextServiceMomentDistanceLabel(service, 'horario-invalido', now), '');
+});
+
 test('builds calendar event with service details', () => {
   const ics = buildServiceCalendarEvent(makeService({ keyVerseRef: 'Joao 2:10' }), 'https://app.test/culto/culto-teste');
 
@@ -71,4 +85,18 @@ test('accepts only empty or https live urls', () => {
   assert.equal(isSafeLiveUrl('https://youtube.com/live'), true);
   assert.equal(isSafeLiveUrl('http://youtube.com/live'), false);
   assert.equal(isSafeLiveUrl('javascript:alert(1)'), false);
+});
+
+test('maps live activity to the correct liturgy moment', () => {
+  const service = makeService({
+    liturgyItems: [
+      { id: 'welcome', kind: 'opening', title: 'Boas-vindas', startsAt: '20:00', sortOrder: 0 },
+      { id: 'worship', kind: 'worship', title: 'Louvor', startsAt: '20:15', sortOrder: 1 },
+      { id: 'word', kind: 'word', title: 'Palavra', startsAt: '2026-05-22T00:30:00.000Z', sortOrder: 2 },
+    ],
+  });
+
+  assert.equal(getLiturgyMomentForTimestamp(service, '2026-05-21T23:04:00.000Z')?.id, 'welcome');
+  assert.equal(getLiturgyMomentForTimestamp(service, '2026-05-22T00:20:00.000Z')?.id, 'worship');
+  assert.equal(getLiturgyMomentForTimestamp(service, '2026-05-22T00:45:00.000Z')?.id, 'word');
 });

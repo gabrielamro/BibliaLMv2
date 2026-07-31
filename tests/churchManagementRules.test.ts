@@ -7,6 +7,10 @@ import {
   getInboxStatusToggleUpdate,
   getNotificationStatePatch,
   getQrSubmissionRouting,
+  getVolunteerApplicantIdentity,
+  getVolunteerRejectionUpdate,
+  splitVolunteerLeadershipFeedback,
+  VOLUNTEER_REJECTION_PUBLIC_STATUS,
 } from '../utils/churchManagementRules.ts';
 import type { ChurchMemberRole } from '../types.ts';
 
@@ -31,6 +35,17 @@ test('canAccessChurchManagement requires an active allowed role for normal users
   assert.equal(canAccessChurchManagement({ userId: 'user-2', roles: [activeLeaderRole] }), false);
   assert.equal(canAccessChurchManagement({ userId: 'user-1', roles: [{ ...activeLeaderRole, status: 'paused' }] }), false);
   assert.equal(canAccessChurchManagement({ userId: 'user-1', roles: [{ ...activeLeaderRole, role: 'volunteer' }] }), false);
+});
+
+test('canAccessChurchManagement keeps pastoral care separate from operational management', () => {
+  assert.equal(canAccessChurchManagement({
+    userId: 'user-1',
+    roles: [{ ...activeLeaderRole, role: 'pastor' }],
+  }), false);
+  assert.equal(canAccessChurchManagement({
+    userId: 'user-1',
+    roles: [{ ...activeLeaderRole, role: 'church_manager' }],
+  }), true);
 });
 
 test('getQrSubmissionRouting routes sensitive forms to pastors', () => {
@@ -65,6 +80,26 @@ test('extractQrSubmitterFields accepts Portuguese and English labels', () => {
   assert.deepEqual(extractQrSubmitterFields({ name: 'John', Email: 'john@example.com' }), {
     submitterName: 'John',
     submitterContact: 'john@example.com',
+  });
+});
+
+test('getVolunteerApplicantIdentity prefills the handle and keeps an alias out of the full name field', () => {
+  assert.deepEqual(getVolunteerApplicantIdentity({
+    displayName: 'user01',
+    username: 'user01',
+    email: 'user01@example.com',
+  }), {
+    name: '',
+    handle: '@user01',
+  });
+
+  assert.deepEqual(getVolunteerApplicantIdentity({
+    displayName: 'Gabriel Amaro',
+    username: '@gabriel',
+    email: 'gabriel@example.com',
+  }), {
+    name: 'Gabriel Amaro',
+    handle: '@gabriel',
   });
 });
 
@@ -106,6 +141,33 @@ test('getInboxAssignmentUpdate assigns received submissions and preserves existi
     priority: 'normal',
     publicStatus: 'Em acompanhamento',
     nextAction: 'Atribuir responsavel',
+  });
+});
+
+test('getVolunteerRejectionUpdate closes only the current request and allows a new application', () => {
+  const update = getVolunteerRejectionUpdate('Tente novamente após conversar com a liderança');
+
+  assert.equal(update.status, 'closed');
+  assert.equal(update.publicStatus, VOLUNTEER_REJECTION_PUBLIC_STATUS);
+  assert.match(update.publicFeedback, /Tente novamente após conversar com a liderança\./);
+  assert.match(update.publicFeedback, /pode enviar uma nova solicitação de voluntariado/i);
+  assert.match(update.nextAction, /pode enviar uma nova solicitação de voluntariado/i);
+});
+
+test('getVolunteerRejectionUpdate provides a respectful default message without a reason', () => {
+  const update = getVolunteerRejectionUpdate('   ');
+
+  assert.match(update.publicFeedback, /não foi aprovada neste momento/i);
+  assert.doesNotMatch(update.publicFeedback, /Retorno da liderança:/);
+});
+
+test('splitVolunteerLeadershipFeedback isolates only the leadership description for emphasis', () => {
+  const update = getVolunteerRejectionUpdate('Converse com a liderança antes de tentar novamente');
+
+  assert.deepEqual(splitVolunteerLeadershipFeedback(update.publicFeedback), {
+    before: 'Após avaliação, sua solicitação de voluntariado não foi aprovada neste momento.',
+    leadership: 'Converse com a liderança antes de tentar novamente.',
+    after: 'Você pode enviar uma nova solicitação de voluntariado quando desejar.',
   });
 });
 

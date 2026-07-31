@@ -27,8 +27,6 @@ export interface SacredArtCanvasProps {
   setSelectedLayer: (layer: EditorLayer) => void;
   onBgDragEnd: (_event: MouseEvent | TouchEvent | PointerEvent, info: { delta: { x: number; y: number } }) => void;
   onTextDragEnd: (_event: MouseEvent | TouchEvent | PointerEvent, info: { point: { x: number; y: number } }) => void;
-  onOpenAi: () => void;
-  onOpenTemplates: () => void;
   onCanvasResize?: (size: { width: number; height: number }) => void;
   onFontSizeScaleChange?: (scale: number) => void;
   onBgScaleChange?: (scale: number) => void;

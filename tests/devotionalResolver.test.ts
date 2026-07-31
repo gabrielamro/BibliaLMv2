@@ -45,11 +45,20 @@ test('pickSeenVerseReferencesFromDevotionals reads Supabase snake_case verse fie
   assert.deepEqual(references, ['Joao 3:16', 'Salmos 23:1', 'Romanos 8:1']);
 });
 
-test('production resolver wires seen-verse selection into normal daily resolution', () => {
+test('production resolver preserves read-only content when the normal API is unavailable', () => {
   const source = readFileSync(new URL('../services/devotionalResolver.ts', import.meta.url), 'utf8');
 
-  assert.match(source, /pickResolvedDevotional/);
-  assert.match(source, /collectSeenVerseReferences\(userId\)/);
+  assert.match(source, /if \(forceNew\) throw error/);
+  assert.match(source, /return loadReadOnlyFallback\(\)/);
+  assert.doesNotMatch(source, /forceNew \|\| userId/);
+});
+
+test('daily route serves canonical content when authenticated personalization fails', () => {
+  const source = readFileSync(new URL('../app/api/devotional/daily/route.ts', import.meta.url), 'utf8');
+
+  assert.match(source, /Daily devotional personalization failed; serving canonical content/);
+  assert.match(source, /return json\(toResponse\(canonical, date\)\)/);
+  assert.match(source, /code: 'DAILY_DEVOTIONAL_UNAVAILABLE'/);
 });
 
 test('pickResolvedDevotional returns the official devotional when user has not seen its verse in 6 months', () => {

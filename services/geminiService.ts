@@ -59,7 +59,7 @@ const parseJsonWithRepair = async (raw: string, repairContext: string) => {
 export const callAi = async (prompt: string, systemInstruction?: string, responseFormat?: "json" | "text"): Promise<string> => {
     // 1. Try Groq (primary — free tier, high quota)
     try {
-        const groqKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
+        const groqKey = process.env.GROQ_API_KEY || process.env.NEXT_PUBLIC_GROQ_API_KEY;
         if (groqKey) {
             const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: "POST",
@@ -86,7 +86,7 @@ export const callAi = async (prompt: string, systemInstruction?: string, respons
 
     // 2. Try OpenRouter (secondary — free models available)
     try {
-        const orKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+        const orKey = process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
         if (orKey) {
             const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
@@ -193,7 +193,13 @@ export const generateDailyDevotional = async (
         4. Cite explicitamente a fonte (capítulo e versículo).
         ${forbiddenReferences}
 
-        Inclua: Título, Reférência Bíblica (Ex: Salmos 23:1), Texto do Versículo, Conteúdo (Reflexão profunda de 3 parágrafos) e uma Oração final.
+        Inclua: Título, Referência Bíblica (Ex: Salmos 23:1), Texto do Versículo, Conteúdo e uma Oração final.
+
+        ESTRUTURA OBRIGATÓRIA DO CONTEÚDO (3 parágrafos em texto simples):
+        - Parágrafo 1 — Contexto imediato: situe o versículo dentro do capítulo ou episódio bíblico, mencionando referências de apoio quando forem seguras.
+        - Parágrafo 2 — Sentido central: explique palavras, imagens, contrastes ou promessas presentes no próprio texto, sem inventar dados históricos.
+        - Parágrafo 3 — Aplicação pastoral: conecte a verdade bíblica à vida cotidiana com prudência, sem prometer ausência de sofrimento, cura ou prosperidade.
+        Não use HTML. Não trate aplicação pastoral como se fosse citação bíblica. Se um detalhe contextual for incerto, omita-o.
         Retorne em JSON: { title, verseReference, verseText, content, prayer }.`;
         const text = await callAi(prompt, undefined, "json");
         const data = JSON.parse(text || "{}");
@@ -660,13 +666,13 @@ export const findNearbyChurches = async (lat: number, lng: number): Promise<Near
 };
 
 export const generateAIOnePage = async (userPrompt: string, authorName?: string): Promise<any> => {
-    const systemInstruction = `Atue como Dr. Marcos, teólogo sênior e curador de conteúdo estilo NoteboQ1   QkLM. 
+    const systemInstruction = `Atue como Obreiro IA do Culto+, um copiloto de estudo bíblico pastoral.
 Crie conteúdo bíblico de alta densidade intelectual, elegância literária e visualmente rico, seguindo uma estrutura de diagramação de revista digital (Landing Page Premium).
 
 DIRETRIZES DE DIAGRAMAÇÃO (ROADMAP V2):
 Você deve organizar o conteúdo em 6 sessões editoriais dinâmicas:
 Sessão 1: Impacto & Gancho Visual (Hero Split 1/1)
-Sessão 2: Contextualização (Biblical 1/2 visual 70% + Study Outline 1/3 visual 30%)
+Sessão 2: Contextualização (Biblical 2/3 + Study Outline 1/3)
 Sessão 3: Mergulho Profundo (Rich Text 1/1 - Conteúdo denso 600+ palavras)
 Sessão 4: Multimídia & Apoio (Slide 1/1 + Related Verses dinâmico)
 Sessão 5: Conclusão & Autoria (Authority 1/1 + Footer 1/1)
@@ -688,7 +694,7 @@ Gere uma one-page pastoral completa em JSON seguindo EXATAMENTE esta sequência 
 O campo "blocks" deve ser um ARRAY com EXATAMENTE estes 9 blocos NESTA ORDEM e COM ESTES layoutWidth:
 
 blocks[0]:  type="hero-split",          layoutWidth="1/1"
-blocks[1]:  type="biblical",             layoutWidth="1/2"
+blocks[1]:  type="biblical",             layoutWidth="2/3"
 blocks[2]:  type="study-outline",        layoutWidth="1/3"
 blocks[3]:  type="rich-text",            layoutWidth="1/1" (conteúdo com multiplos <h2>)
 blocks[4]:  type="slide",                layoutWidth="1/1"
@@ -697,10 +703,10 @@ blocks[6]:  type="authority",            layoutWidth="1/1"
 blocks[7]:  type="footer",               layoutWidth="1/1"
 blocks[8]:  type="reflection-question",  layoutWidth="1/1"
 
-⚠️ REGRA ABSOLUTA: Copie os valores de layoutWidth LITERALMENTE. NÃO mude "1/2" para "1/1". Se fizer isso, o layout quebra.
+⚠️ REGRA ABSOLUTA: Copie os valores de layoutWidth LITERALMENTE.
 
 IMAGENS (obrigatório para hero-split e slide):
-REGRA ATUALIZADA DE LAYOUT: o bloco biblical deve ser "1/2" e o study-outline deve ser "1/3". Nunca converta esses blocos para "1/1".
+REGRA DE LAYOUT: o bloco biblical deve ser "2/3" e o study-outline deve ser "1/3".
 
 FORMATAÇÃO OBRIGATÓRIA DO rich-text:
 - Use o template visual "revelacao-plena".
@@ -718,7 +724,7 @@ JSON EXATO (preencha "..." com conteúdo real):
   "slug": "...",
   "blocks": [
     { "type": "hero-split", "layoutWidth": "1/1", "data": { "title": "...", "imageUrl": "https://images.unsplash.com/photo-1490730141103-6cac27aaab94?q=80&w=2000" } },
-    { "type": "biblical", "layoutWidth": "1/2", "data": { "verse": "...", "text": "...", "reference": "...", "style": "classic" } },
+    { "type": "biblical", "layoutWidth": "2/3", "data": { "verse": "...", "text": "...", "reference": "...", "style": "classic" } },
     { "type": "study-outline", "layoutWidth": "1/3", "data": { "title": "Roteiro do Estudo", "description": "Navegue pelas seções do estudo", "items": ["O Despertar", "As Raízes da Verdade", "O Caminho Prático", "Passo Prático", "Oração de Encerramento"] } },
     { "type": "rich-text", "layoutWidth": "1/1", "data": { "title": "...", "visualTemplate": "revelacao-plena", "templateData": { "title": "...", "subtitle": "Estudo Bíblico Pastoral", "awakeningTitle": "1. O Despertar", "awakeningText": "...", "quote": "...", "quoteReference": "...", "rootsTitle": "2. As Raízes da Verdade", "rootsText": "...", "practicalTitle": "3. O Caminho Prático", "practicalText": "...", "practicalStepTitle": "Passo Prático", "practicalStepText": "...", "prayerTitle": "Oração de Encerramento", "prayerText": "..." } } },
     { "type": "slide", "layoutWidth": "1/1", "data": { "slides": [{ "id": "slide-1", "title": "...", "description": "...", "backgroundImage": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=2000", "mediaUrl": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=2000" }] } },
@@ -732,7 +738,7 @@ JSON EXATO (preencha "..." com conteúdo real):
 
     try {
         const raw = await callAi(prompt, systemInstruction, "json");
-        return await parseJsonWithRepair(raw, 'one-page pastoral BíbliaLM');
+        return await parseJsonWithRepair(raw, 'one-page pastoral Culto+');
     } catch (e: any) {
         throw new Error(`Falha ao gerar one-page: ${e.message}`);
     }

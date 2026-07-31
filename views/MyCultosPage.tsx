@@ -9,8 +9,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { cultoPlusService, UserCheckedInService } from '../services/cultoPlusService';
 import { churchManagementService, UserCultoAssignment } from '../services/churchManagementService';
 import { personalServiceJournalService } from '../services/personalServiceJournalService';
-import { ChurchServiceStatus, ChurchServiceTeam, PersonalServiceJournal } from '../types';
+import { ChurchServiceStatus, ChurchServiceTeam, PersonalServiceJournal, type ChurchFormSubmission } from '../types';
 import { canAccessPastoralWorkspace } from '../utils/profileAccess';
+import PersonalCultosOperations from '../components/church-management/PersonalCultosOperations';
 
 const STATUS_LABELS: Record<ChurchServiceStatus, string> = {
   draft: 'Rascunho',
@@ -80,6 +81,7 @@ const MyCultosPage: React.FC = () => {
   const [manualItems, setManualItems] = useState<PersonalServiceJournal[]>([]);
   const [cultoAssignments, setCultoAssignments] = useState<UserCultoAssignment[]>([]);
   const [userTeams, setUserTeams] = useState<ChurchServiceTeam[]>([]);
+  const [submissions, setSubmissions] = useState<ChurchFormSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<FilterMode>('all');
@@ -96,6 +98,7 @@ const MyCultosPage: React.FC = () => {
         setManualItems([]);
         setCultoAssignments([]);
         setUserTeams([]);
+        setSubmissions([]);
         setLoading(false);
         return;
       }
@@ -103,17 +106,19 @@ const MyCultosPage: React.FC = () => {
       setLoading(true);
       setError('');
       try {
-        const [checkedInServices, journals, assignments, teams] = await Promise.all([
+        const [checkedInServices, journals, assignments, teams, memberSubmissions] = await Promise.all([
           cultoPlusService.getUserCheckedInServices(userId, 48),
           personalServiceJournalService.getJournalsByUser(userId, { limit: 48 }),
           churchId ? churchManagementService.listUserCultoAssignments(churchId, userId, 24) : Promise.resolve([]),
           churchId ? churchManagementService.listUserTeams(churchId, userId) : Promise.resolve([]),
+          churchManagementService.listMemberSubmissions(userId, { limit: 30 }),
         ]);
         if (active) {
           setOfficialItems(checkedInServices);
           setManualItems(journals);
           setCultoAssignments(assignments);
           setUserTeams(teams);
+          setSubmissions(memberSubmissions);
         }
       } catch (err: any) {
         if (active) setError(err?.message || 'Nao foi possivel carregar seus cultos.');
@@ -184,10 +189,10 @@ const MyCultosPage: React.FC = () => {
                 <Plus size={16} />
                 Registrar culto externo
               </Link>
-              <Link href="/minha-igreja/designacoes" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-white/12 px-5 py-3 text-[10px] font-medium uppercase tracking-widest text-white ring-1 ring-white/20 transition hover:bg-white/20">
+              <a href="#escala" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-white/12 px-5 py-3 text-[10px] font-medium uppercase tracking-widest text-white ring-1 ring-white/20 transition hover:bg-white/20">
                 Minha escala
-                <ArrowRight size={16} />
-              </Link>
+                <CalendarDays size={16} />
+              </a>
             </div>
           </div>
         </div>
@@ -216,26 +221,23 @@ const MyCultosPage: React.FC = () => {
             </div>
           ) : (
             <>
-              <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 {[
-                  { label: 'Check-ins realizados', value: officialItems.length, icon: CheckCircle2, tone: 'bg-emerald-100 text-emerald-700' },
-                  { label: 'Registros externos', value: manualItems.length, icon: FilePenLine, tone: 'bg-amber-100 text-amber-700' },
                   { label: 'Próximas escalas', value: upcomingAssignments.length, icon: CalendarDays, tone: 'bg-blue-100 text-blue-700' },
-                  { label: 'Times vinculados', value: userTeams.length, icon: Users, tone: 'bg-violet-100 text-violet-700' },
+                  { label: 'Aguardando aceite', value: cultoAssignments.filter(({ assignment }) => assignment.status === 'pending').length, icon: CheckCircle2, tone: 'bg-amber-100 text-amber-700' },
+                  { label: 'Pedidos de voluntariado', value: submissions.filter((item) => item.formType === 'volunteer').length, icon: Users, tone: 'bg-violet-100 text-violet-700' },
+                  { label: 'Equipes ativas', value: userTeams.length, icon: Users, tone: 'bg-cyan-100 text-cyan-700' },
+                  { label: 'Cultos registrados', value: officialItems.length + manualItems.length, icon: FilePenLine, tone: 'bg-emerald-100 text-emerald-700' },
                 ].map((summary) => { const Icon = summary.icon; return <div key={summary.label} className="flex items-center gap-4 rounded-2xl border border-[#e6e0d8] bg-[#fdfbf7] p-4 dark:border-white/10 dark:bg-white/[0.04]"><span className={`flex h-11 w-11 items-center justify-center rounded-xl ${summary.tone}`}><Icon size={20} /></span><span><strong className="block text-2xl font-black">{summary.value}</strong><small className="text-gray-500">{summary.label}</small></span></div>; })}
               </div>
 
-              <div className="mb-7 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-                <section aria-labelledby="upcoming-cultos-title" className="rounded-3xl border border-emerald-100 bg-emerald-50/40 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/10">
-                  <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Participação confirmada</p><h2 id="upcoming-cultos-title" className="mt-1 text-xl font-black">Próximos cultos e escalas</h2></div><Link href="/minha-igreja/designacoes" className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Ver minha escala</Link></div>
-                  {upcomingAssignments.length ? <div className="mt-4 grid gap-3 md:grid-cols-2">{upcomingAssignments.map(({ assignment, service, team }) => <article key={assignment.id} className="rounded-2xl border border-emerald-100 bg-white p-4 dark:border-emerald-900/40 dark:bg-[#151515]"><div className="flex items-start justify-between gap-3"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${assignment.status === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>{assignment.status === 'pending' ? 'Aguardando resposta' : 'Confirmada'}</span><CalendarDays size={17} className="text-emerald-700" /></div><h3 className="mt-3 font-black">{service?.title || assignment.title}</h3><p className="mt-1 text-sm text-gray-500">{formatServiceDate(assignment.startsAt || assignment.createdAt)}</p>{team && <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-violet-50 px-2.5 py-1.5 text-xs font-semibold text-violet-700 dark:bg-violet-950/30 dark:text-violet-300"><Users size={14} /> {team.name}</p>}<Link href={service ? `/culto/${service.slug}` : '/minha-igreja/designacoes'} className="mt-4 flex min-h-10 items-center justify-center rounded-xl border border-emerald-200 text-xs font-bold text-emerald-800 transition hover:bg-emerald-700 hover:text-white dark:border-emerald-800 dark:text-emerald-300">{service ? 'Abrir culto' : 'Ver designação'}</Link></article>)}</div> : <div className="mt-4 rounded-2xl border border-dashed border-emerald-200 bg-white/70 p-5 text-sm text-gray-500 dark:border-emerald-900 dark:bg-white/[0.03]">Nenhuma escala de culto pendente ou confirmada.</div>}
-                </section>
-
-                <aside className="space-y-4">
-                  <section className="rounded-3xl border border-violet-100 bg-violet-50/50 p-5 dark:border-violet-900/40 dark:bg-violet-950/10"><div className="flex items-center justify-between"><h2 className="font-black">Meus times</h2><Link href="/minha-igreja/equipes" className="text-xs font-semibold text-violet-700">Ver equipes</Link></div>{userTeams.length ? <div className="mt-3 space-y-2">{userTeams.map((team) => <div key={team.id} className="flex items-center gap-3 rounded-xl bg-white p-3 dark:bg-[#151515]"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100 text-violet-700"><Users size={17} /></span><span className="min-w-0"><strong className="block truncate text-sm">{team.name}</strong><small className="text-gray-500">{team.area || 'Equipe de serviço'}</small></span></div>)}</div> : <p className="mt-3 text-sm text-gray-500">Você ainda não está vinculado a um time.</p>}</section>
-                  <section className="rounded-3xl bg-gradient-to-br from-amber-50 to-orange-100 p-5 text-amber-950 dark:from-amber-950/30 dark:to-orange-950/20 dark:text-amber-100"><FilePenLine className="text-amber-700" /><h2 className="mt-3 text-lg font-black">Como foi seu culto?</h2><p className="mt-2 text-sm leading-6 text-amber-900/70 dark:text-amber-100/70">Participou de um culto fora do Culto+? Registre igreja, mensagem, versículos, decisões e como você se sentiu.</p><Link href="/meus-cultos/novo" className="mt-4 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-amber-700 px-4 text-sm font-bold text-white"><Plus size={16} /> Registrar participação externa</Link></section>
-                </aside>
-              </div>
+              <PersonalCultosOperations
+                assignments={cultoAssignments}
+                submissions={submissions}
+                teams={userTeams}
+                userId={currentUser.uid ?? currentUser.id}
+                onAssignmentUpdated={(updated) => setCultoAssignments((items) => items.map((item) => item.assignment.id === updated.assignment.id ? updated : item))}
+              />
 
               <div className="mb-4"><p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Minha história</p><h2 className="mt-1 text-xl font-black">Cultos em que participei</h2><p className="mt-1 text-sm text-gray-500">Check-ins do Culto+ e registros pessoais feitos por você.</p></div>
               <div className="mb-5 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">

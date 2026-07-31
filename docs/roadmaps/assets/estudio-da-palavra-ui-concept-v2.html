@@ -1,0 +1,1416 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Estúdio da Palavra — conceito funcional</title>
+  <style>
+    :root {
+      --ink: #10203c;
+      --muted: #687286;
+      --line: #dedfdc;
+      --paper: #fffefa;
+      --workspace: #f2f1ed;
+      --green: #007f62;
+      --green-soft: #eaf7f2;
+      --purple: #6d28d9;
+      --purple-soft: #f3edff;
+      --gold: #b98732;
+      --gold-soft: #fbf3df;
+      --shadow: 0 18px 45px rgba(25, 34, 45, .11);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 1680px;
+      height: 960px;
+      margin: 0;
+      overflow: hidden;
+      background: var(--workspace);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input, textarea { font: inherit; }
+
+    .app {
+      display: grid;
+      grid-template-rows: 72px 1fr;
+      width: 100%;
+      height: 100%;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 0 20px;
+      background: rgba(255, 255, 255, .96);
+      border-bottom: 1px solid var(--line);
+      box-shadow: 0 2px 14px rgba(30, 40, 55, .04);
+      z-index: 5;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex: 0 0 auto;
+    }
+
+    .brand img {
+      width: 108px;
+      height: 46px;
+      object-fit: contain;
+    }
+
+    .divider {
+      width: 1px;
+      height: 30px;
+      background: #d9d9d6;
+    }
+
+    .brand-title {
+      font-size: 19px;
+      font-weight: 760;
+      letter-spacing: -.02em;
+      white-space: nowrap;
+    }
+
+    .context {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .context strong {
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .doc-title {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 260px;
+      max-width: 360px;
+      height: 43px;
+      margin-left: 6px;
+      padding: 0 13px;
+      border: 1px solid #d8d9d7;
+      border-radius: 11px;
+      background: #fff;
+      color: #273248;
+      font-size: 14px;
+      box-shadow: inset 0 1px 2px rgba(20, 35, 50, .03);
+    }
+
+    .doc-title span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .top-spacer { flex: 1; }
+
+    .save-state {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .save-dot {
+      display: grid;
+      place-items: center;
+      width: 19px;
+      height: 19px;
+      border: 1.5px solid var(--green);
+      border-radius: 50%;
+      font-size: 11px;
+    }
+
+    .icon-group {
+      display: flex;
+      overflow: hidden;
+      border: 1px solid #d8d9d7;
+      border-radius: 10px;
+      background: white;
+    }
+
+    .icon-button {
+      display: grid;
+      place-items: center;
+      min-width: 40px;
+      height: 39px;
+      border: 0;
+      border-right: 1px solid #e4e4e1;
+      background: white;
+      color: #3d4758;
+      font-size: 18px;
+    }
+
+    .icon-button:last-child { border-right: 0; }
+
+    .secondary, .primary {
+      height: 42px;
+      padding: 0 18px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 760;
+      letter-spacing: .01em;
+      white-space: nowrap;
+    }
+
+    .secondary {
+      border: 1px solid #d8d9d7;
+      background: white;
+      color: var(--ink);
+    }
+
+    .primary {
+      border: 1px solid var(--green);
+      background: var(--green);
+      color: white;
+      box-shadow: 0 8px 18px rgba(0, 127, 98, .18);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 78px 286px minmax(0, 1fr) 354px;
+      min-height: 0;
+      background:
+        radial-gradient(circle at 58% 15%, rgba(255,255,255,.84), transparent 33%),
+        var(--workspace);
+    }
+
+    .rail {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 8px;
+      border-right: 1px solid var(--line);
+      background: rgba(255,255,255,.88);
+    }
+
+    .rail-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      width: 62px;
+      min-height: 66px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      color: #4f5a69;
+      font-size: 10px;
+      font-weight: 650;
+    }
+
+    .rail-item .glyph {
+      display: grid;
+      place-items: center;
+      width: 29px;
+      height: 29px;
+      border-radius: 9px;
+      color: #2d3a4f;
+      font-size: 18px;
+    }
+
+    .rail-item.active {
+      border-color: #cce8df;
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .rail-item.active .glyph { color: var(--green); }
+    .rail-item.ai .glyph { color: var(--purple); }
+    .rail-spacer { flex: 1; }
+
+    .panel {
+      min-height: 0;
+      padding: 16px;
+      border-right: 1px solid var(--line);
+      background: rgba(255,255,255,.96);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 13px;
+    }
+
+    .eyebrow {
+      margin: 0 0 5px;
+      color: var(--green);
+      font-size: 9px;
+      font-weight: 820;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 18px;
+      letter-spacing: -.025em;
+    }
+
+    .close {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border: 1px solid #e0e1de;
+      border-radius: 9px;
+      background: white;
+      color: #647083;
+      font-size: 16px;
+    }
+
+    .search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 38px;
+      padding: 0 11px;
+      margin-bottom: 14px;
+      border: 1px solid #dcdeda;
+      border-radius: 10px;
+      color: #8a92a0;
+      font-size: 11px;
+    }
+
+    .section-label {
+      margin: 16px 0 8px;
+      color: #7a8391;
+      font-size: 9px;
+      font-weight: 820;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .recent-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .block-card {
+      min-height: 75px;
+      padding: 10px;
+      border: 1px solid #e2e2df;
+      border-radius: 11px;
+      background: #fff;
+    }
+
+    .block-icon {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      background: #f4f5f5;
+      color: #2e3b50;
+      font-size: 15px;
+    }
+
+    .block-card strong {
+      display: block;
+      font-size: 10px;
+    }
+
+    .block-card small {
+      display: block;
+      margin-top: 2px;
+      color: #89919d;
+      font-size: 8px;
+    }
+
+    .categories {
+      display: grid;
+      gap: 6px;
+    }
+
+    .category {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 41px;
+      padding: 0 10px;
+      border: 1px solid #e4e5e2;
+      border-radius: 10px;
+      background: #fbfbfa;
+      color: #354258;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .category span:first-child {
+      display: grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      background: white;
+      font-size: 13px;
+    }
+
+    .category .count {
+      margin-left: auto;
+      color: #9299a4;
+      font-size: 9px;
+      font-weight: 700;
+    }
+
+    .library-footer {
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 10px;
+      background: #f3f7f5;
+      color: #557066;
+      font-size: 9px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .canvas-wrap {
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      padding: 18px 20px 22px;
+    }
+
+    .canvas-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 840px;
+      margin: 0 auto 10px;
+      color: #778190;
+      font-size: 10px;
+    }
+
+    .viewport-chips {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .viewport-chip {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 26px;
+      border: 1px solid #dedfdd;
+      border-radius: 7px;
+      background: rgba(255,255,255,.8);
+    }
+
+    .viewport-chip.active {
+      border-color: #a9d8c8;
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .paper {
+      position: relative;
+      width: 100%;
+      max-width: 840px;
+      min-height: 920px;
+      margin: 0 auto;
+      padding: 28px 34px 60px;
+      border: 1px solid #e0dfda;
+      border-radius: 14px 14px 0 0;
+      background:
+        linear-gradient(rgba(255,255,255,.82), rgba(255,255,255,.82)),
+        radial-gradient(circle at 24% 12%, #f5efe1, transparent 30%),
+        var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .wp-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .span-12 { grid-column: span 12; }
+    .span-8 { grid-column: span 8; }
+    .span-6 { grid-column: span 6; }
+    .span-4 { grid-column: span 4; }
+
+    .layout-block {
+      position: relative;
+      min-width: 0;
+    }
+
+    .width-badge {
+      position: absolute;
+      z-index: 3;
+      top: 8px;
+      right: 8px;
+      display: grid;
+      place-items: center;
+      min-width: 27px;
+      height: 20px;
+      padding: 0 6px;
+      border: 1px solid rgba(16, 32, 60, .12);
+      border-radius: 999px;
+      background: rgba(255,255,255,.88);
+      color: #607086;
+      font-size: 7px;
+      font-weight: 820;
+      letter-spacing: .05em;
+      box-shadow: 0 2px 7px rgba(18, 29, 45, .06);
+    }
+
+    .hero-editorial {
+      display: grid;
+      grid-template-columns: 1.08fr .92fr;
+      min-height: 172px;
+      overflow: hidden;
+      border: 1px solid #d8d3c9;
+      border-radius: 13px;
+      background: #f6efe3;
+      box-shadow: 0 9px 20px rgba(45, 38, 27, .08);
+    }
+
+    .hero-media {
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 28% 28%, rgba(221, 193, 126, .48), transparent 22%),
+        radial-gradient(circle at 70% 70%, rgba(0, 127, 98, .28), transparent 34%),
+        linear-gradient(145deg, #1d2a2d, #574633);
+    }
+
+    .hero-media:before,
+    .hero-media:after {
+      content: "";
+      position: absolute;
+      border: 1px solid rgba(255,255,255,.24);
+      border-radius: 22px;
+      transform: rotate(-8deg);
+    }
+
+    .hero-media:before {
+      width: 112px;
+      height: 76px;
+      left: 44px;
+      top: 46px;
+      background: rgba(255,255,255,.07);
+      box-shadow: 18px 20px 40px rgba(0,0,0,.24);
+    }
+
+    .hero-media:after {
+      width: 66px;
+      height: 46px;
+      right: 24px;
+      bottom: 24px;
+    }
+
+    .hero-media-label {
+      position: absolute;
+      left: 18px;
+      bottom: 15px;
+      color: rgba(255,255,255,.82);
+      font-size: 7px;
+      font-weight: 780;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .hero-copy {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 25px 28px;
+      background:
+        linear-gradient(rgba(255,253,247,.9), rgba(255,253,247,.9)),
+        var(--gold-soft);
+    }
+
+    .hero-kicker {
+      margin-bottom: 8px;
+      color: #9b7029;
+      font-size: 7px;
+      font-weight: 820;
+      letter-spacing: .17em;
+      text-transform: uppercase;
+    }
+
+    .hero-editorial h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: #4a3829;
+      font-size: 25px;
+      line-height: 1.12;
+      letter-spacing: -.025em;
+    }
+
+    .hero-summary {
+      margin: 10px 0 0;
+      color: #736657;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 10px;
+      line-height: 1.55;
+    }
+
+    .paper h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: #13213a;
+      font-size: 38px;
+      line-height: 1.12;
+      letter-spacing: -.03em;
+    }
+
+    .subtitle {
+      margin: 8px 0 28px;
+      color: #687184;
+      font-size: 13px;
+    }
+
+    .verse {
+      position: relative;
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 12px;
+      height: 100%;
+      padding: 18px 18px;
+      border: 1px solid #dfc997;
+      border-radius: 13px;
+      background:
+        linear-gradient(105deg, rgba(255,253,245,.96), rgba(248,237,207,.86)),
+        var(--gold-soft);
+      box-shadow: 0 7px 18px rgba(112, 82, 29, .08);
+    }
+
+    .verse .book {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(185, 135, 50, .13);
+      color: var(--gold);
+      font-size: 21px;
+    }
+
+    .verse q {
+      display: block;
+      font-family: Georgia, "Times New Roman", serif;
+      color: #3e3426;
+      font-size: 14px;
+      font-style: italic;
+      line-height: 1.45;
+    }
+
+    .verse cite {
+      display: block;
+      margin-top: 8px;
+      color: #9a6b22;
+      font-size: 9px;
+      font-style: normal;
+      font-weight: 820;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    .outline-card {
+      height: 100%;
+      padding: 17px 15px;
+      border: 1px solid #dce1de;
+      border-radius: 13px;
+      background: #f7faf8;
+    }
+
+    .outline-card .outline-kicker {
+      color: var(--green);
+      font-size: 7px;
+      font-weight: 820;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .outline-card h3 {
+      margin: 6px 0 10px;
+      color: #18334a;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 15px;
+    }
+
+    .outline-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 27px;
+      border-top: 1px solid #e4e8e5;
+      color: #536475;
+      font-size: 8px;
+      font-weight: 680;
+    }
+
+    .outline-number {
+      display: grid;
+      place-items: center;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 7px;
+      font-weight: 820;
+    }
+
+    .block {
+      position: relative;
+      margin-top: 22px;
+    }
+
+    .block.selected {
+      margin-left: -14px;
+      margin-right: -14px;
+      padding: 14px;
+      border: 1.5px solid #42a487;
+      border-radius: 12px;
+      background: rgba(255,255,255,.74);
+      box-shadow: 0 0 0 3px rgba(66, 164, 135, .08);
+    }
+
+    .drag {
+      position: absolute;
+      left: -33px;
+      top: 54px;
+      display: grid;
+      place-items: center;
+      width: 25px;
+      height: 34px;
+      border: 1px solid #dbddda;
+      border-radius: 8px;
+      background: white;
+      color: #8c95a2;
+      font-size: 14px;
+      letter-spacing: -3px;
+      box-shadow: 0 3px 9px rgba(35, 45, 55, .08);
+    }
+
+    .floating-toolbar {
+      position: absolute;
+      top: -36px;
+      left: 22px;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      height: 36px;
+      overflow: hidden;
+      border: 1px solid #dcddda;
+      border-radius: 9px;
+      background: white;
+      box-shadow: 0 9px 24px rgba(31, 42, 54, .12);
+      color: #344054;
+      font-size: 11px;
+    }
+
+    .tool {
+      display: grid;
+      place-items: center;
+      min-width: 34px;
+      height: 100%;
+      padding: 0 8px;
+      border-right: 1px solid #ececea;
+      font-weight: 700;
+    }
+
+    .tool.wide {
+      min-width: 92px;
+      justify-content: start;
+      font-weight: 600;
+    }
+
+    .block h3 {
+      margin: 0 0 9px;
+      font-family: Georgia, "Times New Roman", serif;
+      color: #17253d;
+      font-size: 25px;
+      letter-spacing: -.02em;
+    }
+
+    .block p {
+      margin: 0 0 9px;
+      color: #344054;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 14px;
+      line-height: 1.72;
+      text-align: justify;
+    }
+
+    .insert-line {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin: 20px 0;
+    }
+
+    .insert-line:before, .insert-line:after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #cbded7;
+    }
+
+    .insert-plus {
+      display: grid;
+      place-items: center;
+      width: 27px;
+      height: 27px;
+      border-radius: 50%;
+      background: var(--green);
+      color: white;
+      font-size: 18px;
+      box-shadow: 0 5px 12px rgba(0, 127, 98, .2);
+    }
+
+    .slide-preview {
+      display: grid;
+      grid-template-columns: 105px 1fr auto;
+      gap: 15px;
+      align-items: center;
+      padding: 13px;
+      border: 1px solid #dfe1de;
+      border-radius: 12px;
+      background: #f8faf9;
+    }
+
+    .slide-art {
+      display: grid;
+      place-items: center;
+      height: 64px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #0c2438, #076953);
+      color: #f7dd9b;
+      font-family: Georgia, serif;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .slide-copy strong {
+      display: block;
+      font-size: 12px;
+    }
+
+    .slide-copy small {
+      display: block;
+      margin-top: 4px;
+      color: #808996;
+      font-size: 9px;
+    }
+
+    .manage {
+      padding: 8px 10px;
+      border: 1px solid #d5dad6;
+      border-radius: 8px;
+      background: white;
+      color: #4b586a;
+      font-size: 9px;
+      font-weight: 750;
+    }
+
+    .triple-row {
+      margin-top: 14px;
+    }
+
+    .mini-block {
+      min-height: 116px;
+      padding: 14px;
+      overflow: hidden;
+      border: 1px solid #dfe2de;
+      border-radius: 12px;
+      background: #fbfcfb;
+    }
+
+    .mini-block.gold {
+      border-color: #e5d3a9;
+      background: #fffaf0;
+    }
+
+    .mini-block.green {
+      border-color: #cfe5dc;
+      background: #f3faf7;
+    }
+
+    .mini-block.purple {
+      border-color: #ddd2f2;
+      background: #f8f5fd;
+    }
+
+    .mini-icon {
+      display: grid;
+      place-items: center;
+      width: 25px;
+      height: 25px;
+      margin-bottom: 9px;
+      border-radius: 8px;
+      background: white;
+      color: #5c6574;
+      font-size: 12px;
+      box-shadow: 0 3px 10px rgba(27, 37, 49, .06);
+    }
+
+    .mini-block strong {
+      display: block;
+      padding-right: 24px;
+      color: #25354b;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 11px;
+    }
+
+    .mini-block p {
+      margin: 6px 0 0;
+      color: #718090;
+      font-size: 8px;
+      line-height: 1.45;
+    }
+
+    .slide-dots {
+      display: flex;
+      gap: 4px;
+      margin-top: 13px;
+    }
+
+    .slide-dots span {
+      width: 18px;
+      height: 3px;
+      border-radius: 999px;
+      background: #d4d9d6;
+    }
+
+    .slide-dots span:first-child {
+      background: var(--green);
+    }
+
+    .ai-panel {
+      min-height: 0;
+      padding: 16px;
+      border-left: 1px solid #dddce1;
+      background: #fff;
+    }
+
+    .ai-head {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      margin-bottom: 13px;
+    }
+
+    .ai-logo {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: linear-gradient(145deg, #6d28d9, #8b5cf6);
+      color: white;
+      font-size: 19px;
+      box-shadow: 0 8px 17px rgba(109, 40, 217, .2);
+    }
+
+    .ai-head strong {
+      display: block;
+      font-size: 15px;
+    }
+
+    .ai-head small {
+      display: block;
+      margin-top: 2px;
+      color: #7c8594;
+      font-size: 9px;
+    }
+
+    .ai-tabs {
+      display: grid;
+      grid-template-columns: 1.08fr 1fr .9fr;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 10px;
+      background: #f0eff3;
+    }
+
+    .ai-tab {
+      display: grid;
+      place-items: center;
+      height: 34px;
+      border-radius: 8px;
+      color: #697284;
+      font-size: 9px;
+      font-weight: 750;
+      text-align: center;
+    }
+
+    .ai-tab.active {
+      background: white;
+      color: var(--purple);
+      box-shadow: 0 2px 8px rgba(30, 35, 45, .08);
+    }
+
+    .context-card {
+      margin-top: 13px;
+      padding: 12px;
+      border: 1px solid #ded4f2;
+      border-radius: 11px;
+      background: var(--purple-soft);
+    }
+
+    .context-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #55308e;
+      font-size: 9px;
+      font-weight: 820;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .context-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 9px;
+    }
+
+    .chip {
+      padding: 5px 7px;
+      border: 1px solid #ddd0f4;
+      border-radius: 999px;
+      background: rgba(255,255,255,.74);
+      color: #594575;
+      font-size: 8px;
+      font-weight: 700;
+    }
+
+    .ai-label {
+      margin: 15px 0 8px;
+      color: #7b8492;
+      font-size: 9px;
+      font-weight: 820;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .ai-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+    }
+
+    .ai-action {
+      min-height: 54px;
+      padding: 9px;
+      border: 1px solid #e1d9ef;
+      border-radius: 10px;
+      background: white;
+      color: #3b3150;
+      font-size: 9px;
+      font-weight: 720;
+      line-height: 1.3;
+      text-align: left;
+    }
+
+    .ai-action b {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--purple);
+      font-size: 12px;
+    }
+
+    .composer {
+      margin-top: 12px;
+      padding: 10px;
+      border: 1.5px solid #bda8e6;
+      border-radius: 11px;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(109,40,217,.05);
+    }
+
+    .composer textarea {
+      width: 100%;
+      height: 47px;
+      resize: none;
+      border: 0;
+      outline: 0;
+      color: #30394a;
+      font-size: 10px;
+      line-height: 1.45;
+    }
+
+    .composer-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #8a91a0;
+      font-size: 8px;
+    }
+
+    .send {
+      display: grid;
+      place-items: center;
+      width: 27px;
+      height: 27px;
+      border-radius: 8px;
+      background: var(--purple);
+      color: white;
+      font-size: 12px;
+    }
+
+    .suggestion {
+      margin-top: 14px;
+      overflow: hidden;
+      border: 1px solid #dfdde3;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 7px 22px rgba(32, 38, 50, .06);
+    }
+
+    .suggestion-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 11px;
+      border-bottom: 1px solid #ecebef;
+      background: #faf9fc;
+    }
+
+    .suggestion-head strong {
+      font-size: 10px;
+    }
+
+    .suggestion-head span {
+      color: var(--purple);
+      font-size: 8px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .suggestion-body {
+      padding: 11px;
+      color: #536072;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 10px;
+      line-height: 1.6;
+    }
+
+    .suggestion-actions {
+      display: grid;
+      grid-template-columns: 1fr 1.5fr;
+      gap: 7px;
+      padding: 0 11px 11px;
+    }
+
+    .suggestion-actions button {
+      min-height: 34px;
+      border-radius: 8px;
+      font-size: 8px;
+      font-weight: 780;
+    }
+
+    .discard {
+      border: 1px solid #dedde1;
+      background: white;
+      color: #647083;
+    }
+
+    .apply {
+      border: 1px solid var(--purple);
+      background: var(--purple);
+      color: white;
+    }
+
+    .ai-note {
+      display: flex;
+      gap: 7px;
+      margin-top: 12px;
+      padding: 9px;
+      border-radius: 9px;
+      background: #f7f6f8;
+      color: #7b8391;
+      font-size: 8px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <img src="../../../public/brand/culto-plus-logo.png" alt="Culto+" />
+        <div class="divider"></div>
+        <div class="brand-title">Estúdio da Palavra</div>
+      </div>
+
+      <div class="context"><strong>Sala</strong><span>›</span><span>Discipulado</span><span>›</span><span>Aula 1</span></div>
+
+      <div class="doc-title"><span>A presença de Deus no cotidiano</span><b>✎</b></div>
+
+      <div class="top-spacer"></div>
+
+      <div class="save-state"><span class="save-dot">✓</span> Salvo agora</div>
+      <div class="icon-group">
+        <button class="icon-button">↶</button>
+        <button class="icon-button">↷</button>
+      </div>
+      <button class="secondary">◫&nbsp;&nbsp; Desktop</button>
+      <button class="secondary">◉&nbsp;&nbsp; Pré-visualizar</button>
+      <button class="primary">Concluir aula</button>
+    </header>
+
+    <section class="workspace">
+      <nav class="rail">
+        <div class="rail-item">
+          <div class="glyph">☷</div>
+          <span>Estrutura</span>
+        </div>
+        <div class="rail-item active">
+          <div class="glyph">⊞</div>
+          <span>Inserir</span>
+        </div>
+        <div class="rail-item">
+          <div class="glyph">▦</div>
+          <span>Modelos</span>
+        </div>
+        <div class="rail-item">
+          <div class="glyph">▤</div>
+          <span>Bíblia</span>
+        </div>
+        <div class="rail-item ai">
+          <div class="glyph">✦</div>
+          <span>IA</span>
+        </div>
+        <div class="rail-spacer"></div>
+        <div class="rail-item">
+          <div class="glyph">⌘</div>
+          <span>Atalhos</span>
+        </div>
+      </nav>
+
+      <aside class="panel">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Biblioteca completa</p>
+            <h2>Inserir bloco</h2>
+          </div>
+          <button class="close">×</button>
+        </div>
+
+        <div class="search">⌕ <span>Buscar entre 16 blocos...</span></div>
+
+        <p class="section-label">Usados recentemente</p>
+        <div class="recent-grid">
+          <div class="block-card">
+            <div class="block-icon">T</div>
+            <strong>Texto rico</strong>
+            <small>Formatação completa</small>
+          </div>
+          <div class="block-card">
+            <div class="block-icon">❝</div>
+            <strong>Texto bíblico</strong>
+            <small>5 estilos visuais</small>
+          </div>
+          <div class="block-card">
+            <div class="block-icon">▣</div>
+            <strong>Slides</strong>
+            <small>Imagem, vídeo e autoplay</small>
+          </div>
+          <div class="block-card">
+            <div class="block-icon">?</div>
+            <strong>Reflexão</strong>
+            <small>Resposta salva em Notas</small>
+          </div>
+        </div>
+
+        <p class="section-label">Todos os blocos</p>
+        <div class="categories">
+          <div class="category"><span>T</span>Texto e estudo<span class="count">3</span></div>
+          <div class="category"><span>◫</span>Abertura e capa<span class="count">2</span></div>
+          <div class="category"><span>▤</span>Bíblia e referências<span class="count">4</span></div>
+          <div class="category"><span>▶</span>Mídia e slides<span class="count">2</span></div>
+          <div class="category"><span>?</span>Interação e ação<span class="count">2</span></div>
+          <div class="category"><span>◎</span>Autor e rodapé<span class="count">2</span></div>
+          <div class="category"><span>↔</span>Layout<span class="count">1</span></div>
+        </div>
+
+        <div class="library-footer">
+          16 blocos preservados<br />
+          Arraste para o canvas ou clique para inserir
+        </div>
+      </aside>
+
+      <section class="canvas-wrap">
+        <div class="canvas-toolbar">
+          <span>Template Estudo Profundo · 9 blocos · grade editorial</span>
+          <div class="viewport-chips">
+            <span>Visualização</span>
+            <div class="viewport-chip">▯</div>
+            <div class="viewport-chip">▰</div>
+            <div class="viewport-chip active">▱</div>
+          </div>
+        </div>
+
+        <article class="paper">
+          <div class="wp-grid">
+            <section class="layout-block span-12 hero-editorial">
+              <span class="width-badge">1/1</span>
+              <div class="hero-media">
+                <span class="hero-media-label">Imagem editorial · substituível</span>
+              </div>
+              <div class="hero-copy">
+                <span class="hero-kicker">Estudo bíblico pastoral</span>
+                <h1>A presença de Deus no cotidiano</h1>
+                <p class="hero-summary">Reconheça Deus nas pequenas decisões e transforme fé em prática diária.</p>
+              </div>
+            </section>
+
+            <section class="layout-block span-8 verse">
+              <span class="width-badge">2/3</span>
+              <div class="book">▤</div>
+              <div>
+                <q>Deus é o nosso refúgio e fortaleza, socorro bem presente na angústia.</q>
+                <cite>Salmos 46:1 · ARA</cite>
+              </div>
+            </section>
+
+            <aside class="layout-block span-4 outline-card">
+              <span class="width-badge">1/3</span>
+              <span class="outline-kicker">Navegação</span>
+              <h3>Neste estudo</h3>
+              <div class="outline-item"><span class="outline-number">1</span>O texto e o contexto</div>
+              <div class="outline-item"><span class="outline-number">2</span>A presença que sustenta</div>
+              <div class="outline-item"><span class="outline-number">3</span>Prática para a semana</div>
+            </aside>
+          </div>
+
+          <div class="block selected">
+            <span class="width-badge">1/1</span>
+            <div class="drag">⠿</div>
+            <div class="floating-toolbar">
+              <span class="tool wide">Parágrafo⌄</span>
+              <span class="tool">B</span>
+              <span class="tool"><i>I</i></span>
+              <span class="tool"><u>U</u></span>
+              <span class="tool">☷</span>
+              <span class="tool">↔</span>
+              <span class="tool">🔗</span>
+              <span class="tool">•••</span>
+            </div>
+            <h3>Reflexão</h3>
+            <p>Deus não se revela apenas nos momentos extraordinários, mas também nas pequenas escolhas do dia a dia. Quando decidimos com integridade, paciência e amor, reconhecemos sua presença de forma real.</p>
+            <p>Reconhecer Deus no cotidiano é cultivar um coração atento e disposto a obedecer, mesmo quando ninguém está vendo.</p>
+          </div>
+
+          <div class="insert-line"><span class="insert-plus">+</span></div>
+
+          <div class="wp-grid triple-row">
+            <section class="layout-block span-4 mini-block green">
+              <span class="width-badge">1/3</span>
+              <div class="mini-icon">▣</div>
+              <strong>Slides da aula</strong>
+              <p>3 telas com imagem, texto e avanço configurável.</p>
+              <div class="slide-dots"><span></span><span></span><span></span></div>
+            </section>
+
+            <section class="layout-block span-4 mini-block gold">
+              <span class="width-badge">1/3</span>
+              <div class="mini-icon">▤</div>
+              <strong>Versículos relacionados</strong>
+              <p>Salmos 118:1<br />Filipenses 4:6<br />Colossenses 3:17</p>
+            </section>
+
+            <section class="layout-block span-4 mini-block purple">
+              <span class="width-badge">1/3</span>
+              <div class="mini-icon">?</div>
+              <strong>Pergunta ao coração</strong>
+              <p>Como esta Palavra pode transformar uma decisão sua nesta semana?</p>
+            </section>
+          </div>
+        </article>
+      </section>
+
+      <aside class="ai-panel">
+        <div class="ai-head">
+          <div class="ai-logo">✦</div>
+          <div>
+            <strong>Obreiro IA</strong>
+            <small>Copiloto com contexto do estudo</small>
+          </div>
+          <button class="close" style="margin-left:auto">×</button>
+        </div>
+
+        <div class="ai-tabs">
+          <div class="ai-tab">Criar estrutura</div>
+          <div class="ai-tab active">Neste trecho</div>
+          <div class="ai-tab">Pesquisar</div>
+        </div>
+
+        <div class="context-card">
+          <div class="context-title"><span>Contexto enviado</span><span>✓</span></div>
+          <div class="context-chips">
+            <span class="chip">Salmos 46:1</span>
+            <span class="chip">Bloco: Reflexão</span>
+            <span class="chip">66 palavras</span>
+            <span class="chip">Público: discipulado</span>
+          </div>
+        </div>
+
+        <p class="ai-label">O que deseja fazer?</p>
+        <div class="ai-actions">
+          <button class="ai-action"><b>✦</b>Enriquecer contexto</button>
+          <button class="ai-action"><b>◎</b>Criar aplicação prática</button>
+          <button class="ai-action"><b>▣</b>Transformar em slides</button>
+          <button class="ai-action"><b>✓</b>Revisar clareza</button>
+        </div>
+
+        <div class="composer">
+          <textarea>Acrescente uma aplicação para decisões no trabalho, mantendo o tom pastoral.</textarea>
+          <div class="composer-foot">
+            <span>Usará o bloco selecionado</span>
+            <span class="send">➜</span>
+          </div>
+        </div>
+
+        <div class="suggestion">
+          <div class="suggestion-head">
+            <strong>Sugestão pronta</strong>
+            <span>Prévia · não aplicada</span>
+          </div>
+          <div class="suggestion-body">
+            No trabalho, a presença de Deus também se torna visível quando escolhemos a verdade, tratamos pessoas com dignidade e permanecemos fiéis mesmo sem reconhecimento.
+          </div>
+          <div class="suggestion-actions">
+            <button class="discard">Descartar</button>
+            <button class="apply">Aplicar como novo bloco</button>
+          </div>
+        </div>
+
+        <div class="ai-note">
+          <span>ⓘ</span>
+          <span>A IA sugere; você decide. O texto bíblico continua vindo da base bíblica do Culto+.</span>
+        </div>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>

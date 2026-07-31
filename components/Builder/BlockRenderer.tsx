@@ -112,6 +112,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   const currentLayoutWidth = layoutWidth || data.layoutWidth;
   const hasExplicitGridWidth =
     currentLayoutWidth === '1/1' ||
+    currentLayoutWidth === '2/3' ||
     currentLayoutWidth === '1/2' ||
     currentLayoutWidth === '1/3';
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Editor } from '@tiptap/core';
 import { FloatingMenu } from '@tiptap/react/menus';
 import { Plus, LayoutTemplate, User, BookOpen, Video, Layers, Sparkle, Play, PanelRightOpen, HeartHandshake } from 'lucide-react';
@@ -11,6 +11,25 @@ interface EditorFloatingMenuProps {
 
 export const EditorFloatingMenu: React.FC<EditorFloatingMenuProps> = ({ editor }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const element = editor.view.dom;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+        return;
+      }
+      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
+      const { $from } = editor.state.selection;
+      if (!$from.parent.isTextblock || $from.parent.textContent.trim()) return;
+      event.preventDefault();
+      setIsOpen(true);
+      window.setTimeout(() => menuRef.current?.querySelector<HTMLButtonElement>('[data-block-option]')?.focus(), 0);
+    };
+    element.addEventListener('keydown', onKeyDown);
+    return () => element.removeEventListener('keydown', onKeyDown);
+  }, [editor]);
 
   const insertBlock = (type: BlockType) => {
     import('../../Builder').then(({ createBlock }) => {
@@ -27,6 +46,9 @@ export const EditorFloatingMenu: React.FC<EditorFloatingMenuProps> = ({ editor }
     // @ts-ignore
     <FloatingMenu editor={editor} tippyOptions={{ duration: 100, placement: 'right' }} className="flex relative z-50">
       <button
+        type="button"
+        aria-label="Inserir bloco"
+        aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
         className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-500 transition-all -ml-12"
       >
@@ -34,7 +56,7 @@ export const EditorFloatingMenu: React.FC<EditorFloatingMenuProps> = ({ editor }
       </button>
 
       {isOpen && (
-        <div className="absolute top-0 left-10 w-64 bg-white dark:bg-gray-800 shadow-2xl border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden py-2 animate-in fade-in slide-in-from-left-2">
+        <div ref={menuRef} role="menu" aria-label="Biblioteca de blocos" className="absolute top-0 left-10 w-64 bg-white dark:bg-gray-800 shadow-2xl border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden py-2 animate-in fade-in slide-in-from-left-2">
           <div className="px-3 py-1 pb-2">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Inserir Bloco</span>
           </div>
@@ -42,6 +64,9 @@ export const EditorFloatingMenu: React.FC<EditorFloatingMenuProps> = ({ editor }
             {(Object.keys(blockLabels) as BlockType[]).filter(t => t !== 'study-content').map((type) => (
               <button
                 key={type}
+                type="button"
+                role="menuitem"
+                data-block-option
                 onClick={() => insertBlock(type)}
                 className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg text-left"
               >

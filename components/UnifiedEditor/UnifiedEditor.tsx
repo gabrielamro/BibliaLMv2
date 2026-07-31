@@ -31,9 +31,11 @@ interface UnifiedEditorProps {
 export interface UnifiedEditorRef {
   insertBlock: (type: string) => void;
   updateBlock: (id: string, data: any) => void;
+  updateFirstBlockByType: (type: BlockType, data: any) => void;
   removeBlock: (id: string) => void;
   undo: () => void;
   redo: () => void;
+  setContent: (content: any) => void;
 }
 
 export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorProps>(({ content, onChange, onBlockSelect, readOnly = false, canvasWidth = 'desktop', studyId, studyTitle, compactTopSpacing = false }, ref) => {
@@ -216,6 +218,34 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
         });
       }
     },
+    updateFirstBlockByType: (type: BlockType, data: any) => {
+      if (Array.isArray(content)) {
+        let updated = false;
+        const newBlocks = content.map((block) => {
+          if (updated || block.type !== type) return block;
+          updated = true;
+          return { ...block, data: { ...block.data, ...data } };
+        });
+        if (updated) onChange(newBlocks, '');
+        return;
+      }
+      if (editor) {
+        editor.state.doc.descendants((node, pos) => {
+          if (node.type.name !== 'customBlock' || node.attrs.blockData?.type !== type) return true;
+          editor.commands.command(({ tr }) => {
+            tr.setNodeMarkup(pos, undefined, {
+              ...node.attrs,
+              blockData: {
+                ...node.attrs.blockData,
+                data: { ...node.attrs.blockData.data, ...data },
+              },
+            });
+            return true;
+          });
+          return false;
+        });
+      }
+    },
     removeBlock: (id: string) => {
       if (Array.isArray(content)) {
         const newBlocks = content.filter(b => b.id !== id);
@@ -261,7 +291,7 @@ export const UnifiedEditor = React.forwardRef<UnifiedEditorRef, UnifiedEditorPro
     return null;
   }
 
-  const insertBlockAtEnd = (blockType: BlockType, layoutWidth: '1/3' | '1/2' | '1/1' = '1/1') => {
+  const insertBlockAtEnd = (blockType: BlockType, layoutWidth: '1/3' | '1/2' | '2/3' | '1/1' = '1/1') => {
     import('../../components/Builder').then(({ createBlock }) => {
       const newBlock = createBlock(blockType as any);
       if (blockType === 'spacer') {
