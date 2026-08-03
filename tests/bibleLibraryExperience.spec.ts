@@ -65,10 +65,32 @@ test.describe("Bíblia Sagrada - biblioteca", () => {
     await expect(desktopMenu).toBeVisible();
     await expect(page.getByRole("button", { name: "Voltar" })).toBeVisible();
     await expect(page.getByText("CAP. 1", { exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/\/bibliasagrada\?gn&cap=1$/);
+
+    await page.getByRole("button", { name: "Ouvir" }).click();
+    const audioPlayer = page.getByTestId("bible-audio-player");
+    await expect(audioPlayer).toBeVisible();
+    await expect(audioPlayer.getByRole("button", { name: "Continuar leitura" })).toBeVisible();
+    await expect(audioPlayer.getByRole("button", { name: "Próximo versículo" })).toBeVisible();
+    await expect(audioPlayer.getByRole("button", { name: "Velocidade 1 vezes" })).toBeVisible();
+    await expect(audioPlayer.getByRole("progressbar", { name: "Andamento da leitura" })).toBeVisible();
+    await expect(audioPlayer.locator('input[type="range"]')).toHaveCount(0);
+    await audioPlayer.getByRole("button", { name: "Fechar reprodutor" }).click();
+
+    const firstVerse = page.locator('[id^="verse-"]').first();
+    await expect(firstVerse).toBeVisible();
+    await firstVerse.click();
+    await expect(page).toHaveURL(/\/bibliasagrada\?gn&cap=1&vs=1$/);
 
     await page.getByRole("button", { name: "Voltar" }).click();
     await expect(page).toHaveURL(/\/bibliasagrada$/);
     await expect(page.getByTestId("bible-library")).toBeVisible();
+
+    await page.getByTestId("bible-book-mt").click();
+    await expect(page).toHaveURL(/\/bibliasagrada\?mt&cap=1$/);
+    await expect(page.getByText("CAP. 1", { exact: true })).toBeVisible();
+    await expect(page.getByRole("status")).toContainText("Mateus 1");
+    await expect(page.getByText("No princípio criou Deus o céu e a terra.")).toHaveCount(0);
   });
 
   test("mantém os livros como prioridade no mobile", async ({ page }) => {

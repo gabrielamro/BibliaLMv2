@@ -6,6 +6,7 @@ import { useSettings } from '../../contexts/SettingsContext';
 import SmartText from './SmartText';
 import { extractVerseLead } from '../../utils/verseTypography';
 import { BIBLE_BOOKS_LIST } from '../../constants';
+import AudioPlayerBar from './AudioPlayerBar';
 
 const BOOK_CHAPTER_COUNTS: { [key: string]: number } = {
     'gn': 50, 'ex': 40, 'lv': 27, 'nm': 36, 'dt': 34, 'js': 24, 'jz': 21, 'rt': 4,
@@ -31,6 +32,7 @@ export interface ReaderViewProps {
     onBackToLibrary: () => void;
     onToggleNarration: () => void;
     isNarrationPlaying: boolean;
+    narrationPlayer: React.ComponentProps<typeof AudioPlayerBar>;
     onGenerateChapterPodcast: () => void;
     onMarkAsRead: (verse: number) => void;
     onChapterComplete: () => void;
@@ -45,7 +47,7 @@ export interface ReaderViewProps {
 }
 
 const ReaderView: React.FC<ReaderViewProps> = ({
-    isLoading, chapterContent, chapterNotes = [], bookMetadata, currentChapterNum, selectedVerses, setSelectedVerses, onBackToLibrary, onToggleNarration, isNarrationPlaying, onChapterComplete, isChapterRead, lastReadVerse, highlightedVerses = [], onNavigate, onGenerateChapterPodcast, onQuickNote, popularVerses = []
+    isLoading, chapterContent, chapterNotes = [], bookMetadata, currentChapterNum, selectedVerses, setSelectedVerses, onBackToLibrary, onToggleNarration, isNarrationPlaying, narrationPlayer, onChapterComplete, isChapterRead, lastReadVerse, highlightedVerses = [], onNavigate, onGenerateChapterPodcast, onQuickNote, popularVerses = []
 }) => {
     const { settings, updateSettings, isFocusMode, setIsFocusMode } = useSettings();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -206,7 +208,10 @@ const ReaderView: React.FC<ReaderViewProps> = ({
                                 <Search size={18} />
                             </button>
                             <button onClick={() => onGenerateChapterPodcast()} className="hidden md:block text-gray-400 hover:text-purple-500 transition-colors" title="Podcast"><Headphones size={18} /></button>
-                            <button onClick={onToggleNarration} className={`transition-colors ${isNarrationPlaying ? 'text-bible-gold' : 'text-gray-400 hover:text-bible-gold'}`} title="Ouvir"><Volume2 size={18} /></button>
+                            <div className="relative">
+                                <button onClick={onToggleNarration} aria-expanded={narrationPlayer.isOpen} className={`module-focus flex h-8 w-8 items-center justify-center rounded-full transition-colors ${isNarrationPlaying || narrationPlayer.isOpen ? 'bg-bible-gold/10 text-bible-gold' : 'text-gray-400 hover:bg-bible-gold/10 hover:text-bible-gold'}`} title="Ouvir"><Volume2 size={18} /></button>
+                                <AudioPlayerBar {...narrationPlayer} />
+                            </div>
                             <button onClick={() => setIsFocusMode(true)} className="text-gray-400 hover:text-bible-gold transition-colors" title="Expandir"><Maximize2 size={18} /></button>
                             <button onClick={() => setIsSettingsOpen(true)} className="text-gray-400 hover:text-bible-gold transition-colors" title="Aparência"><SettingsIcon size={18} /></button>
                         </div>

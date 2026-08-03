@@ -13,6 +13,7 @@ const useAudioNarration = (chapterText: string) => {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1.0);
+  const [error, setError] = useState<string | null>(null);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const activeSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
@@ -20,8 +21,10 @@ const useAudioNarration = (chapterText: string) => {
   const animationFrameRef = useRef<number>(0);
   const totalDurationRef = useRef<number>(0);
   const streamStartTimeRef = useRef<number>(0);
+  const generationIdRef = useRef(0);
 
   const stopAudio = useCallback((resetAll = false) => {
+    generationIdRef.current += 1;
     activeSourcesRef.current.forEach(source => {
       try { source.stop(); } catch(e) {}
     });
@@ -59,7 +62,9 @@ const useAudioNarration = (chapterText: string) => {
     }
 
     stopAudio(true);
+    const generationId = generationIdRef.current;
     setIsGenerating(true);
+    setError(null);
 
     try {
       const stream = await generateChapterAudioStream(chapterText);
@@ -75,6 +80,7 @@ const useAudioNarration = (chapterText: string) => {
       let isFirstChunk = true;
 
       for await (const base64 of stream) {
+        if (generationId !== generationIdRef.current) break;
         if (base64) {
           const buffer = await decodeAudioData(base64, ctx, 24000, 1);
           const source = ctx.createBufferSource();
@@ -101,10 +107,11 @@ const useAudioNarration = (chapterText: string) => {
         }
       }
     } catch (error) {
-      console.error("Narration Stream Error:", error);
+      if (generationId !== generationIdRef.current) return;
+      setError(error instanceof Error ? error.message : "Narração temporariamente indisponível.");
       setIsGenerating(false);
     } finally {
-        setIsGenerating(false);
+      if (generationId === generationIdRef.current) setIsGenerating(false);
     }
   }, [chapterText, playbackRate, stopAudio, updateProgress, checkFeatureAccess, openSubscription]);
 
@@ -131,12 +138,15 @@ const useAudioNarration = (chapterText: string) => {
     });
   }, [playbackRate]);
 
+  useEffect(() => () => stopAudio(true), [stopAudio]);
+
   return {
     isPlaying,
     isGenerating,
     duration,
     currentTime,
     playbackRate,
+    error,
     togglePlayPause,
     stopAudio,
     setPlaybackRate,

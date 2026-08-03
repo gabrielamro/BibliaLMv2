@@ -6,6 +6,10 @@
 
 ## [v2.10.0] - 2026-08-02 (Template Culto+ consolidado)
 ### Tipo: Refactor / UI / UX / Navegação
+- **TTS resiliente a picos:** indisponibilidade temporária do Gemini recebe novas tentativas com espera progressiva, fallback TTS sem streaming e mensagem controlada no player, sem overlay técnico.
+- **Player bíblico compacto:** “Ouvir” abre um reprodutor flutuante com play/pausa, velocidade, salto entre versículos e barra de andamento exclusivamente informativa.
+- **Narração bíblica restaurada:** áudio e podcast usam o modelo Gemini TTS compatível com streaming, modalidade de áudio e voz configurada, eliminando o erro de modelo somente textual.
+- **Leitura bíblica fluida:** livro, capítulo e versículo selecionado atualizam a URL sem perder trocas posteriores; capítulos já abertos usam cache em memória e respostas antigas não substituem a leitura atual.
 - **Retorno limpo da leitura:** ao voltar de um livro ou versículo, a biblioteca remove os parâmetros de livro e capítulo e restaura `/bibliasagrada`.
 - **Biblioteca mais direta:** removido o cabeçalho redundante “Livros da Bíblia”; filtros e grade aparecem imediatamente, com reset compacto quando necessário.
 - **Culto ao vivo mobile:** o contador original recebe o relógio ao lado; menu superior persistente e dois botões flutuantes organizam funcionalidades e interações sob demanda.

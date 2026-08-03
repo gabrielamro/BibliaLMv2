@@ -20,7 +20,30 @@ export const checkAiHealth = async (): Promise<boolean> => {
 };
 
 const TEXT_MODEL = "models/gemini-2.5-flash";
-const TTS_MODEL = "models/gemini-2.5-flash";
+const TTS_MODEL = "models/gemini-3.1-flash-tts-preview";
+const TTS_FALLBACK_MODEL = "models/gemini-2.5-flash-preview-tts";
+const TTS_RETRY_DELAYS_MS = [800, 1800];
+
+const createTtsConfig = () => ({
+    responseModalities: [Modality.AUDIO],
+    speechConfig: {
+        voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: "Iapetus" }
+        }
+    }
+});
+
+const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+const isTemporaryTtsError = (error: unknown) => {
+    const value = error as { code?: number; status?: number | string; message?: string };
+    const details = `${value?.code ?? ""} ${value?.status ?? ""} ${value?.message ?? ""}`;
+    return /\b(429|500|502|503|504)\b|UNAVAILABLE|high demand/i.test(details);
+};
+
+const getInlineAudio = (response: Awaited<ReturnType<ReturnType<typeof getAiInstance>["models"]["generateContent"]>>) => (
+    response.candidates?.[0]?.content?.parts?.find((part) => part.inlineData?.data)?.inlineData?.data ?? null
+);
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
@@ -602,7 +625,7 @@ export const generatePodcastAudio = async (script: string): Promise<string | nul
         const response = await getAiInstance().models.generateContent({
             model: TTS_MODEL,
             contents: [{ parts: [{ text: script }] }],
-            config: { responseModalities: [Modality.AUDIO] }
+            config: createTtsConfig()
         });
         const parts = response.candidates?.[0]?.content?.parts;
         if (parts) {
@@ -621,19 +644,50 @@ export const generatePodcastCover = async (title: string) => {
 };
 
 export async function* generateChapterAudioStream(text: string) {
-    const stream = await getAiInstance().models.generateContentStream({
-        model: TTS_MODEL,
-        contents: [{ parts: [{ text }] }],
-        config: { responseModalities: [Modality.AUDIO] }
-    });
+    let lastError: unknown = null;
 
-    for await (const chunk of stream) {
-        // Extrai apenas o dado base64 para o consumidor
-        const base64 = chunk.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-        if (base64) {
-            yield base64;
+    for (let attempt = 0; attempt <= TTS_RETRY_DELAYS_MS.length; attempt += 1) {
+        let emittedAudio = false;
+        try {
+            const stream = await getAiInstance().models.generateContentStream({
+                model: TTS_MODEL,
+                contents: [{ parts: [{ text }] }],
+                config: createTtsConfig()
+            });
+
+            for await (const chunk of stream) {
+                const base64 = chunk.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                if (base64) {
+                    emittedAudio = true;
+                    yield base64;
+                }
+            }
+            return;
+        } catch (error) {
+            lastError = error;
+            if (emittedAudio || !isTemporaryTtsError(error)) throw error;
+            const retryDelay = TTS_RETRY_DELAYS_MS[attempt];
+            if (retryDelay) await wait(retryDelay);
         }
     }
+
+    try {
+        // O modelo 2.5 não transmite áudio, mas mantém a narração disponível durante picos do 3.1.
+        const response = await getAiInstance().models.generateContent({
+            model: TTS_FALLBACK_MODEL,
+            contents: [{ parts: [{ text }] }],
+            config: createTtsConfig()
+        });
+        const base64 = getInlineAudio(response);
+        if (base64) {
+            yield base64;
+            return;
+        }
+    } catch (fallbackError) {
+        lastError = fallbackError;
+    }
+
+    throw new Error("Narração temporariamente indisponível. Tente novamente em instantes.", { cause: lastError });
 }
 
 export interface NearbyPlace { name: string; address: string; }

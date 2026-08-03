@@ -15,7 +15,6 @@ import { dbService } from '../services/supabase';
 
 import Library from './reader/Library';
 import ReaderView from './reader/ReaderView';
-import AudioPlayerBar from './reader/AudioPlayerBar';
 import { PodcastPlayer } from './reader/PodcastPlayer';
 import FloatingSelectionMenu from './reader/FloatingSelectionMenu';
 import QuickNoteModal from './reader/QuickNoteModal';
@@ -43,7 +42,10 @@ const Reader: React.FC = () => {
   const [targetVerses, setTargetVerses] = useState<number[]>([]);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
-  const skipUrlUpdateRef = React.useRef(false);
+  const [isNarrationPlayerOpen, setIsNarrationPlayerOpen] = useState(false);
+  const [narrationStartVerse, setNarrationStartVerse] = useState(1);
+  const chapterCacheRef = React.useRef(new Map<string, Chapter>());
+  const activeLoadRequestRef = React.useRef(0);
 
   // Track Session Context (Fases 3 e 4)
   const [activeTrack, setActiveTrack] = useState<any>(null);
@@ -74,15 +76,33 @@ const Reader: React.FC = () => {
   const loadData = useCallback(async () => {
     if (viewMode !== 'reader') return;
 
-    setIsLoadingContent(true);
+    const requestId = ++activeLoadRequestRef.current;
+    const bibleVersion = settings.bibleVersion || 'ara';
+    const cacheKey = `${bibleVersion}:${currentBookId}:${currentChapterNum}`;
+    const cachedChapter = chapterCacheRef.current.get(cacheKey) ?? null;
+
+    setIsLoadingContent(!cachedChapter);
     setError(null);
+    if (cachedChapter) {
+      setChapterContent(cachedChapter);
+    } else {
+      // Não mantenha versículos do livro anterior enquanto o novo capítulo é resolvido.
+      setChapterContent(null);
+    }
+
     try {
-      const data = await bibleService.getChapter(currentBookId, currentChapterNum, settings.bibleVersion || 'ara');
+      const data = cachedChapter ?? await bibleService.getChapter(currentBookId, currentChapterNum, bibleVersion);
+      if (requestId !== activeLoadRequestRef.current) return;
+
       if (data) {
+        chapterCacheRef.current.set(cacheKey, data);
         setChapterContent(data);
         if (currentUser) {
           const notes = await dbService.getNotesByChapter(currentUser.uid, currentBookId, currentChapterNum);
+          if (requestId !== activeLoadRequestRef.current) return;
           setChapterNotes(notes as Note[]);
+        } else {
+          setChapterNotes([]);
         }
         localStorage.setItem('biblia_last_read', JSON.stringify({ bookId: currentBookId, chapter: currentChapterNum }));
 
@@ -106,10 +126,13 @@ const Reader: React.FC = () => {
         */
       }
     } catch (e) {
+      if (requestId !== activeLoadRequestRef.current) return;
       setError("Erro de conexão.");
       console.error("Reader load error:", e);
     }
-    finally { setIsLoadingContent(false); }
+    finally {
+      if (requestId === activeLoadRequestRef.current) setIsLoadingContent(false);
+    }
   }, [currentBookId, currentChapterNum, viewMode, currentUser, location.state, settings.bibleVersion]);
 
   useEffect(() => {
@@ -133,7 +156,6 @@ const Reader: React.FC = () => {
     }
 
     if (bookParam) {
-      skipUrlUpdateRef.current = true;
       setCurrentBookId(bookParam);
       if (capParam) {
         setCurrentChapterNum(parseInt(capParam, 10));
@@ -188,16 +210,19 @@ const Reader: React.FC = () => {
     }
   }, [location.pathname, location.search, location.state, initialLoadDone]);
 
-  // Keep URL in sync when user navigates chapters within the reader
+  // Mantém o endereço fiel à leitura atual, inclusive ao selecionar um versículo.
   useEffect(() => {
     if (!initialLoadDone || viewMode !== 'reader' || !currentBookId) return;
-    if (skipUrlUpdateRef.current) {
-      skipUrlUpdateRef.current = false;
-      return;
+    const params = new URLSearchParams();
+    params.set(currentBookId, '');
+    params.set('cap', String(currentChapterNum));
+    if (selectedVerses.length === 1) params.set('vs', String(selectedVerses[0]));
+
+    const url = `/bibliasagrada?${params.toString().replace(`${currentBookId}=`, currentBookId)}`;
+    if (`${window.location.pathname}${window.location.search}` !== url) {
+      window.history.replaceState(null, '', url);
     }
-    const url = `/bibliasagrada?${currentBookId}&cap=${currentChapterNum}`;
-    window.history.replaceState(null, '', url);
-  }, [viewMode, currentBookId, currentChapterNum, initialLoadDone]);
+  }, [viewMode, currentBookId, currentChapterNum, selectedVerses, initialLoadDone]);
 
 
   useEffect(() => {
@@ -207,14 +232,36 @@ const Reader: React.FC = () => {
     }
   }, [loadData, viewMode]);
 
+  const narrationText = useMemo(() => chapterContent?.verses
+    .filter((verse) => verse.number >= narrationStartVerse)
+    .map((verse) => verse.text)
+    .join(' ') || '', [chapterContent, narrationStartVerse]);
+
   const {
     isPlaying: isNarrationPlaying,
     isGenerating: isNarrationGenerating,
     duration: narrationDuration,
     currentTime: narrationCurrentTime,
+    playbackRate: narrationPlaybackRate,
+    error: narrationError,
     togglePlayPause: toggleNarrationPlayPause,
     stopAudio: stopNarration,
-  } = useAudioNarration(chapterContent?.verses.map(v => v.text).join(' ') || '');
+    setPlaybackRate: setNarrationPlaybackRate,
+  } = useAudioNarration(narrationText);
+
+  const shouldRestartNarrationRef = React.useRef(false);
+
+  useEffect(() => {
+    if (!shouldRestartNarrationRef.current) return;
+    shouldRestartNarrationRef.current = false;
+    toggleNarrationPlayPause();
+  }, [narrationStartVerse, toggleNarrationPlayPause]);
+
+  useEffect(() => {
+    stopNarration(true);
+    setIsNarrationPlayerOpen(false);
+    setNarrationStartVerse(chapterContent?.verses[0]?.number ?? 1);
+  }, [currentBookId, currentChapterNum]);
 
   const {
     isPlayerOpen: isPodcastPlayerOpen,
@@ -279,12 +326,32 @@ const Reader: React.FC = () => {
   };
 
   const handleBackToLibrary = () => {
+    stopNarration(true);
+    setIsNarrationPlayerOpen(false);
     setActiveTrack(null);
     setTargetVerses([]);
     setSelectedVerses([]);
     setViewMode('library');
     // O livro e o capítulo identificam somente o leitor; a biblioteca usa sua URL canônica.
     navigate('/bibliasagrada', { replace: true });
+  };
+
+  const handleNarrationToggle = () => {
+    setIsNarrationPlayerOpen(true);
+  };
+
+  const handleNarrationVerseChange = (direction: -1 | 1) => {
+    const verses = chapterContent?.verses ?? [];
+    const currentIndex = verses.findIndex((verse) => verse.number === narrationStartVerse);
+    const target = verses[currentIndex + direction];
+    if (!target) return;
+
+    const shouldResume = isNarrationPlaying || isNarrationGenerating;
+    stopNarration(true);
+    shouldRestartNarrationRef.current = shouldResume;
+    setNarrationStartVerse(target.number);
+    setSelectedVerses([target.number]);
+    document.getElementById(`verse-${target.number}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
   // MOCK: Heatmap de versículos populares (Simula que os versículos 1, 4 e 7 são muito lidos/marcados)
@@ -312,8 +379,28 @@ const Reader: React.FC = () => {
           selectedVerses={selectedVerses}
           setSelectedVerses={setSelectedVerses}
           onBackToLibrary={handleBackToLibrary}
-          onToggleNarration={toggleNarrationPlayPause}
+          onToggleNarration={handleNarrationToggle}
           isNarrationPlaying={isNarrationPlaying}
+          narrationPlayer={{
+            isOpen: isNarrationPlayerOpen,
+            isPlaying: isNarrationPlaying,
+            isGenerating: isNarrationGenerating,
+            currentTime: narrationCurrentTime,
+            duration: narrationDuration,
+            playbackRate: narrationPlaybackRate,
+            error: narrationError,
+            verseNumber: narrationStartVerse,
+            canGoPrevious: (chapterContent?.verses[0]?.number ?? 1) < narrationStartVerse,
+            canGoNext: (chapterContent?.verses.at(-1)?.number ?? 1) > narrationStartVerse,
+            onTogglePlay: toggleNarrationPlayPause,
+            onPreviousVerse: () => handleNarrationVerseChange(-1),
+            onNextVerse: () => handleNarrationVerseChange(1),
+            onPlaybackRateChange: setNarrationPlaybackRate,
+            onClose: () => {
+              stopNarration(true);
+              setIsNarrationPlayerOpen(false);
+            },
+          }}
           onGenerateChapterPodcast={() => generatePodcast(currentBookMetadata.name, chapterContent?.verses.map(v => v.text).join(' ') || '')}
           onMarkAsRead={(v) => recordActivity('mark_verse', `Lido: ${currentBookMetadata.name} ${currentChapterNum}:${v}`)}
           onChapterComplete={() => markChapterCompleted(currentBookId, currentChapterNum)}
@@ -322,6 +409,7 @@ const Reader: React.FC = () => {
           onNavigate={(id, cap) => {
             setCurrentBookId(id);
             setCurrentChapterNum(cap);
+            setSelectedVerses([]);
             setTargetVerses([]);
           }}
           highlightedVerses={targetVerses}
@@ -355,8 +443,6 @@ const Reader: React.FC = () => {
         onSuccess={() => { loadData(); }}
         existingNotes={chapterNotes.filter(n => selectedVerses.includes(n.verse || -1))}
       />
-
-      <AudioPlayerBar isPlaying={isNarrationPlaying} isGenerating={isNarrationGenerating} currentTime={narrationCurrentTime} duration={narrationDuration} onTogglePlay={toggleNarrationPlayPause} onStop={() => stopNarration(true)} />
 
       <PodcastPlayer
         isOpen={isPodcastPlayerOpen}
