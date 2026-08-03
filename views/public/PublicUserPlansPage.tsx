@@ -99,7 +99,7 @@ const PublicUserPlansPage: React.FC = () => {
 
   const handleSharePlan = (e: React.MouseEvent, planId: string) => {
       e.stopPropagation();
-      const origin = window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'https://biblialm.com.br';
+      const origin = window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'https://cultomais.vercel.app';
       const url = `${origin}/#/jornada/${planId}`;
       if (navigator.share) {
           navigator.share({ title: 'Jornada Pastoral', url });

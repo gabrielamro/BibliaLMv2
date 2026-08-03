@@ -1289,7 +1289,7 @@ const SanctuaryPage: React.FC = () => {
                         <p className="text-gray-600 dark:text-gray-400 text-sm font-serif italic leading-relaxed max-w-2xl line-clamp-2">
                           "Pai amado, obrigado por este novo dia. Entrego minhas mãos para o Teu trabalho e meus pés para o Teu caminho..."
                         </p>
-                        <span className="mt-3 inline-flex text-stone-700 dark:text-stone-300 font-medium text-[9px] uppercase tracking-widest">BIBLIALM</span>
+                        <span className="mt-3 inline-flex text-stone-700 dark:text-stone-300 font-medium text-[9px] uppercase tracking-widest">CULTO+</span>
                       </div>
                     </div>
                     <button

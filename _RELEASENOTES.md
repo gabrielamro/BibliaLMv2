@@ -4,6 +4,14 @@
 > **VERSION SYNC:** Lembre-se de atualizar `constants.ts`, `_ARCHITECTURE.md` e `_PROJECT_CONTEXT.md` ao mudar a versão aqui.
 > **GIT SYNC:** Após atualizar este arquivo, o Arquiteto deve executar `git commit` com a mensagem do release.
 
+## [v2.10.1] - 2026-08-03 (Marca e dominio canonicos)
+### Tipo: Refactor / Arquitetura / Deploy
+- **Marca publica:** superficies ativas, SEO, textos de ajuda e arte exportada passam a apresentar exclusivamente Culto+.
+- **Dominio canonico:** sitemap, robots, compartilhamentos, contratos e fallbacks passam a usar `https://cultomais.vercel.app`.
+- **Fonte unica:** marca, origem publica e hosts legados ficam centralizados em `constants.ts`.
+- **Compatibilidade:** links antigos de BibliaLM continuam sendo reconhecidos como internos, sem serem gerados novamente.
+- **Infraestrutura:** CORS inclui a origem Culto Mais e o alias de producao passa a apontar para o deploy validado.
+
 ## [v2.10.0] - 2026-08-02 (Template Culto+ consolidado)
 ### Tipo: Refactor / UI / UX / Navegação
 - **TTS resiliente a picos:** indisponibilidade temporária do Gemini recebe novas tentativas com espera progressiva, fallback TTS sem streaming e mensagem controlada no player, sem overlay técnico.

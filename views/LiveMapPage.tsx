@@ -88,9 +88,9 @@ const MODULES: ModuleTheme[] = [
     rf: 'RF-MV-006',
     label: 'Visao Geral',
     shortLabel: 'Geral',
-    title: 'Mapa Vivo do BibliaLM',
-    subtitle: 'Tudo que o BibliaLM faz, organizado por jornada espiritual.',
-    description: 'Uma pagina-guia para revelar as ferramentas do BibliaLM sem tirar a Biblia do centro.',
+    title: 'Mapa Vivo do Culto+',
+    subtitle: 'Tudo que o Culto+ faz, organizado por jornada espiritual.',
+    description: 'Uma pagina-guia para revelar as ferramentas do Culto+ sem tirar a Biblia do centro.',
     intent: 'Entender o produto em uma unica leitura.',
     icon: Map,
     accent: 'bg-bible-gold',
@@ -122,7 +122,7 @@ const MODULES: ModuleTheme[] = [
     shortLabel: 'Estudo',
     title: 'Biblia & Estudo',
     subtitle: 'Leitura, notas, devocionais e aprofundamento.',
-    description: 'O nucleo do BibliaLM: ler, compreender, anotar, revisar e transformar conhecimento em pratica.',
+    description: 'O nucleo do Culto+: ler, compreender, anotar, revisar e transformar conhecimento em pratica.',
     intent: 'Aprofundar a Palavra com foco.',
     icon: BookOpen,
     accent: 'bg-blue-600',
@@ -378,9 +378,9 @@ const LiveMapPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#f7f4ee] text-gray-900 dark:bg-[#0b0b0b] dark:text-white">
       <SEO
-        title="Mapa Vivo do BibliaLM"
-        description="Conheca todas as funcionalidades do BibliaLM organizadas por jornada, modulo, acesso e fluxo de navegacao."
-        keywords="BibliaLM, mapa do app, Biblia, IA, Reino, Pastoral, Culto+"
+        title="Mapa Vivo do Culto+"
+        description="Conheca todas as funcionalidades do Culto+ organizadas por jornada, modulo, acesso e fluxo de navegacao."
+        keywords="Culto+, mapa do app, Biblia, IA, Reino, Pastoral"
       />
 
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pb-10 lg:pt-10">
@@ -391,10 +391,10 @@ const LiveMapPage: React.FC = () => {
               RF-MV-001
             </div>
             <h1 className="max-w-3xl text-3xl font-medium leading-tight text-gray-950 dark:text-white md:text-5xl">
-              Mapa Vivo do BibliaLM
+              Mapa Vivo do Culto+
             </h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-gray-600 dark:text-gray-300 md:text-base">
-              Tudo que o BibliaLM faz, organizado por jornada espiritual. A Biblia permanece no centro, a IA trabalha como Obreiro e o Reino conecta pessoas para edificacao.
+              Tudo que o Culto+ faz, organizado por jornada espiritual. A Biblia permanece no centro, a IA trabalha como Obreiro e o Reino conecta pessoas para edificacao.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link href="/" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-bible-gold px-5 text-sm font-medium text-white transition-colors hover:bg-bible-leather">

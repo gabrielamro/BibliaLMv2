@@ -27,7 +27,7 @@ const GamificationShare: React.FC<GamificationShareProps> = ({ isOpen, onClose, 
 
   const handleShare = async () => {
       const text = `Estou no nível ${level.title} no Culto+! 🔥 ${streak} dias seguidos. Venha caminhar comigo.`;
-      const url = window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'https://biblialm.com.br';
+      const url = window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'https://cultomais.vercel.app';
       if (navigator.share) {
           try {
               await navigator.share({

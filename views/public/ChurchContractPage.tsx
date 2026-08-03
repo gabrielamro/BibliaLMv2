@@ -281,7 +281,7 @@ export default function ChurchContractPage() {
                 <span className="h-2.5 w-2.5 rounded-full bg-green-500/80" />
                 <div className="ml-4 rounded-md bg-white/5 px-3 py-1 text-[9px] text-slate-400 font-mono flex items-center gap-1">
                   <Shield size={10} className="text-emerald-400" />
-                  <span>{church?.slug || "igreja"}.biblialm.com/gestao</span>
+                  <span>cultomais.vercel.app/igreja/{church?.slug || "igreja"}</span>
                 </div>
               </div>
               <img

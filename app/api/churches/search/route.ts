@@ -92,8 +92,8 @@ const searchNominatim = async (query: string, requestedLocation: { city: string;
 
   const response = await fetch(upstreamUrl.toString(), {
     headers: {
-      'User-Agent': 'BibliaLM/1.0 church-search contato@biblialm.com.br',
-      Referer: 'https://biblialm.com.br',
+      'User-Agent': 'CultoMais/1.0 church-search gabrielamaroo@gmail.com',
+      Referer: 'https://cultomais.vercel.app',
     },
     next: { revalidate: 60 * 60 * 24 },
   });

@@ -66,7 +66,7 @@ export default function ChurchQrPublicPage() {
             Este link pode ter expirado ou sido pausado pela igreja.
           </p>
           <Link href="/" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#321b50] px-4 text-sm font-black uppercase tracking-wider text-white transition hover:bg-[#4d2878] dark:bg-white dark:text-slate-950">
-            Voltar ao BibliaLM
+            Voltar ao Culto+
           </Link>
         </section>
       </main>

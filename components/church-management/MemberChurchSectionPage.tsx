@@ -115,7 +115,7 @@ export default function MemberChurchSectionPage({ section }: { section: MemberSe
       return badges.map((badge) => ({
         key: badge.id,
         title: badge.title,
-        detail: badge.description || "Conquista padrao do BibliaLM registrada por evento auditavel.",
+        detail: badge.description || "Conquista padrao do Culto+ registrada por evento auditavel.",
         status: `${badge.manaAmount} Mana`,
         icon: Medal,
       }));
@@ -230,7 +230,7 @@ export default function MemberChurchSectionPage({ section }: { section: MemberSe
             <div className="space-y-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
               <p className="flex gap-3"><CheckCircle2 size={18} className="mt-1 shrink-0 text-emerald-600 dark:text-emerald-300" />Toda alteracao relevante deve gerar notificacao ou alerta.</p>
               <p className="flex gap-3"><ShieldCheck size={18} className="mt-1 shrink-0 text-emerald-600 dark:text-emerald-300" />O membro ve status e proximas acoes, nao notas internas sensiveis.</p>
-              <p className="flex gap-3"><Medal size={18} className="mt-1 shrink-0 text-emerald-600 dark:text-emerald-300" />Insignias sao conquistas padrao do BibliaLM e nao medem maturidade espiritual.</p>
+              <p className="flex gap-3"><Medal size={18} className="mt-1 shrink-0 text-emerald-600 dark:text-emerald-300" />Insignias sao conquistas padrao do Culto+ e nao medem maturidade espiritual.</p>
             </div>
           </section>
         </aside>

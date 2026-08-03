@@ -29,8 +29,8 @@ const churchProfile = {
 };
 
 test('getPlanShareUrl returns the canonical jornada URL', () => {
-  assert.equal(getPlanShareUrl('plan-1'), 'https://biblialm.com.br/jornada/plan-1');
-  assert.equal(getPlanShareUrl('plan com espaco'), 'https://biblialm.com.br/jornada/plan%20com%20espaco');
+  assert.equal(getPlanShareUrl('plan-1'), 'https://cultomais.vercel.app/jornada/plan-1');
+  assert.equal(getPlanShareUrl('plan com espaco'), 'https://cultomais.vercel.app/jornada/plan%20com%20espaco');
 });
 
 test('canUserAccessPlan always allows the owner', () => {

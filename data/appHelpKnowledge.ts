@@ -8,7 +8,7 @@ export const APP_HELP_KNOWLEDGE: AppHelpArticle[] = [
     route: '/historico',
     intentKeywords: ['historico', 'atividade', 'atividades', 'mana', 'progresso', 'registro', 'acoes recentes', 'onde vejo historico', 'ver historico'],
     steps: [
-      'Abra o menu principal do BibliaLM.',
+      'Abra o menu principal do Culto+.',
       'Entre em Historico.',
       'Revise suas leituras, estudos, interacoes e acoes recentes registradas na conta.',
     ],

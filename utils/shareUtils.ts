@@ -4,6 +4,8 @@
  * Prioriza links curtos (/p/ID) para conteúdo persistente.
  */
 
+import { PUBLIC_APP_ORIGIN } from '../constants';
+
 export type SharedContentType = 'verse' | 'devotional' | 'study' | 'podcast' | 'post';
 
 interface ShareData {
@@ -11,7 +13,7 @@ interface ShareData {
   params: Record<string, any>;
 }
 
-const DOMAIN = 'https://biblialm.com.br';
+const DOMAIN = PUBLIC_APP_ORIGIN;
 
 /**
  * Gera uma URL de compartilhamento.

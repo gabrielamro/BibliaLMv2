@@ -1,6 +1,7 @@
 import type { ContentPrivacyLevel, CustomPlan, UserProfile } from '../types';
+import { PUBLIC_APP_ORIGIN } from '../constants';
 
-const DEFAULT_DOMAIN = 'https://biblialm.com.br';
+const DEFAULT_DOMAIN = PUBLIC_APP_ORIGIN;
 
 type MinimalPlan = Pick<CustomPlan, 'id' | 'authorId' | 'title' | 'description' | 'privacyType'> & Partial<CustomPlan>;
 type MinimalProfile = Pick<UserProfile, 'uid' | 'churchData'> | null | undefined;

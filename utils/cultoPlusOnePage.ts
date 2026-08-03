@@ -109,11 +109,11 @@ export const buildServiceCalendarEvent = (service: ChurchService, pageUrl: strin
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//BibliaLM//CultoPlus//PT-BR',
+    'PRODID:-//CultoMais//CultoPlus//PT-BR',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
-    `UID:${escapeIcsText(service.id)}@biblialm`,
+    `UID:${escapeIcsText(service.id)}@cultomais`,
     `DTSTAMP:${formatIcsDate(new Date().toISOString())}`,
     startsAt ? `DTSTART:${startsAt}` : '',
     endsAt ? `DTEND:${endsAt}` : '',

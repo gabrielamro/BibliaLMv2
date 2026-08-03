@@ -234,18 +234,18 @@ const AdminPage: React.FC = () => {
 
             let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://biblialm.com.br/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
-  <url><loc>https://biblialm.com.br/biblia</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://biblialm.com.br/planos</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://cultomais.vercel.app/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://cultomais.vercel.app/bibliasagrada</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://cultomais.vercel.app/planos</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
 `;
             // Add Churches
             churches.forEach(c => {
-                xml += `  <url><loc>https://biblialm.com.br/igreja/${c.slug}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
+                xml += `  <url><loc>https://cultomais.vercel.app/igreja/${c.slug}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
             });
 
             // Add Static Important Routes
             ['/social/explore', '/devocional', '/quiz'].forEach(path => {
-                xml += `  <url><loc>https://biblialm.com.br${path}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>\n`;
+                xml += `  <url><loc>https://cultomais.vercel.app${path}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>\n`;
             });
 
             xml += `</urlset>`;

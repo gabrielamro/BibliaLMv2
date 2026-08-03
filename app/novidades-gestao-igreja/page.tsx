@@ -29,7 +29,7 @@ import {
 const highlights = [
   {
     title: "Modulo independente",
-    text: "Gestao da Igreja nasce como area propria do BibliaLM, sem depender do Workspace Pastoral.",
+    text: "Gestao da Igreja nasce como area propria do Culto+, sem depender do Workspace Pastoral.",
     icon: Layers3,
   },
   {
@@ -154,7 +154,7 @@ export default function Page() {
                 className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/15 bg-white/8 px-3 text-sm font-semibold text-white transition hover:bg-white/12"
               >
                 <Church size={18} className="text-[#d8b15f]" />
-                BibliaLM
+                Culto+
               </Link>
               <Link
                 href="/apresentacao"
@@ -171,7 +171,7 @@ export default function Page() {
             </div>
 
             <h1 className="mt-5 max-w-3xl text-4xl font-black leading-tight tracking-normal text-white sm:text-5xl lg:text-6xl">
-              As proximas novidades para a gestao da igreja no BibliaLM
+              As proximas novidades para a gestao da igreja no Culto+
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
               Um novo modulo independente para organizar pessoas, pedidos, QR Codes,
@@ -276,7 +276,7 @@ export default function Page() {
               O que esse roadmap pode trazer para a aplicacao
             </h2>
             <p className="mt-4 text-base leading-8 text-slate-600 dark:text-slate-300">
-              A proposta amplia o BibliaLM de estudo, culto e comunidade para uma
+              A proposta amplia o Culto+ de estudo, culto e comunidade para uma
               operacao pastoral organizada, mantendo custo baixo no MVP e protegendo
               dados sensiveis.
             </p>
@@ -422,10 +422,10 @@ export default function Page() {
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-300">Resultado esperado</p>
               <h2 className="mt-3 text-3xl font-black tracking-normal sm:text-4xl">
-                Uma nova camada de operacao pastoral no BibliaLM
+                Uma nova camada de operacao pastoral no Culto+
               </h2>
               <p className="mt-4 max-w-3xl text-base leading-8 text-slate-300">
-                A Gestao da Igreja pode transformar o BibliaLM em uma plataforma
+                A Gestao da Igreja pode transformar o Culto+ em uma plataforma
                 que conecta estudo, culto, comunidade e administracao leve da igreja
                 local, com visual premium e crescimento por etapas.
               </p>
@@ -435,7 +435,7 @@ export default function Page() {
                 href="/"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 text-sm font-black uppercase tracking-wider text-slate-950 transition hover:bg-slate-100"
               >
-                Abrir BibliaLM
+                Abrir Culto+
                 <ArrowRight size={17} />
               </Link>
               <a

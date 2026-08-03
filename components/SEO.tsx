@@ -2,6 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { PUBLIC_APP_ORIGIN } from '../constants';
 
 interface SEOProps {
   title?: string;
@@ -19,7 +20,7 @@ const SEO: React.FC<SEOProps> = ({
   description,
   name = "Culto+",
   type = "website",
-  image = "https://biblialm.com/og-image.jpg",
+  image = `${PUBLIC_APP_ORIGIN}/og-image.jpg`,
   url = typeof window !== 'undefined' ? window.location.href : '',
   jsonLd,
   keywords
@@ -72,7 +73,7 @@ const SEO: React.FC<SEOProps> = ({
 
     // Twitter
     updateMeta('name', 'twitter:card', 'summary_large_image');
-    updateMeta('name', 'twitter:creator', defaultSeo?.twitterHandle || '@biblialm');
+    updateMeta('name', 'twitter:creator', defaultSeo?.twitterHandle || '@cultomais');
     updateMeta('name', 'twitter:title', metaTitle);
     updateMeta('name', 'twitter:description', metaDescription);
     updateMeta('name', 'twitter:image', image);

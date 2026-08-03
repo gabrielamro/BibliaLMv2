@@ -43,10 +43,10 @@ const LevelProgressModal: React.FC<LevelProgressModalProps> = ({ isOpen, onClose
 
   const handleShare = async () => {
     const levelName = currentLevelBadge?.name || 'Iniciante';
-    const text = `Estou no nível ${levelName} no App @biblialm! 🚀 Já acumulei ${currentXp} de Maná na minha jornada espiritual. Venha estudar a Bíblia com Inteligência Artificial!`;
+    const text = `Estou no nível ${levelName} no Culto+! 🚀 Já acumulei ${currentXp} de Maná na minha jornada espiritual. Venha estudar a Bíblia com Inteligência Artificial!`;
     
     // Fallback seguro para URL de perfil
-    let baseUrl = 'https://biblialm.com.br';
+    let baseUrl = 'https://cultomais.vercel.app';
     if (window.location.protocol !== 'blob:' && window.location.hostname !== 'localhost') {
         baseUrl = window.location.origin;
     }
@@ -64,7 +64,7 @@ const LevelProgressModal: React.FC<LevelProgressModalProps> = ({ isOpen, onClose
       }
     } else {
       navigator.clipboard.writeText(text + " " + profileUrl);
-      alert("Texto copiado! Compartilhe no Instagram e marque @biblialm");
+      alert("Texto copiado! Compartilhe sua conquista no Instagram.");
     }
   };
 
@@ -190,7 +190,7 @@ const LevelProgressModal: React.FC<LevelProgressModalProps> = ({ isOpen, onClose
                         <Share2 size={20} /> Compartilhar Progresso
                     </button>
                     <p className="text-center text-[10px] text-gray-400 mt-2">
-                        Marque @biblialm para ser repostado!
+                        Compartilhe sua conquista com a comunidade!
                     </p>
                 </div>
             </div>

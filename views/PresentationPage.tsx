@@ -111,7 +111,7 @@ const presentationRoadmap = [
   {
     step: '03',
     title: 'Apresentar a visão',
-    text: 'BibliaLM como ecossistema cristão com IA a serviço da igreja local.',
+    text: 'Culto+ como ecossistema cristão com IA a serviço da igreja local.',
   },
   {
     step: '04',
@@ -169,7 +169,7 @@ const PresentationPage: React.FC = () => {
               className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/15"
             >
               <LogoIcon className="h-7 w-7 text-[#d7b46a]" />
-              <span>BibliaLM</span>
+              <span>Culto+</span>
             </button>
             <div className="hidden items-center gap-2 text-xs font-bold uppercase tracking-[0.22em] text-white/70 sm:flex">
               <span>Pitch Pastoral</span>
@@ -185,7 +185,7 @@ const PresentationPage: React.FC = () => {
                 Para pastores e lideres
               </div>
               <h1 className="max-w-3xl text-4xl font-black leading-[1.05] tracking-normal text-white sm:text-5xl lg:text-6xl">
-                BibliaLM: discipulado digital com IA a serviço da igreja local
+                Culto+: discipulado digital com IA a serviço da igreja local
               </h1>
               <p className="mt-6 max-w-2xl text-base leading-8 text-white/82 sm:text-lg">
                 Uma apresentação para mostrar como leitura bíblica, criação pastoral,
@@ -251,7 +251,7 @@ const PresentationPage: React.FC = () => {
               Um ecossistema cristão para transformar intenção em rotina.
             </h2>
             <p className="mt-5 text-base leading-8 text-[#526056] dark:text-white/68">
-              O BibliaLM organiza leitura, devocional, estudos, salas, comunidade e
+              O Culto+ organiza leitura, devocional, estudos, salas, comunidade e
               recursos criativos em uma experiência que fortalece a jornada espiritual
               do membro e o trabalho da liderança.
             </p>
@@ -392,7 +392,7 @@ const PresentationPage: React.FC = () => {
                 Tecnologia servindo a Palavra, a igreja e o discipulado diário.
               </h2>
               <p className="mt-4 max-w-3xl text-sm leading-7 text-[#526056] dark:text-white/68">
-                O BibliaLM deve ser apresentado como parceiro da igreja local: uma
+                O Culto+ deve ser apresentado como parceiro da igreja local: uma
                 plataforma para fortalecer constância, conteúdo e comunidade, não para
                 substituir pastores ou relações reais de cuidado.
               </p>
@@ -418,7 +418,7 @@ const PresentationPage: React.FC = () => {
       </section>
 
       <footer className="border-t border-[#dfe6dc] px-5 py-6 text-center text-xs font-semibold text-[#526056] dark:border-white/10 dark:text-white/50">
-        BibliaLM para pastores: leitura, discipulado, comunidade e IA sob discernimento pastoral.
+        Culto+ para pastores: leitura, discipulado, comunidade e IA sob discernimento pastoral.
       </footer>
     </main>
   );

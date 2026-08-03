@@ -1,6 +1,7 @@
 import type { ContentPrivacyLevel } from '../types';
+import { PUBLIC_APP_ORIGIN } from '../constants';
 
-const DEFAULT_DOMAIN = 'https://biblialm.com.br';
+const DEFAULT_DOMAIN = PUBLIC_APP_ORIGIN;
 
 export type ContentShareSettingsInput = {
   visibility: ContentPrivacyLevel;

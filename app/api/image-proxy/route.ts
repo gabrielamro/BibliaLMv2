@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     try {
         const response = await fetch(imageUrl, {
-            headers: { 'User-Agent': 'BibliaLM/2.0' },
+            headers: { 'User-Agent': 'CultoMais/2.0' },
             redirect: 'follow',
         });
 

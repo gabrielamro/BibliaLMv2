@@ -1,8 +1,15 @@
 
 import type { Book, Devotional, SubscriptionPlan, Badge, QuizQuestion, ReadingTrack, GuidedPrayer } from './types';
 
-export const SYSTEM_VERSION = "2.10.0";
+export const SYSTEM_VERSION = "2.10.1";
 export const DEFAULT_FONT_SIZE = 3;
+export const PRODUCT_NAME = 'Culto+';
+export const PUBLIC_APP_ORIGIN = 'https://cultomais.vercel.app';
+export const LEGACY_APP_HOSTS = [
+  'biblialm.com.br',
+  'www.biblialm.com.br',
+  'biblialm.vercel.app',
+] as const;
 
 export { APP_MODULES, APP_MODULE_ROUTE_RULES } from './moduleThemes';
 export type { AppModuleId } from './moduleThemes';

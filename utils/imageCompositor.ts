@@ -310,7 +310,7 @@ export const composeImageWithText = (
             ctx.font = '500 24px "Inter", sans-serif';
             ctx.fillStyle = isDarkText ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.7)';
             ctx.textAlign = 'center'; 
-            ctx.fillText("BibliaLM App", width / 2, height - 60);
+            ctx.fillText("Culto+", width / 2, height - 60);
       
             resolve(canvas.toDataURL('image/webp', 0.85));
         } catch (e) {

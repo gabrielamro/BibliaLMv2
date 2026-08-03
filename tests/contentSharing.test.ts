@@ -8,8 +8,8 @@ import {
 } from '../utils/contentSharing.ts';
 
 test('getContentShareUrl prefers published slug and falls back to preview id', () => {
-  assert.equal(getContentShareUrl({ slug: 'vida-oracao', id: 'study-1' }), 'https://biblialm.com.br/l/vida-oracao');
-  assert.equal(getContentShareUrl({ id: 'study-1' }), 'https://biblialm.com.br/v/study-1');
+  assert.equal(getContentShareUrl({ slug: 'vida-oracao', id: 'study-1' }), 'https://cultomais.vercel.app/l/vida-oracao');
+  assert.equal(getContentShareUrl({ id: 'study-1' }), 'https://cultomais.vercel.app/v/study-1');
 });
 
 test('normalizeContentShareSettings persists public access and pdf inside meta', () => {
@@ -46,12 +46,12 @@ test('normalizeContentShareSettings stores private audiences inside meta', () =>
 test('buildContentSharePostContent creates feed payload compatible with study cards', () => {
   const content = buildContentSharePostContent(
     { id: 'study-1', title: 'Vida de Oracao', coverImage: 'https://img.test/cover.png' },
-    'https://biblialm.com.br/l/vida-oracao',
+    'https://cultomais.vercel.app/l/vida-oracao',
     'Leia com o grupo.',
   );
 
   assert.match(content, /study_share/);
   assert.match(content, /Vida de Oracao/);
   assert.match(content, /Leia com o grupo\./);
-  assert.match(content, /https:\/\/biblialm\.com\.br\/l\/vida-oracao/);
+  assert.match(content, /https:\/\/cultomais\.vercel\.app\/l\/vida-oracao/);
 });

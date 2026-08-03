@@ -1,10 +1,10 @@
 # 📖 Culto+ - Product Context & Business Rules
 
 > **AI INSTRUCTION:** This file contains the "Soul" of the application. Refer to this for logic, gamification rules, and terminology.
-> **VERSION:** v2.10.0 (Template Culto+ consolidado nas superfícies ativas)
+> **VERSION:** v2.10.1 (Culto+ e cultomais.vercel.app canônicos)
 
 ## 1. Product Vision
-Culto+ is the evolution of the full BibliaLM ecosystem: one church-centered platform connecting personal Bible study, spiritual growth, community, services, volunteering, pastoral care and church management. The legacy name may still exist in modules being migrated, but every new product surface must present Culto+ as the primary brand.
+Culto+ is one church-centered platform connecting personal Bible study, spiritual growth, community, services, volunteering, pastoral care and church management. `https://cultomais.vercel.app` is the canonical public origin. Legacy BibliaLM names and hosts are accepted only at compatibility boundaries; no active or newly generated product surface may present them as the primary brand or public URL.
 
 ## 2. User Roles & Permissions (The Hierarchy)
 

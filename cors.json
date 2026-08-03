@@ -1,8 +1,9 @@
 [
   {
     "origin": [
-      "https://biblialm.com.br", 
-      "https://www.biblialm.com.br", 
+      "https://cultomais.vercel.app",
+      "https://biblialm.com.br",
+      "https://www.biblialm.com.br",
       "http://localhost:8080",
       "*"
     ],

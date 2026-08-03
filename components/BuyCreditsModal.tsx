@@ -55,7 +55,7 @@ const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({ isOpen, onClose }) =>
     setQrCodeImage('');
     
     try {
-      const email = currentUser?.email || 'user@biblialm.com';
+      const email = currentUser?.email || 'usuario@cultomais.app';
       const description = getNumericDonation() > 0 
         ? `Culto+ - ${activePackage.name} (+ Oferta)`
         : `Culto+ - ${activePackage.name}`;
