@@ -42,7 +42,7 @@ const SupportModal: React.FC<SupportModalProps> = ({ isOpen, onClose }) => {
 
         <div className="p-6 space-y-6">
           <p className="text-gray-600 dark:text-gray-300 text-center leading-relaxed text-sm">
-            Este projeto é mantido por ofertas voluntárias. Sua contribuição ajuda a cobrir custos de servidor e desenvolvimento, permitindo que a BíbliaLM continue abençoando vidas gratuitamente.
+            Este projeto é mantido por ofertas voluntárias. Sua contribuição ajuda a cobrir custos de servidor e desenvolvimento, permitindo que o Culto+ continue servindo pessoas e igrejas.
           </p>
 
           {/* Pix Section */}

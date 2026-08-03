@@ -27,13 +27,13 @@ const TermsPage: React.FC = () => {
             <p>Última atualização: {new Date().toLocaleDateString('pt-BR')}</p>
 
             <h3>1. Aceitação dos Termos</h3>
-            <p>Ao acessar e usar o BíbliaLM, você concorda em cumprir estes Termos de Uso e todas as leis e regulamentos aplicáveis. Se você não concordar com algum destes termos, está proibido de usar ou acessar este site.</p>
+            <p>Ao acessar e usar o Culto+, você concorda em cumprir estes Termos de Uso e todas as leis e regulamentos aplicáveis. Se você não concordar com algum destes termos, está proibido de usar ou acessar este aplicativo.</p>
 
             <h3>2. Uso da Licença</h3>
-            <p>É concedida permissão para baixar temporariamente uma cópia dos materiais (informações ou software) no site BíbliaLM, apenas para visualização transitória pessoal e não comercial. Esta é a concessão de uma licença, não uma transferência de título.</p>
+            <p>É concedida permissão para baixar temporariamente uma cópia dos materiais disponibilizados no Culto+, apenas para visualização transitória pessoal e não comercial. Esta é a concessão de uma licença, não uma transferência de título.</p>
 
             <h3>3. Inteligência Artificial</h3>
-            <p>O BíbliaLM utiliza modelos de Inteligência Artificial (Google Gemini) para gerar conteúdo, estudos e respostas. Embora nos esforcemos pela precisão teológica, o conteúdo gerado pela IA pode conter imprecisões. Recomendamos sempre conferir as referências bíblicas diretamente nas Escrituras (Atos 17:11).</p>
+            <p>O Culto+ utiliza modelos de Inteligência Artificial para gerar conteúdo, estudos e respostas. Embora nos esforcemos pela precisão teológica, o conteúdo gerado pela IA pode conter imprecisões. Recomendamos sempre conferir as referências bíblicas diretamente nas Escrituras (Atos 17:11).</p>
 
             <h3>4. Conduta do Usuário</h3>
             <p>Você concorda em usar o "Reino" (área social) de forma respeitosa e edificante. Conteúdo ofensivo, herético, discurso de ódio ou spam resultará no banimento imediato da conta.</p>
@@ -42,7 +42,7 @@ const TermsPage: React.FC = () => {
             <p>Os planos premium oferecem acesso a recursos avançados de IA e gestão eclesiástica. O cancelamento pode ser feito a qualquer momento, mas não oferecemos reembolso por períodos parciais não utilizados, salvo exigência legal.</p>
 
             <h3>6. Limitação de Responsabilidade</h3>
-            <p>Em nenhum caso o BíbliaLM ou seus fornecedores serão responsáveis por quaisquer danos (incluindo, sem limitação, danos por perda de dados ou lucro ou devido a interrupção dos negócios) decorrentes do uso ou da incapacidade de usar os materiais em BíbliaLM.</p>
+            <p>Em nenhum caso o Culto+ ou seus fornecedores serão responsáveis por quaisquer danos decorrentes do uso ou da incapacidade de usar os materiais disponibilizados no aplicativo.</p>
           </div>
         </div>
       </div>

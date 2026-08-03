@@ -2,9 +2,10 @@
 
 import ProtectedRoute from '../../../../components/ProtectedRoute';
 import BookStudyPage from '../../../../views/BookStudyPage';
+import CultoPlusPageShell from '../../../../components/CultoPlusPageShell';
 
 export default function Page() {
   return (
-    <ProtectedRoute><BookStudyPage /></ProtectedRoute>
+    <CultoPlusPageShell><ProtectedRoute><BookStudyPage /></ProtectedRoute></CultoPlusPageShell>
   );
 }

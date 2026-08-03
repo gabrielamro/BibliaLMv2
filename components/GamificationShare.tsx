@@ -26,7 +26,7 @@ const GamificationShare: React.FC<GamificationShareProps> = ({ isOpen, onClose, 
   const progress = Math.min(100, ((userProfile.lifetimeXp || 0) / nextLevelXp) * 100);
 
   const handleShare = async () => {
-      const text = `Estou no nível ${level.title} no BíbliaLM! 🔥 ${streak} dias seguidos. Baixe agora e estude comigo.`;
+      const text = `Estou no nível ${level.title} no Culto+! 🔥 ${streak} dias seguidos. Venha caminhar comigo.`;
       const url = window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'https://biblialm.com.br';
       if (navigator.share) {
           try {
@@ -57,7 +57,7 @@ const GamificationShare: React.FC<GamificationShareProps> = ({ isOpen, onClose, 
                 {/* Header */}
                 <div className="relative z-10 flex items-center gap-2 mb-8 opacity-80">
                     <LogoIcon className="w-5 h-5" />
-                    <span className="text-xs font-serif tracking-[0.2em] uppercase">BíbliaLM</span>
+                    <span className="text-xs font-serif tracking-[0.2em] uppercase">Culto+</span>
                 </div>
 
                 {/* Avatar */}

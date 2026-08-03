@@ -269,9 +269,10 @@ const ReaderView: React.FC<ReaderViewProps> = ({
             <div ref={contentRef} className="flex-1 overflow-y-auto">
                 <div className={`mx-auto transition-all duration-500 ${isFocusMode ? 'max-w-3xl px-8 py-12' : 'max-w-2xl md:max-w-3xl xl:max-w-4xl px-6 py-10 md:py-16 pb-40'}`}>
                     {isLoading && !chapterContent ? (
-                        <div className="flex flex-col items-center justify-center py-40">
+                        <div className="flex flex-col items-center justify-center py-40" role="status" aria-live="polite">
                             <Loader2 size={40} className="animate-spin text-bible-gold mb-4" />
-                            <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Inspirando conteúdo...</p>
+                            <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Carregando {bookMetadata.name} {currentChapterNum}...</p>
+                            <span className="mt-2 text-[11px] text-gray-500">Texto da versão bíblica selecionada</span>
                         </div>
                     ) : (
                         <div className={`space-y-6 ${settings.fontFamily === 'serif' ? 'font-serif' : 'font-sans'}`}>

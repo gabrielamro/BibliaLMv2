@@ -2,11 +2,12 @@
 
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import PersonalCultoJournalPage from '../../../views/PersonalCultoJournalPage';
+import CultoPlusPageShell from '../../../components/CultoPlusPageShell';
 
 export default function Page() {
   return (
-    <ProtectedRoute>
-      <PersonalCultoJournalPage />
-    </ProtectedRoute>
+    <CultoPlusPageShell>
+      <ProtectedRoute><PersonalCultoJournalPage /></ProtectedRoute>
+    </CultoPlusPageShell>
   );
 }

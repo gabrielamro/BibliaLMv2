@@ -77,14 +77,27 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const isCustomHomeShell = location.pathname === '/';
     const isStandaloneNewHome = location.pathname === '/newhome';
     const isStandaloneChurchManagementShell = location.pathname.startsWith('/gestao-igreja');
-    const isStandalonePastoralWorkspaceShell = location.pathname.startsWith('/workspace-pastoral');
+    const isStandalonePastoralWorkspaceShell = location.pathname.startsWith('/workspace-pastoral')
+        || location.pathname === '/workspace'
+        || location.pathname === '/oracoes/gerenciar'
+        || location.pathname === '/acervo';
     const isStandalonePublicQrShell = location.pathname.startsWith('/qr/');
-    const isCultoPlusOnePage = location.pathname.startsWith('/culto/');
-    const isStandaloneBibleModuleShell = ['/bibliasagrada', '/biblia', '/devocional', '/oracoes', '/plano', '/quiz'].includes(location.pathname);
-    const isStandaloneSocialShell = ['/social', '/social/igrejas', '/social/explore'].includes(location.pathname);
-    const isStandaloneCreativeStudioShell = location.pathname === '/criar-arte-sacra';
+    const isCultoPlusOnePage = location.pathname === '/culto' || location.pathname.startsWith('/culto/');
+    const isStandaloneBibleModuleShell = ['/bibliasagrada', '/biblia', '/biblia-dashboard', '/devocional', '/oracoes', '/plano', '/quiz'].includes(location.pathname)
+        || location.pathname.startsWith('/estudos')
+        || location.pathname.startsWith('/jornada/')
+        || location.pathname.startsWith('/plano/')
+        || location.pathname.startsWith('/v/');
+    const isStandaloneSocialShell = ['/social', '/social/igrejas', '/social/explore'].includes(location.pathname)
+        || location.pathname.startsWith('/social/')
+        || location.pathname.startsWith('/u/')
+        || location.pathname.startsWith('/igreja/')
+        || location.pathname.startsWith('/grupo/')
+        || location.pathname.startsWith('/p/');
+    const isStandaloneCreativeStudioShell = ['/chat', '/criar-conteudo', '/criar-arte-sacra', '/criar-podcast', '/criar-sala'].includes(location.pathname);
+    const isStandalonePersonalShell = ['/perfil', '/minha-conta', '/rotina', '/historico', '/competicao', '/suporte', '/privacidade', '/termos', '/planos'].includes(location.pathname);
     const isImmersiveDevotional = location.pathname === '/devocional';
-    const isStandaloneCultoPlusShell = isStandaloneNewHome || isCultoPlusOnePage || location.pathname === '/meus-cultos' || isStandaloneBibleModuleShell || isStandaloneSocialShell || isStandaloneCreativeStudioShell || isStandaloneChurchManagementShell || isStandalonePastoralWorkspaceShell || isStandalonePublicQrShell;
+    const isStandaloneCultoPlusShell = isStandaloneNewHome || isCultoPlusOnePage || location.pathname.startsWith('/meus-cultos') || isStandaloneBibleModuleShell || isStandaloneSocialShell || isStandaloneCreativeStudioShell || isStandalonePersonalShell || isStandaloneChurchManagementShell || isStandalonePastoralWorkspaceShell || isStandalonePublicQrShell;
     const activeAppModule = getAppModuleForRoute(location.pathname, location.search);
 
     const rootPaths = [
@@ -155,7 +168,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         if (path === '/historico') return 'Minhas Atividades';
         if (path === '/pulpito') return 'Púlpito Digital';
         if (path === '/workspace-pastoral') return 'Workspace Pastoral';
-        return 'BíbliaLM';
+        return 'Culto+';
     };
     const pageTitle = getPageTitle();
 

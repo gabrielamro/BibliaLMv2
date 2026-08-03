@@ -808,7 +808,7 @@ const CreateRoomStudioPage: React.FC = () => {
     const shareUrl = getPlanShareUrl(planId, plan.shareSlug, window.location.origin);
     try {
       if (canSharePublishedRoom(plan) && navigator.share) {
-        await navigator.share({ title: plan.title || 'Sala BibliaLM', url: shareUrl });
+        await navigator.share({ title: plan.title || 'Sala Culto+', url: shareUrl });
       } else if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(shareUrl);
       }

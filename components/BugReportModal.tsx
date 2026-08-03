@@ -54,7 +54,7 @@ const BugReportModal: React.FC<BugReportModalProps> = ({ isOpen, onClose }) => {
           <div className="flex flex-col items-center justify-center py-10 text-green-600 animate-in zoom-in">
             <CheckCircle2 size={48} className="mb-2" />
             <p className="font-bold">Relatório enviado!</p>
-            <p className="text-xs text-gray-500">Obrigado por ajudar a melhorar o BíbliaLM.</p>
+            <p className="text-xs text-gray-500">Obrigado por ajudar a melhorar o Culto+.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">

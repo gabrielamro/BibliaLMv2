@@ -8,7 +8,6 @@ import { postInteractionService } from '../../services/postInteractionService';
 import { Post } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import SEO from '../../components/SEO';
-import SocialNavigation from '../../components/SocialNavigation';
 import { FeedPostCard } from '../../components/social/FeedPostCard';
 import PostCommentsSheet from '../../components/social/PostCommentsSheet';
 import { generateShareLink } from '../../utils/shareUtils';
@@ -77,7 +76,6 @@ const PostViewPage: React.FC = () => {
   return (
     <div data-module="kingdom" className="flex h-full min-h-0 flex-col bg-[#fdfbf7] dark:bg-[#0b0b0c]">
       <SEO title={post ? `${post.userDisplayName} no Reino` : 'Publicação | Culto+'} description={post?.content?.slice(0, 150)} image={post?.imageUrl} />
-      <SocialNavigation activeTab="feed" />
       <main id="post-main-content" className="flex-1 overflow-y-auto px-4 pb-24 pt-5 sm:px-6">
         <div className="mx-auto w-full max-w-[720px]">
           <button type="button" onClick={goBack} className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-bold text-gray-600 transition hover:bg-white dark:text-gray-300 dark:hover:bg-white/5"><ArrowLeft size={18} /> Voltar</button>

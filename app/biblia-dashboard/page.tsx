@@ -2,9 +2,10 @@
 
 import ProtectedRoute from '../../components/ProtectedRoute';
 import BibleDashboardPage from '../../views/BibleDashboardPage';
+import CultoPlusPageShell from '../../components/CultoPlusPageShell';
 
 export default function Page() {
   return (
-    <ProtectedRoute><BibleDashboardPage /></ProtectedRoute>
+    <CultoPlusPageShell><ProtectedRoute><BibleDashboardPage /></ProtectedRoute></CultoPlusPageShell>
   );
 }

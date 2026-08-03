@@ -8,7 +8,7 @@ const OUTPUT_PATH = path.join(CATALOG_DIR, 'flow.html');
 
 const SECTION_RULES = [
   { key: 'entry', title: 'Entrada e Onboarding', match: (r) => ['/', '/intro', '/intro-v2', '/login', '/landing/', '/apresentacao', '/complete-profile'].some((p) => r.route === p || r.route.startsWith(p)) },
-  { key: 'home', title: 'Home e Continuidade', match: (r) => ['/', '/inicio03', '/mockinicio1', '/mocsantuario', '/navegar'].some((p) => r.route === p) },
+  { key: 'home', title: 'Home e Continuidade', match: (r) => ['/', '/inicio03', '/navegar'].some((p) => r.route === p) },
   { key: 'study', title: 'Leitura e Estudos', match: (r) => ['/biblia', '/biblia-dashboard', '/estudos', '/estudo/', '/plano', '/plano/leitura', '/planos', '/devocional', '/quiz', '/rotina', '/trilhas', '/v/'].some((p) => r.route === p || r.route.startsWith(p)) },
   { key: 'create', title: 'Criação com IA', match: (r) => ['/chat', '/criar-', '/criador-', '/estudio-criativo', '/pulpito', '/workspace', '/faith-tech', '/fonte-conhecimento'].some((p) => r.route === p || r.route.startsWith(p)) },
   { key: 'community', title: 'Comunidade e Social', match: (r) => ['/social', '/igreja/', '/grupo/', '/oracoes', '/p/', '/s/'].some((p) => r.route === p || r.route.startsWith(p)) },

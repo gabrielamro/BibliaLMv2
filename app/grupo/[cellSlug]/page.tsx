@@ -1,7 +1,8 @@
 "use client";
 
 import CellForumPage from '../../../views/public/CellForumPage';
+import CultoPlusPageShell from '../../../components/CultoPlusPageShell';
 
 export default function Page() {
-  return <CellForumPage />;
+  return <CultoPlusPageShell><CellForumPage /></CultoPlusPageShell>;
 }

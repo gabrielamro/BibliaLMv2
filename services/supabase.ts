@@ -1410,14 +1410,14 @@ export const dbService = {
     },
 
     // ── PEDIDOS DE ORAÇÃO ────────────────────────────────────────────────────
-    addPrayerRequest: async (targetType: string, targetId: string, data: any): Promise<string> => {
+    addPrayerRequest: async (targetType: string, targetId: string | null | undefined, data: any): Promise<string> => {
         const basePayload: Record<string, any> = {
             user_id: data.userId,
             user_name: data.userName,
             user_photo_url: data.userPhotoURL ?? null,
             content: data.content,
             target_type: targetType,
-            target_id: targetId,
+            target_id: targetId ?? null,
             church_id: data.churchId ?? null,
             created_at: now()
         };
@@ -1444,9 +1444,10 @@ export const dbService = {
         if (error) throw toError('Erro ao criar pedido de oracao', error);
         return res.id;
     },
-    getPrayerRequests: async (targetType: string, targetId: string): Promise<PrayerRequest[]> => {
-        const { data, error } = await supabase.from('prayer_requests').select('*')
-            .eq('target_id', targetId).order('created_at', { ascending: false });
+    getPrayerRequests: async (targetType: string, targetId: string | null): Promise<PrayerRequest[]> => {
+        let query = supabase.from('prayer_requests').select('*').eq('target_type', targetType);
+        query = targetId ? query.eq('target_id', targetId) : query.is('target_id', null);
+        const { data, error } = await query.order('created_at', { ascending: false });
         if (error) throw toError('Erro ao carregar pedidos de oracao', error);
         return (data ?? []).map(mapPrayerRequest);
     },

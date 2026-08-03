@@ -34,13 +34,13 @@ const CultoPlusTopActions: React.FC<CultoPlusTopActionsProps> = ({
     <>
       <Link
         href={backHref}
-        className={`culto-top-back absolute z-20 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-900 shadow-lg transition hover:bg-white ${contained ? 'left-0 top-0' : 'left-5 top-5'}`}
+        className={`culto-top-back z-[70] inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-gray-900 shadow-lg transition hover:bg-white ${contained ? 'fixed left-4 top-[max(env(safe-area-inset-top),1rem)] md:absolute md:left-0 md:top-0' : 'absolute left-5 top-5'}`}
         aria-label="Voltar"
       >
         <ArrowLeft size={18} />
       </Link>
 
-      <div className={`culto-top-tools absolute z-20 flex items-center gap-2 ${contained ? 'right-0 top-0' : 'right-5 top-5'}`}>
+      <div className={`culto-top-tools z-[70] flex items-center gap-2 ${contained ? 'fixed right-4 top-[max(env(safe-area-inset-top),1rem)] md:absolute md:right-0 md:top-0' : 'absolute right-5 top-5'}`}>
         <button
           type="button"
           onClick={onNotify}

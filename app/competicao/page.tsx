@@ -2,9 +2,10 @@
 
 import ProtectedRoute from '../../components/ProtectedRoute';
 import ManaCompetitionPage from '../../views/ManaCompetitionPage';
+import CultoPlusPageShell from '../../components/CultoPlusPageShell';
 
 export default function Page() {
   return (
-    <ProtectedRoute><ManaCompetitionPage /></ProtectedRoute>
+    <CultoPlusPageShell><ProtectedRoute><ManaCompetitionPage /></ProtectedRoute></CultoPlusPageShell>
   );
 }

@@ -7,9 +7,9 @@ import SEO from '../components/SEO';
 import CultoPlusPageShell from '../components/CultoPlusPageShell';
 import { useAuth } from '../contexts/AuthContext';
 import { cultoPlusService, UserCheckedInService } from '../services/cultoPlusService';
-import { churchManagementService, UserCultoAssignment } from '../services/churchManagementService';
+import { churchManagementService, UserChurchMembership, UserCultoAssignment } from '../services/churchManagementService';
 import { personalServiceJournalService } from '../services/personalServiceJournalService';
-import { ChurchServiceStatus, ChurchServiceTeam, PersonalServiceJournal, type ChurchFormSubmission } from '../types';
+import { ChurchService, ChurchServiceStatus, ChurchServiceTeam, PersonalServiceJournal, type ChurchFormSubmission } from '../types';
 import { canAccessPastoralWorkspace } from '../utils/profileAccess';
 import PersonalCultosOperations from '../components/church-management/PersonalCultosOperations';
 
@@ -82,23 +82,27 @@ const MyCultosPage: React.FC = () => {
   const [cultoAssignments, setCultoAssignments] = useState<UserCultoAssignment[]>([]);
   const [userTeams, setUserTeams] = useState<ChurchServiceTeam[]>([]);
   const [submissions, setSubmissions] = useState<ChurchFormSubmission[]>([]);
+  const [upcomingChurchServices, setUpcomingChurchServices] = useState<ChurchService[]>([]);
+  const [churchMembership, setChurchMembership] = useState<UserChurchMembership | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<FilterMode>('all');
   const [search, setSearch] = useState('');
+  const [activeSummaryLabel, setActiveSummaryLabel] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
 
     const load = async () => {
       const userId = currentUser?.uid ?? currentUser?.id;
-      const churchId = userProfile?.churchData?.churchId;
       if (!userId) {
         setOfficialItems([]);
         setManualItems([]);
         setCultoAssignments([]);
         setUserTeams([]);
         setSubmissions([]);
+        setUpcomingChurchServices([]);
+        setChurchMembership(null);
         setLoading(false);
         return;
       }
@@ -106,12 +110,31 @@ const MyCultosPage: React.FC = () => {
       setLoading(true);
       setError('');
       try {
-        const [checkedInServices, journals, assignments, teams, memberSubmissions] = await Promise.all([
+        const profileChurchId = userProfile?.churchData?.churchId;
+        const persistedMembership = await churchManagementService.getUserChurchMembership(userId);
+        const resolvedMembership = persistedMembership ?? (profileChurchId
+          ? {
+              churchId: profileChurchId,
+              churchName: userProfile?.churchData?.churchName ?? null,
+              churchSlug: userProfile?.churchData?.churchSlug ?? null,
+            }
+          : null);
+        const churchId = resolvedMembership?.churchId;
+        const rangeStart = new Date();
+        const rangeEnd = new Date(rangeStart);
+        rangeEnd.setDate(rangeEnd.getDate() + 60);
+        const [checkedInServices, journals, assignments, teams, memberSubmissions, churchServices] = await Promise.all([
           cultoPlusService.getUserCheckedInServices(userId, 48),
           personalServiceJournalService.getJournalsByUser(userId, { limit: 48 }),
           churchId ? churchManagementService.listUserCultoAssignments(churchId, userId, 24) : Promise.resolve([]),
           churchId ? churchManagementService.listUserTeams(churchId, userId) : Promise.resolve([]),
           churchManagementService.listMemberSubmissions(userId, { limit: 30 }),
+          churchId ? cultoPlusService.getServicesByChurchRange(churchId, {
+            startDate: rangeStart.toISOString(),
+            endDate: rangeEnd.toISOString(),
+            status: ['published', 'checkin_open', 'live', 'in_progress'],
+            limit: 1,
+          }) : Promise.resolve([]),
         ]);
         if (active) {
           setOfficialItems(checkedInServices);
@@ -119,6 +142,8 @@ const MyCultosPage: React.FC = () => {
           setCultoAssignments(assignments);
           setUserTeams(teams);
           setSubmissions(memberSubmissions);
+          setUpcomingChurchServices(churchServices);
+          setChurchMembership(resolvedMembership);
         }
       } catch (err: any) {
         if (active) setError(err?.message || 'Nao foi possivel carregar seus cultos.');
@@ -159,6 +184,18 @@ const MyCultosPage: React.FC = () => {
       .filter(({ assignment }) => !assignment.startsAt || new Date(assignment.startsAt).getTime() >= recentThreshold)
       .slice(0, 4);
   }, [cultoAssignments]);
+
+  const summaryItems = [
+    { label: 'Próximas escalas', value: upcomingAssignments.length, icon: CalendarDays, tone: 'bg-blue-100 text-blue-700' },
+    { label: 'Aguardando aceite', value: cultoAssignments.filter(({ assignment }) => assignment.status === 'pending').length, icon: CheckCircle2, tone: 'bg-amber-100 text-amber-700' },
+    { label: 'Pedidos de voluntariado', value: submissions.filter((item) => item.formType === 'volunteer').length, icon: Users, tone: 'bg-violet-100 text-violet-700' },
+    { label: 'Equipes ativas', value: userTeams.length, icon: Users, tone: 'bg-cyan-100 text-cyan-700' },
+    { label: 'Cultos registrados', value: officialItems.length + manualItems.length, icon: FilePenLine, tone: 'bg-emerald-100 text-emerald-700' },
+  ];
+
+  const nextChurchService = useMemo(() => [...upcomingChurchServices]
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
+    [0] ?? null, [upcomingChurchServices]);
 
   return (
     <CultoPlusPageShell isPastor={canAccessPastoralWorkspace(userProfile)} userName={userProfile?.displayName || 'Membro'} avatar={userProfile?.photoURL}>
@@ -221,15 +258,65 @@ const MyCultosPage: React.FC = () => {
             </div>
           ) : (
             <>
-              <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                {[
-                  { label: 'Próximas escalas', value: upcomingAssignments.length, icon: CalendarDays, tone: 'bg-blue-100 text-blue-700' },
-                  { label: 'Aguardando aceite', value: cultoAssignments.filter(({ assignment }) => assignment.status === 'pending').length, icon: CheckCircle2, tone: 'bg-amber-100 text-amber-700' },
-                  { label: 'Pedidos de voluntariado', value: submissions.filter((item) => item.formType === 'volunteer').length, icon: Users, tone: 'bg-violet-100 text-violet-700' },
-                  { label: 'Equipes ativas', value: userTeams.length, icon: Users, tone: 'bg-cyan-100 text-cyan-700' },
-                  { label: 'Cultos registrados', value: officialItems.length + manualItems.length, icon: FilePenLine, tone: 'bg-emerald-100 text-emerald-700' },
-                ].map((summary) => { const Icon = summary.icon; return <div key={summary.label} className="flex items-center gap-4 rounded-2xl border border-[#e6e0d8] bg-[#fdfbf7] p-4 dark:border-white/10 dark:bg-white/[0.04]"><span className={`flex h-11 w-11 items-center justify-center rounded-xl ${summary.tone}`}><Icon size={20} /></span><span><strong className="block text-2xl font-black">{summary.value}</strong><small className="text-gray-500">{summary.label}</small></span></div>; })}
+              <div data-testid="cultos-mobile-summary" className="relative mb-6 grid grid-cols-5 rounded-2xl border border-[#e6e0d8] bg-[#fdfbf7] p-1.5 dark:border-white/10 dark:bg-white/[0.04] sm:hidden">
+                {summaryItems.map((summary, index) => {
+                  const Icon = summary.icon;
+                  const isOpen = activeSummaryLabel === summary.label;
+                  const tooltipPosition = index === 0 ? 'left-0' : index === summaryItems.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2';
+                  return (
+                    <button
+                      key={summary.label}
+                      type="button"
+                      aria-label={`${summary.label}: ${summary.value}`}
+                      aria-expanded={isOpen}
+                      onClick={() => setActiveSummaryLabel(isOpen ? null : summary.label)}
+                      className="module-focus group relative flex min-h-14 min-w-0 items-center justify-center gap-0.5 rounded-xl px-0.5 transition hover:bg-white focus-visible:bg-white dark:hover:bg-white/5 dark:focus-visible:bg-white/5"
+                    >
+                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${summary.tone}`}><Icon size={16} aria-hidden="true" /></span>
+                      <strong className="text-sm font-black text-gray-950 dark:text-white">{summary.value}</strong>
+                      <span role="tooltip" className={`pointer-events-none absolute bottom-[calc(100%+0.5rem)] z-30 hidden w-max max-w-40 rounded-lg bg-gray-950 px-2.5 py-1.5 text-center text-[10px] font-bold leading-4 text-white shadow-xl group-hover:block group-focus-visible:block ${isOpen ? '!block' : ''} ${tooltipPosition}`}>{summary.label}</span>
+                    </button>
+                  );
+                })}
               </div>
+
+              <div className="mb-6 hidden gap-3 sm:grid sm:grid-cols-2 xl:grid-cols-5">
+                {summaryItems.map((summary) => { const Icon = summary.icon; return <div key={summary.label} className="flex items-center gap-4 rounded-2xl border border-[#e6e0d8] bg-[#fdfbf7] p-4 dark:border-white/10 dark:bg-white/[0.04]"><span className={`flex h-11 w-11 items-center justify-center rounded-xl ${summary.tone}`}><Icon size={20} /></span><span><strong className="block text-2xl font-black">{summary.value}</strong><small className="text-gray-500">{summary.label}</small></span></div>; })}
+              </div>
+
+              <section data-testid="upcoming-church-services" aria-labelledby="upcoming-church-services-title" className="mb-7 rounded-[1.4rem] border border-emerald-100 bg-emerald-50/45 p-4 dark:border-emerald-400/15 dark:bg-emerald-500/[0.05] sm:p-5">
+                <div className="mb-4 flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">Na sua comunidade</p>
+                    <h2 id="upcoming-church-services-title" className="mt-1 text-lg font-black text-gray-950 dark:text-white">Próximo culto da sua igreja</h2>
+                  </div>
+                  <Link href="/culto" className="module-focus hidden min-h-11 items-center gap-1 rounded-xl px-3 text-xs font-bold text-emerald-800 hover:bg-white/70 dark:text-emerald-200 sm:inline-flex">Ver mais cultos <ArrowRight size={15} /></Link>
+                </div>
+
+                {nextChurchService ? (
+                  <div>
+                      <Link data-testid="next-church-service" href={`/culto/${nextChurchService.slug}`} className="module-focus group flex min-h-20 items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md dark:border-white/10 dark:bg-white/[0.05]">
+                        <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-emerald-100 text-emerald-900 dark:bg-emerald-400/15 dark:text-emerald-100">
+                          <strong className="text-base leading-none">{new Intl.DateTimeFormat('pt-BR', { day: '2-digit' }).format(new Date(nextChurchService.startsAt))}</strong>
+                          <small className="mt-1 text-[8px] font-black uppercase">{new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date(nextChurchService.startsAt)).replace('.', '')}</small>
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <strong className="block truncate text-sm text-gray-950 dark:text-white">{nextChurchService.title}</strong>
+                          <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">{formatServiceDate(nextChurchService.startsAt)}</span>
+                          <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[8px] font-black uppercase ${STATUS_STYLES[nextChurchService.status]}`}>{STATUS_LABELS[nextChurchService.status]}</span>
+                        </span>
+                        <ArrowRight size={16} className="shrink-0 text-emerald-700 transition group-hover:translate-x-0.5 dark:text-emerald-300" aria-hidden="true" />
+                      </Link>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-emerald-200 bg-white/70 px-4 py-5 text-center dark:border-emerald-400/20 dark:bg-white/[0.03]">
+                    <CalendarDays size={22} className="mx-auto text-emerald-700 dark:text-emerald-300" />
+                    <p className="mt-2 text-sm font-bold text-gray-800 dark:text-gray-200">{churchMembership?.churchId ? 'Nenhum próximo culto foi publicado pela igreja.' : 'Vincule-se a uma igreja para acompanhar a agenda.'}</p>
+                    <Link href={churchMembership?.churchSlug ? `/igreja/${churchMembership.churchSlug}` : '/social/igrejas'} className="module-focus mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-xs font-bold text-emerald-800 hover:bg-emerald-50 dark:text-emerald-200 dark:hover:bg-white/5">{churchMembership?.churchId ? 'Abrir página da igreja' : 'Encontrar uma igreja'} <ArrowRight size={15} /></Link>
+                  </div>
+                )}
+                <Link href="/culto" className="module-focus mt-3 flex min-h-11 items-center justify-center gap-2 rounded-xl text-xs font-bold text-emerald-800 hover:bg-white/70 dark:text-emerald-200 sm:hidden">Ver mais cultos <ArrowRight size={15} /></Link>
+              </section>
 
               <PersonalCultosOperations
                 assignments={cultoAssignments}

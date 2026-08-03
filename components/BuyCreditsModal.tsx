@@ -57,8 +57,8 @@ const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({ isOpen, onClose }) =>
     try {
       const email = currentUser?.email || 'user@biblialm.com';
       const description = getNumericDonation() > 0 
-        ? `BíbliaLM - ${activePackage.name} (+ Oferta)`
-        : `BíbliaLM - ${activePackage.name}`;
+        ? `Culto+ - ${activePackage.name} (+ Oferta)`
+        : `Culto+ - ${activePackage.name}`;
 
       const payment = await paymentService.createPayment(
         totalAmount,
@@ -206,7 +206,7 @@ const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({ isOpen, onClose }) =>
                             />
                         </div>
                         <p className="text-[10px] text-gray-400 mt-2 leading-tight">
-                            Esta oferta ajuda a manter os servidores da BíbliaLM ativos para todos.
+                            Esta oferta ajuda a manter os servidores do Culto+ ativos para todos.
                         </p>
                     </div>
 

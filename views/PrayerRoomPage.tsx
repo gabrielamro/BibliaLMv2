@@ -13,7 +13,6 @@ import {
   Loader2, Globe, Users, Church, Copy, Check
 } from 'lucide-react';
 import SEO from '../components/SEO';
-import SocialNavigation from '../components/SocialNavigation';
 
 const PrayerRoomPage: React.FC = () => {
   const { currentUser, userProfile, earnMana, showNotification } = useAuth();
@@ -51,7 +50,7 @@ const PrayerRoomPage: React.FC = () => {
           
           if (activeFilter === 'global') {
               // Fetch from dedicated prayer wall
-              data = await dbService.getPrayerRequests('global', 'global_wall'); 
+              data = await dbService.getPrayerRequests('global', null);
           } else if (activeFilter === 'church' && userProfile?.churchData?.churchId) {
                data = await dbService.getPrayerRequests('church', userProfile.churchData.churchId);
           } else if (activeFilter === 'cell' && userProfile?.churchData?.groupId) {
@@ -83,11 +82,11 @@ const PrayerRoomPage: React.FC = () => {
       if (!currentUser || !newRequest.trim()) return;
       setIsSubmitting(true);
       try {
-          const targetId = activeFilter === 'global' ? 'global_wall' : 
+          const targetId = activeFilter === 'global' ? null :
                            activeFilter === 'church' ? userProfile?.churchData?.churchId :
                            userProfile?.churchData?.groupId;
           
-          if (!targetId) throw new Error("Destino inválido");
+          if (activeFilter !== 'global' && !targetId) throw new Error("Destino inválido");
 
           await dbService.addPrayerRequest(activeFilter, targetId, {
               userId: currentUser.uid,
@@ -95,7 +94,7 @@ const PrayerRoomPage: React.FC = () => {
               userPhotoURL: userProfile?.photoURL,
               content: newRequest,
               targetType: activeFilter,
-              targetId: targetId,
+              targetId,
               createdAt: new Date().toISOString(),
               intercessorsCount: 0,
               intercessors: []
@@ -137,14 +136,14 @@ const PrayerRoomPage: React.FC = () => {
   };
 
   return (
-    <div className="h-full bg-gray-50 dark:bg-black/20 overflow-y-auto flex flex-col">
+    <div data-testid="kingdom-prayer-room" className="module-soft-surface flex h-full flex-col overflow-y-auto">
         <SEO title="Sala de Oração" />
         
         {/* Header (Removido para usar o global) */}
-        <div className="bg-bible-leather dark:bg-black text-white p-8 pb-16 relative overflow-hidden shrink-0">
+        <div className="module-gradient relative shrink-0 overflow-hidden p-8 pb-16 text-white">
              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20"></div>
              <div className="relative z-10 flex flex-col items-center text-center">
-                 <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-4 backdrop-blur-md text-bible-gold">
+                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 text-white backdrop-blur-md">
                      <HandHeart size={32} />
                  </div>
                  <p className="text-white/80 text-sm max-w-md">"Orai uns pelos outros, para que sareis." (Tiago 5:16)</p>
@@ -154,7 +153,7 @@ const PrayerRoomPage: React.FC = () => {
         <div className="flex-1 -mt-8 px-4 md:px-8 pb-24 max-w-4xl mx-auto w-full">
             
             {/* Input Box */}
-            <div className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] shadow-xl border border-gray-100 dark:border-gray-800 mb-8">
+            <div className="kingdom-paper-card mb-8 rounded-[1.5rem] border border-[var(--module-border)] bg-white p-6 shadow-xl dark:bg-[#171219]">
                 <textarea 
                     value={newRequest}
                     onChange={e => setNewRequest(e.target.value)}
@@ -187,7 +186,7 @@ const PrayerRoomPage: React.FC = () => {
                     <button 
                         onClick={handleSubmit} 
                         disabled={!newRequest.trim() || isSubmitting}
-                        className="bg-bible-gold text-white px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
+                        className="module-focus module-gradient flex min-h-11 items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white shadow-md transition-all hover:opacity-90 disabled:opacity-50"
                     >
                         {isSubmitting ? <Loader2 size={14} className="animate-spin"/> : <Send size={14}/>} Orar
                     </button>
@@ -222,7 +221,7 @@ const PrayerRoomPage: React.FC = () => {
             ) : (
                 <div className="space-y-4">
                     {prayers.map(prayer => (
-                        <div key={prayer.id} className="bg-white dark:bg-bible-darkPaper p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm">
+                        <article key={prayer.id} className="kingdom-paper-card rounded-[1.5rem] border border-[var(--module-border)] bg-white p-6 shadow-sm dark:bg-[#171219]">
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                                     {prayer.userPhotoURL ? <img src={prayer.userPhotoURL} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center font-bold text-gray-400 text-xs">{prayer.userName?.substring(0,1)}</div>}
@@ -247,13 +246,12 @@ const PrayerRoomPage: React.FC = () => {
                                     {prayer.targetType === 'global' ? 'Mural Global' : 'Comunidade'}
                                 </span>
                             </div>
-                        </div>
+                        </article>
                     ))}
                 </div>
             )}
 
         </div>
-        <SocialNavigation activeTab="feed" />
     </div>
   );
 };

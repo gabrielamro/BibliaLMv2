@@ -768,8 +768,8 @@ const ChurchProfilePage: React.FC = () => {
   if (!church) return <div className="h-screen flex flex-col items-center justify-center p-6 text-center"><h2 className="text-xl font-bold">Igreja não encontrada</h2><button onClick={() => navigate(`${basePath}/explorar`)} className="mt-4 text-bible-gold font-bold">Voltar</button></div>;
 
   return (
-    <div className="h-full bg-gray-50 dark:bg-black/20 overflow-y-auto">
-        <SEO title={church.name} description={`Comunidade ${church.name} no BíbliaLM.`} />
+    <div data-testid="kingdom-church-profile" className="module-soft-surface h-full overflow-y-auto">
+        <SEO title={church.name} description={`Comunidade ${church.name} no Culto+.`} />
         
         <div className="relative h-48 overflow-hidden bg-[#3d2b25] md:h-64">
             {church.logoUrl ? (
@@ -920,7 +920,7 @@ const ChurchProfilePage: React.FC = () => {
                 </div>
             </div>
             {visibleServices.length > 0 && (
-                <div className="mb-8 overflow-hidden rounded-[2rem] border border-emerald-100 bg-white shadow-sm dark:border-emerald-900/40 dark:bg-bible-darkPaper">
+                <div className="mb-8 overflow-hidden rounded-[1.5rem] border border-[var(--module-border)] bg-white shadow-sm dark:bg-[#171219]">
                     <div className="h-1.5 bg-gradient-to-r from-[#073b35] via-[#0f5d51] to-[#d8b15f]" />
                     <div className="p-5">
                         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -988,11 +988,11 @@ const ChurchProfilePage: React.FC = () => {
             )}
 
             <div className="flex bg-white dark:bg-bible-darkPaper p-1.5 rounded-[1.5rem] border border-gray-100 dark:border-gray-800 mb-8 shadow-sm overflow-x-auto no-scrollbar">
-                <button onClick={() => setActiveTab('mural')} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'mural' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><MessageSquareHeart size={16} /> Mural</button>
-                <button onClick={() => setActiveTab('cultos')} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'cultos' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><Calendar size={16} /> Cultos</button>
-                <button onClick={() => setActiveTab('groups')} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'groups' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><Boxes size={16} /> Grupos</button>
-                <button onClick={() => setActiveTab('about')} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'about' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><Info size={16} /> Sobre</button>
-                {isMember && <button onClick={() => setActiveTab('members')} className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'members' ? 'bg-bible-gold text-white shadow-md' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}><Users size={16} /> Membros</button>}
+                <button onClick={() => setActiveTab('mural')} className={`module-focus flex min-h-11 min-w-[100px] flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition-all ${activeTab === 'mural' ? 'module-gradient text-white shadow-md' : 'module-nav-link text-gray-500'}`}><MessageSquareHeart size={16} /> Mural</button>
+                <button onClick={() => setActiveTab('cultos')} className={`module-focus flex min-h-11 min-w-[100px] flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition-all ${activeTab === 'cultos' ? 'module-gradient text-white shadow-md' : 'module-nav-link text-gray-500'}`}><Calendar size={16} /> Cultos</button>
+                <button onClick={() => setActiveTab('groups')} className={`module-focus flex min-h-11 min-w-[100px] flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition-all ${activeTab === 'groups' ? 'module-gradient text-white shadow-md' : 'module-nav-link text-gray-500'}`}><Boxes size={16} /> Grupos</button>
+                <button onClick={() => setActiveTab('about')} className={`module-focus flex min-h-11 min-w-[100px] flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition-all ${activeTab === 'about' ? 'module-gradient text-white shadow-md' : 'module-nav-link text-gray-500'}`}><Info size={16} /> Sobre</button>
+                {isMember && <button onClick={() => setActiveTab('members')} className={`module-focus flex min-h-11 min-w-[100px] flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition-all ${activeTab === 'members' ? 'module-gradient text-white shadow-md' : 'module-nav-link text-gray-500'}`}><Users size={16} /> Membros</button>}
             </div>
 
             {isServiceCalendarOpen && (

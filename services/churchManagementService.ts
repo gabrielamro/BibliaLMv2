@@ -101,6 +101,12 @@ export type UserCultoAssignment = {
   team: ChurchServiceTeam | null;
 };
 
+export type UserChurchMembership = {
+  churchId: string;
+  churchName: string | null;
+  churchSlug: string | null;
+};
+
 export type ChurchGroupFollowUpResult = {
   groupsChecked: number;
   pendingInvites: number;
@@ -651,6 +657,31 @@ const awardAssignmentAcceptanceRecognition = async (assignment: ChurchAssignment
 };
 
 export const churchManagementService = {
+  getUserChurchMembership: async (userId: string): Promise<UserChurchMembership | null> => {
+    const { data: membership, error: membershipError } = await supabase
+      .from('memberships')
+      .select('church_id, joined_at')
+      .eq('user_id', userId)
+      .order('joined_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (membershipError) throw new Error(`Erro ao carregar vinculo com a igreja. ${formatSupabaseError(membershipError)}`);
+    if (!membership?.church_id) return null;
+
+    const { data: church, error: churchError } = await supabase
+      .from('churches')
+      .select('id, name, slug')
+      .eq('id', membership.church_id)
+      .maybeSingle();
+    if (churchError) throw new Error(`Erro ao carregar igreja do membro. ${formatSupabaseError(churchError)}`);
+
+    return {
+      churchId: membership.church_id,
+      churchName: church?.name ?? null,
+      churchSlug: church?.slug ?? null,
+    };
+  },
+
   getSettings: async (churchId: string): Promise<ChurchManagementSettings> => {
     try {
       const { data, error } = await supabase

@@ -278,6 +278,15 @@ const Reader: React.FC = () => {
     setViewMode('reader');
   };
 
+  const handleBackToLibrary = () => {
+    setActiveTrack(null);
+    setTargetVerses([]);
+    setSelectedVerses([]);
+    setViewMode('library');
+    // O livro e o capítulo identificam somente o leitor; a biblioteca usa sua URL canônica.
+    navigate('/bibliasagrada', { replace: true });
+  };
+
   // MOCK: Heatmap de versículos populares (Simula que os versículos 1, 4 e 7 são muito lidos/marcados)
   const popularVersesMock = [1, 4, 7];
 
@@ -302,11 +311,7 @@ const Reader: React.FC = () => {
           setCurrentChapterNum={setCurrentChapterNum}
           selectedVerses={selectedVerses}
           setSelectedVerses={setSelectedVerses}
-          onBackToLibrary={() => {
-            setActiveTrack(null);
-            setTargetVerses([]);
-            setViewMode('library');
-          }}
+          onBackToLibrary={handleBackToLibrary}
           onToggleNarration={toggleNarrationPlayPause}
           isNarrationPlaying={isNarrationPlaying}
           onGenerateChapterPodcast={() => generatePodcast(currentBookMetadata.name, chapterContent?.verses.map(v => v.text).join(' ') || '')}

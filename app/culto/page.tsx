@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { ArrowLeft, Radio, Search, Sparkles } from 'lucide-react';
+import CultoPlusPageShell from '../../components/CultoPlusPageShell';
 
 export default function Page() {
   return (
-    <main className="min-h-screen bg-[#f4fbf8] text-gray-950 dark:bg-black dark:text-white">
+    <CultoPlusPageShell><main className="min-h-full bg-[var(--module-soft)] text-gray-950 dark:bg-black dark:text-white">
       <section className="relative overflow-hidden bg-[#073b35] text-white">
         <div className="absolute inset-0 bg-gradient-to-br from-[#073b35] via-[#0f5d51] to-[#d8b15f]" />
         <div className="relative mx-auto flex min-h-[520px] max-w-6xl flex-col justify-between px-5 py-8 md:px-8">
@@ -39,6 +40,6 @@ export default function Page() {
           </div>
         </div>
       </section>
-    </main>
+    </main></CultoPlusPageShell>
   );
 }

@@ -25,6 +25,12 @@ As mensagens de commit devem ser semanticas:
 
 | DATA | TIPO | ARQUIVO(S) | DESCRICAO CURTA | Arquiteto |
 | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-02 | refactor | app/, components/, views/, services/supabase.ts, tests/ | Template Culto+ consolidado, rotas canonicas, marca unificada e mural global corrigido - v2.10.0 | Codex |
+| 2026-08-01 | fix | services/churchManagementService.ts, views/MyCultosPage.tsx, tests/myCultosMobileExperience.test.ts | Proximo culto usa membership persistida e exibe somente a ocorrencia mais proxima - v2.9.4 | Codex |
+| 2026-08-01 | fix | components/MobileBottomNav.tsx, tests/kingdomRoadmapUi.test.ts | Destaque premium da barra inferior acompanha exclusivamente a pagina ativa - v2.9.3 | Codex |
+| 2026-08-01 | refactor | views/MyCultosPage.tsx, tests/myCultosMobileExperience.test.ts | Indicadores mobile compactos e proximos cultos publicados da igreja - v2.9.2 | Codex |
+| 2026-08-01 | refactor | components/MobileBottomNav.tsx, views/social/SocialFeedPage.tsx, components/social/FeedPostCard.tsx, tests/ | Navegacao mobile unificada e Trama Viva replicada no feed em telas pequenas - v2.9.1 | Codex |
+| 2026-07-31 | refactor | views/social/, components/social/, services/kingdomPathService.ts, app/globals.css, tests/ | Feed editorial com dobra de folha, passagem contextual e jornada real de culto, escala, oracao e estudo - v2.9.0 | Codex |
 | 2026-07-31 | refactor | views/social/, components/social/, views/public/, services/postInteractionService.ts, services/churchGroupService.ts, supabase/migrations/, tests/ | Trama Viva aplicada, Caderno contextual, interacoes persistentes e rotas canonicas - v2.8.9 | Codex |
 | 2026-07-31 | refactor | views/social/SocialFeedPage.tsx, components/social/, views/public/ChurchProfilePage.tsx, views/public/CellForumPage.tsx, tests/kingdomRoadmapUi.test.ts | Reino Trama Viva, Caderno de Partilha acessivel e tabs editoriais de igreja/grupo - v2.8.7 | Codex |
 | 2026-07-31 | refactor | views/public/ChurchProfilePage.tsx, views/public/CellForumPage.tsx, services/churchGroupService.ts, utils/churchGroupRules.ts, supabase/migrations/, tests/ | Igrejas e grupos com capabilities por papel/escopo, privacidade e navegacao canonica - v2.8.6 | Codex |

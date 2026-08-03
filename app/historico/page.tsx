@@ -2,9 +2,10 @@
 
 import ProtectedRoute from '../../components/ProtectedRoute';
 import TimelinePage from '../../views/TimelinePage';
+import CultoPlusPageShell from '../../components/CultoPlusPageShell';
 
 export default function Page() {
   return (
-    <ProtectedRoute><TimelinePage /></ProtectedRoute>
+    <CultoPlusPageShell><ProtectedRoute><TimelinePage /></ProtectedRoute></CultoPlusPageShell>
   );
 }

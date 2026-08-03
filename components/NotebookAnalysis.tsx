@@ -417,7 +417,7 @@ const NotebookAnalysis: React.FC = () => {
                             </div>
 
                             <div className="bg-gray-50 dark:bg-black/40 p-6 text-center text-xs text-gray-400 border-t border-gray-100 dark:border-gray-800">
-                                Gerado por BíbliaLM • {new Date().toLocaleDateString()}
+                                Gerado por Culto+ • {new Date().toLocaleDateString()}
                             </div>
                         </div>
                     ) : (

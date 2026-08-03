@@ -29,7 +29,6 @@ import {
   type StudyAIProposal,
 } from '../components/study-studio';
 import SEO from '../components/SEO';
-import SocialNavigation from '../components/SocialNavigation';
 import RichTextEditor from '../components/RichTextEditor';
 import { BIBLE_BOOKS_LIST } from '../constants';
 import {

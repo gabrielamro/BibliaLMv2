@@ -153,7 +153,7 @@ const PublicStudyPage: React.FC = () => {
                             </div>
                             <div>
                                 <h2 className="text-3xl md:text-5xl font-serif font-bold mb-4 leading-tight">Mergulhe mais fundo na Palavra</h2>
-                                <p className="text-gray-400 text-lg leading-relaxed">Junte-se a nós no BíbliaLM. Utilize Inteligência Artificial para enriquecer sua jornada espiritual.</p>
+                                <p className="text-gray-400 text-lg leading-relaxed">Junte-se a nós no Culto+. Utilize Inteligência Artificial para enriquecer sua jornada espiritual.</p>
                             </div>
                             <button onClick={() => navigate('/login')} className="px-10 py-4 bg-bible-gold text-bible-leather font-black uppercase tracking-[0.2em] rounded-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 mx-auto">
                                 Começar Grátis <ArrowRight size={18}/>

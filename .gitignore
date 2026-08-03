@@ -65,3 +65,5 @@ playwright-report/
 scratch/
 scratch_test.mjs
 deploy-debug.txt
+
+.vercel

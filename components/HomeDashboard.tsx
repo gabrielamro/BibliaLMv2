@@ -628,7 +628,7 @@ const HomeDashboard: React.FC = () => {
                             <button onClick={() => navigate('/termos')} className="hover:text-bible-gold">Termos</button>
                             <button onClick={() => navigate('/privacidade')} className="hover:text-bible-gold">Privacidade</button>
                             <button onClick={() => navigate('/suporte')} className="hover:text-bible-gold">Suporte</button>
-                            <span>© 2024 BíbliaLM</span>
+                            <span>© 2026 Culto+</span>
                         </div>
 
                     </div>

@@ -4,6 +4,69 @@
 > **VERSION SYNC:** Lembre-se de atualizar `constants.ts`, `_ARCHITECTURE.md` e `_PROJECT_CONTEXT.md` ao mudar a versão aqui.
 > **GIT SYNC:** Após atualizar este arquivo, o Arquiteto deve executar `git commit` com a mensagem do release.
 
+## [v2.10.0] - 2026-08-02 (Template Culto+ consolidado)
+### Tipo: Refactor / UI / UX / Navegação
+- **Retorno limpo da leitura:** ao voltar de um livro ou versículo, a biblioteca remove os parâmetros de livro e capítulo e restaura `/bibliasagrada`.
+- **Biblioteca mais direta:** removido o cabeçalho redundante “Livros da Bíblia”; filtros e grade aparecem imediatamente, com reset compacto quando necessário.
+- **Culto ao vivo mobile:** o contador original recebe o relógio ao lado; menu superior persistente e dois botões flutuantes organizam funcionalidades e interações sob demanda.
+- **Página do culto mais objetiva:** blocos redundantes de momento atual, modo ao vivo, reações e versículo-chave saem da área inferior; a publicação no Reino passa para um terceiro botão flutuante com compositor próprio.
+- **Retorno ao culto:** depois de abrir um culto em andamento, o destino `Cultos` recebe um indicador de play e retorna diretamente à experiência ativa.
+- **Partilha rolável:** o compositor passa a usar a altura visual do dispositivo e uma única região de rolagem no mobile.
+- **Home canônica:** `/` e `/inicio03` convergem para a Home Culto+, eliminando experiências concorrentes.
+- **Reino completo:** igreja, grupo, post, oração, artigos e perfis passam a usar o shell oficial, tokens do Reino e navegação unificada.
+- **Folha editorial:** oração e superfícies comunitárias recebem o detalhe visual de página sem interceptar ações.
+- **Cultos e estudos:** registro pessoal de culto, dashboard bíblico, biblioteca, jornadas e leitores passam a herdar o shell do módulo correto.
+- **Criação consolidada:** `/criar-estudo` converge para o Estúdio da Palavra; podcast, sala e chat entram nos shells de criação ou pastoral.
+- **Identidade:** metadados, compartilhamentos e superfícies ativas adotam Culto+ como marca principal.
+- **Oração global corrigida:** o mural global usa `target_type = global` e `target_id` nulo, respeitando o contrato UUID e as políticas de audiência.
+- **Protótipos removidos:** as rotas de demonstração `/mockinicio1` e `/mocsantuario` deixam de fazer parte da aplicação.
+- **Catálogo futuro consistente:** os geradores do mapa visual não classificam nem publicam novamente essas rotas removidas.
+- **Validação:** TypeScript, testes estruturais, suíte do Reino e inspeção responsiva em desktop/mobile aprovados.
+
+## [v2.9.4] - 2026-08-01 (Próximo culto usa o vínculo real do membro)
+### Tipo: Fix / UI / UX / Cultos
+- **Vínculo confiável:** `/meus-cultos` consulta a associação persistida em `memberships`, com o resumo do perfil apenas como fallback.
+- **Próximo culto visível:** a agenda utiliza a igreja efetivamente vinculada ao usuário e busca o culto publicado mais próximo nos próximos 60 dias.
+- **Conteúdo objetivo:** somente um culto aparece no bloco; os demais permanecem acessíveis em `Ver mais cultos`.
+- **Estado vazio correto:** a orientação para vincular-se a uma igreja só aparece quando não existe associação real.
+- **Validação:** testes específicos e TypeScript aprovados.
+
+## [v2.9.3] - 2026-08-01 (Destaque móvel acompanha a página ativa)
+### Tipo: Fix / UI / UX / Navegação
+- **Premium contextual:** o botão elevado passa a ser determinado por `aria-current="page"`, não pela identidade fixa do Reino.
+- **Estados consistentes:** Início, Bíblia, Reino, Cultos e Perfil recebem o mesmo tratamento quando suas rotas estão ativas.
+- **Identidade por módulo:** o gradiente do destaque consome os tokens visuais da página atual.
+- **Validação:** Reino, Bíblia e Cultos verificados no navegador; 12 testes do Reino, TypeScript e build de produção aprovados sem erros no console.
+
+## [v2.9.2] - 2026-08-01 (Meus Cultos compacto e agenda da igreja)
+### Tipo: Refactor / UI / UX / Cultos
+- **Resumo em uma linha:** os cinco indicadores pessoais cabem em uma única faixa no mobile, mantendo apenas ícone e valor visíveis.
+- **Rótulos sob demanda:** cada indicador comunica seu significado por nome acessível e tooltip acionado por hover, foco ou toque.
+- **Agenda da igreja:** `/meus-cultos` consulta os próximos 60 dias e mostra cultos publicados, com data, horário, estado e acesso à OnePage.
+- **Contexto preservado:** cultos futuros da igreja complementam, sem misturar, o histórico pessoal de check-ins e registros manuais.
+- **Estados vazios:** pessoas sem igreja recebem acesso à descoberta; igrejas sem programação publicada recebem orientação explícita.
+- **Validação:** 2 testes específicos, TypeScript e build de produção aprovados.
+
+## [v2.9.1] - 2026-08-01 (Reino móvel e navegação principal unificada)
+### Tipo: Refactor / UI / UX / Navegação
+- **Cinco destinos estáveis:** a barra inferior usa `Início`, `Bíblia`, `Reino`, `Cultos` e `Perfil` em todas as páginas pessoais.
+- **Reino central:** o acesso social recebe o gesto visual de página/partilha, gradiente Culto+ e posição central sem alterar sua rota canônica.
+- **Contexto no lugar certo:** igreja, orações e comunidade passam para uma faixa própria do feed; descoberta e grupos continuam disponíveis dentro do módulo.
+- **Trama Viva mobile:** linha da comunidade, avatar externo e tipo editorial na margem aproximam os cards do conceito visual aprovado.
+- **Conteúdo prioritário:** Pulso do Reino deixa a primeira dobra do celular, enquanto `Seu caminho` permanece disponível como painel expansível.
+- **Acessibilidade:** destinos possuem nome acessível, estado `aria-current`, alvos de toque amplos e área segura inferior.
+- **Validação:** 12 testes do Reino, TypeScript e inspeção visual em 390×844 aprovados sem overflow horizontal.
+
+## [v2.9.0] - 2026-07-31 (Reino editorial e jornada contextual)
+### Tipo: Refactor / UI / UX / Conteúdo
+- **Cards em folha:** toda publicação recebe uma dobra editorial inferior com variação visual para conteúdo da igreja, sem bloquear as ações do card.
+- **Reflexão enriquecida:** a passagem escolhida no Caderno de Partilha é preservada no payload e exibida em um painel bíblico próprio na publicação.
+- **Contexto explícito:** o cabeçalho do post informa tipo e audiência, mantendo autoria, destino e motivo de recomendação compreensíveis.
+- **Seu caminho real:** a lateral combina próximo culto, convite ou compromisso de escala, oração da comunidade, estudo salvo, publicações salvas e acesso à igreja.
+- **Responsividade:** o trilho permanece fixo no desktop e vira uma seção expansível no celular, sem rolagem horizontal nem duplicação de conteúdo.
+- **Resiliência:** fontes independentes usam carregamento parcial; a falha de um detalhe não impede a exibição dos demais.
+- **Validação:** 11 testes do Reino, TypeScript e inspeção visual em desktop e mobile aprovados.
+
 ## [v2.8.9] - 2026-07-31 (Trama Viva aplicada e Caderno contextual)
 ### Tipo: Refactor / UI / UX / Navegação
 - **Feed alinhado aos mockups:** hierarquia editorial, Fio da Comunhão, cards em formato de página/conversa e título curto do Reino.
@@ -789,3 +852,9 @@
 - **Menu único em Igrejas:** `/social/igrejas` agora é reconhecida como página com shell próprio, impedindo a renderização simultânea dos menus legado e Culto+.
 - **Explorar integrado ao Reino:** a busca global e os atalhos de descoberta agora usam o shell Culto+, identidade roxo/fúcsia, cards responsivos e um Espaço + reorganizado.
 - **Cabeçalhos compactos no Reino:** Feed, Igrejas e Explorar agora usam faixas reduzidas, com títulos objetivos e menos informação introdutória para priorizar o conteúdo.
+- **Logo adaptativa:** os shells do Culto+ agora exibem automaticamente a versão clara da marca no modo escuro e preservam a logo original no tema claro.
+- **Logos sem moldura:** as versões clara e escura da marca foram recortadas, receberam fundo transparente e agora aparecem sem blocos branco ou preto ao redor.
+- **Cache da logo corrigido:** o componente passou a usar novos arquivos transparentes versionados por nome, impedindo que o navegador reutilize a antiga imagem escura com fundo preto.
+- **Menus recolhíveis em todo o sistema:** NewHome, módulos pessoais, menu legado, Gestão e Workspace Pastoral agora compartilham um controle pequeno para esconder ou expandir a navegação, com preferência persistida.
+- **Biblioteca mais objetiva:** a área “Sua jornada hoje” foi removida da Bíblia Sagrada e os filtros Antigo Testamento, Novo Testamento e Bíblia Católica agora aparecem em linha como pequenas Bíblias.
+- **Loading bíblico transparente:** o leitor deixou de usar “Inspirando conteúdo” e agora informa o livro e o capítulo que estão sendo carregados da versão bíblica selecionada.

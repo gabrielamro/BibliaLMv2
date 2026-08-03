@@ -1,9 +1,12 @@
 "use client";
 
 import PublicUserProfilePage from '../../../views/public/PublicUserProfilePage';
+import CultoPlusPageShell from '../../../components/CultoPlusPageShell';
 
 export default function Page() {
   return (
-    <PublicUserProfilePage />
+    <CultoPlusPageShell>
+      <PublicUserProfilePage />
+    </CultoPlusPageShell>
   );
 }

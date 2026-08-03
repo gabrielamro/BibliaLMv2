@@ -1,5 +1,4 @@
-import { notFound } from 'next/navigation';
-import PublicUserProfilePage from '../../views/public/PublicUserProfilePage';
+import { notFound, redirect } from 'next/navigation';
 
 const REMOVED_ROUTE_SLUGS = new Set([
   'fonte-conhecimento',
@@ -20,7 +19,5 @@ export default async function Page({ params }: PageProps) {
     notFound();
   }
 
-  return (
-    <PublicUserProfilePage />
-  );
+  redirect(`/u/${encodeURIComponent(resolvedParams.username)}`);
 }

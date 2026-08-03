@@ -6,7 +6,6 @@ import { SavedStudy, CustomPlan, Track } from '../types';
 import { Loader2, TrendingUp, Clock, Globe, ArrowLeft, BookOpen, Layers, Map } from 'lucide-react';
 import StandardCard from '../components/ui/StandardCard';
 import SEO from '../components/SEO';
-import SocialNavigation from '../components/SocialNavigation';
 import { useHeader } from '../contexts/HeaderContext';
 
 type ContentType = 'all' | 'article' | 'plan' | 'track';
@@ -91,7 +90,7 @@ const CommunityArticlesPage: React.FC = () => {
                         type: 'track',
                         title: t.title,
                         subtitle: t.description || 'Trilha de Leitura',
-                        author: t.generatedBy === 'ai' ? 'BíbliaLM AI' : 'Comunidade', // Adjust author logic
+                        author: t.generatedBy === 'ai' ? 'Culto+ IA' : 'Comunidade',
                         createdAt: t.createdAt,
                         engagement: 0, // Tracks might not have an engagement metric yet
                         original: t
@@ -152,11 +151,11 @@ const CommunityArticlesPage: React.FC = () => {
     ];
 
     return (
-        <div className="h-full bg-gray-50 dark:bg-black/20 overflow-y-auto flex flex-col">
+        <div data-testid="kingdom-library" className="module-soft-surface flex h-full flex-col overflow-y-auto">
             <SEO title="Biblioteca Global" />
 
             {/* Header / Filtros */}
-            <div className="pt-6 pb-4 px-6 md:px-12 bg-white dark:bg-bible-darkPaper border-b border-gray-100 dark:border-gray-800 shrink-0 relative z-10">
+            <div className="relative z-10 shrink-0 border-b border-[var(--module-border)] bg-white/90 px-6 pb-4 pt-6 backdrop-blur md:px-12 dark:bg-[#171219]/90">
                 <div className="max-w-6xl mx-auto">
                     <div className="flex flex-col gap-4">
                         {/* Content Type Tabs */}
@@ -166,7 +165,7 @@ const CommunityArticlesPage: React.FC = () => {
                                     key={tab.id}
                                     onClick={() => setTypeFilter(tab.id as ContentType)}
                                     className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-all ${typeFilter === tab.id
-                                        ? 'bg-gray-900 dark:bg-white text-white dark:text-black shadow-md'
+                                        ? 'module-gradient text-white shadow-md'
                                         : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
                                         }`}
                                 >
@@ -179,13 +178,13 @@ const CommunityArticlesPage: React.FC = () => {
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setSortFilter('recent')}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${sortFilter === 'recent' ? 'bg-bible-gold text-white shadow-md' : 'border border-gray-200 dark:border-gray-800 bg-transparent text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}
+                                className={`module-focus flex min-h-11 items-center gap-2 rounded-xl px-4 text-xs font-bold transition-all ${sortFilter === 'recent' ? 'module-gradient text-white shadow-md' : 'border border-[var(--module-border)] bg-transparent text-gray-500'}`}
                             >
                                 <Clock size={14} /> Recentes
                             </button>
                             <button
                                 onClick={() => setSortFilter('popular')}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${sortFilter === 'popular' ? 'bg-bible-gold text-white shadow-md' : 'border border-gray-200 dark:border-gray-800 bg-transparent text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}
+                                className={`module-focus flex min-h-11 items-center gap-2 rounded-xl px-4 text-xs font-bold transition-all ${sortFilter === 'popular' ? 'module-gradient text-white shadow-md' : 'border border-[var(--module-border)] bg-transparent text-gray-500'}`}
                             >
                                 <TrendingUp size={14} /> Populares
                             </button>
@@ -197,7 +196,7 @@ const CommunityArticlesPage: React.FC = () => {
             <div className="flex-1 p-6 md:p-12 overflow-y-auto w-full relative">
                 <div className="max-w-6xl mx-auto">
                     {loading ? (
-                        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-bible-gold" size={40} /></div>
+                        <div className="flex justify-center py-20"><Loader2 className="module-accent-text animate-spin" size={40} /></div>
                     ) : filteredAndSortedItems.length === 0 ? (
                         <div className="text-center py-20 bg-white dark:bg-bible-darkPaper rounded-3xl border border-dashed border-gray-200 dark:border-gray-800">
                             <BookOpen size={48} className="mx-auto text-gray-300 mb-4" />
@@ -228,7 +227,6 @@ const CommunityArticlesPage: React.FC = () => {
                 <div className="h-24 md:h-12"></div>
             </div>
 
-            <SocialNavigation activeTab="explore" />
         </div>
     );
 };

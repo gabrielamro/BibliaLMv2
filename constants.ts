@@ -1,7 +1,7 @@
 
 import type { Book, Devotional, SubscriptionPlan, Badge, QuizQuestion, ReadingTrack, GuidedPrayer } from './types';
 
-export const SYSTEM_VERSION = "2.8.9";
+export const SYSTEM_VERSION = "2.10.0";
 export const DEFAULT_FONT_SIZE = 3;
 
 export { APP_MODULES, APP_MODULE_ROUTE_RULES } from './moduleThemes';

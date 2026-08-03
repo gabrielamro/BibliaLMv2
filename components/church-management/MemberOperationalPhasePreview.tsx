@@ -221,7 +221,7 @@ function renderBadges(badges: ChurchVolunteerBadge[]) {
             <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-950 text-white dark:bg-white dark:text-slate-950"><Award size={21} /></span>
             <div>
               <h2 className="text-lg font-black">{badge.title}</h2>
-              <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">{badge.description || "Conquista padrao do BibliaLM registrada por evento auditavel."}</p>
+              <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">{badge.description || "Conquista padrão do Culto+ registrada por evento auditável."}</p>
             </div>
           </div>
           <span className="w-fit rounded-lg bg-[#d8b15f]/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-[#8a6b22] dark:text-[#f4d789]">{badge.manaAmount} Mana</span>

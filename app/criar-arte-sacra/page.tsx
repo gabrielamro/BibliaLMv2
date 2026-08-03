@@ -327,7 +327,7 @@ export default function CriarArteSacraPage() {
 
     const link = document.createElement('a');
     link.href = finalImg;
-    link.download = `BibliaLM_${editOptions.aspectRatio}_${Date.now()}.png`;
+    link.download = `CultoMais_${editOptions.aspectRatio}_${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -366,7 +366,7 @@ export default function CriarArteSacraPage() {
 
       const caption = foundVerse
         ? `📖 ${foundVerse.ref}\n\n"${foundVerse.text}"`
-        : customPrompt || 'Arte sacra criada no BíbliaLM';
+        : customPrompt || 'Arte sacra criada no Culto+';
 
       const post = await kingdomPublishingService.publish({
         publisher: {

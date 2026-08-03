@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, BookOpen, Bookmark, CalendarDays, CheckCircle2, Clock, Copy, Download, Edit3, Eye, Gift, HandHeart, Heart, Loader2, MessageSquarePlus, NotebookPen, PlayCircle, QrCode, Radio, Save, Send, Share2, Sparkles, UserPlus, Users, X } from 'lucide-react';
+import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, Clock, Copy, Crown, Download, Edit3, Eye, Gift, HandHeart, Heart, Loader2, MessageSquarePlus, NotebookPen, PlayCircle, QrCode, Radio, Save, Send, Share2, Sparkles, UserPlus, Users, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHeader } from '../../contexts/HeaderContext';
 import { cultoPlusService } from '../../services/cultoPlusService';
@@ -14,6 +14,7 @@ import { ChurchService, Post, ServiceAdvancedAnalytics, ServiceAiContent, Servic
 import { buildServiceCalendarEvent, getLiveStatusLabel, getNextServiceMomentDistanceLabel, getOfferingItem, getServiceCounterParts } from '../../utils/cultoPlusOnePage';
 import { getCurrentLiturgyMoment, getExperienceMoments, getNextLiturgyMoment, resolveServiceStreamStatus, resolveWorshipExperienceMode } from '../../utils/cultoPlusExperience';
 import { consumePendingCultoReaction, storePendingCultoReaction } from '../../utils/authIntent';
+import { storeActiveCultoSession } from '../../utils/activeCultoSession';
 
 type CultoPlusOnePageProps = {
   serviceSlug: string;
@@ -213,6 +214,8 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isPrayerModalOpen, setIsPrayerModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isPostComposerOpen, setIsPostComposerOpen] = useState(false);
+  const [mobileFloatingMenu, setMobileFloatingMenu] = useState<'features' | 'interactions' | null>(null);
   const [savingNote, setSavingNote] = useState(false);
   const [postContent, setPostContent] = useState('');
   const [posting, setPosting] = useState(false);
@@ -236,7 +239,6 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
   const [isPrayerPrivate, setIsPrayerPrivate] = useState(false);
   const [savingPrayer, setSavingPrayer] = useState(false);
   const [savingLiturgyComment, setSavingLiturgyComment] = useState(false);
-  const [savingVerse, setSavingVerse] = useState(false);
   const [verseSavesCount, setVerseSavesCount] = useState(0);
   const [checkinUrl, setCheckinUrl] = useState('');
   const [inviteUrl, setInviteUrl] = useState('');
@@ -487,6 +489,15 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
   const currentStepNotes = getPublicMomentNotes(liveState?.currentExplanation || currentStep?.notes);
   const isAfterCult = experienceMode === 'after' || experienceMode === 'archived';
   const afterCultTitle = experienceMode === 'archived' ? 'Culto arquivado' : 'Culto encerrado';
+
+  useEffect(() => {
+    if (!service || isAfterCult) return;
+    storeActiveCultoSession({
+      href: `/culto/${encodeURIComponent(service.slug)}`,
+      title: service.title,
+      endsAt: service.endsAt,
+    });
+  }, [isAfterCult, service?.endsAt, service?.slug, service?.title]);
   const completedMomentsCount = experienceMoments.filter((item) => item.momentStatus === 'completed').length;
   const recapStats = [
     { label: 'Momentos', value: `${completedMomentsCount}/${experienceMoments.length || service?.liturgyItems.length || 0}`, icon: <CheckCircle2 size={16} /> },
@@ -615,6 +626,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       const nextPosts = await cultoPlusService.getServicePosts(service.id);
       setPosts(nextPosts);
       setPostContent('');
+      setIsPostComposerOpen(false);
       await recordActivity('social_post', `Postou sobre o culto: ${service.title}`, { serviceId: service.id });
       showNotification('Postagem enviada para o mural da igreja.', 'success');
     } catch (error: any) {
@@ -676,11 +688,11 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
 
   const handlePrepareTestimonyPost = () => {
     if (!service) return;
+    setIsPostComposerOpen(true);
     if (!postContent.trim()) {
       setPostContent(`Testemunho do culto "${service.title}": `);
     }
     window.setTimeout(() => {
-      postComposerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       postComposerRef.current?.focus();
     }, 0);
   };
@@ -977,25 +989,6 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
     }
   };
 
-  const handleSaveKeyVerse = async () => {
-    if (!service) return;
-    if (!currentUser || !userProfile) {
-      requireLogin();
-      return;
-    }
-    setSavingVerse(true);
-    try {
-      const count = await cultoPlusService.saveKeyVerse(service, userId);
-      setVerseSavesCount(count);
-      await recordActivity('mark_verse', `Salvou versículo-chave do culto: ${service.title}`, { serviceId: service.id, verseRef: service.keyVerseRef });
-      showNotification('Versículo salvo.', 'success');
-    } catch (error: any) {
-      showNotification(error?.message || 'Não foi possível salvar o versículo.', 'error');
-    } finally {
-      setSavingVerse(false);
-    }
-  };
-
   const quickActions: QuickAction[] = [
     ...(!isAfterCult ? [{
       label: checkedIn ? 'Acompanhar' : 'Check-in',
@@ -1061,7 +1054,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
         <div className="absolute inset-0 bg-gradient-to-br from-[#031f1c]/95 via-[#073b35]/90 to-[#d8b15f]/70" />
         <div className="culto-compact-container relative w-full p-4 md:p-5 lg:p-6">
           <div className="culto-compact-grid grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] lg:items-stretch xl:gap-5">
-            <div className="culto-compact-main relative flex min-w-0 flex-col">
+            <div ref={currentSectionRef} className="culto-compact-main relative flex min-w-0 flex-col">
               <CultoPlusTopActions
                 contained
                 backHref={service.churchSlug ? `/igreja/${service.churchSlug}` : '/social/igrejas'}
@@ -1181,7 +1174,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                 </div>
               </div>
 
-              <div className={`culto-quick-actions mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 ${quickActions.length >= 6 ? 'culto-quick-actions--six' : 'culto-quick-actions--three'}`}>
+              <div className={`culto-quick-actions mt-3 hidden grid-cols-2 gap-2 md:grid md:grid-cols-3 lg:grid-cols-6 ${quickActions.length >= 6 ? 'culto-quick-actions--six' : 'culto-quick-actions--three'}`}>
                 {quickActions.map((action) => (
                   <button
                     key={action.label}
@@ -1365,33 +1358,49 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
         </div>
       </section>
 
-      <section className="grid w-full grid-cols-1 gap-6 px-5 py-8 lg:grid-cols-[minmax(0,1fr)_420px] md:px-8">
-        <div className="space-y-6">
-          <div ref={currentSectionRef} className={premiumCardClass}>
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Momento atual</p>
-                <h2 className="mt-1 text-lg font-black text-gray-900 dark:text-white">{isAfterCult ? afterCultTitle : liveState?.currentTitle || currentStep?.title || 'Culto publicado'}</h2>
-                {isAfterCult ? (
-                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    A recapitulação do culto permanece disponível com timeline, anotações, pedidos e publicações.
-                  </p>
-                ) : currentStepNotes && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{currentStepNotes}</p>}
-              </div>
-              {isAfterCult ? (
-                <button onClick={handleShare} title="Compartilhar ou cópiar o link público deste culto." className={champagneButtonClass}>
-                  <Share2 size={16} />
-                  Compartilhar culto
-                </button>
-              ) : (
-                <button onClick={handleCheckin} disabled={checkingIn || checkedIn} title={checkedIn ? 'Voce j? registrou check-in neste culto.' : 'Registrar sua presença neste culto.'} className={champagneButtonClass}>
-                  {checkingIn ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                  {checkedIn ? 'Check-in féito' : 'Fazer check-in'}
+      <nav data-testid="culto-mobile-floating-menus" aria-label="Ações do culto" className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-3 z-[60] flex flex-col items-end gap-2 md:hidden">
+        <div className="relative">
+          {mobileFloatingMenu === 'features' && (
+            <div id="culto-mobile-features-menu" role="menu" aria-label="Funcionalidades do culto" className="absolute bottom-0 right-14 grid w-52 gap-1 rounded-2xl border border-white/20 bg-[#073b35]/96 p-2 text-white shadow-2xl shadow-black/30 backdrop-blur-xl">
+              {!isAfterCult && (
+                <button type="button" role="menuitem" onClick={() => { setMobileFloatingMenu(null); handleFollowAction(); }} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-xs font-bold hover:bg-white/12">
+                  {checkingIn ? <Loader2 size={18} className="animate-spin" /> : checkedIn ? <Radio size={18} /> : <CheckCircle2 size={18} />} {checkedIn ? 'Acompanhar culto' : 'Fazer check-in'}
                 </button>
               )}
+              <button type="button" role="menuitem" onClick={() => { setMobileFloatingMenu(null); setIsNotePanelOpen(true); }} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-xs font-bold hover:bg-white/12"><NotebookPen size={18} /> Anotações</button>
+              {!isAfterCult && <>
+                <button type="button" role="menuitem" onClick={() => { setMobileFloatingMenu(null); setIsPrayerModalOpen(true); }} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-xs font-bold hover:bg-white/12"><HandHeart size={18} /> Oração</button>
+                <button type="button" role="menuitem" onClick={() => { setMobileFloatingMenu(null); setIsOfferingModalOpen(true); }} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-xs font-bold hover:bg-white/12"><Gift size={18} /> Oferta</button>
+              </>}
+              <button type="button" role="menuitem" onClick={() => { setMobileFloatingMenu(null); setIsInviteModalOpen(true); }} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-xs font-bold hover:bg-white/12"><Share2 size={18} /> Partilhar</button>
             </div>
-          </div>
+          )}
+          <button type="button" onClick={() => setMobileFloatingMenu((current) => current === 'features' ? null : 'features')} aria-label="Abrir funcionalidades do culto" aria-expanded={mobileFloatingMenu === 'features'} aria-controls="culto-mobile-features-menu" className="flex h-12 min-w-12 items-center justify-center rounded-2xl border border-white/20 bg-[#073b35]/96 px-3 text-[#f3d28a] shadow-xl shadow-black/25 backdrop-blur-xl">
+            <NotebookPen size={19} /><span className="sr-only">Funcionalidades</span>
+          </button>
+        </div>
+        <div className="relative">
+          {mobileFloatingMenu === 'interactions' && (
+            <div id="culto-mobile-interactions-menu" role="menu" aria-label="Interações do culto" className="absolute bottom-0 right-14 flex gap-1 rounded-2xl border border-white/20 bg-[#073b35]/96 p-2 text-white shadow-2xl shadow-black/30 backdrop-blur-xl">
+              {REACTION_OPTIONS.map((reaction) => (
+                <button key={`mobile_${reaction.type}`} type="button" role="menuitem" onClick={() => { setMobileFloatingMenu(null); handleReaction(reaction.type); }} disabled={reactingType === reaction.type} aria-label={`${reaction.label}: ${reactions[reaction.type]}`} className="relative flex h-11 min-w-11 items-center justify-center rounded-xl px-2 text-base transition hover:bg-white/12 disabled:opacity-60">
+                  <span aria-hidden="true">{reaction.type === 'amen' ? '🙏' : reaction.type === 'glory' ? '🙌' : '✨'}</span>
+                  <span className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-[#f3d28a] px-1 text-center text-[8px] font-black leading-4 text-[#073b35]">{reactions[reaction.type]}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <button type="button" onClick={() => setMobileFloatingMenu((current) => current === 'interactions' ? null : 'interactions')} aria-label="Abrir interações do culto" aria-expanded={mobileFloatingMenu === 'interactions'} aria-controls="culto-mobile-interactions-menu" className="flex h-12 min-w-12 items-center justify-center rounded-2xl border border-white/20 bg-[#073b35]/96 px-3 text-[#f3d28a] shadow-xl shadow-black/25 backdrop-blur-xl">
+            <Heart size={19} /><span className="sr-only">Interações</span>
+          </button>
+        </div>
+        <button type="button" onClick={() => { setMobileFloatingMenu(null); setIsPostComposerOpen(true); }} aria-label="Postar no Reino" className="flex h-12 min-w-12 items-center justify-center rounded-2xl border border-fuchsia-200/35 bg-gradient-to-br from-violet-600 via-fuchsia-500 to-orange-400 px-3 text-white shadow-xl shadow-fuchsia-950/25">
+          <Crown size={20} /><span className="sr-only">Postar no Reino</span>
+        </button>
+      </nav>
 
+      <section className="grid w-full grid-cols-1 gap-6 px-5 py-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="space-y-6">
           {myAssignments.length > 0 && (
             <div className="rounded-[1.5rem] border border-emerald-100 bg-white p-5 shadow-sm dark:border-emerald-900/40 dark:bg-bible-darkPaper">
               <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1695,43 +1704,6 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
             </div>
           )}
 
-          {(experienceMode === 'during_with_live' || experienceMode === 'during_without_live' || liveState) && (
-            <div className="rounded-[1.5rem] border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-[#fff8e8] p-5 shadow-sm dark:border-emerald-900/40 dark:from-emerald-950/20 dark:via-bible-darkPaper dark:to-amber-950/10">
-              <div className="flex items-center gap-2">
-                <Radio className="text-red-500" size={18} />
-                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300">
-                  {experienceMode === 'during_with_live' ? 'Modo Culto Ao Vivo' : 'Culto presencial em andamento'}
-                </p>
-              </div>
-              <h2 className="mt-2 text-lg font-black text-gray-900 dark:text-white">{liveState?.currentTitle || currentStep?.title || 'Acompanhando a liturgia'}</h2>
-              {liveState?.currentVerseRef && <p className="mt-4 text-sm font-black text-gray-900 dark:text-white">{liveState.currentVerseRef}</p>}
-              {liveState?.currentVerseText && <p className="mt-2 text-sm leading-relaxed text-gray-700 dark:text-gray-200">{liveState.currentVerseText}</p>}
-              {currentStepNotes && <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{currentStepNotes}</p>}
-              {nextStep && (
-                <p className="mt-4 rounded-2xl bg-white/70 px-4 py-3 text-xs font-black uppercase tracking-widest text-emerald-800 dark:bg-black/20 dark:text-emerald-200">
-                  Proximo momento: {nextStep.title}
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className={premiumCardClass}>
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-black text-gray-900 dark:text-white"><Sparkles className={premiumIconClass} /> Reacoes do culto</h2>
-            <div className="grid grid-cols-3 gap-3">
-              {REACTION_OPTIONS.map((reaction) => (
-                <button
-                  key={reaction.type}
-                  onClick={() => handleReaction(reaction.type)}
-                  title={`Registrar reação: ${reaction.label}.`}
-                  className="rounded-2xl border border-emerald-100 bg-emerald-50/50 px-3 py-4 text-center transition hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-950/10"
-                >
-                  <span className="block text-sm font-black text-gray-900 dark:text-white">{reaction.label}</span>
-                  <span className="mt-1 block text-xl font-black text-emerald-700 dark:text-emerald-300">{reactions[reaction.type]}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className={premiumCardClass}>
             <h2 className="mb-5 flex items-center gap-2 text-lg font-black text-gray-900 dark:text-white"><Clock className={premiumIconClass} /> Timeline litúrgica</h2>
             <div className="space-y-3">
@@ -1878,30 +1850,38 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
           </div>
         </div>
 
-        <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
+        <aside className="hidden space-y-5 lg:sticky lg:top-6 lg:block lg:self-start">
           <div className={premiumCardClass}>
             <h2 className="mb-4 flex items-center gap-2 text-lg font-black text-gray-900 dark:text-white"><MessageSquarePlus className={premiumIconClass} /> Postar no feed</h2>
-            <textarea ref={postComposerRef} value={postContent} onChange={(event) => setPostContent(event.target.value)} title="Escreva uma mensagem para publicar no feed da igreja vinculada a este culto." placeholder="Compartilhe uma frase da pregação, testemunho ou foto depois pelo feed..." className="min-h-32 w-full resize-none rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 text-sm leading-relaxed outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-emerald-900/40 dark:bg-emerald-950/10" />
+            <textarea value={postContent} onChange={(event) => setPostContent(event.target.value)} title="Escreva uma mensagem para publicar no feed da igreja vinculada a este culto." placeholder="Compartilhe uma frase da pregação, testemunho ou foto depois pelo feed..." className="min-h-32 w-full resize-none rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 text-sm leading-relaxed outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-emerald-900/40 dark:bg-emerald-950/10" />
             <button onClick={handleCreatePost} disabled={posting} title="Publicar esta mensagem no feed da igreja." className={`mt-3 w-full ${champagneButtonClass}`}>
               {posting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
               Publicar com a igreja
             </button>
           </div>
 
-          {service.keyVerseRef && (
-            <div className="rounded-[1.5rem] border border-[#f3d28a]/50 bg-gradient-to-br from-[#fff8e8] via-white to-emerald-50 p-5 dark:border-amber-900/40 dark:from-amber-950/20 dark:via-bible-darkPaper dark:to-emerald-950/10">
-              <h2 className="flex items-center gap-2 text-lg font-black text-[#073b35] dark:text-[#f3d28a]"><Heart size={18} /> Versículo-chave</h2>
-              <p className="mt-3 text-sm font-black text-gray-900 dark:text-white">{service.keyVerseRef}</p>
-              {service.keyVerseText && <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{service.keyVerseText}</p>}
-              <button onClick={handleSaveKeyVerse} disabled={savingVerse} title="Salvar este versículo-chave na sua conta." className={`mt-4 w-full ${champagneButtonClass}`}>
-                {savingVerse ? <Loader2 size={14} className="animate-spin" /> : <Bookmark size={14} />}
-                Salvar versículo ({verseSavesCount})
-              </button>
-            </div>
-          )}
-
         </aside>
       </section>
+
+      {isPostComposerOpen && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-3 backdrop-blur-sm md:items-center" role="dialog" aria-modal="true" aria-labelledby="culto-post-composer-title" onClick={() => setIsPostComposerOpen(false)}>
+          <div className="w-full max-w-lg rounded-[1.5rem] border border-fuchsia-200/40 bg-white p-5 shadow-2xl dark:border-fuchsia-900/40 dark:bg-bible-darkPaper" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-fuchsia-600 dark:text-fuchsia-300">Reino</p>
+                <h2 id="culto-post-composer-title" className="mt-1 flex items-center gap-2 text-lg font-black text-gray-900 dark:text-white"><Crown size={19} /> Postar no feed</h2>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Compartilhe o que este culto está gerando em você.</p>
+              </div>
+              <button type="button" onClick={() => setIsPostComposerOpen(false)} aria-label="Fechar publicação" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-white"><X size={18} /></button>
+            </div>
+            <textarea ref={postComposerRef} autoFocus value={postContent} onChange={(event) => setPostContent(event.target.value)} title="Escreva uma mensagem para publicar no feed da igreja vinculada a este culto." placeholder="Compartilhe uma frase, testemunho ou reflexão do culto..." className="min-h-36 w-full resize-none rounded-2xl border border-fuchsia-100 bg-fuchsia-50/40 p-4 text-sm leading-relaxed text-gray-900 outline-none focus:ring-2 focus:ring-fuchsia-500/30 dark:border-fuchsia-900/40 dark:bg-fuchsia-950/10 dark:text-white" />
+            <button type="button" onClick={handleCreatePost} disabled={posting} className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 via-fuchsia-500 to-orange-400 px-5 text-xs font-black uppercase tracking-widest text-white shadow-lg disabled:opacity-60">
+              {posting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              Publicar no Reino
+            </button>
+          </div>
+        </div>
+      )}
 
       {isPrayerModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-3 backdrop-blur-sm md:items-center" role="dialog" aria-modal="true" aria-labelledby="service-prayer-title" onClick={() => setIsPrayerModalOpen(false)}>

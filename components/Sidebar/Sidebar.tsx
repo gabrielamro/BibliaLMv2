@@ -394,9 +394,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
           title={collapsed ? 'Expandir menu' : 'Recolher menu'}
           aria-expanded={!collapsed}
           aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-          className="p-2 rounded-xl text-gray-400 hover:text-[#c5a059] hover:bg-[#c5a059]/10 transition-all duration-200 shrink-0"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:text-[#c5a059] hover:bg-[#c5a059]/10 transition-all duration-200 shrink-0"
         >
-          {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+          {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
         </button>
 
         {/* Logo BibliaLM — apenas no modo expandido */}
@@ -408,7 +408,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenLogin, onOpenSettings, initiall
             <LogoIcon className="w-7 h-7 text-[#c5a059] shrink-0" />
             <div className="min-w-0">
               <p className="font-serif font-bold text-[15px] leading-none text-[#2d2a26] dark:text-white truncate">
-                BíbliaLM
+                Culto+
               </p>
               <p className="text-[9px] font-bold uppercase tracking-widest text-[#c5a059]/70 truncate">
                 Soli Deo Gloria

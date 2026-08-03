@@ -68,7 +68,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
 
     setLoading(true);
     try {
-        const title = `Assinatura ${billingCycle === 'yearly' ? 'Anual' : 'Mensal'} BíbliaLM - ${activePlan.name}`;
+        const title = `Assinatura ${billingCycle === 'yearly' ? 'Anual' : 'Mensal'} Culto+ - ${activePlan.name}`;
         // O Mercado Pago gerencia os métodos de pagamento (Pix, Cartão) dentro do init_point
         const sub = await paymentService.createSubscription(
             currentPrice, 
@@ -100,7 +100,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
         <div className="flex-1 p-8 bg-gray-50 dark:bg-gray-900/50">
             <h2 className="text-2xl font-serif font-bold mb-3 text-gray-900 dark:text-white">Escolha seu Plano</h2>
             <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-                {prompt || 'Libere mais capacidade para estudar, criar e organizar sua rotina no BibliaLM.'}
+                {prompt || 'Libere mais capacidade para estudar, criar e organizar sua rotina no Culto+.'}
             </p>
             
             <div className="space-y-3">

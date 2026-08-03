@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import CreateRoomStudioPage from '../../views/CreateRoomStudioPage';
 import { useAuth } from '../../contexts/AuthContext';
+import CultoPlusPageShell from '../../components/CultoPlusPageShell';
 
 function CreateRoomGate() {
   const { checkFeatureAccess, openSubscription } = useAuth();
@@ -27,5 +28,5 @@ function CreateRoomGate() {
 }
 
 export default function Page() {
-  return <CreateRoomGate />;
+  return <CultoPlusPageShell compactDesktop><CreateRoomGate /></CultoPlusPageShell>;
 }

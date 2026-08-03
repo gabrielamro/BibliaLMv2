@@ -13,7 +13,6 @@ import { dbService } from '../../services/supabase';
 import { postInteractionService } from '../../services/postInteractionService';
 import { Post } from '../../types';
 import SEO from '../../components/SEO';
-import SocialNavigation from '../../components/SocialNavigation';
 import { generateShareLink } from '../../utils/shareUtils';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import PromptModal from '../../components/PromptModal';
@@ -21,6 +20,8 @@ import { FeedPostCard } from '../../components/social/FeedPostCard';
 import KingdomComposer from '../../components/social/KingdomComposer';
 import FeatureCard, { FeatureCardType } from '../../components/social/FeatureCard';
 import PostCommentsSheet from '../../components/social/PostCommentsSheet';
+import KingdomPathRailV2 from '../../components/social/KingdomPathRail';
+import { kingdomPathService, type KingdomPathData } from '../../services/kingdomPathService';
 import { INSPIRATIONAL_VERSES } from '../../constants';
 
 interface FeatureItem {
@@ -63,7 +64,7 @@ const KingdomPulse = ({ posts }: { posts: Post[] }) => {
 
     if (!signals.length) return null;
     return (
-        <section aria-labelledby="kingdom-pulse-title" className="mb-5 overflow-hidden rounded-2xl border border-violet-200/70 bg-white/80 shadow-[0_10px_35px_rgba(75,35,108,0.06)] dark:border-fuchsia-400/15 dark:bg-[#17131d]">
+        <section aria-labelledby="kingdom-pulse-title" className="mb-5 hidden overflow-hidden rounded-2xl border border-violet-200/70 bg-white/80 shadow-[0_10px_35px_rgba(75,35,108,0.06)] dark:border-fuchsia-400/15 dark:bg-[#17131d] sm:block">
             <div className="flex flex-col md:flex-row md:items-stretch">
                 <div className="flex min-h-14 items-center gap-2 border-b border-violet-100 px-4 text-violet-800 dark:border-white/10 dark:text-fuchsia-300 md:min-w-48 md:border-b-0 md:border-r">
                     <HeartPulse size={20} aria-hidden="true" />
@@ -130,6 +131,8 @@ const SocialFeedPage: React.FC = () => {
     const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
     const [commentsPost, setCommentsPost] = useState<Post | null>(null);
     const [postToReport, setPostToReport] = useState<Post | null>(null);
+    const [pathData, setPathData] = useState<KingdomPathData>({ nextService: null, prayerInvitation: null, savedStudy: null, scaleInvitation: null, hasPartialFailure: false });
+    const [isPathLoading, setIsPathLoading] = useState(false);
 
     // State for prefilled content from other pages (e.g. Creative Studio)
     const [composerProps, setComposerProps] = useState<{ image?: string | null, caption?: string, initialTab?: 'reflection' | 'prayer' | 'feeling' | 'checkin' }>({});
@@ -149,6 +152,23 @@ const SocialFeedPage: React.FC = () => {
             window.history.replaceState({}, document.title);
         }
     }, [location]);
+
+    useEffect(() => {
+        let mounted = true;
+        const userId = currentUser?.uid || currentUser?.id;
+        setIsPathLoading(Boolean(userId));
+        void kingdomPathService.load({ userId, churchId: userProfile?.churchData?.churchId })
+            .then((data) => {
+                if (mounted) setPathData(data);
+            })
+            .catch(() => {
+                if (mounted) setPathData({ nextService: null, prayerInvitation: null, savedStudy: null, scaleInvitation: null, hasPartialFailure: true });
+            })
+            .finally(() => {
+                if (mounted) setIsPathLoading(false);
+            });
+        return () => { mounted = false; };
+    }, [currentUser?.id, currentUser?.uid, userProfile?.churchData?.churchId]);
 
     const loadFeed = async (isPull = false) => {
         if (!isPull) setIsLoading(true);
@@ -241,7 +261,7 @@ const SocialFeedPage: React.FC = () => {
         } else if (type === 'share') {
             const shareUrl = generateShareLink('post', { postId });
             if (navigator.share) {
-                await navigator.share({ title: 'BíbliaLM', url: shareUrl });
+                await navigator.share({ title: 'Culto+', url: shareUrl });
             } else {
                 navigator.clipboard.writeText(shareUrl);
                 showNotification("Link copiado!", "success");
@@ -379,7 +399,6 @@ const SocialFeedPage: React.FC = () => {
                 />
             </div>
 
-            <SocialNavigation activeTab="feed" />
 
             <div
                 ref={containerRef}
@@ -402,7 +421,7 @@ const SocialFeedPage: React.FC = () => {
                     className="mx-auto w-full max-w-[1280px] px-4 pb-28 pt-4 transition-transform duration-200 sm:px-6 sm:pt-6 lg:px-7"
                     style={{ transform: `translateY(${pullMoveY}px)` }}
                 >
-                    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
+                    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                     <main id="kingdom-main-content" className="min-w-0">
 
                     <section data-testid="kingdom-hero" className="relative px-1 pb-2 pt-1 sm:px-2">
@@ -416,10 +435,11 @@ const SocialFeedPage: React.FC = () => {
 
                     <section data-testid="kingdom-composer-shortcut" aria-label="Criar publicação" className="relative mb-5 mt-5 rounded-[1.35rem] border border-fuchsia-300/60 bg-white p-3 shadow-[0_10px_35px_rgba(86,37,111,0.08)] after:absolute after:-bottom-3 after:right-8 after:h-6 after:w-6 after:rotate-45 after:border-b after:border-r after:border-fuchsia-300/60 after:bg-white dark:border-fuchsia-400/35 dark:bg-[#1a1520] dark:after:border-fuchsia-400/35 dark:after:bg-[#1a1520] sm:p-4">
                         <div className="flex items-center gap-3">
+                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-fuchsia-400/60 bg-fuchsia-500/5 text-fuchsia-700 dark:text-fuchsia-300 sm:hidden"><PenLine size={22} aria-hidden="true" /></span>
                             {userProfile?.photoURL ? (
-                                <img src={userProfile.photoURL} alt={displayName} className="h-11 w-11 shrink-0 rounded-full object-cover ring-2 ring-[var(--module-border)]" />
+                                <img src={userProfile.photoURL} alt={displayName} className="hidden h-11 w-11 shrink-0 rounded-full object-cover ring-2 ring-[var(--module-border)] sm:block" />
                             ) : (
-                                <span className="module-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xs font-black">{displayName.slice(0, 2).toUpperCase()}</span>
+                                <span className="module-icon hidden h-11 w-11 shrink-0 items-center justify-center rounded-full text-xs font-black sm:flex">{displayName.slice(0, 2).toUpperCase()}</span>
                             )}
                             <button type="button" onClick={() => handleActionClick('write')} className="module-focus flex min-h-12 min-w-0 flex-1 items-center rounded-xl px-2 text-left text-base font-medium text-gray-500 transition hover:text-fuchsia-800 dark:text-gray-300 dark:hover:text-fuchsia-200">
                                 Abrir uma partilha
@@ -432,9 +452,17 @@ const SocialFeedPage: React.FC = () => {
                         </div>
                     </section>
 
+                    <nav data-testid="kingdom-mobile-context-nav" aria-label="Áreas do Reino" className="relative mb-5 grid grid-cols-3 divide-x divide-fuchsia-300/20 rounded-2xl border border-fuchsia-300/35 bg-white/90 p-1 shadow-[0_8px_28px_rgba(86,37,111,0.08)] dark:bg-[#17131d] sm:hidden">
+                        <button type="button" aria-pressed={activeFilter === 'all'} onClick={() => setActiveFilter('all')} className={`module-focus relative flex min-h-12 items-center justify-center gap-2 rounded-xl px-2 text-xs font-bold ${activeFilter === 'all' ? 'text-fuchsia-800 dark:text-fuchsia-200' : 'text-gray-500 dark:text-gray-400'}`}><Bookmark size={17} aria-hidden="true" />Comunidade{activeFilter === 'all' ? <span aria-hidden="true" className="absolute -bottom-1 h-0.5 w-10 rounded-full bg-gradient-to-r from-fuchsia-500 to-orange-400" /> : null}</button>
+                        <button type="button" aria-pressed={activeFilter === 'church'} onClick={() => setActiveFilter('church')} className={`module-focus relative flex min-h-12 items-center justify-center gap-2 rounded-xl px-2 text-xs font-bold ${activeFilter === 'church' ? 'text-fuchsia-800 dark:text-fuchsia-200' : 'text-gray-500 dark:text-gray-400'}`}><Church size={17} aria-hidden="true" />Minha igreja{activeFilter === 'church' ? <span aria-hidden="true" className="absolute -bottom-1 h-0.5 w-10 rounded-full bg-gradient-to-r from-fuchsia-500 to-orange-400" /> : null}</button>
+                        <Link href="/social/oracao" className="module-focus flex min-h-12 items-center justify-center gap-2 rounded-xl px-2 text-xs font-bold text-gray-500 dark:text-gray-400"><HandHeart size={17} aria-hidden="true" />Orações</Link>
+                    </nav>
+
                     <KingdomPulse posts={filteredPosts} />
 
-                    <div className="mb-4 overflow-x-auto no-scrollbar" role="tablist" aria-label="Filtrar publicações do Reino">
+                    <KingdomPathRailV2 variant="mobile" data={pathData} isLoading={isPathLoading} churchHref={churchHref} hasChurch={Boolean(userProfile?.churchData)} savedPostsCount={savedCount} onShowSaved={() => setActiveFilter('saved')} />
+
+                    <div className="mb-4 hidden overflow-x-auto no-scrollbar sm:block" role="tablist" aria-label="Filtrar publicações do Reino">
                         <div className="inline-flex min-w-full gap-1 rounded-2xl border border-[#e4ded5] bg-white p-1 dark:border-white/10 dark:bg-[#151515] sm:min-w-0">
                             {([
                                 ['all', 'Para você'],
@@ -503,8 +531,9 @@ const SocialFeedPage: React.FC = () => {
                             }
 
                             return (
-                                <div key={item.id} className="relative md:pl-10 before:absolute before:bottom-[-1rem] before:left-[1.15rem] before:top-0 before:hidden before:w-px before:bg-gradient-to-b before:from-violet-500 before:via-fuchsia-500 before:to-orange-400 md:before:block">
-                                <span aria-hidden="true" className="absolute left-[0.82rem] top-8 z-10 hidden h-3 w-3 rounded-full border-2 border-[#fdfbf7] bg-fuchsia-500 shadow-[0_0_0_3px_rgba(192,38,211,0.15)] dark:border-[#0b0b0c] md:block" />
+                                <div key={item.id} className="relative pl-10 before:absolute before:bottom-[-1rem] before:left-[1.1rem] before:top-0 before:block before:w-px before:bg-gradient-to-b before:from-violet-500 before:via-fuchsia-500 before:to-orange-400">
+                                <Link href={`/u/${(item as Post).userUsername}`} aria-label={`Abrir perfil de ${(item as Post).userDisplayName}`} className="absolute left-0 top-5 z-20 flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-[#0b0b0c] bg-[#241a2b] text-[9px] font-black text-white ring-2 ring-fuchsia-500/60 md:hidden">{(item as Post).userPhotoURL ? <img src={(item as Post).userPhotoURL} alt="" className="h-full w-full object-cover" /> : (item as Post).userDisplayName?.slice(0, 2).toUpperCase()}</Link>
+                                <span aria-hidden="true" className="absolute left-[0.78rem] top-8 z-10 hidden h-3 w-3 rounded-full border-2 border-[#fdfbf7] bg-fuchsia-500 shadow-[0_0_0_3px_rgba(192,38,211,0.15)] dark:border-[#0b0b0c] md:block" />
                                 <FeedPostCard
                                     post={item as Post}
                                     currentUser={currentUser}
@@ -520,7 +549,7 @@ const SocialFeedPage: React.FC = () => {
                         })
                     )}
                     </main>
-                    <KingdomPathRail churchHref={churchHref} hasChurch={Boolean(userProfile?.churchData)} savedCount={savedCount} onShowSaved={() => setActiveFilter('saved')} />
+                    <KingdomPathRailV2 data={pathData} isLoading={isPathLoading} churchHref={churchHref} hasChurch={Boolean(userProfile?.churchData)} savedPostsCount={savedCount} onShowSaved={() => setActiveFilter('saved')} />
                     </div>
                 </div>
             </div>

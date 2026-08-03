@@ -55,7 +55,7 @@ const LevelProgressModal: React.FC<LevelProgressModalProps> = ({ isOpen, onClose
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Meu Progresso no BíbliaLM',
+          title: 'Meu Progresso no Culto+',
           text: text,
           url: profileUrl
         });

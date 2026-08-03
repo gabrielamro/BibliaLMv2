@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   BarChart3,
@@ -12,6 +12,8 @@ import {
   Home,
   Medal,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
   Users,
 } from "lucide-react";
@@ -35,7 +37,7 @@ const managementItems = [
   { label: "Configurações", href: "/gestao-igreja/configuracoes", icon: Settings, tone: "bg-gray-200 text-gray-700 dark:bg-gray-500/15 dark:text-gray-300" },
 ];
 
-function ManagementMenu({ mobile = false, visible = true }: { mobile?: boolean; visible?: boolean }) {
+function ManagementMenu({ mobile = false, visible = true, compact = false }: { mobile?: boolean; visible?: boolean; compact?: boolean }) {
   const { userProfile } = useAuth();
   const canShowManagementLinks = visible && (
     userProfile?.subscriptionTier === "admin"
@@ -47,7 +49,7 @@ function ManagementMenu({ mobile = false, visible = true }: { mobile?: boolean; 
     {managementItems.map((item) => {
       const Icon = item.icon;
       const active = item.href === "/gestao-igreja" ? location.pathname === item.href : location.pathname.startsWith(item.href);
-      return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={`module-focus flex min-h-12 items-center gap-3 rounded-xl border-l-4 px-2.5 text-xs font-bold transition ${active ? "module-nav-active" : "module-nav-link border-transparent text-slate-600 dark:text-slate-300"}`}><span className="module-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"><Icon size={16} /></span><span className="min-w-0 flex-1 truncate">{item.label}</span><ChevronRight size={14} className={active ? "module-accent-text" : "text-slate-300"} /></Link>;
+      return <Link key={item.href} href={item.href} title={compact ? item.label : undefined} aria-label={compact ? item.label : undefined} aria-current={active ? "page" : undefined} className={`module-focus flex min-h-12 items-center rounded-xl text-xs font-bold transition ${compact ? "justify-center px-1" : "gap-3 border-l-4 px-2.5"} ${active ? "module-nav-active" : "module-nav-link border-transparent text-slate-600 dark:text-slate-300"}`}><span className="module-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"><Icon size={16} /></span>{!compact ? <><span className="min-w-0 flex-1 truncate">{item.label}</span><ChevronRight size={14} className={active ? "module-accent-text" : "text-slate-300"} /></> : null}</Link>;
     })}
   </nav>;
 }
@@ -60,15 +62,17 @@ export default function ChurchManagementShell({ children }: { children: React.Re
   const churchId = userProfile?.churchData?.churchId;
   const canShowManagementLinks = userProfile?.subscriptionTier === "admin"
     || getGeneralProfileType(userProfile) === "manager";
+  const [compact, setCompact] = useState(false);
+  useEffect(() => { try { setCompact(window.localStorage.getItem("cultoplus_sidebar_compact") === "true"); } catch { /* Preferência opcional. */ } }, []);
+  const toggleCompact = () => setCompact((current) => { const next = !current; try { window.localStorage.setItem("cultoplus_sidebar_compact", String(next)); } catch { /* Estado local continua válido. */ } return next; });
 
   return <div data-module="management" className="church-management-shell min-h-full bg-[#fdfbf7] text-[#1f2937] dark:bg-[#0b0b0c] dark:text-gray-100">
     <div className="flex min-h-full">
-      <aside className="sticky top-0 z-40 hidden h-screen w-[272px] shrink-0 flex-col border-r border-[#e6e0d8] bg-white px-4 py-6 lg:flex dark:border-white/10 dark:bg-[#111113]">
-        <div className="flex items-center justify-between gap-2"><CultoPlusBrand className="!h-20" /><ManagerNotificationCenter churchId={churchId} panelAlign="left" /></div>
-        <div className="mt-6"><AppViewSwitcher activeView="management" canOpenPastoral={isPastor} canOpenManagement /></div>
-        <div className="module-gradient mt-4 rounded-2xl p-4 shadow-lg shadow-black/10"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">Visão atual</p><h2 className="mt-2 text-lg font-black">Gestão da Igreja</h2><p className="mt-1 text-xs leading-5 text-white/70">Operação, pessoas, cultos e equipes.</p></div>
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 no-scrollbar">{canShowManagementLinks ? <ManagementMenu /> : null}</div>
-        <Link href="/perfil" className="module-focus module-nav-link mt-4 flex items-center gap-3 rounded-xl border-t border-[#ece6df] p-2 pt-4 dark:border-white/10">{avatar ? <img src={avatar} alt={name} className="h-10 w-10 rounded-full object-cover" /> : <span className="module-icon flex h-10 w-10 items-center justify-center rounded-full text-xs font-black">{name.slice(0, 2).toUpperCase()}</span>}<span className="min-w-0"><strong className="block truncate text-sm">{name}</strong><small className="text-xs text-gray-500">Gestão operacional</small></span></Link>
+      <aside data-compact={compact} className={`sticky top-0 z-40 hidden h-screen shrink-0 flex-col border-r border-[#e6e0d8] bg-white py-6 transition-[width,padding] duration-200 lg:flex dark:border-white/10 dark:bg-[#111113] ${compact ? "w-[76px] px-2" : "w-[272px] px-4"}`}>
+        <div className={`flex ${compact ? "flex-col items-center gap-2" : "items-center justify-between gap-2"}`}><CultoPlusBrand compact={compact} className={compact ? "!h-11 !w-11" : "!h-20 min-w-0"} /><button type="button" onClick={toggleCompact} aria-expanded={!compact} aria-label={compact ? "Expandir menu" : "Esconder menu"} title={compact ? "Expandir menu" : "Esconder menu"} className="module-focus module-nav-link flex h-8 w-8 items-center justify-center rounded-lg text-gray-400">{compact ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}</button>{!compact ? <ManagerNotificationCenter churchId={churchId} panelAlign="left" /> : null}</div>
+        {!compact ? <><div className="mt-6"><AppViewSwitcher activeView="management" canOpenPastoral={isPastor} canOpenManagement /></div><div className="module-gradient mt-4 rounded-2xl p-4 shadow-lg shadow-black/10"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">Visão atual</p><h2 className="mt-2 text-lg font-black">Gestão da Igreja</h2><p className="mt-1 text-xs leading-5 text-white/70">Operação, pessoas, cultos e equipes.</p></div></> : null}
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto no-scrollbar">{canShowManagementLinks ? <ManagementMenu compact={compact} /> : null}</div>
+        <Link href="/perfil" title={compact ? name : undefined} className={`module-focus module-nav-link mt-4 flex items-center rounded-xl border-t border-[#ece6df] p-2 pt-4 dark:border-white/10 ${compact ? "justify-center" : "gap-3"}`}>{avatar ? <img src={avatar} alt={name} className="h-10 w-10 rounded-full object-cover" /> : <span className="module-icon flex h-10 w-10 items-center justify-center rounded-full text-xs font-black">{name.slice(0, 2).toUpperCase()}</span>}{!compact ? <span className="min-w-0"><strong className="block truncate text-sm">{name}</strong><small className="text-xs text-gray-500">Gestão operacional</small></span> : null}</Link>
       </aside>
 
       <div className="min-w-0 flex-1">

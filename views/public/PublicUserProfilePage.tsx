@@ -224,7 +224,7 @@ const PublicUserProfilePage: React.FC = () => {
     if (type === 'share') {
         const shareUrl = generateShareLink('post', { postId });
         if (navigator.share) {
-            await navigator.share({ title: 'BíbliaLM', url: shareUrl });
+            await navigator.share({ title: 'Culto+', url: shareUrl });
         } else {
             await navigator.clipboard.writeText(shareUrl);
             showNotification('Link copiado!', 'success');

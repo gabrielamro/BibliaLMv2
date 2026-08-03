@@ -534,10 +534,10 @@ const CellForumPage: React.FC = () => {
     const reactions = ['🙌', '🙏', '🔥', '❤️', '📖'];
 
     return (
-        <div className="h-full bg-gray-50 dark:bg-black/20 overflow-y-auto">
+        <div data-testid="kingdom-group-profile" className="module-soft-surface h-full overflow-y-auto">
             <SEO title={`Fórum ${group.name}`} />
             
-            <div className="h-40 md:h-48 bg-gradient-to-br from-purple-600 to-indigo-700 relative">
+            <div className="module-gradient relative h-40 md:h-48">
                 <div className="absolute inset-0 flex items-center justify-center opacity-10"><Boxes size={120} /></div>
                 
                 {groupCapabilities.canEditGroup && (
@@ -605,10 +605,10 @@ const CellForumPage: React.FC = () => {
                     </div>
                     
                     <div className="flex justify-center bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit mx-auto mb-4 shadow-inner overflow-x-auto no-scrollbar max-w-full">
-                        <button onClick={() => setActiveTab('mural')} className={`px-6 py-2 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap ${activeTab === 'mural' ? 'bg-white dark:bg-gray-700 text-purple-600 shadow-sm' : 'text-gray-400'}`}>Mural</button>
-                        <button onClick={() => setActiveTab('subgroups')} className={`px-6 py-2 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap ${activeTab === 'subgroups' ? 'bg-white dark:bg-gray-700 text-purple-600 shadow-sm' : 'text-gray-400'}`}>Subgrupos</button>
-                        <button onClick={() => setActiveTab('about')} className={`px-6 py-2 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap ${activeTab === 'about' ? 'bg-white dark:bg-gray-700 text-purple-600 shadow-sm' : 'text-gray-400'}`}>Sobre</button>
-                        <button onClick={() => setActiveTab('ranking')} className={`px-6 py-2 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap ${activeTab === 'ranking' ? 'bg-white dark:bg-gray-700 text-purple-600 shadow-sm' : 'text-gray-400'}`}>Membros</button>
+                        <button onClick={() => setActiveTab('mural')} className={`module-focus min-h-11 whitespace-nowrap rounded-lg px-6 text-xs font-bold transition-all ${activeTab === 'mural' ? 'module-gradient text-white shadow-sm' : 'text-gray-500'}`}>Mural</button>
+                        <button onClick={() => setActiveTab('subgroups')} className={`module-focus min-h-11 whitespace-nowrap rounded-lg px-6 text-xs font-bold transition-all ${activeTab === 'subgroups' ? 'module-gradient text-white shadow-sm' : 'text-gray-500'}`}>Subgrupos</button>
+                        <button onClick={() => setActiveTab('about')} className={`module-focus min-h-11 whitespace-nowrap rounded-lg px-6 text-xs font-bold transition-all ${activeTab === 'about' ? 'module-gradient text-white shadow-sm' : 'text-gray-500'}`}>Sobre</button>
+                        <button onClick={() => setActiveTab('ranking')} className={`module-focus min-h-11 whitespace-nowrap rounded-lg px-6 text-xs font-bold transition-all ${activeTab === 'ranking' ? 'module-gradient text-white shadow-sm' : 'text-gray-500'}`}>Membros</button>
                     </div>
 
                     <div className="flex justify-center gap-6 pt-4 border-t border-gray-50 dark:border-gray-800">

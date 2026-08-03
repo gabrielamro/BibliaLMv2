@@ -17,7 +17,6 @@ import {
 import { useHeader } from '../../contexts/HeaderContext';
 import { useAuth } from '../../contexts/AuthContext';
 import SEO from '../../components/SEO';
-import SocialNavigation from '../../components/SocialNavigation';
 import { generateSlug } from '../../utils/textUtils';
 
 const ChurchesListPage: React.FC = () => {
@@ -199,7 +198,7 @@ const ChurchesListPage: React.FC = () => {
 
     if (!currentUserId) {
       openLogin('/social/igrejas');
-      showNotification('Entre para abrir o perfil desta igreja no BibliaLM.', 'info');
+      showNotification('Entre para abrir o perfil desta igreja no Culto+.', 'info');
       return;
     }
 
@@ -243,8 +242,7 @@ const ChurchesListPage: React.FC = () => {
 
   return (
     <div data-module="kingdom" className="h-full overflow-y-auto bg-[#fdfbf7] text-[#2d2a26] dark:bg-[#0b0b0c] dark:text-gray-100">
-      <SEO title="Igrejas no Reino" description="Explore igrejas e comunidades cadastradas no BibliaLM." />
-      {isSocialMode && <SocialNavigation activeTab="church" />}
+      <SEO title="Igrejas no Reino" description="Explore igrejas e comunidades cadastradas no Culto+." />
 
       <main className="mx-auto w-full max-w-[1180px] px-4 pb-28 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pb-12">
         <section className="module-gradient relative overflow-hidden rounded-[1.5rem] px-5 py-4 text-white shadow-[0_12px_35px_rgba(91,42,134,0.16)] sm:px-6">

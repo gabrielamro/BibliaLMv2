@@ -2,9 +2,10 @@
 
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import PrayersManagerPage from '../../../views/PrayersManagerPage';
+import PastoralWorkspaceShell from '../../../components/workspace/PastoralWorkspaceShell';
 
 export default function Page() {
   return (
-    <ProtectedRoute><PrayersManagerPage /></ProtectedRoute>
+    <PastoralWorkspaceShell><ProtectedRoute><PrayersManagerPage /></ProtectedRoute></PastoralWorkspaceShell>
   );
 }

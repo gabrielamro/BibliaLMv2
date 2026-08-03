@@ -4,13 +4,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     BookMarked,
     BookOpen,
-    Brain,
     Check,
-    CheckCircle2,
     ChevronDown,
     ChevronRight,
-    Coffee,
-    Heart,
     History,
     Languages,
     Moon,
@@ -116,16 +112,6 @@ interface LibraryProps {
     onSelectBook: (bookId: string, chapter?: number, verse?: number | null, highlightVerses?: number[]) => void;
 }
 
-function isToday(timestamp?: string) {
-    if (!timestamp) return false;
-    const date = new Date(timestamp);
-    if (Number.isNaN(date.getTime())) return false;
-    const today = new Date();
-    return date.getFullYear() === today.getFullYear()
-        && date.getMonth() === today.getMonth()
-        && date.getDate() === today.getDate();
-}
-
 function getBookAbbreviation(bookId: string, name: string) {
     if (BOOK_ABBREVIATIONS[bookId]) return BOOK_ABBREVIATIONS[bookId];
     const numberedBook = name.match(/^(\d)\s+(.+)/);
@@ -144,7 +130,6 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     const [isVersionMenuOpen, setIsVersionMenuOpen] = useState(false);
     const [isDefaultPromptDismissed, setIsDefaultPromptDismissed] = useState(false);
     const [localLastReading, setLocalLastReading] = useState<LastReading | null>(null);
-    const [localDevotionalDone, setLocalDevotionalDone] = useState(false);
 
     const inputRef = useRef<HTMLInputElement>(null);
     const versionMenuRef = useRef<HTMLDivElement>(null);
@@ -173,11 +158,8 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                 }
             }
 
-            const todayKey = new Date().toLocaleDateString("pt-BR");
-            setLocalDevotionalDone(Boolean(localStorage.getItem(`amen_${todayKey}`)));
         } catch {
             setLocalLastReading(null);
-            setLocalDevotionalDone(false);
         }
     }, [userProfile?.uid]);
 
@@ -237,18 +219,6 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
     const lastBook = BIBLE_BOOKS_LIST.find((book) => book.id === lastReading.bookId) || BIBLE_BOOKS_LIST[0];
     const lastBookProgress = getBookProgress(lastBook.id);
 
-    const todayActivityTypes = useMemo(
-        () => new Set((userProfile?.activityLog || []).filter((activity) => isToday(activity.timestamp)).map((activity) => activity.type)),
-        [userProfile?.activityLog],
-    );
-
-    const readingDone = todayActivityTypes.has("reading_chapter")
-        || todayActivityTypes.has("daily_goal")
-        || todayActivityTypes.has("reading_presence");
-    const devotionalDone = localDevotionalDone || todayActivityTypes.has("devotional");
-    const prayerDone = todayActivityTypes.has("prayer_wall");
-    const quizDone = todayActivityTypes.has("quiz_completion");
-
     const readingPlan = userProfile?.readingPlan;
     const completedPlanDays = new Set(readingPlan?.completedDays || []).size;
     const parsedPlanDuration = Number(readingPlan?.planType || 365);
@@ -257,49 +227,6 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
         ? Math.min(100, Math.round((completedPlanDays / planDuration) * 100))
         : 0;
 
-    const dailyActions: Array<{
-        label: string;
-        detail: string;
-        path: string;
-        completed: boolean;
-        icon: React.ElementType;
-        tone: string;
-    }> = [
-        {
-            label: "Meta de leitura",
-            detail: readingDone ? "Concluída" : readingPlan?.isActive ? "Retomar plano" : "Configurar",
-            path: "/plano",
-            completed: readingDone,
-            icon: BookOpen,
-            tone: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-        },
-        {
-            label: "Pão Diário",
-            detail: devotionalDone ? "Concluído" : "Pendente",
-            path: "/devocional",
-            completed: devotionalDone,
-            icon: Coffee,
-            tone: "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300",
-        },
-        {
-            label: "Oração do dia",
-            detail: prayerDone ? "Concluída" : "5 min",
-            path: "/oracoes",
-            completed: prayerDone,
-            icon: Heart,
-            tone: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-        },
-        {
-            label: "Quiz Bíblico",
-            detail: quizDone ? "Concluído" : "5 perguntas",
-            path: "/quiz",
-            completed: quizDone,
-            icon: Brain,
-            tone: "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300",
-        },
-    ];
-
-    const completedDailyActions = dailyActions.filter((action) => action.completed).length;
     const verseOfDay = DAILY_BIBLE_VERSES[new Date().getDate() % DAILY_BIBLE_VERSES.length] || DAILY_BIBLE_VERSES[0];
 
     const handleDirectBibleSelection = async () => {
@@ -489,56 +416,6 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                         </section>
                     )}
 
-                    <section
-                        data-testid="bible-daily-journey"
-                        aria-labelledby="daily-journey-title"
-                        className="overflow-hidden rounded-2xl border border-[#e4ded5] bg-white dark:border-white/10 dark:bg-white/[0.035]"
-                    >
-                        <div className="flex flex-col gap-3 border-b border-[#eee9e3] px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-5 dark:border-white/10">
-                            <div className="flex min-w-0 flex-1 items-center gap-4">
-                                <h2 id="daily-journey-title" className="shrink-0 text-base font-black text-[#0b2347] dark:text-white">Sua jornada hoje</h2>
-                                <span className="hidden text-xs font-semibold text-gray-500 sm:inline">{completedDailyActions} de 4 concluídas</span>
-                                <div className="hidden h-1.5 max-w-xs flex-1 overflow-hidden rounded-full bg-[#e8e4df] md:block dark:bg-white/10">
-                                    <div
-                                        className="h-full rounded-full bg-emerald-600 transition-all"
-                                        style={{ width: `${completedDailyActions * 25}%` }}
-                                    />
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => navigate("/rotina")}
-                                className="flex min-h-10 items-center gap-1 self-start text-xs font-bold text-[#0b5c48] hover:underline sm:self-auto dark:text-emerald-300"
-                            >
-                                Ver jornada completa <ChevronRight size={15} />
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-4">
-                            {dailyActions.map((action, index) => {
-                                const Icon = action.icon;
-                                return (
-                                    <button
-                                        key={action.label}
-                                        type="button"
-                                        onClick={() => navigate(action.path)}
-                                        className={`group flex min-h-[86px] items-center gap-3 px-4 py-3 text-left transition hover:bg-[#faf8f5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald-600 md:px-5 dark:hover:bg-white/5 ${index % 2 === 1 ? "border-l border-[#eee9e3] dark:border-white/10" : ""} ${index >= 2 ? "border-t border-[#eee9e3] md:border-t-0 dark:border-white/10" : ""} ${index > 0 ? "md:border-l md:border-[#eee9e3] dark:md:border-white/10" : ""}`}
-                                        aria-label={`${action.label}: ${action.detail}`}
-                                    >
-                                        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${action.tone}`}>
-                                            {action.completed ? <CheckCircle2 size={20} /> : <Icon size={20} />}
-                                        </span>
-                                        <span className="min-w-0 flex-1">
-                                            <strong className="block truncate text-sm text-[#0b2347] dark:text-gray-100">{action.label}</strong>
-                                            <small className={`mt-1 block truncate text-xs ${action.completed ? "font-semibold text-emerald-700 dark:text-emerald-300" : "text-gray-500"}`}>{action.detail}</small>
-                                        </span>
-                                        <ChevronRight className="shrink-0 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-emerald-700" size={16} />
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </section>
-
                     {bibleMatch && (
                         <button
                             type="button"
@@ -557,42 +434,40 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                     )}
 
                     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_340px]">
-                        <section aria-labelledby="bible-books-title" className="min-w-0">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                                <div>
-                                    <h2 id="bible-books-title" className="text-2xl font-black tracking-tight text-[#0b2347] md:text-3xl dark:text-white">
-                                        {searchTerm.trim() ? "Resultados da busca" : "Livros da Bíblia"}
-                                    </h2>
-                                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                        {searchTerm.trim()
-                                            ? `${filteredBooks.length} livro(s) encontrado(s).`
-                                            : "Escolha um livro e continue sua jornada pela Palavra."}
-                                    </p>
-                                </div>
-                                <button
-                                    type="button"
-                                     onClick={() => {
-                                         setSearchTerm("");
-                                         setActiveCollection("all");
-                                         setActiveCategory("all");
-                                     }}
-                                    className="flex min-h-10 items-center gap-1 self-start text-xs font-bold text-[#0b5c48] hover:underline sm:self-auto dark:text-emerald-300"
-                                >
-                                    Ver todos os livros <ChevronRight size={15} />
-                                </button>
-                            </div>
-
+                        <section aria-label="Livros da Bíblia" className="min-w-0">
                             <div
-                                className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
+                                className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
                                 aria-label="Filtros dos livros bíblicos"
                             >
-                                <div
+                                <div className="min-w-0">
+                                  <div className="mb-2 flex min-h-5 items-center justify-between gap-4">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#5f6f86] dark:text-gray-400">Coleções bíblicas</p>
+                                    {(searchTerm.trim() || activeCollection !== "all" || activeCategory !== "all") && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSearchTerm("");
+                                          setActiveCollection("all");
+                                          setActiveCategory("all");
+                                        }}
+                                        className="module-focus rounded-md px-1.5 py-0.5 text-[11px] font-bold text-[#0b5c48] hover:underline dark:text-emerald-300"
+                                      >
+                                        Todos os livros
+                                      </button>
+                                    )}
+                                  </div>
+                                  <div
                                     role="tablist"
                                     aria-label="Testamentos e cânon bíblico"
-                                    className="grid grid-cols-2 gap-2 sm:flex sm:min-w-0 sm:overflow-x-auto sm:pb-1 no-scrollbar"
-                                >
-                                    {BIBLE_COLLECTIONS.map((collection) => {
+                                    className="flex min-w-0 gap-2 overflow-x-auto pb-1 no-scrollbar"
+                                  >
+                                    {BIBLE_COLLECTIONS.filter((collection) => collection.id !== "all").map((collection) => {
                                         const active = activeCollection === collection.id;
+                                        const bookTone = collection.id === "old"
+                                            ? "border-amber-700 bg-gradient-to-br from-amber-700 to-amber-950 text-amber-100"
+                                            : collection.id === "new"
+                                                ? "border-emerald-700 bg-gradient-to-br from-emerald-600 to-emerald-950 text-emerald-100"
+                                                : "border-violet-700 bg-gradient-to-br from-violet-600 to-fuchsia-950 text-violet-100";
                                         return (
                                             <button
                                                 key={collection.id}
@@ -604,21 +479,26 @@ const Library: React.FC<LibraryProps> = ({ onSelectBook }) => {
                                                     setActiveCollection(collection.id);
                                                     setActiveCategory("all");
                                                 }}
-                                                className={`module-focus min-h-11 w-full shrink-0 rounded-xl border px-3 text-xs font-bold transition sm:w-auto sm:px-4 ${active
-                                                    ? "border-[#74451f] bg-[#74451f] text-white shadow-sm dark:border-[#c9a45c] dark:bg-[#c9a45c] dark:text-[#2c1d12]"
-                                                    : "border-[#ded8d0] bg-white text-[#42516c] hover:border-[#a66d36] hover:text-[#74451f] dark:border-white/10 dark:bg-white/[0.035] dark:text-gray-300 dark:hover:border-[#c9a45c] dark:hover:text-[#e7c77f]"
+                                                className={`module-focus group flex min-h-14 shrink-0 items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition ${active
+                                                    ? "border-[#a66d36] bg-[#fff8eb] text-[#5b3518] shadow-sm ring-2 ring-[#c88a45]/20 dark:border-[#c9a45c] dark:bg-[#c9a45c]/10 dark:text-[#f2d996]"
+                                                    : "border-[#ded8d0] bg-white text-[#42516c] hover:border-[#a66d36] dark:border-white/10 dark:bg-white/[0.035] dark:text-gray-300 dark:hover:border-[#c9a45c]"
                                                     }`}
                                             >
-                                                {collection.label}
+                                                <span aria-hidden="true" className={`relative flex h-10 w-8 shrink-0 items-center justify-center rounded-r-md rounded-l-sm border shadow-sm ${bookTone}`}>
+                                                    <span className="absolute inset-y-0 left-1 w-px bg-white/30" />
+                                                    <BookOpen size={15} />
+                                                </span>
+                                                <span className="whitespace-nowrap text-xs font-bold">{collection.label}</span>
                                             </button>
                                         );
                                     })}
+                                  </div>
                                 </div>
 
                                 <div className="w-full shrink-0 sm:w-52 lg:pb-1">
                                     <label
                                         htmlFor="bible-category-filter"
-                                        className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.16em] text-[#5f6f86] dark:text-gray-400"
+                                        className="mb-4 block text-[10px] font-bold uppercase tracking-[0.16em] text-[#5f6f86] dark:text-gray-400"
                                     >
                                         Categoria
                                     </label>

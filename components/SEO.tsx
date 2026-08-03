@@ -17,7 +17,7 @@ interface SEOProps {
 const SEO: React.FC<SEOProps> = ({
   title,
   description,
-  name = "BíbliaLM",
+  name = "Culto+",
   type = "website",
   image = "https://biblialm.com/og-image.jpg",
   url = typeof window !== 'undefined' ? window.location.href : '',
@@ -28,7 +28,7 @@ const SEO: React.FC<SEOProps> = ({
   const { systemSettings } = useAuth();
   const defaultSeo = systemSettings?.seo;
 
-  const metaTitle = title ? `${title} | ${name}` : defaultSeo?.defaultTitle || "BíbliaLM";
+  const metaTitle = title ? `${title} | ${name}` : defaultSeo?.defaultTitle || "Culto+";
   const metaDescription = description || defaultSeo?.defaultDescription || "Uma experiência de estudo bíblico profundo com IA.";
   const metaKeywords = keywords || defaultSeo?.defaultKeywords || "bíblia, estudo, ia, jesus";
 

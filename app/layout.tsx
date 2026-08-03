@@ -26,7 +26,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-    title: 'BíbliaLM - Estudo Bíblico com Inteligência Artificial',
+    title: 'Culto+ - Bíblia, comunidade e igreja em um só lugar',
     description: 'Sua plataforma de estudo bíblico profundo com IA, inspirada no NotebookLM. Devocionais, planos de leitura e suporte teológico.',
     manifest: '/manifest.json',
     icons: {

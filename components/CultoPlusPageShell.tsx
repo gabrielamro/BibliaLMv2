@@ -24,6 +24,7 @@ import {
   Settings,
   Target,
   Users,
+  X,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useHeader } from "../contexts/HeaderContext";
@@ -37,6 +38,7 @@ import AppViewSwitcher from "./AppViewSwitcher";
 import CultoPlusBrand from "./CultoPlusBrand";
 import ManagerNotificationCenter from "./church-management/ManagerNotificationCenter";
 import type { AppModuleId } from "../constants";
+import { getAppModuleForRoute } from "../utils/moduleTheme";
 
 type CultoPlusPageShellProps = {
   children: React.ReactNode;
@@ -175,10 +177,12 @@ export default function CultoPlusPageShell({ children, isPastor = false, userNam
     };
   }, [churchId, currentUserId, userProfile?.subscriptionTier]);
   const visibleModules = useMemo(() => modules.filter((item) => !item.pastoralOnly || pastoralAccess), [pastoralAccess]);
-  const activeModule = useMemo(
-    () => visibleModules.find((item) => isModuleActive(item, location.pathname)) ?? visibleModules[0],
-    [location.pathname, visibleModules],
-  );
+  const activeModule = useMemo(() => {
+    const routeModule = getAppModuleForRoute(location.pathname, location.search);
+    return visibleModules.find((item) => item.module === routeModule)
+      ?? visibleModules.find((item) => isModuleActive(item, location.pathname))
+      ?? visibleModules[0];
+  }, [location.pathname, location.search, visibleModules]);
   const resolvedUserName = userName || userProfile?.displayName || userProfile?.username || "Membro";
   const resolvedAvatar = avatar ?? userProfile?.photoURL ?? null;
   const [isDesktopMenuCompact, setIsDesktopMenuCompact] = useState(compactDesktop);
@@ -239,9 +243,9 @@ export default function CultoPlusPageShell({ children, isPastor = false, userNam
               aria-controls="cultoplus-desktop-navigation"
               aria-label={isDesktopMenuCompact ? "Expandir menu" : "Esconder menu"}
               title={isDesktopMenuCompact ? "Expandir menu" : "Esconder menu"}
-              className="module-focus module-nav-link flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#e6e0d8] bg-white text-slate-600 shadow-sm transition hover:border-[var(--module-border)] hover:text-[var(--module-accent)] dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
+              className="module-focus module-nav-link flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition hover:text-[var(--module-accent)]"
             >
-              {isDesktopMenuCompact ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
+              {isDesktopMenuCompact ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
             </button>
           </div>
           {!isDesktopMenuCompact ? <div className="mt-6"><AppViewSwitcher activeView="personal" canOpenPastoral={pastoralAccess} canOpenManagement={canManage} /></div> : null}
@@ -250,8 +254,9 @@ export default function CultoPlusPageShell({ children, isPastor = false, userNam
               const Icon = item.icon;
               const expanded = Boolean(openMenus[item.label]);
               const id = submenuId(item.label);
+              const isActive = item.module === activeModule.module;
               return <div key={item.label} data-module-theme={item.module} className="rounded-xl">
-                <div className={`flex items-center rounded-xl transition ${isDesktopMenuCompact ? (isModuleActive(item, location.pathname) ? "module-nav-active ring-1 ring-[var(--module-border)]" : "module-nav-link") : `border-l-4 ${expanded ? "module-nav-active" : "module-nav-link border-transparent"}`}`}>
+                <div className={`flex items-center rounded-xl transition ${isDesktopMenuCompact ? (isActive ? "module-nav-active ring-1 ring-[var(--module-border)]" : "module-nav-link") : `border-l-4 ${isActive ? "module-nav-active" : "module-nav-link border-transparent"}`}`}>
                   <Link href={item.href} title={isDesktopMenuCompact ? item.label : undefined} aria-label={isDesktopMenuCompact ? item.label : undefined} className={`module-focus flex min-h-14 min-w-0 flex-1 items-center rounded-lg text-sm font-semibold ${isDesktopMenuCompact ? 'justify-center px-1' : 'gap-3 px-2.5'}`}><span className="module-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"><Icon size={19} /></span>{!isDesktopMenuCompact ? <span className="truncate">{item.label}</span> : null}</Link>
                   {!isDesktopMenuCompact ? <button type="button" onClick={() => setOpenMenus((current) => ({ ...current, [item.label]: !current[item.label] }))} aria-expanded={expanded} aria-controls={id} aria-label={`${expanded ? "Recolher" : "Expandir"} submenu ${item.label}`} className="module-focus module-accent-text mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition hover:bg-white/70 dark:hover:bg-white/10"><ChevronDown size={17} className={`transition-transform ${expanded ? "rotate-180" : ""}`} /></button> : null}
                 </div>
@@ -271,7 +276,7 @@ export default function CultoPlusPageShell({ children, isPastor = false, userNam
               <CultoPlusBrand className="!h-16" />
               <div className="flex items-center gap-2">
                 {canManage ? <ManagerNotificationCenter churchId={churchId} /> : null}
-                <button type="button" onClick={() => setMobileOpen((current) => !current)} aria-expanded={mobileOpen} aria-controls="cultoplus-mobile-menu" aria-label="Abrir menu" className="module-focus module-accent-bg flex h-11 w-11 items-center justify-center rounded-xl"><Menu size={20} /></button>
+                <button type="button" onClick={() => setMobileOpen((current) => !current)} aria-expanded={mobileOpen} aria-controls="cultoplus-mobile-menu" aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"} className="module-focus module-accent-bg flex h-11 w-11 items-center justify-center rounded-xl">{mobileOpen ? <X size={20} /> : <Menu size={20} />}</button>
               </div>
             </div>
             {mobileOpen ? <div id="cultoplus-mobile-menu" className="absolute inset-x-3 top-[76px] z-50 max-h-[78vh] overflow-y-auto rounded-2xl border border-[#e6e0d8] bg-white p-3 shadow-2xl dark:border-white/10 dark:bg-[#151515]">
@@ -280,7 +285,7 @@ export default function CultoPlusPageShell({ children, isPastor = false, userNam
               {visibleModules.filter((item) => item.label === mobileModule).map((item) => <div key={item.label} data-module-theme={item.module} role="tabpanel" className="module-submenu grid grid-cols-1 gap-2 rounded-xl border p-3 sm:grid-cols-2">{item.children.map((child) => { const ChildIcon = child.icon; return <Link key={child.href} href={child.href} onClick={() => setMobileOpen(false)} className="module-focus module-nav-link flex min-h-12 items-center gap-3 rounded-xl bg-white px-3 text-xs font-semibold shadow-sm dark:bg-[#171719]"><span className="module-icon flex h-8 w-8 items-center justify-center rounded-lg"><ChildIcon size={15} /></span><span className="min-w-0 flex-1 truncate">{child.label}</span><ChevronRight size={14} className="module-accent-text" /></Link>; })}</div>)}
             </div> : null}
           </header> : null}
-          <div className="flex flex-1 flex-col">{children}</div>
+          <main id="main-content" className="cultoplus-page-content flex flex-1 flex-col" tabIndex={-1}>{children}</main>
         </div>
       </div>
     </div>

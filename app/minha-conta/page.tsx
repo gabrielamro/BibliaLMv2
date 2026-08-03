@@ -1,11 +1,14 @@
 'use client';
 import PublicUserProfilePage from '../../views/public/PublicUserProfilePage';
 import { Suspense } from 'react';
+import CultoPlusPageShell from '../../components/CultoPlusPageShell';
 
 export default function MinhaContaPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-bible-gold animate-pulse italic font-serif">Preparando seu Reino...</div>}>
-      <PublicUserProfilePage />
-    </Suspense>
+    <CultoPlusPageShell>
+      <Suspense fallback={<div className="module-accent-text p-8 text-center font-serif italic animate-pulse">Preparando seu perfil...</div>}>
+        <PublicUserProfilePage />
+      </Suspense>
+    </CultoPlusPageShell>
   );
 }

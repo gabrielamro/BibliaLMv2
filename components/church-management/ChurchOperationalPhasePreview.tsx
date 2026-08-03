@@ -482,13 +482,13 @@ export default function ChurchOperationalPhasePreview({ phase }: { phase: Operat
             <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Padrao BibliaLM</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Padrão Culto+</p>
                   <h2 className="mt-1 text-2xl font-black">Conquistas oficiais</h2>
                 </div>
                 <Medal size={22} className="text-[#9a7a2f]" />
               </div>
               <div className="space-y-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-                <p>As insignias desta area sao conquistas oficiais do BibliaLM para voluntarios, lideres e pastores.</p>
+                <p>As insígnias desta área são conquistas oficiais do Culto+ para voluntários, líderes e pastores.</p>
                 <p>A igreja nao cria, edita ou concede selos manualmente. O app registra conquistas a partir de eventos auditaveis, como designacoes aceitas, servico concluido e responsabilidades exercidas.</p>
                 <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 font-semibold dark:border-white/10 dark:bg-white/10">
                   O papel da gestao e acompanhar sinais de servico; o reconhecimento permanece padronizado para proteger consistencia, privacidade e evitar competicao espiritual.
@@ -706,7 +706,7 @@ function renderPhaseCards(
           {[
             ["Criterio", badge.manaLimit],
             ["Visibilidade", badge.visibility],
-            ["Origem", "Padrao BibliaLM"],
+            ["Origem", "Padrão Culto+"],
           ].map(([label, value]) => <InfoTile key={label} label={label} value={value} />)}
         </div>
       </motion.article>
@@ -1015,5 +1015,5 @@ function getGuardrails(phase: OperationalPhase) {
   if (phase === "notificacoes") {
     return ["Eventos repetidos devem usar dedupe_key.", "Notificacao informativa e alerta acionavel sao coisas diferentes.", "Membro recebe feedback sem bastidores internos."];
   }
-  return ["Insignia e selo sao padroes do BibliaLM, nao configuracao da igreja.", "Conquistas dependem de eventos auditaveis e regras do app.", "Ranking individual publico fica fora do MVP."];
+  return ["Insígnia e selo são padrões do Culto+, não configuração da igreja.", "Conquistas dependem de eventos auditáveis e regras do app.", "Ranking individual público fica fora do MVP."];
 }

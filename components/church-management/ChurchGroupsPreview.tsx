@@ -148,7 +148,7 @@ export default function ChurchGroupsPreview() {
             <div className="mt-4 space-y-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
               <p className="rounded-lg border border-slate-200 p-3 dark:border-white/10">Designacoes podem ser filtradas por grupo ou celula.</p>
               <p className="rounded-lg border border-slate-200 p-3 dark:border-white/10">Convites pendentes aparecem no acompanhamento sem abrir dados sensiveis.</p>
-              <p className="rounded-lg border border-slate-200 p-3 dark:border-white/10">Conquistas e manas continuam padrao do BibliaLM, registradas por eventos auditaveis.</p>
+              <p className="rounded-lg border border-slate-200 p-3 dark:border-white/10">Conquistas e manás continuam padrão do Culto+, registradas por eventos auditáveis.</p>
             </div>
             <button
               type="button"

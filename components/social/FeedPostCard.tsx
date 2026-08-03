@@ -124,12 +124,56 @@ const TYPE_IDENTITY: Record<string, { label: string, icon: React.ElementType, co
     }
 };
 
+const MOBILE_TYPE_LABEL: Record<string, string> = {
+    prayer: 'Oração',
+    reflection: 'Reflexão',
+    feeling: 'Sentir',
+    cell_meeting: 'Grupo',
+    checkin: 'Local',
+    quiz: 'Quiz',
+    podcast: 'Áudio',
+    image: 'Arte',
+    devotional: 'Pão',
+    study: 'Estudo',
+    room: 'Sala',
+    default: 'Partilha',
+};
+
 const FEED_REASON_LABEL: Record<string, string> = {
     following: 'Seguindo',
     same_church: 'Sua igreja',
     same_group: 'Seu grupo',
     public_discovery: 'Sugerido',
     global_public: 'Publico',
+};
+
+const VISIBILITY_LABEL: Record<string, string> = {
+    public: 'Público',
+    followers: 'Seguidores',
+    church: 'Igreja',
+    group: 'Grupo',
+    private: 'Somente você',
+};
+
+const getPostScripture = (post: Post): { reference: string; text?: string } | null => {
+    const metadata = post.metadata as Record<string, unknown> | undefined;
+    const scripture = metadata?.scripture;
+
+    if (scripture && typeof scripture === 'object') {
+        const value = scripture as Record<string, unknown>;
+        if (typeof value.reference === 'string' && value.reference.trim()) {
+            return {
+                reference: value.reference,
+                text: typeof value.text === 'string' ? value.text : undefined,
+            };
+        }
+    }
+
+    if (post.devotionalReference) {
+        return { reference: post.devotionalReference, text: post.devotionalVerse };
+    }
+
+    return null;
 };
 
 const PostMenu = ({ post, isOwner, onEdit, onDelete, onHide, onReport }: { post: Post, isOwner: boolean, onEdit?: (p: Post) => void, onDelete?: (id: string) => void, onHide?: (id: string) => void, onReport?: (post: Post) => void }) => {
@@ -184,6 +228,8 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
     const IdentityIcon = identity.icon;
     const postImage = getPostImageSource(post);
     const feedReasonLabel = post.feedReason && !isOwner ? FEED_REASON_LABEL[post.feedReason] : '';
+    const visibilityLabel = VISIBILITY_LABEL[post.visibility || 'public'] || 'Público';
+    const scripture = getPostScripture(post);
 
     const renderContent = () => {
         if (post.type === 'devotional' && post.devotionalId && post.devotionalVerse && post.devotionalReference) {
@@ -285,11 +331,26 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
 
         if (post.type === 'reflection') {
             return (
-                <div className="px-6 py-6 relative overflow-hidden">
-                    <Quote className={`absolute top-4 left-4 ${identity.color} opacity-10`} size={48} />
-                    <div className="text-gray-800 dark:text-gray-100 text-lg md:text-xl leading-relaxed font-serif whitespace-pre-wrap relative z-10 text-center italic">
-                        "<SmartText text={post.content} enabled={true} />"
+                <div className={`grid gap-5 px-5 py-5 sm:px-6 sm:py-6 ${scripture ? 'md:grid-cols-[minmax(0,1fr)_14rem]' : ''}`}>
+                    <div className="relative min-w-0">
+                        <Quote className={`absolute -top-1 -left-1 ${identity.color} opacity-10`} size={48} aria-hidden="true" />
+                        <div className={`relative z-10 whitespace-pre-wrap font-serif text-[1.05rem] leading-8 text-gray-800 dark:text-gray-100 ${scripture ? 'text-left' : 'text-center italic md:text-xl'}`}>
+                            <SmartText text={post.content} enabled={true} />
+                        </div>
                     </div>
+                    {scripture && (
+                        <aside className="border-t border-amber-300/40 pt-4 md:border-l md:border-t-0 md:pl-5 md:pt-0" aria-label={`Passagem relacionada: ${scripture.reference}`}>
+                            <p className="flex items-center gap-2 text-sm font-bold text-amber-600 dark:text-amber-300">
+                                <BookOpen size={19} aria-hidden="true" />
+                                {scripture.reference}
+                            </p>
+                            {scripture.text && (
+                                <p className="mt-2 font-serif text-sm italic leading-5 text-gray-600 dark:text-gray-300">
+                                    {scripture.text}
+                                </p>
+                            )}
+                        </aside>
+                    )}
                 </div>
             );
         }
@@ -375,7 +436,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
     };
 
     return (
-        <article data-testid="feed-post" data-post-id={post.id} className={`group/card relative mb-4 rounded-[1.35rem] border bg-white shadow-[0_10px_35px_rgba(56,35,64,0.06)] transition-all duration-300 after:absolute after:-bottom-2.5 after:right-8 after:h-5 after:w-5 after:rotate-45 after:border-b after:border-r after:bg-white hover:-translate-y-0.5 hover:shadow-[0_18px_50px_rgba(56,35,64,0.11)] dark:bg-[#1a1620] dark:after:bg-[#1a1620] ${post.destination === 'church' ? 'border-emerald-300 bg-gradient-to-br from-emerald-50/50 via-white to-white ring-1 ring-emerald-500/10 after:border-emerald-300 dark:border-emerald-700 dark:from-emerald-900/15 dark:via-[#1a1620] dark:to-[#1a1620] dark:after:border-emerald-700' : 'border-[#dfd3df] after:border-[#dfd3df] dark:border-fuchsia-300/15 dark:after:border-fuchsia-300/15'}`}>
+        <article data-testid="feed-post" data-post-id={post.id} data-destination={post.destination || 'community'} className={`kingdom-paper-card group/card relative mb-7 rounded-[1.35rem] border bg-white shadow-[0_10px_35px_rgba(56,35,64,0.06)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_50px_rgba(56,35,64,0.11)] dark:bg-[#1a1620] ${post.destination === 'church' ? 'border-emerald-300 bg-gradient-to-br from-emerald-50/50 via-white to-white ring-1 ring-emerald-500/10 dark:border-emerald-700 dark:from-emerald-900/15 dark:via-[#1a1620] dark:to-[#1a1620]' : 'border-[#dfd3df] dark:border-fuchsia-300/15'}`}>
             
             {post.destination === 'church' && (
                 <>
@@ -392,9 +453,11 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
 
             <div className={`h-1 w-full rounded-t-[1.35rem] opacity-80 ${post.destination === 'church' ? 'bg-gradient-to-r from-emerald-400 via-emerald-600 to-emerald-400' : 'bg-gradient-to-r from-violet-600 via-fuchsia-500 to-orange-400'}`}></div>
 
+            <span aria-hidden="true" className={`absolute -left-6 top-16 flex text-[9px] font-black uppercase tracking-[0.08em] [writing-mode:vertical-rl] rotate-180 sm:hidden ${identity.color}`}>{MOBILE_TYPE_LABEL[post.type] || MOBILE_TYPE_LABEL.default}</span>
+
             <div className="px-5 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Link href={`/u/${post.userUsername}`} className="shrink-0 relative" aria-label={`Abrir perfil de ${post.userDisplayName}`}>
+                    <Link href={`/u/${post.userUsername}`} className="relative hidden shrink-0 sm:block" aria-label={`Abrir perfil de ${post.userDisplayName}`}>
                         <div className={`w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden border-2 ${post.destination === 'church' ? 'border-blue-500/40' : 'border-gray-100 dark:border-gray-800'}`}>
                             {post.userPhotoURL ? (
                                 <img src={post.userPhotoURL} className="w-full h-full object-cover" alt={post.userDisplayName} />
@@ -424,6 +487,8 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
                             <span>{postDate}</span>
                             <span>•</span>
                             <span className={identity.color}>{identity.label}</span>
+                            <span>•</span>
+                            <span>{visibilityLabel}</span>
                         </div>
                     </div>
                 </div>

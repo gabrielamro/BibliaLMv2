@@ -210,7 +210,7 @@ export default function ChurchQrPublicFormPreview({ form }: { form: ChurchQrForm
                 </Link>
               ) : (
                 <Link href="/" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-black uppercase tracking-wider text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950">
-                  Voltar ao BibliaLM
+                  Voltar ao Culto+
                 </Link>
               )}
               <button type="button" onClick={() => setSubmitted(false)} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-black uppercase tracking-wider text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/10">
@@ -231,7 +231,7 @@ export default function ChurchQrPublicFormPreview({ form }: { form: ChurchQrForm
 
       <header className="sticky top-0 z-50 border-b border-[#eadfd2] bg-[#fffdf9]/95 backdrop-blur-xl dark:border-white/10 dark:bg-[#100c15]/95">
         <nav aria-label="Navegacao do convite" className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-5 md:min-h-20 md:gap-5 md:px-8 lg:px-10">
-          <Link href="/" aria-label="Ir para o inicio do BibliaLM" className="shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d36a3] focus-visible:ring-offset-2">
+          <Link href="/" aria-label="Ir para o início do Culto+" className="shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d36a3] focus-visible:ring-offset-2">
             <CultoPlusBrand className="!h-10 !rounded-lg sm:!h-11 md:!h-14" />
           </Link>
           <div className="hidden items-center gap-7 text-sm font-bold text-slate-600 md:flex dark:text-slate-300">
@@ -472,7 +472,7 @@ export default function ChurchQrPublicFormPreview({ form }: { form: ChurchQrForm
         </form>
       </section>
       <footer className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 pb-8 pt-1 text-xs font-semibold text-slate-500 md:px-8 lg:px-10 dark:text-slate-400">
-        <span>Uma experiencia BibliaLM para servir com proposito.</span>
+        <span>Uma experiência Culto+ para servir com propósito.</span>
         <CultoPlusBrand compact className="!h-8 !w-8 !rounded-lg opacity-70" />
       </footer>
     </main>

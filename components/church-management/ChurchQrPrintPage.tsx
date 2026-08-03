@@ -223,7 +223,7 @@ export default function ChurchQrPrintPage() {
           </div>
 
           <footer className="mt-2 flex items-center justify-between gap-4 border-t border-slate-200 pt-2">
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">{church?.name || "BibliaLM Igreja"}</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">{church?.name || "Igreja no Culto+"}</p>
             <p className="text-[11px] font-semibold text-slate-500">QR Code gerado para impressao em A4</p>
           </footer>
         </section>

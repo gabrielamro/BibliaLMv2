@@ -8,8 +8,8 @@ import {
   Trash2, Edit, Eye, EyeOff
 } from 'lucide-react';
 import SEO from '../../components/SEO';
-import SocialNavigation from '../../components/SocialNavigation';
 import { useNavigate } from '../../utils/router';
+import PastoralWorkspaceShell from '../../components/workspace/PastoralWorkspaceShell';
 
 interface SalaItem {
   id: string;
@@ -299,7 +299,6 @@ const AcervoPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-bible-darkPaper pb-20">
       <SEO title="Acervo de Salas" />
-      <SocialNavigation activeTab="explore" />
 
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white dark:bg-bible-darkPaper border-b border-gray-100 dark:border-gray-800">
@@ -605,4 +604,8 @@ const SalaListItem: React.FC<{ sala: SalaItem }> = ({ sala }) => {
   );
 };
 
-export default AcervoPage;
+const AcervoPageWithShell: React.FC = () => (
+  <PastoralWorkspaceShell><AcervoPage /></PastoralWorkspaceShell>
+);
+
+export default AcervoPageWithShell;

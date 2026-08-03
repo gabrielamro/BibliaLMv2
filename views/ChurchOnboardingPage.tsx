@@ -11,7 +11,6 @@ import { Church, MapPin, Search, Plus, ArrowRight, ArrowLeft, CheckCircle2, Shie
 import { Church as ChurchType, ChurchGroup, UserProfile } from '../types';
 import FirebaseTutorial from '../components/FirebaseTutorial';
 import ConfirmationModal from '../components/ConfirmationModal';
-import SocialNavigation from '../components/SocialNavigation';
 
 const BRAZIL_STATES = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
@@ -217,7 +216,6 @@ const ChurchOnboardingPage: React.FC = () => {
 
   return (
     <div className="h-full bg-gray-50 dark:bg-black/20 flex flex-col overflow-hidden relative">
-       {isSocialMode && <SocialNavigation activeTab="church" />}
        
        <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center">
        <div className="w-full max-w-xl pb-24">

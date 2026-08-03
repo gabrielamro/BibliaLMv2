@@ -252,25 +252,25 @@ const PersonalCultoJournalPage: React.FC<PersonalCultoJournalPageProps> = ({ jou
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f7fafc] dark:bg-black">
-        <Loader2 className="animate-spin text-cyan-700" size={34} />
+      <div className="flex min-h-full items-center justify-center bg-[var(--module-soft)] dark:bg-black">
+        <Loader2 className="module-accent-text animate-spin" size={34} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f7fafc] text-gray-900 dark:bg-black dark:text-white">
+    <div data-testid="personal-culto-journal" className="min-h-full bg-[var(--module-soft)] text-gray-900 dark:bg-black dark:text-white">
       <SEO title={isEditing ? 'Editar Meu Culto' : 'Novo Meu Culto'} />
-      <header className="sticky top-0 z-30 border-b border-cyan-100/70 bg-[#f7fafc]/90 px-4 py-3 backdrop-blur dark:border-cyan-950/40 dark:bg-black/80">
+      <header className="sticky top-0 z-30 border-b border-[var(--module-border)] bg-white/90 px-4 py-3 backdrop-blur dark:bg-[#111113]/90">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-          <Link href="/meus-cultos" className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-cyan-900 shadow-sm dark:bg-bible-darkPaper dark:text-cyan-200" aria-label="Voltar para Meus Cultos">
+          <Link href="/meus-cultos" className="module-focus module-icon inline-flex h-11 w-11 items-center justify-center rounded-xl shadow-sm" aria-label="Voltar para Meus Cultos">
             <ArrowLeft size={18} />
           </Link>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-cyan-700 dark:text-cyan-300">Meu Culto</p>
+            <p className="module-accent-text text-[10px] font-bold uppercase tracking-[0.25em]">Meu Culto</p>
             <h1 className="truncate text-lg font-medium">{isEditing ? 'Editar registro' : 'Registrar culto'}</h1>
           </div>
-          <button onClick={save} disabled={saving} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-800 via-sky-700 to-rose-400 px-4 text-[10px] font-medium uppercase tracking-widest text-white shadow-lg shadow-cyan-950/10 disabled:opacity-60">
+          <button onClick={save} disabled={saving} className="module-focus module-gradient inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-xs font-bold text-white shadow-lg disabled:opacity-60">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             Salvar
           </button>

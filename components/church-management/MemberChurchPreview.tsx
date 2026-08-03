@@ -115,7 +115,7 @@ export default function MemberChurchPreview() {
       return badges.slice(0, 3).map((badge) => ({
         key: badge.id,
         label: badge.title,
-        text: badge.description || "Conquista padrao do BibliaLM registrada por evento auditavel.",
+        text: badge.description || "Conquista padrão do Culto+ registrada por evento auditável.",
         mana: `${badge.manaAmount} Mana`,
       }));
     }

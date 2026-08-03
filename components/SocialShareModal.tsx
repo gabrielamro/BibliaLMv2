@@ -183,7 +183,7 @@ const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, ve
           // Cria um link temporário para download
           const link = document.createElement('a');
           link.href = imageData;
-          link.download = `BibliaLM_${Date.now()}.png`;
+          link.download = `CultoMais_${Date.now()}.png`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);

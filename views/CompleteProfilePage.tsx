@@ -325,7 +325,7 @@ const CompleteProfilePage: React.FC = () => {
                             <div>
                                 <label className="text-xs font-black uppercase text-gray-400 tracking-widest ml-1 block">Tipo Geral do Perfil</label>
                                 <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-                                    Essa escolha define sua experiencia no BibliaLM. Permissoes de igreja continuam sendo concedidas por vinculo, convite ou aprovacao.
+                                    Essa escolha define sua experiência no Culto+. Permissões de igreja continuam sendo concedidas por vínculo, convite ou aprovação.
                                 </p>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

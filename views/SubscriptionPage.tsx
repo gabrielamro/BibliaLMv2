@@ -103,7 +103,7 @@ const SubscriptionPage: React.FC = () => {
     setLoadingPlan(planId);
     try {
         const price = getPrice(plan, billingCycle);
-        const title = `Apoio ${billingCycle === 'yearly' ? 'Anual' : 'Mensal'} BíbliaLM - ${plan.name}`;
+        const title = `Apoio ${billingCycle === 'yearly' ? 'Anual' : 'Mensal'} Culto+ - ${plan.name}`;
         
         const sub = await paymentService.createSubscription(
             price, 
@@ -125,7 +125,7 @@ const SubscriptionPage: React.FC = () => {
 
   return (
     <div className="h-full w-full bg-gray-50 dark:bg-black/20 overflow-y-auto scroll-smooth">
-      <SEO title="Seja um Apoiador" description="Invista na sua jornada espiritual e ajude a BíbliaLM a crescer." />
+      <SEO title="Seja um Apoiador" description="Invista na sua jornada espiritual e ajude o Culto+ a crescer." />
       
       <div className="max-w-7xl mx-auto px-4 py-12 md:py-20 pb-32">
         

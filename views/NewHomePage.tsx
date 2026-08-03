@@ -25,10 +25,13 @@ import {
   LibraryBig,
   Loader2,
   LogOut,
+  Menu,
   MessageCircle,
   Moon,
   Music2,
   NotebookPen,
+  PanelLeftClose,
+  PanelLeftOpen,
   PenLine,
   Plus,
   QrCode,
@@ -459,19 +462,16 @@ export default function NewHomePage() {
           <header className="mx-auto max-w-[1440px] px-4 pb-2 pt-5 md:px-8 lg:px-10">
             <div className="mb-5 flex items-center justify-between lg:hidden">
               <CultoPlusBrand className="!h-16" />
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 {canManageChurch ? <ManagerNotificationCenter churchId={managementChurchId ?? churchId} /> : null}
-                <span className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-200">
-                  <Bell size={20} />
-                  {unreadNotificationsCount > 0 && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-orange-500" />}
-                </span>
-                {avatar ? <img src={avatar} alt={userName} className="h-11 w-11 rounded-full object-cover" /> : <span className="module-icon flex h-11 w-11 items-center justify-center rounded-full text-sm font-bold">{userName.slice(0, 2).toUpperCase()}</span>}
                 <HomeSettingsMenu
                   currentUser={Boolean(currentUser)}
                   isAdmin={isAdmin}
                   isPastor={isPastoralProfile}
+                  isVolunteer={isVolunteer}
                   canManage={canManageChurch}
                   includeViewSwitcher
+                  includeNavigation
                   theme={settings.theme}
                   onToggleTheme={toggleTheme}
                   onLogin={openLogin}
@@ -509,7 +509,6 @@ export default function NewHomePage() {
           </header>
 
           <HomeTabs activeTab={activeTab} onChange={changeTab} />
-          <MobileModuleSubmenus isPastor={isPastoralProfile} isVolunteer={isVolunteer} canManage={canManageChurch} />
 
           <main className="mx-auto max-w-[1440px] px-4 pb-28 pt-6 md:px-8 lg:px-10 lg:pb-14">
             {activeTab === "inicio" && (
@@ -547,30 +546,42 @@ export default function NewHomePage() {
 
 function NewHomeSidebar({ userName, avatar, isPastor, isVolunteer, canManage, roleLabels }: { userName: string; avatar?: string | null; isPastor: boolean; isVolunteer: boolean; canManage: boolean; roleLabels: string[] }) {
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({ "Início": true });
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    try { setCompact(window.localStorage.getItem("cultoplus_sidebar_compact") === "true"); } catch { /* Preferência opcional. */ }
+  }, []);
+  const toggleCompact = () => setCompact((current) => {
+    const next = !current;
+    try { window.localStorage.setItem("cultoplus_sidebar_compact", String(next)); } catch { /* Mantém o estado da sessão. */ }
+    return next;
+  });
   const toggleMenu = (label: string) => setOpenMenus((current) => ({ ...current, [label]: !current[label] }));
   const modules = visibleModules(sidebarItems, { isPastor });
   return (
-    <aside className="newhome-chrome sticky top-0 hidden h-screen w-[256px] shrink-0 flex-col border-r px-4 py-6 lg:flex">
-      <CultoPlusBrand className="!h-20" />
-      <UserViewSwitcher isPastor={isPastor} canManage={canManage} />
-      <nav aria-label="Navegação principal da visão pessoal" className="mt-4 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 no-scrollbar">
+    <aside data-compact={compact} className={`newhome-chrome sticky top-0 hidden h-screen shrink-0 flex-col border-r py-6 transition-[width,padding] duration-200 lg:flex ${compact ? "w-[76px] px-2" : "w-[256px] px-4"}`}>
+      <div className={`flex ${compact ? "flex-col items-center gap-2" : "items-center justify-between gap-2"}`}>
+        <CultoPlusBrand compact={compact} className={compact ? "!h-11 !w-11" : "!h-20 min-w-0"} />
+        <button type="button" onClick={toggleCompact} aria-expanded={!compact} aria-label={compact ? "Expandir menu" : "Esconder menu"} title={compact ? "Expandir menu" : "Esconder menu"} className="module-focus module-nav-link flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition hover:text-[var(--module-accent)]">{compact ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}</button>
+      </div>
+      {!compact ? <UserViewSwitcher isPastor={isPastor} canManage={canManage} /> : null}
+      <nav aria-label="Navegação principal da visão pessoal" className={`mt-4 min-h-0 flex-1 space-y-1 overflow-y-auto no-scrollbar ${compact ? "" : "pr-1"}`}>
         {modules.map((item) => {
           const Icon = item.icon;
           const expanded = Boolean(openMenus[item.label]);
           const children = visibleSubItems(item.children, { isPastor, isVolunteer, canManage });
           return <div key={item.label} data-module-theme={item.module} className="rounded-xl">
-            <div className={`flex items-center rounded-xl border-l-4 transition ${expanded ? "module-nav-active" : "module-nav-link border-transparent"}`}>
-              <Link href={item.path} className="module-focus flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-lg px-2.5 text-sm font-semibold"><span className="module-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"><Icon size={19} /></span><span className="truncate">{item.label}</span></Link>
-              <button type="button" onClick={() => toggleMenu(item.label)} aria-expanded={expanded} aria-controls={`submenu-${item.label.replace(/\s+/g, "-").toLowerCase()}`} aria-label={`${expanded ? "Recolher" : "Expandir"} submenu ${item.label}`} className="module-focus module-accent-text mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition hover:bg-white/70 dark:hover:bg-white/10"><ChevronDown size={17} className={`transition-transform ${expanded ? "rotate-180" : ""}`} /></button>
+            <div className={`flex items-center rounded-xl transition ${compact ? (expanded ? "module-nav-active" : "module-nav-link") : `border-l-4 ${expanded ? "module-nav-active" : "module-nav-link border-transparent"}`}`}>
+              <Link href={item.path} title={compact ? item.label : undefined} aria-label={compact ? item.label : undefined} className={`module-focus flex min-h-14 min-w-0 flex-1 items-center rounded-lg text-sm font-semibold ${compact ? "justify-center px-1" : "gap-3 px-2.5"}`}><span className="module-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"><Icon size={19} /></span>{!compact ? <span className="truncate">{item.label}</span> : null}</Link>
+              {!compact ? <button type="button" onClick={() => toggleMenu(item.label)} aria-expanded={expanded} aria-controls={`submenu-${item.label.replace(/\s+/g, "-").toLowerCase()}`} aria-label={`${expanded ? "Recolher" : "Expandir"} submenu ${item.label}`} className="module-focus module-accent-text mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition hover:bg-white/70 dark:hover:bg-white/10"><ChevronDown size={17} className={`transition-transform ${expanded ? "rotate-180" : ""}`} /></button> : null}
             </div>
-            {expanded && <div id={`submenu-${item.label.replace(/\s+/g, "-").toLowerCase()}`} className="module-submenu ml-5 mt-1 space-y-0.5 rounded-r-xl border-l py-1 pl-3 pr-1">{children.map((child) => { const ChildIcon = child.icon; return <Link key={child.path} href={child.path} className="module-focus module-nav-link flex min-h-10 items-center gap-2.5 rounded-lg px-2 text-xs font-semibold text-gray-600 transition dark:text-gray-300"><span className="module-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"><ChildIcon size={14} /></span><span className="truncate">{child.label}</span></Link>; })}</div>}
+            {!compact && expanded && <div id={`submenu-${item.label.replace(/\s+/g, "-").toLowerCase()}`} className="module-submenu ml-5 mt-1 space-y-0.5 rounded-r-xl border-l py-1 pl-3 pr-1">{children.map((child) => { const ChildIcon = child.icon; return <Link key={child.path} href={child.path} className="module-focus module-nav-link flex min-h-10 items-center gap-2.5 rounded-lg px-2 text-xs font-semibold text-gray-600 transition dark:text-gray-300"><span className="module-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"><ChildIcon size={14} /></span><span className="truncate">{child.label}</span></Link>; })}</div>}
           </div>;
         })}
       </nav>
       <div className="mt-auto border-t border-[#ece6df] pt-4 dark:border-white/10">
-        <Link href="/perfil" className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-[#f7f2ed] dark:hover:bg-white/5">
+        <Link href="/perfil" title={compact ? userName : undefined} className={`flex items-center rounded-xl p-2 transition hover:bg-[#f7f2ed] dark:hover:bg-white/5 ${compact ? "justify-center" : "gap-3"}`}>
           {avatar ? <img src={avatar} alt={userName} className="h-10 w-10 rounded-full object-cover" /> : <span className="module-icon flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold">{userName.slice(0, 2).toUpperCase()}</span>}
-          <span className="min-w-0"><strong className="block truncate text-sm">{userName}</strong><small className="block truncate text-[11px] text-gray-500">{roleLabels.join(" · ") || "Membro"}</small></span>
+          {!compact ? <span className="min-w-0"><strong className="block truncate text-sm">{userName}</strong><small className="block truncate text-[11px] text-gray-500">{roleLabels.join(" · ") || "Membro"}</small></span> : null}
         </Link>
       </div>
     </aside>
@@ -585,8 +596,10 @@ function HomeSettingsMenu({
   currentUser,
   isAdmin,
   isPastor,
+  isVolunteer = false,
   canManage,
   includeViewSwitcher = false,
+  includeNavigation = false,
   theme,
   onToggleTheme,
   onLogin,
@@ -595,15 +608,21 @@ function HomeSettingsMenu({
   currentUser: boolean;
   isAdmin: boolean;
   isPastor: boolean;
+  isVolunteer?: boolean;
   canManage: boolean;
   includeViewSwitcher?: boolean;
+  includeNavigation?: boolean;
   theme: string;
   onToggleTheme: () => void;
   onLogin: () => void;
   onSignOut: () => void | Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
+  const [selectedModule, setSelectedModule] = useState("Início");
   const menuRef = useRef<HTMLDivElement>(null);
+  const mobileModules = visibleModules(sidebarItems, { isPastor });
+  const selectedMobileModule = mobileModules.find((item) => item.label === selectedModule) ?? mobileModules[0];
+  const selectedMobileChildren = visibleSubItems(selectedMobileModule.children, { isPastor, isVolunteer, canManage });
 
   useEffect(() => {
     if (!open) return;
@@ -627,14 +646,31 @@ function HomeSettingsMenu({
 
   return (
     <div ref={menuRef} className="relative shrink-0">
-      <button type="button" onClick={() => setOpen((current) => !current)} aria-label="Abrir configurações" aria-expanded={open} aria-controls="newhome-settings-menu" className={`module-focus flex h-11 w-11 items-center justify-center rounded-full border transition ${open ? "newhome-soft module-accent-text" : "newhome-card text-gray-600 hover:text-[var(--module-primary)] dark:text-gray-200"}`}>
-        <Settings size={19} />
+      <button type="button" onClick={() => setOpen((current) => !current)} aria-label={includeNavigation ? (open ? "Fechar menu" : "Abrir menu") : "Abrir configurações"} aria-expanded={open} aria-controls="newhome-settings-menu" className={`module-focus flex h-11 w-11 items-center justify-center transition ${includeNavigation ? "module-accent-bg rounded-xl" : `rounded-full border ${open ? "newhome-soft module-accent-text" : "newhome-card text-gray-600 hover:text-[var(--module-primary)] dark:text-gray-200"}`}`}>
+        {includeNavigation ? (open ? <X size={20} /> : <Menu size={20} />) : <Settings size={19} />}
       </button>
       {open ? (
         <div id="newhome-settings-menu" className="newhome-card absolute right-0 top-[52px] z-[80] max-h-[min(76vh,620px)] w-[min(88vw,310px)] overflow-y-auto rounded-2xl border p-2 shadow-2xl">
           {includeViewSwitcher && (isPastor || canManage) ? (
             <div className="mb-2 border-b border-[#ece6df] px-1 pb-3 dark:border-white/10">
               <AppViewSwitcher activeView="personal" canOpenPastoral={isPastor} canOpenManagement={canManage} compact />
+            </div>
+          ) : null}
+          {includeNavigation ? (
+            <div className="mb-2 border-b border-[#ece6df] pb-3 dark:border-white/10">
+              <div role="tablist" aria-label="Módulos" className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                {mobileModules.map((item) => {
+                  const Icon = item.icon;
+                  const selected = item.label === selectedMobileModule.label;
+                  return <button key={item.label} data-module-theme={item.module} type="button" role="tab" aria-selected={selected} onClick={() => setSelectedModule(item.label)} className={`module-focus flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-3 text-xs font-bold ${selected ? "module-nav-active" : "border-[#e4ded5] dark:border-white/10"}`}><Icon size={16} />{item.label}</button>;
+                })}
+              </div>
+              <div data-module-theme={selectedMobileModule.module} role="tabpanel" aria-label={`Submenu ${selectedMobileModule.label}`} className="module-submenu grid grid-cols-1 gap-2 rounded-xl border p-3">
+                {selectedMobileChildren.map((child) => {
+                  const ChildIcon = child.icon;
+                  return <Link key={child.path} href={child.path} onClick={close} className="module-focus module-nav-link flex min-h-12 items-center gap-3 rounded-xl bg-white px-3 text-xs font-semibold shadow-sm dark:bg-[#171719]"><span className="module-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"><ChildIcon size={15} /></span><span className="min-w-0 flex-1 truncate">{child.label}</span><ChevronRight size={14} className="module-accent-text" /></Link>;
+                })}
+              </div>
             </div>
           ) : null}
           {currentUser ? <Link href="/perfil" onClick={close} className={itemClass}><UserRound size={17} className="module-accent-text" /> Meu perfil</Link> : null}
@@ -682,19 +718,6 @@ function HomeTabs({ activeTab, onChange }: { activeTab: HomeTab; onChange: (tab:
       </div>
     </div>
   );
-}
-
-function MobileModuleSubmenus({ isPastor, isVolunteer, canManage }: { isPastor: boolean; isVolunteer: boolean; canManage: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [selectedModule, setSelectedModule] = useState("Início");
-  const modules = visibleModules(sidebarItems, { isPastor });
-  const selected = modules.find((item) => item.label === selectedModule) ?? modules[0];
-  const children = visibleSubItems(selected.children, { isPastor, isVolunteer, canManage });
-
-  return <section data-module-theme={selected.module} className="newhome-chrome border-b px-4 py-2 lg:hidden">
-    <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="mobile-module-submenus" className="module-focus mx-auto flex min-h-11 w-full max-w-[1440px] items-center justify-between rounded-xl px-2 text-sm font-semibold"><span className="flex items-center gap-2"><LayoutDashboard size={18} className="module-accent-text" /> Submenus dos módulos</span><ChevronDown size={18} className={`transition-transform ${open ? "rotate-180" : ""}`} /></button>
-    {open && <div id="mobile-module-submenus" className="mx-auto max-w-[1440px] pb-2"><div role="tablist" aria-label="Módulos" className="flex gap-2 overflow-x-auto py-2 no-scrollbar">{modules.map((item) => { const Icon = item.icon; const selectedItem = item.label === selected.label; return <button key={item.label} data-module-theme={item.module} type="button" role="tab" aria-selected={selectedItem} onClick={() => setSelectedModule(item.label)} className={`module-focus flex min-h-12 shrink-0 items-center gap-2 rounded-xl border px-3 text-xs font-bold transition ${selectedItem ? "module-nav-active" : "newhome-card text-gray-600 dark:text-gray-300"}`}><span className="module-icon flex h-8 w-8 items-center justify-center rounded-lg"><Icon size={16} /></span>{item.label}</button>; })}</div><div role="tabpanel" aria-label={`Submenu ${selected.label}`} className="module-submenu grid grid-cols-2 gap-2 rounded-2xl border p-3">{children.map((child) => { const ChildIcon = child.icon; return <Link key={child.path} href={child.path} className="newhome-card module-focus module-nav-link flex min-h-12 items-center gap-2 rounded-xl px-3 text-xs font-semibold shadow-sm transition"><span className="module-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"><ChildIcon size={15} /></span><span className="min-w-0 flex-1 truncate">{child.label}</span><ChevronRight size={14} className="module-accent-text" /></Link>; })}</div></div>}
-  </section>;
 }
 
 function HomeOverviewV2(props: {
@@ -782,7 +805,7 @@ function JourneyCards({ readingProgress }: { readingProgress: number }) {
     {
       title: "Meta de Leitura",
       subtitle: "13 capítulos por dia",
-      href: "/plano-leitura",
+      href: "/plano",
       icon: BookOpen,
       content: (
         <div className="newhome-soft mt-3 flex min-h-[72px] items-center gap-3 rounded-xl p-3">

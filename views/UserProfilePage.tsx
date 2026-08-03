@@ -1,7 +1,6 @@
 
 import React from 'react';
 import UserProfile from '../components/UserProfile';
-import SocialNavigation from '../components/SocialNavigation';
 import SEO from '../components/SEO';
 import { useFeatures } from '../contexts/FeatureContext';
 import { User } from 'lucide-react';
@@ -31,7 +30,6 @@ const UserProfilePage: React.FC = () => {
       <div className="flex-1 overflow-hidden">
         <UserProfile />
       </div>
-      <SocialNavigation activeTab="profile" />
     </div>
   );
 };

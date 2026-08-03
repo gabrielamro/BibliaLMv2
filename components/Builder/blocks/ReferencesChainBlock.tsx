@@ -63,7 +63,7 @@ const VerseModal = ({
         {!currentUser && (
           <div className="mt-4 p-4 bg-violet-50 dark:bg-violet-900/20 rounded-2xl">
             <p className="text-sm text-violet-700 dark:text-violet-300 mb-3">
-              Acesse a biblioteca completa da BíbliaLM
+              Acesse a biblioteca completa do Culto+
             </p>
             <button
               onClick={onLogin}

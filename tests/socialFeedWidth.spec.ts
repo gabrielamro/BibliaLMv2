@@ -11,7 +11,8 @@ test.describe('Largura editorial do Reino', () => {
     const box = await column.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.width).toBeGreaterThanOrEqual(940);
-    expect(box!.width).toBeLessThanOrEqual(980);
+    expect(box!.width).toBeLessThanOrEqual(1180);
+    expect(box!.width).toBeLessThan(1280);
 
     const heroBox = await page.getByTestId('kingdom-hero').boundingBox();
     const composerBox = await page.getByTestId('kingdom-composer-shortcut').boundingBox();
@@ -25,6 +26,14 @@ test.describe('Largura editorial do Reino', () => {
     await page.goto('/social');
 
     await expect(page.getByTestId('kingdom-feed-column')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('kingdom-mobile-context-nav')).toBeVisible();
+    const mobileNav = page.getByTestId('mobile-bottom-nav');
+    await expect(mobileNav).toBeVisible();
+    await expect(mobileNav.getByRole('button', { name: 'Início' })).toBeVisible();
+    await expect(mobileNav.getByRole('button', { name: 'Bíblia' })).toBeVisible();
+    await expect(mobileNav.getByRole('button', { name: 'Reino' })).toHaveAttribute('aria-current', 'page');
+    await expect(mobileNav.getByRole('button', { name: 'Cultos' })).toBeVisible();
+    await expect(mobileNav.getByRole('button', { name: 'Perfil' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 });

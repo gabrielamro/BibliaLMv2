@@ -15,7 +15,7 @@ test.describe("Bíblia Sagrada - biblioteca", () => {
     await expect(desktopMenu.getByRole("link", { name: "Orações" })).toBeVisible();
     await expect(desktopMenu.getByRole("link", { name: "Quiz Bíblico" })).toBeVisible();
     await expect(page.getByTestId("bible-library")).toBeVisible();
-    await expect(page.getByTestId("bible-daily-journey")).toBeVisible();
+    await expect(page.getByTestId("bible-daily-journey")).toHaveCount(0);
     await expect(page.getByTestId("bible-books-grid")).toBeVisible();
     await expect(page.getByTestId("bible-reading-summary")).toBeVisible();
     await expect(page.getByTestId("bible-book-gn")).toBeVisible();
@@ -26,7 +26,7 @@ test.describe("Bíblia Sagrada - biblioteca", () => {
     await versionSelector.click();
 
     const collectionFilters = page.getByRole("tablist", { name: "Testamentos e cânon bíblico" });
-    await expect(collectionFilters.getByRole("tab", { name: "Toda a Bíblia" })).toHaveAttribute("aria-selected", "true");
+    await expect(collectionFilters.getByRole("tab")).toHaveCount(3);
 
     await collectionFilters.getByRole("tab", { name: "Antigo Testamento" }).click();
     await expect(page.getByTestId("bible-book-gn")).toBeVisible();
@@ -41,7 +41,9 @@ test.describe("Bíblia Sagrada - biblioteca", () => {
     await expect(page.getByTestId("bible-book-tb")).toBeVisible();
     await expect(page.getByTestId("bible-book-gn")).toHaveCount(0);
 
-    await collectionFilters.getByRole("tab", { name: "Toda a Bíblia" }).click();
+    await page.getByRole("button", { name: "Todos os livros" }).click();
+    await expect(page.getByTestId("bible-book-gn")).toBeVisible();
+    await expect(page.getByTestId("bible-book-mt")).toBeVisible();
 
     const categoryFilter = page.getByLabel("Categoria dos livros");
     await expect(categoryFilter).toBeVisible();
@@ -50,7 +52,8 @@ test.describe("Bíblia Sagrada - biblioteca", () => {
     expect(collectionFilterBox).not.toBeNull();
     expect(categoryFilterBox).not.toBeNull();
     expect(categoryFilterBox!.x).toBeGreaterThan(collectionFilterBox!.x);
-    expect(Math.abs(categoryFilterBox!.y - collectionFilterBox!.y)).toBeLessThan(8);
+    // Os controles têm alturas diferentes, mas permanecem na mesma linha e alinhados pela base.
+    expect(Math.abs(categoryFilterBox!.y - collectionFilterBox!.y)).toBeLessThan(16);
     await categoryFilter.selectOption("pentateuch");
     await expect(page.getByTestId("bible-book-gn")).toBeVisible();
     await expect(page.getByTestId("bible-book-js")).toHaveCount(0);
@@ -62,6 +65,10 @@ test.describe("Bíblia Sagrada - biblioteca", () => {
     await expect(desktopMenu).toBeVisible();
     await expect(page.getByRole("button", { name: "Voltar" })).toBeVisible();
     await expect(page.getByText("CAP. 1", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Voltar" }).click();
+    await expect(page).toHaveURL(/\/bibliasagrada$/);
+    await expect(page.getByTestId("bible-library")).toBeVisible();
   });
 
   test("mantém os livros como prioridade no mobile", async ({ page }) => {
@@ -72,7 +79,7 @@ test.describe("Bíblia Sagrada - biblioteca", () => {
     const mobileBottomNav = page.getByTestId("cultoplus-mobile-bottom-nav");
     await expect(mobileHeader).toBeVisible();
     expect(await mobileHeader.evaluate((element) => Math.round(element.getBoundingClientRect().top))).toBe(0);
-    await expect(mobileHeader.getByRole("img", { name: "Culto+" })).toBeVisible();
+    await expect(mobileHeader.getByLabel("Culto+")).toBeVisible();
     await expect(mobileBottomNav.getByRole("button", { name: "Início" })).toBeVisible();
     await expect(mobileBottomNav.getByRole("button", { name: "Bíblia" })).toHaveClass(/module-accent-text/);
     await expect(mobileBottomNav.getByRole("button", { name: "Cultos" })).toBeVisible();
@@ -80,7 +87,7 @@ test.describe("Bíblia Sagrada - biblioteca", () => {
     await mobileHeader.getByRole("button", { name: "Abrir menu" }).click();
     await expect(mobileHeader.getByRole("tab", { name: "Bíblia", exact: true })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("link", { name: "Meta de leitura" })).toBeVisible();
-    await expect(page.getByTestId("bible-daily-journey")).toBeVisible();
+    await expect(page.getByTestId("bible-daily-journey")).toHaveCount(0);
     await expect(page.getByTestId("bible-books-grid")).toBeVisible();
     await expect(page.getByTestId("bible-book-gn")).toBeVisible();
     const mobileCollectionFilters = page.getByRole("tablist", { name: "Testamentos e cânon bíblico" });

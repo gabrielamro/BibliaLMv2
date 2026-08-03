@@ -1003,7 +1003,7 @@ const PublicPlanPage: React.FC = () => {
 
                         {/* Footer Navigation */}
                         <div className={`mt-16 pt-8 border-t border-gray-200 dark:border-gray-800 flex justify-between items-center text-[10px] font-black text-gray-300 dark:text-gray-600 uppercase tracking-widest transition-all duration-500 ${isFocusedMode ? 'opacity-0 h-0 overflow-hidden' : 'opacity-100'}`}>
-                            <span>BíbliaLM &copy; {new Date().getFullYear()}</span>
+                            <span>Culto+ &copy; {new Date().getFullYear()}</span>
                             <span>Soli Deo Gloria</span>
                         </div>
                     </div>

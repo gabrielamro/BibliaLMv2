@@ -6,6 +6,7 @@ import { useHeader } from '../../contexts/HeaderContext';
 import usePodcastGenerator from '../../hooks/usePodcastGenerator';
 import { PodcastPlayer } from '../../components/reader/PodcastPlayer';
 import { dbService } from '../../services/supabase';
+import CultoPlusPageShell from '../../components/CultoPlusPageShell';
 import { 
   Mic2, Loader2, ArrowLeft, History, PlayCircle, BookOpen, Plus, FileText, CheckCircle2, Zap
 } from 'lucide-react';
@@ -88,7 +89,8 @@ export default function CriarPodcastPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#121212] pt-6 px-4 md:px-8 pb-32 animate-in fade-in slide-in-from-bottom-4">
+      <CultoPlusPageShell compactDesktop>
+        <div className="min-h-full bg-[var(--module-soft)] px-4 pb-32 pt-6 animate-in fade-in slide-in-from-bottom-4 md:px-8">
             <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8">
                 
                 {/* Left Form Column */}
@@ -213,6 +215,6 @@ export default function CriarPodcastPage() {
                 onSave={savePodcast} 
             />
         </div>
+      </CultoPlusPageShell>
     );
 }
-

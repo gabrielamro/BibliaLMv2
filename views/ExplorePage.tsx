@@ -13,7 +13,6 @@ import { INSPIRATIONAL_VERSES, BIBLE_BOOKS_LIST } from '../constants';
 import { searchMatch } from '../utils/textUtils';
 import { resolveBibleSearchNavigation } from '../utils/bibleSearchNavigation';
 import SEO from '../components/SEO';
-import SocialNavigation from '../components/SocialNavigation';
 import { CustomPlan, StudyModule, GuidedPrayer, CustomQuiz } from '../types';
 
 type ResultType = 'bible' | 'user' | 'church' | 'plan' | 'track' | 'prayer' | 'quiz';
@@ -289,7 +288,6 @@ const ExplorePage: React.FC = () => {
                 </div>
                 </main>
             </div>
-            {isSocialMode && <SocialNavigation activeTab="explore" />}
         </div>
     );
 };

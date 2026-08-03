@@ -24,7 +24,7 @@ const PrivacyPage: React.FC = () => {
           </div>
 
           <div className="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300 font-sans leading-relaxed space-y-6">
-            <p>Sua privacidade é importante para nós. É política do BíbliaLM respeitar a sua privacidade em relação a qualquer informação que possamos coletar no site BíbliaLM.</p>
+            <p>Sua privacidade é importante para nós. É política do Culto+ respeitar a sua privacidade em relação a qualquer informação que possamos coletar no aplicativo.</p>
 
             <h3>1. Coleta de Dados</h3>
             <p>Solicitamos informações pessoais apenas quando realmente precisamos delas para lhe fornecer um serviço. Fazemo-lo por meios justos e legais, com o seu conhecimento e consentimento. Também informamos por que estamos coletando e como será usado.</p>
@@ -43,7 +43,7 @@ const PrivacyPage: React.FC = () => {
             <p>Utilizamos armazenamento local e cookies para manter sua sessão ativa e salvar preferências de leitura (tema, fonte).</p>
 
             <h3>5. Compromisso do Usuário</h3>
-            <p>O usuário se compromete a fazer uso adequado dos conteúdos e da informação que o BíbliaLM oferece no site e com caráter enunciativo, mas não limitativo.</p>
+            <p>O usuário se compromete a fazer uso adequado dos conteúdos e das informações que o Culto+ oferece, em caráter enunciativo, mas não limitativo.</p>
           </div>
         </div>
       </div>

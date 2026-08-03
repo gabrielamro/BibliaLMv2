@@ -79,8 +79,6 @@ const CATEGORIES = [
     title: 'Mock / Demo',
     description: 'Telas de validacao, iframe, demo ou conteudo de exemplo.',
     match: (route) => [
-      '/mockinicio1',
-      '/mocsantuario',
       '/landing/[slug]',
       '/jornada/[planId]',
       '/p/[postId]',

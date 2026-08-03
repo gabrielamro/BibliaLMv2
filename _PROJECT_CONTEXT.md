@@ -1,7 +1,7 @@
 # 📖 Culto+ - Product Context & Business Rules
 
 > **AI INSTRUCTION:** This file contains the "Soul" of the application. Refer to this for logic, gamification rules, and terminology.
-> **VERSION:** v2.8.9 (Trama Viva aplicada e Caderno contextual)
+> **VERSION:** v2.10.0 (Template Culto+ consolidado nas superfícies ativas)
 
 ## 1. Product Vision
 Culto+ is the evolution of the full BibliaLM ecosystem: one church-centered platform connecting personal Bible study, spiritual growth, community, services, volunteering, pastoral care and church management. The legacy name may still exist in modules being migrated, but every new product surface must present Culto+ as the primary brand.
@@ -28,6 +28,9 @@ Culto+ is the evolution of the full BibliaLM ecosystem: one church-centered plat
 *   O shell determina a identidade de rotas operacionais compartilhadas: `/gestao-igreja/cultos` permanece Gestão, `/workspace-pastoral/cultos` permanece Workspace Pastoral e `/culto` ou `/meus-cultos` pertencem a Cultos.
 *   `/oracoes` pertence à Bíblia, `/social/oracao` pertence ao Reino e `/oracoes/gerenciar` pertence ao Workspace Pastoral. `/criar-sala` pertence visualmente ao Workspace Pastoral.
 *   Tema claro, tema escuro, menu desktop, menu móvel, navegação inferior e alternador de visões devem consumir os mesmos tokens. Cor nunca é a única indicação do módulo: título, ícone e estado ativo permanecem obrigatórios.
+*   A navegação inferior pessoal usa sempre cinco destinos, nesta ordem: `Início`, `Bíblia`, `Reino`, `Cultos` e `Perfil`. Igreja, oração, grupos e descoberta são navegação contextual dentro do Reino e não substituem os destinos principais entre páginas.
+*   O tratamento elevado da navegação inferior pertence exclusivamente ao destino da página atual. Reino só recebe o destaque premium em rotas do Reino; Início, Bíblia, Cultos e Perfil assumem o mesmo tratamento quando ativos.
+*   Rotas ativas usam o shell correspondente ao seu módulo. A Home anterior e aliases de perfil apenas convergem para as experiências canônicas; páginas do Reino não renderizam `SocialNavigation` nem a sidebar global legada.
 
 ### 3.1. Início (Home)
 *   The dashboard. Contains "Daily Bread" (Devotional), Reading Progress, and Shortcuts.
@@ -63,6 +66,9 @@ Culto+ is the evolution of the full BibliaLM ecosystem: one church-centered plat
 *   No desktop, a coluna principal do Reino usa largura editorial ampliada de até `980px`: deve aproveitar a área disponível sem ocupar a página inteira. Cabeçalho, compositor e publicações compartilham o mesmo alinhamento; no mobile, a coluna continua fluida e sem rolagem horizontal.
 *   O Feed usa a linguagem própria **Trama Viva**: superfícies editoriais neutras, gradiente Culto+ para conexão e filtros explícitos `Para você`, `Seguindo`, `Minha igreja` e `Grupos`. Falha de backend nunca é mascarada por posts mockados.
 *   A publicação rápida usa o **Caderno de Partilha**: um único launcher por viewport, rascunho local recuperável, audiência textual, localização somente após consentimento, imagem validada com descrição e confirmação antes de descartar.
+*   Os cards do Reino usam a linguagem de **folha editorial**, com uma dobra inferior que não intercepta ações. Reflexões podem destacar uma passagem bíblica estruturada ao lado do texto, e toda publicação informa sua audiência no cabeçalho.
+*   **Seu caminho** é contextual e usa dados reais: próximo culto, convite ou compromisso de escala, convite de oração e estudo salvo. No desktop permanece como trilho lateral; no mobile abre sob demanda para priorizar o feed.
+*   No mobile, a **Trama Viva** continua pela linha de autores, avatar externo, tipo editorial na margem e atalhos `Comunidade`, `Minha igreja` e `Orações`. Esses atalhos complementam a barra inferior principal, sem duplicá-la.
 *   Mudanças visuais no Feed devem preservar os fluxos de publicar, comentar, curtir, compartilhar, editar, excluir e atualizar a lista.
 *   **Ecclesia:** Church & Cell system. Users bind to a Church/Group to see specific Prayer Walls.
 *   **Relações distintas:** `Sou membro` representa vínculo de membresia com a igreja; `Seguir página` acompanha as publicações sem tornar a pessoa membro. Uma relação nunca deve ser inferida da outra.
@@ -70,6 +76,7 @@ Culto+ is the evolution of the full BibliaLM ecosystem: one church-centered plat
 *   **Hierarquia de grupos:** líder com escopo de igreja pode criar grupo raiz; líder com escopo de grupo pode administrar o grupo designado e criar subgrupo abaixo dele. Todo líder selecionado precisa ter papel ativo na mesma igreja.
 *   **Privacidade:** grupo privado pode ser descoberto por convite, mas seu feed só é liberado após o aceite e a confirmação de que a pessoa já é membro da igreja. Convites expiram e são consumidos atomicamente.
 *   Igrejas, grupos, subgrupos e perfis usam rotas canônicas (`/igreja`, `/grupo` e `/u`) e breadcrumbs preservam o contexto da navegação.
+*   Perfis canônicos em `/u/[username]` usam o shell oficial do Culto+ com o módulo Reino ativo, menu desktop expansível e navegação móvel consistente; o trilho lateral legado não deve ser renderizado nessa rota.
 *   **Explore:** OmniSearch for finding Users, Churches, or Bible content.
 
 ### 3.4. Estúdio Criativo
@@ -81,6 +88,7 @@ Culto+ is the evolution of the full BibliaLM ecosystem: one church-centered plat
 
 ### 3.6. Culto+
 *   Church service accompaniment module.
+*   Em `/meus-cultos`, os cinco indicadores pessoais ocupam uma única faixa no mobile com ícone e valor; seus rótulos aparecem por hover, foco ou toque. A página também mostra os próximos cultos publicados da igreja vinculada, independentemente de check-in ou escala pessoal.
 *   Pastors/managers create a service, liturgical timeline, public OnePage, check-ins, private sermon notes and church-linked feed posts.
 *   A página pública `/culto/[serviceSlug]` é uma experiência imersiva em largura total: cabeçalho e ações compactos, transmissão como elemento dominante, atalhos imediatamente abaixo do vídeo e painel contextual de participação, momento atual e contagem regressiva.
 *   Em telas horizontais com pouca altura, a primeira dobra deve acomodar cabeçalho, transmissão e todas as ações rápidas em uma linha. A timeline continua como conteúdo subsequente e o modo vertical preserva os alvos de toque maiores.
