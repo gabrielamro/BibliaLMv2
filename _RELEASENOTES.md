@@ -4,6 +4,14 @@
 > **VERSION SYNC:** Lembre-se de atualizar `constants.ts`, `_ARCHITECTURE.md` e `_PROJECT_CONTEXT.md` ao mudar a versão aqui.
 > **GIT SYNC:** Após atualizar este arquivo, o Arquiteto deve executar `git commit` com a mensagem do release.
 
+## [v2.10.2] - 2026-08-03 (Fluxo temporal do culto)
+### Tipo: Fix / Mobile / Cultos
+- **Retorno previsivel:** o botao voltar da experiencia de culto leva diretamente a `/meus-cultos`, inclusive no mobile.
+- **Horario soberano:** o intervalo configurado em `startsAt` e `endsAt` define o estado apresentado ao membro, sem antecipacao causada pelo status operacional salvo.
+- **Estados claros:** antes do horario mostra `Inicia as HH:mm`, durante mostra `Ao vivo` e depois mostra `Terminou`.
+- **Consistencia:** OnePage, cards de culto e perfil da igreja usam a mesma regra temporal.
+- **Validacao:** testes de experiencia, estado temporal, retorno mobile e TypeScript aprovados.
+
 ## [v2.10.1] - 2026-08-03 (Marca e dominio canonicos)
 ### Tipo: Refactor / Arquitetura / Deploy
 - **Marca publica:** superficies ativas, SEO, textos de ajuda e arte exportada passam a apresentar exclusivamente Culto+.

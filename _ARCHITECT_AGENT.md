@@ -25,6 +25,7 @@ As mensagens de commit devem ser semanticas:
 
 | DATA | TIPO | ARQUIVO(S) | DESCRICAO CURTA | Arquiteto |
 | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-03 | fix | components/culto-plus/, utils/cultoPlus*, views/public/ChurchProfilePage.tsx, tests/ | Retorno do culto para Meus Cultos e estados Inicia as, Ao vivo e Terminou governados pelo intervalo real - v2.10.2 | Codex |
 | 2026-08-03 | refactor | constants.ts, app/, components/, views/, utils/, public/ | Culto+ e cultomais.vercel.app definidos como marca e origem publicas canonicas, preservando compatibilidade com links legados - v2.10.1 | Codex |
 | 2026-08-02 | refactor | app/, components/, views/, services/supabase.ts, tests/ | Template Culto+ consolidado, rotas canonicas, marca unificada e mural global corrigido - v2.10.0 | Codex |
 | 2026-08-01 | fix | services/churchManagementService.ts, views/MyCultosPage.tsx, tests/myCultosMobileExperience.test.ts | Proximo culto usa membership persistida e exibe somente a ocorrencia mais proxima - v2.9.4 | Codex |

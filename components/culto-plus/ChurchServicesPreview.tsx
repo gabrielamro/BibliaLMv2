@@ -4,6 +4,7 @@ import Link from 'next/link';
 import React from 'react';
 import { CalendarDays, Clock, Radio, Sparkles } from 'lucide-react';
 import { ChurchService } from '../../types';
+import { getLiveStatusLabel } from '../../utils/cultoPlusOnePage';
 
 const formatServiceDate = (value: string) => {
   try {
@@ -20,13 +21,9 @@ const formatServiceDate = (value: string) => {
 
 const getServicePreviewStatus = (service: ChurchService, wasAttended: boolean) => {
   const now = new Date();
-  const startsAt = new Date(service.startsAt);
-  const endsAt = new Date(service.endsAt);
-  const isFinished = service.status === 'finished' || service.status === 'archived' || now > endsAt;
-  if (service.status === 'live' || (now >= startsAt && now <= endsAt)) return 'Ao vivo';
-  if (isFinished && wasAttended) return 'Assistido';
-  if (now < startsAt) return 'Agendado';
-  return 'Publicado';
+  const temporalLabel = getLiveStatusLabel(service, now);
+  if (temporalLabel === 'Terminou' && wasAttended) return 'Assistido';
+  return temporalLabel;
 };
 
 type ChurchServicesPreviewProps = {

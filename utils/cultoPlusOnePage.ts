@@ -12,6 +12,16 @@ export type ServiceCounterParts = {
 
 const padTime = (value: number) => String(Math.max(0, value)).padStart(2, '0');
 
+const formatStartTime = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'horário informado';
+  return new Intl.DateTimeFormat('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+};
+
 const splitDuration = (milliseconds: number) => {
   const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -45,10 +55,10 @@ export const getServiceCounterParts = (service: Pick<ChurchService, 'startsAt' |
 
 export const getLiveStatusLabel = (service: Pick<ChurchService, 'startsAt' | 'endsAt' | 'status' | 'liveUrl'>, nowDate = new Date()) => {
   const counter = getServiceCounterParts(service, nowDate);
-  if (counter.mode === 'finished') return 'Culto encerrado';
-  if (counter.mode === 'running' || service.status === 'live') return 'Ao vivo agora';
-  if (service.liveUrl) return 'Ao vivo em breve';
-  return 'Culto publicado';
+  if (counter.mode === 'finished') return 'Terminou';
+  if (counter.mode === 'running') return 'Ao vivo';
+  if (counter.mode === 'upcoming') return `Inicia às ${formatStartTime(service.startsAt)}`;
+  return 'Horário indisponível';
 };
 
 export const getOfferingItem = (items: ServiceLiturgyItem[]) =>

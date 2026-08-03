@@ -44,9 +44,9 @@ test('shows running counter after service starts', () => {
 });
 
 test('resolves live status from live url and current time', () => {
-  assert.equal(getLiveStatusLabel(makeService({ liveUrl: 'https://youtube.com/live' }), new Date('2026-05-21T21:00:00.000Z')), 'Ao vivo em breve');
-  assert.equal(getLiveStatusLabel(makeService({ liveUrl: 'https://youtube.com/live' }), new Date('2026-05-21T23:30:00.000Z')), 'Ao vivo agora');
-  assert.equal(getLiveStatusLabel(makeService({ liveUrl: 'https://youtube.com/live' }), new Date('2026-05-22T02:00:00.000Z')), 'Culto encerrado');
+  assert.match(getLiveStatusLabel(makeService({ liveUrl: 'https://youtube.com/live', status: 'live' }), new Date('2026-05-21T21:00:00.000Z')), /^Inicia às /);
+  assert.equal(getLiveStatusLabel(makeService({ liveUrl: 'https://youtube.com/live' }), new Date('2026-05-21T23:30:00.000Z')), 'Ao vivo');
+  assert.equal(getLiveStatusLabel(makeService({ liveUrl: 'https://youtube.com/live' }), new Date('2026-05-22T02:00:00.000Z')), 'Terminou');
 });
 
 test('finds offering item with pix key', () => {

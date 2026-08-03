@@ -20,6 +20,7 @@ test('culto mobile mantém o relógio original e concentra ações em três bot�
   assert.match(read('components/culto-plus/CultoLiveTimeline.tsx'), /<Clock3 size=\{15\}/);
   assert.match(topActions, /fixed left-4/);
   assert.match(topActions, /fixed right-4/);
+  assert.match(page, /backHref="\/meus-cultos"/);
 });
 
 test('área inferior não repete informações já disponíveis no culto ao vivo', () => {

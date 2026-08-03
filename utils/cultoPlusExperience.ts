@@ -5,6 +5,7 @@ export type WorshipExperienceMode = 'before' | 'during_with_live' | 'during_with
 type ResolveWorshipExperienceInput = {
   serviceStatus: ChurchServiceStatus;
   streamStatus: ServiceStreamStatus;
+  timeMode?: 'upcoming' | 'running' | 'finished' | 'invalid';
 };
 
 export type ServiceExperienceMoment = ServiceLiturgyItem & {
@@ -53,18 +54,23 @@ export const resolveServiceStreamStatus = (
   const startsAt = new Date(service.startsAt);
   const endsAt = new Date(service.endsAt);
 
-  if (!hasLiveUrl) return 'not_configured';
   if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) return 'unavailable';
-  if (service.status === 'finished' || service.status === 'archived' || nowDate > endsAt) return 'ended';
-  if (service.status === 'live' || service.status === 'in_progress' || (nowDate >= startsAt && nowDate <= endsAt)) return 'live';
+  if (service.status === 'archived' || nowDate > endsAt) return 'ended';
+  if (nowDate < startsAt) return hasLiveUrl ? 'upcoming' : 'not_configured';
+  if (!hasLiveUrl) return 'not_configured';
+  if (nowDate <= endsAt) return 'live';
   return 'upcoming';
 };
 
 export const resolveWorshipExperienceMode = ({
   serviceStatus,
   streamStatus,
+  timeMode,
 }: ResolveWorshipExperienceInput): WorshipExperienceMode => {
   if (serviceStatus === 'archived') return 'archived';
+  if (timeMode === 'upcoming') return 'before';
+  if (timeMode === 'running') return streamStatus === 'live' ? 'during_with_live' : 'during_without_live';
+  if (timeMode === 'finished') return 'after';
   if (serviceStatus === 'finished') return 'after';
 
   if (serviceStatus === 'live' || serviceStatus === 'in_progress') {

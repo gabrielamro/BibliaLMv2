@@ -40,13 +40,16 @@ test('resolves worship experience mode from service and stream state', () => {
   assert.equal(resolveWorshipExperienceMode({ serviceStatus: 'live', streamStatus: 'unavailable' }), 'during_without_live');
   assert.equal(resolveWorshipExperienceMode({ serviceStatus: 'finished', streamStatus: 'ended' }), 'after');
   assert.equal(resolveWorshipExperienceMode({ serviceStatus: 'archived', streamStatus: 'ended' }), 'archived');
+  assert.equal(resolveWorshipExperienceMode({ serviceStatus: 'live', streamStatus: 'upcoming', timeMode: 'upcoming' }), 'before');
+  assert.equal(resolveWorshipExperienceMode({ serviceStatus: 'published', streamStatus: 'not_configured', timeMode: 'running' }), 'during_without_live');
 });
 
-test('keeps stream status independent from service status', () => {
+test('uses the scheduled interval as the source of truth for stream status', () => {
   assert.equal(resolveServiceStreamStatus(makeService(), new Date('2026-07-07T22:00:00.000Z')), 'not_configured');
   assert.equal(resolveServiceStreamStatus(makeService({ liveUrl: 'https://youtube.com/live' }), new Date('2026-07-07T22:00:00.000Z')), 'upcoming');
-  assert.equal(resolveServiceStreamStatus(makeService({ liveUrl: 'https://youtube.com/live', status: 'in_progress' }), new Date('2026-07-07T22:00:00.000Z')), 'live');
-  assert.equal(resolveServiceStreamStatus(makeService({ liveUrl: 'https://youtube.com/live', status: 'finished' }), new Date('2026-07-07T23:30:00.000Z')), 'ended');
+  assert.equal(resolveServiceStreamStatus(makeService({ liveUrl: 'https://youtube.com/live', status: 'in_progress' }), new Date('2026-07-07T22:00:00.000Z')), 'upcoming');
+  assert.equal(resolveServiceStreamStatus(makeService({ liveUrl: 'https://youtube.com/live', status: 'finished' }), new Date('2026-07-07T23:30:00.000Z')), 'live');
+  assert.equal(resolveServiceStreamStatus(makeService({ liveUrl: 'https://youtube.com/live', status: 'live' }), new Date('2026-07-08T02:00:00.000Z')), 'ended');
 });
 
 test('resolves current and next liturgy moments', () => {

@@ -465,13 +465,13 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
   const counterParts = useMemo(() => service ? getServiceCounterParts(service, nowDate) : null, [service, nowDate]);
   const streamStatus = useMemo(() => service ? resolveServiceStreamStatus(service, nowDate) : 'not_configured', [service, nowDate]);
   const experienceMode = useMemo(
-    () => service ? resolveWorshipExperienceMode({ serviceStatus: service.status, streamStatus }) : 'before',
-    [service, streamStatus],
+    () => service ? resolveWorshipExperienceMode({ serviceStatus: service.status, streamStatus, timeMode: counterParts?.mode }) : 'before',
+    [counterParts?.mode, service, streamStatus],
   );
   const liveStatusLabel = useMemo(() => {
     if (!service) return '';
-    if (experienceMode === 'during_without_live') return 'Culto em andamento';
-    if (experienceMode === 'after') return 'Culto encerrado';
+    if (experienceMode === 'during_without_live') return 'Ao vivo';
+    if (experienceMode === 'after') return 'Terminou';
     if (experienceMode === 'archived') return 'Culto arquivado';
     return getLiveStatusLabel(service, nowDate);
   }, [experienceMode, service, nowDate]);
@@ -1042,7 +1042,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#f4fbf8] p-6 text-center dark:bg-black">
         <Radio className="mb-4 text-gray-300" size={48} />
         <h1 className="text-xl font-black text-gray-900 dark:text-white">Culto não encontrado</h1>
-        <Link href="/social/igrejas" className="mt-4 text-sm font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Voltar para igrejas</Link>
+        <Link href="/meus-cultos" className="mt-4 text-sm font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Voltar para Meus Cultos</Link>
       </div>
     );
   }
@@ -1057,7 +1057,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
             <div ref={currentSectionRef} className="culto-compact-main relative flex min-w-0 flex-col">
               <CultoPlusTopActions
                 contained
-                backHref={service.churchSlug ? `/igreja/${service.churchSlug}` : '/social/igrejas'}
+                backHref="/meus-cultos"
                 onNotify={() => showNotification('Notificações do culto em breve.', 'info')}
                 items={[
                   { label: 'Compartilhar culto', icon: <Share2 size={15} />, onClick: handleShare },

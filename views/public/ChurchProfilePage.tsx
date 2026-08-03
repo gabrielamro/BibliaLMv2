@@ -32,6 +32,7 @@ import { getChurchGroupCapabilities, hasActiveChurchRole } from '../../utils/chu
 import { postInteractionService } from '../../services/postInteractionService';
 import { generateShareLink } from '../../utils/shareUtils';
 import KingdomComposer from '../../components/social/KingdomComposer';
+import { getLiveStatusLabel } from '../../utils/cultoPlusOnePage';
 
 type ChurchMuralItem =
     | (PrayerRequest & { muralType?: 'prayer' })
@@ -39,13 +40,9 @@ type ChurchMuralItem =
 
 const getChurchServiceStatusLabel = (service: ChurchService, wasAttended: boolean) => {
     const now = new Date();
-    const startsAt = new Date(service.startsAt);
-    const endsAt = new Date(service.endsAt);
-    const isFinished = service.status === 'finished' || service.status === 'archived' || now > endsAt;
-    if (service.status === 'live' || (now >= startsAt && now <= endsAt)) return 'Ao vivo';
-    if (isFinished && wasAttended) return 'Assistido';
-    if (now < startsAt) return 'Agendado';
-    return 'Participar';
+    const temporalLabel = getLiveStatusLabel(service, now);
+    if (temporalLabel === 'Terminou' && wasAttended) return 'Assistido';
+    return temporalLabel;
 };
 
 const isFeedPostMuralItem = (item: ChurchMuralItem): item is Post & { muralType: 'post' } =>
