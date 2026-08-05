@@ -1,0 +1,4 @@
+interface:
+  display_name: "Culto+ Visual"
+  short_description: "Padroniza páginas com a identidade do Culto+"
+  default_prompt: "Use $culto-plus-visual para criar esta página seguindo o shell, o menu e a identidade visual oficial do Culto+."

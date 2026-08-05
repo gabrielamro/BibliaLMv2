@@ -25,6 +25,10 @@ As mensagens de commit devem ser semanticas:
 
 | DATA | TIPO | ARQUIVO(S) | DESCRICAO CURTA | Arquiteto |
 | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-04 | fix | components/CultoPlusPageShell.tsx, services/devotionalResolver.ts, supabase/migrations/, tests/ | Pão Diário preserva o estudo no modo foco, usa fallback com prazo e Diário Espiritual recebe RLS mínimo em produção - v2.10.5 | Codex |
+| 2026-08-04 | refactor | views/TracksPage.tsx, tests/tracks.spec.ts | Catálogo de Trilhas convertido em cards com estudo passo a passo em modal responsivo e acessível - v2.10.5 | Codex |
+| 2026-08-04 | fix | middleware.ts, app/trilhas/, views/NewHomePage.tsx, tests/ | Trilhas restauradas, menus alinhados e redirect inicial antecipado para eliminar o shell legado - v2.10.4 | Codex |
+| 2026-08-04 | fix | app/icon.svg, app/layout.tsx, public/manifest.json | Favicon oficial do Culto+ e manifesto do navegador corrigidos - v2.10.3 | Codex |
 | 2026-08-03 | fix | components/culto-plus/, utils/cultoPlus*, views/public/ChurchProfilePage.tsx, tests/ | Retorno do culto para Meus Cultos e estados Inicia as, Ao vivo e Terminou governados pelo intervalo real - v2.10.2 | Codex |
 | 2026-08-03 | refactor | constants.ts, app/, components/, views/, utils/, public/ | Culto+ e cultomais.vercel.app definidos como marca e origem publicas canonicas, preservando compatibilidade com links legados - v2.10.1 | Codex |
 | 2026-08-02 | refactor | app/, components/, views/, services/supabase.ts, tests/ | Template Culto+ consolidado, rotas canonicas, marca unificada e mural global corrigido - v2.10.0 | Codex |

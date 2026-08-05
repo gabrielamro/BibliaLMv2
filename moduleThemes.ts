@@ -27,7 +27,7 @@ export const APP_MODULE_ROUTE_RULES: ReadonlyArray<{
   { module: 'management', prefixes: ['/gestao-igreja', '/novidades-gestao-igreja'] },
   { module: 'pastoral', exact: ['/acervo', '/criar-sala', '/oracoes/gerenciar', '/workspace'], prefixes: ['/workspace-pastoral'] },
   { module: 'create', exact: ['/chat', '/estudio-criativo'], prefixes: ['/criar-conteudo', '/criar-arte-sacra', '/criar-podcast', '/criar-estudo'] },
-  { module: 'bible', exact: ['/bibliasagrada', '/biblia', '/biblia-dashboard', '/devocional', '/oracoes', '/quiz', '/notes'], prefixes: ['/plano', '/estudos', '/estudo', '/jornada', '/v/'] },
+  { module: 'bible', exact: ['/trilhas', '/diario-espiritual', '/bibliasagrada', '/biblia', '/biblia-dashboard', '/devocional', '/oracoes', '/quiz', '/notes'], prefixes: ['/plano', '/estudos', '/estudo', '/jornada', '/v/'] },
   { module: 'kingdom', exact: ['/social'], prefixes: ['/social/', '/p/', '/u/', '/igreja/', '/grupo/'] },
   { module: 'cultos', exact: ['/culto', '/meus-cultos'], prefixes: ['/culto/', '/meus-cultos/'] },
   { module: 'home', exact: ['/', '/newhome', '/rotina', '/mapa-vivo'] },

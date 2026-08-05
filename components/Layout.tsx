@@ -83,7 +83,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         || location.pathname === '/acervo';
     const isStandalonePublicQrShell = location.pathname.startsWith('/qr/');
     const isCultoPlusOnePage = location.pathname === '/culto' || location.pathname.startsWith('/culto/');
-    const isStandaloneBibleModuleShell = ['/bibliasagrada', '/biblia', '/biblia-dashboard', '/devocional', '/oracoes', '/plano', '/quiz'].includes(location.pathname)
+    const isStandaloneBibleModuleShell = ['/trilhas', '/diario-espiritual', '/bibliasagrada', '/biblia', '/biblia-dashboard', '/devocional', '/oracoes', '/plano', '/quiz'].includes(location.pathname)
+        || location.pathname.startsWith('/trilhas')
         || location.pathname.startsWith('/estudos')
         || location.pathname.startsWith('/jornada/')
         || location.pathname.startsWith('/plano/')

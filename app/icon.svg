@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Culto+">
+  <defs>
+    <linearGradient id="frame" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse"><stop stop-color="#4f1fd1"/><stop offset=".52" stop-color="#c32b91"/><stop offset="1" stop-color="#ff5349"/></linearGradient>
+    <linearGradient id="leftPage" x1="15" y1="31" x2="31" y2="51" gradientUnits="userSpaceOnUse"><stop stop-color="#7c35ef"/><stop offset="1" stop-color="#3512a7"/></linearGradient>
+    <linearGradient id="rightPage" x1="32" y1="31" x2="50" y2="51" gradientUnits="userSpaceOnUse"><stop stop-color="#ff4e61"/><stop offset="1" stop-color="#c91f54"/></linearGradient>
+    <linearGradient id="cross" x1="32" y1="13" x2="32" y2="35" gradientUnits="userSpaceOnUse"><stop stop-color="#ffd52e"/><stop offset="1" stop-color="#ff9d00"/></linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="#0b0710"/>
+  <path d="M20 6h24c8 0 14 6 14 14v24c0 8-6 14-14 14H20C12 58 6 52 6 44V20C6 12 12 6 20 6Z" fill="none" stroke="url(#frame)" stroke-width="5"/>
+  <path d="M30.5 49.5c-4-5-9-7-17-6.2V27.5c7.7-1.2 13.3.9 17 5.3v16.7Z" fill="url(#leftPage)"/>
+  <path d="M33.5 49.5c4-5 9-7 17-6.2V27.5c-7.7-1.2-13.3.9-17 5.3v16.7Z" fill="url(#rightPage)"/>
+  <path d="M14 47c7.5-.7 12.7 1.1 16.5 5M50 47c-7.5-.7-12.7 1.1-16.5 5" fill="none" stroke="url(#frame)" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M32 14v19M26.5 20.5h11" stroke="url(#cross)" stroke-width="4.5" stroke-linecap="round"/>
+</svg>

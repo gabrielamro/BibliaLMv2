@@ -1433,3 +1433,61 @@ export interface ChurchGamificationSnapshot {
 export interface AIUsageStats { date: string; totalTokens: number; costEstimate: number; requests: { chat: number; images: number; podcasts: number; analysis: number; }; }
 export interface AnalyticsMetric { label: string; value: number; change: number; trend: 'up' | 'down' | 'neutral'; }
 export interface FunnelStep { step: string; count: number; dropOff: number; }
+
+// --- DIÁRIO ESPIRITUAL & LINHA DO TEMPO ---
+export type HeartState = 'em_paz' | 'grato' | 'esperancoso' | 'cansado' | 'ansioso' | 'triste' | 'direcao';
+
+export interface SpiritualDayEntry {
+  id?: string;
+  userId: string;
+  entryDate: string; // YYYY-MM-DD (America/Manaus)
+  heartState?: HeartState | null;
+  heartStateNote?: string | null;
+  privateNote?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type FavoriteContentType = 'verse' | 'devotional' | 'study' | 'track' | 'prayer' | 'service_note' | 'post';
+
+export interface UserContentFavorite {
+  id?: string;
+  userId: string;
+  contentType: FavoriteContentType;
+  contentId: string;
+  title: string;
+  snapshot: {
+    reference?: string;
+    textSnippet?: string;
+    originUrl?: string;
+    authorName?: string;
+    metadata?: Record<string, any>;
+  };
+  createdAt?: string;
+}
+
+export interface SpiritualTimelineItem {
+  id: string;
+  type: 'devotional' | 'bible_reading' | 'service' | 'prayer' | 'commitment' | 'journal_note' | 'favorite' | 'saved_post';
+  title: string;
+  subtitle?: string;
+  dateStr: string;
+  timestamp: string;
+  iconName?: string;
+  badge?: string;
+  snippet?: string;
+  actionUrl?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface SpiritualCommitmentItem {
+  id: string;
+  type: 'devotional_action' | 'church_service' | 'volunteer_scale' | 'service_note_task';
+  title: string;
+  description?: string;
+  dateStr: string;
+  timeStr?: string;
+  status: 'upcoming' | 'confirmed' | 'completed' | 'missed' | 'cancelled';
+  locationOrTeam?: string;
+  actionUrl?: string;
+}

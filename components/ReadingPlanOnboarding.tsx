@@ -262,23 +262,32 @@ const ReadingPlanOnboarding: React.FC<ReadingPlanOnboardingProps> = ({ onStart }
                             <p className="text-sm text-gray-500">{getScopeName()} em {days} dias</p>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2">
-                            <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-2xl border border-purple-100 dark:border-purple-800/30 text-center">
-                                <Zap size={16} className="text-purple-600 mx-auto mb-1" />
-                                <span className="block text-[8px] font-black text-purple-400 uppercase">Nível</span>
-                                <span className="text-xs font-bold text-purple-700 dark:text-purple-300">{analysis.difficulty}</span>
-                            </div>
-                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-2xl border border-blue-100 dark:border-blue-800/30 text-center">
-                                <Clock size={16} className="text-blue-600 mx-auto mb-1" />
-                                <span className="block text-[8px] font-black text-blue-400 uppercase">Caps/Dia</span>
-                                <span className="text-xs font-bold text-blue-700 dark:text-blue-300">{(analysis.versesPerDay / 26).toFixed(1)}</span>
-                            </div>
-                            <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-2xl border border-green-100 dark:border-green-800/30 text-center">
-                                <Bookmark size={16} className="text-green-600 mx-auto mb-1" />
-                                <span className="block text-[8px] font-black text-green-400 uppercase">Verses</span>
-                                <span className="text-xs font-bold text-green-700 dark:text-green-300">~{analysis.versesPerDay}</span>
-                            </div>
-                        </div>
+                        {(() => {
+                            const safeVerses = typeof analysis.versesPerDay === 'number'
+                                ? analysis.versesPerDay
+                                : typeof analysis.versesPerDay === 'object' && analysis.versesPerDay !== null
+                                    ? (analysis.versesPerDay as any).estimatedVersesPerDay || (analysis.versesPerDay as any).versesPerDay || 80
+                                    : Number(analysis.versesPerDay) || 80;
+                            return (
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-2xl border border-purple-100 dark:border-purple-800/30 text-center">
+                                        <Zap size={16} className="text-purple-600 mx-auto mb-1" />
+                                        <span className="block text-[8px] font-black text-purple-400 uppercase">Nível</span>
+                                        <span className="text-xs font-bold text-purple-700 dark:text-purple-300">{analysis.difficulty}</span>
+                                    </div>
+                                    <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-2xl border border-blue-100 dark:border-blue-800/30 text-center">
+                                        <Clock size={16} className="text-blue-600 mx-auto mb-1" />
+                                        <span className="block text-[8px] font-black text-blue-400 uppercase">Caps/Dia</span>
+                                        <span className="text-xs font-bold text-blue-700 dark:text-blue-300">{(safeVerses / 26).toFixed(1)}</span>
+                                    </div>
+                                    <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-2xl border border-green-100 dark:border-green-800/30 text-center">
+                                        <Bookmark size={16} className="text-green-600 mx-auto mb-1" />
+                                        <span className="block text-[8px] font-black text-green-400 uppercase">Verses</span>
+                                        <span className="text-xs font-bold text-green-700 dark:text-green-300">~{safeVerses}</span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
                         <div className="bg-gray-50 dark:bg-gray-900 p-5 rounded-[2rem] border border-gray-100 dark:border-gray-800">
                             <h4 className="text-xs font-black text-bible-gold uppercase tracking-widest mb-3 flex items-center gap-2"><Map size={14} /> Estratégia:</h4>

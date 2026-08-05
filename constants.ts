@@ -1,7 +1,7 @@
 
 import type { Book, Devotional, SubscriptionPlan, Badge, QuizQuestion, ReadingTrack, GuidedPrayer } from './types';
 
-export const SYSTEM_VERSION = "2.10.2";
+export const SYSTEM_VERSION = "2.10.5";
 export const DEFAULT_FONT_SIZE = 3;
 export const PRODUCT_NAME = 'Culto+';
 export const PUBLIC_APP_ORIGIN = 'https://cultomais.vercel.app';

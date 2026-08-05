@@ -7,8 +7,25 @@ const read = (path: string) => readFileSync(resolve(path), 'utf8');
 
 test('home e perfil legado convergem para experiências canônicas', () => {
   assert.match(read('app/page.tsx'), /redirect\('\/newhome'\)/);
+  assert.match(read('middleware.ts'), /request\.nextUrl\.pathname === '\/'/);
+  assert.match(read('middleware.ts'), /newHomeUrl\.pathname = '\/newhome'/);
   assert.match(read('app/inicio03/page.tsx'), /redirect\('\/newhome'\)/);
   assert.match(read('app/[username]/page.tsx'), /redirect\(`\/u\//);
+});
+
+test('Trilhas é uma experiência bíblica pública e aparece no menu da NewHome', () => {
+  const middleware = read('middleware.ts');
+  const route = read('app/trilhas/page.tsx');
+  const home = read('views/NewHomePage.tsx');
+  const tracks = read('views/TracksPage.tsx');
+
+  assert.doesNotMatch(middleware, /\n\s*'\/trilhas',/);
+  assert.match(route, /CultoPlusPageShell/);
+  assert.doesNotMatch(route, /ProtectedRoute/);
+  assert.match(home, /label: "Trilhas de Estudo", path: "\/trilhas"/);
+  assert.match(tracks, /data-testid="track-card"/);
+  assert.match(tracks, /role="dialog"/);
+  assert.match(tracks, /data-testid="track-next-step"/);
 });
 
 test('superfícies do Reino compartilham o shell Culto+', () => {

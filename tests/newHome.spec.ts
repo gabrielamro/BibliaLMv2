@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("New Home isolada", () => {
-  test("abre a rota sem substituir a Home atual e alterna abas", async ({ page }) => {
+test.describe("New Home canônica", () => {
+  test("abre a Home oficial, expõe Trilhas e alterna abas", async ({ page }) => {
     await page.goto("/newhome");
     await expect(page).toHaveURL(/\/newhome/);
     await expect(page.getByRole("tab", { name: "Início" })).toBeVisible();
@@ -24,7 +24,7 @@ test.describe("New Home isolada", () => {
     await expect(primaryDevotional.getByTestId("home-devotional-reflection")).toContainText(/\.\.\.$/);
     await expect(primaryDevotional.getByText("5 min de leitura", { exact: true })).toBeVisible();
     const journeyShortcuts = page.getByTestId("journey-shortcuts");
-    await expect(journeyShortcuts.getByRole("link")).toHaveCount(3);
+    await expect(journeyShortcuts.getByRole("link")).toHaveCount(4);
     await expect(journeyShortcuts.getByText("Meus Estudos", { exact: true })).toHaveCount(0);
     await expect(journeyShortcuts.getByText("Pão Diário", { exact: true })).toHaveCount(0);
     await expect(journeyShortcuts.getByRole("link", { name: /Continuar leitura/ })).toHaveAttribute("href", "/bibliasagrada");
@@ -41,7 +41,7 @@ test.describe("New Home isolada", () => {
     expect(journeyMainColumnBox).not.toBeNull();
     expect(Math.abs((journeyShortcutsBox!.y + journeyShortcutsBox!.height) - (journeyMainColumnBox!.y + journeyMainColumnBox!.height))).toBeLessThan(2);
     const journeyHeaders = journeyShortcuts.getByTestId("journey-card-header");
-    await expect(journeyHeaders).toHaveCount(3);
+    await expect(journeyHeaders).toHaveCount(4);
     const journeyHeaderGeometry = await journeyHeaders.evaluateAll((headers) =>
       headers.map((header) => {
         const icon = header.querySelector('[data-testid="journey-card-icon"]')!.getBoundingClientRect();
@@ -150,6 +150,7 @@ test.describe("New Home isolada", () => {
     const navigation = page.getByRole("navigation", { name: /Navega/ });
     await navigation.getByRole("button", { name: /submenu B/ }).click();
     await expect(navigation.locator('a[href="/devocional"]')).toBeVisible();
+    await expect(navigation.locator('a[href="/trilhas"]')).toBeVisible();
     await expect(navigation.locator('a[href="/minha-conta"]')).toBeVisible();
     await expect(navigation.getByRole("button", { name: /submenu Config/ })).toBeVisible();
     await expect(navigation.locator('a[href="/workspace-pastoral"]')).toHaveCount(0);
@@ -159,17 +160,18 @@ test.describe("New Home isolada", () => {
     await expect(page.getByRole("heading", { name: "Seu estúdio criativo" })).toBeVisible();
 
     await page.goto("/");
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/newhome$/);
   });
 
   test("oferece submenus coloridos e acessiveis no mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/newhome");
 
-    await page.getByRole("button", { name: /Submenus dos m/ }).click();
-    const moduleMenu = page.locator("#mobile-module-submenus");
+    await page.getByRole("button", { name: "Abrir menu" }).click();
+    const moduleMenu = page.locator("#newhome-settings-menu");
     await expect(moduleMenu).toBeVisible();
-    await moduleMenu.getByRole("tab").nth(1).click();
+    await moduleMenu.getByRole("tab", { name: "Bíblia", exact: true }).click();
     await expect(moduleMenu.locator('a[href="/notes"]')).toBeVisible();
+    await expect(moduleMenu.locator('a[href="/trilhas"]')).toBeVisible();
   });
 });

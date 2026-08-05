@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Church,
   Clock3,
+  Compass,
   Coffee,
   FileImage,
   FileText,
@@ -120,7 +121,7 @@ const sidebarItems: SidebarModule[] = [
     { label: "Visão geral", path: "/newhome", icon: Home }, { label: "Criar", path: "/newhome?tab=criar", icon: Wand2 }, { label: "Reino", path: "/newhome?tab=reino", icon: Users }, { label: "Gestão", path: "/newhome?tab=gestao", icon: LayoutDashboard }, { label: "Calendário", path: "/newhome?tab=calendario", icon: CalendarDays }, { label: "Mapa Vivo", path: "/mapa-vivo", icon: Sparkles },
   ] },
   { module: "bible", label: "Bíblia", path: "/bibliasagrada", icon: BookOpen, children: [
-    { label: "Bíblia Sagrada", path: "/bibliasagrada", icon: BookOpen }, { label: "Meta de leitura", path: "/plano", icon: Target }, { label: "Pão Diário", path: "/devocional", icon: Coffee }, { label: "Meus Estudos", path: "/estudos", icon: BookMarked }, { label: "Anotações", path: "/notes", icon: NotebookPen }, { label: "Quiz Bíblico", path: "/quiz", icon: Brain },
+    { label: "Bíblia Sagrada", path: "/bibliasagrada", icon: BookOpen }, { label: "Pão Diário", path: "/devocional", icon: Coffee }, { label: "Diário Espiritual", path: "/diario-espiritual", icon: BookOpen }, { label: "Trilhas de Estudo", path: "/trilhas", icon: Compass }, { label: "Meta de leitura", path: "/plano", icon: Target }, { label: "Orações", path: "/oracoes", icon: Heart }, { label: "Meus Estudos", path: "/estudos", icon: BookMarked }, { label: "Anotações", path: "/notes", icon: NotebookPen }, { label: "Quiz Bíblico", path: "/quiz", icon: Brain },
   ] },
   { module: "kingdom", label: "Reino", path: "/social", icon: Users, children: [
     { label: "Feed", path: "/social", icon: Users }, { label: "Orações", path: "/social/oracao", icon: Heart }, { label: "Igrejas", path: "/social/igrejas", icon: Church }, { label: "Explorar", path: "/social/explore", icon: Search }, { label: "Artigos", path: "/social/artigos", icon: FileText }, { label: "Meu perfil", path: "/perfil", icon: UserRound },
@@ -803,6 +804,24 @@ function JourneyCards({ readingProgress }: { readingProgress: number }) {
   const completed = Math.max(1, Math.round((readingProgress / 100) * 13));
   const items = [
     {
+      title: "Diário Espiritual",
+      subtitle: "Linha do tempo privada",
+      href: "/diario-espiritual",
+      icon: BookOpen,
+      content: (
+        <div className="newhome-soft mt-3 flex min-h-[72px] items-center gap-3 rounded-xl p-3 text-xs leading-5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#edad2c]/15 text-[#edad2c]">
+            <Sparkles size={16} />
+          </span>
+          <div>
+            <strong className="block text-xs font-bold">O que ficou no seu coração?</strong>
+            <small className="module-muted-text block text-[10px]">Registre seu humor e anotações</small>
+          </div>
+        </div>
+      ),
+      action: "Abrir meu diário",
+    },
+    {
       title: "Meta de Leitura",
       subtitle: "13 capítulos por dia",
       href: "/plano",
@@ -846,7 +865,7 @@ function JourneyCards({ readingProgress }: { readingProgress: number }) {
     },
   ];
   return (
-    <section data-module-theme="bible" data-testid="journey-shortcuts" aria-label="Atalhos da jornada" className="grid flex-1 gap-3 sm:grid-cols-3">
+    <section data-module-theme="bible" data-testid="journey-shortcuts" aria-label="Atalhos da jornada" className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {items.map((item) => {
         const Icon = item.icon;
         return (

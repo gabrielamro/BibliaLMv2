@@ -12,6 +12,7 @@ test('resolve cada família de rotas para um único módulo visual', () => {
     ['/newhome', '?tab=calendario', 'cultos'],
     ['/bibliasagrada', '', 'bible'],
     ['/devocional', '', 'bible'],
+    ['/trilhas', '', 'bible'],
     ['/social/oracao', '', 'kingdom'],
     ['/culto/celebracao', '', 'cultos'],
     ['/meus-cultos/registro', '', 'cultos'],

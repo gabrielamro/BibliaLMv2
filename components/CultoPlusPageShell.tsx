@@ -11,6 +11,7 @@ import {
   Church,
   ClipboardCheck,
   Coffee,
+  Compass,
   FilePenLine,
   HandHeart,
   Home,
@@ -79,6 +80,8 @@ const modules: ModuleItem[] = [
     children: [
       { label: "Bíblia Sagrada", href: "/bibliasagrada", icon: BookOpen },
       { label: "Pão Diário", href: "/devocional", icon: Coffee },
+      { label: "Diário Espiritual", href: "/diario-espiritual", icon: BookOpen },
+      { label: "Trilhas de Estudo", href: "/trilhas", icon: Compass },
       { label: "Meta de leitura", href: "/plano", icon: Target },
       { label: "Orações", href: "/oracoes", icon: HandHeart },
       { label: "Quiz Bíblico", href: "/quiz", icon: Brain },
@@ -227,12 +230,10 @@ export default function CultoPlusPageShell({ children, isPastor = false, userNam
     return () => document.removeEventListener("mousedown", closeOutside);
   }, [mobileOpen]);
 
-  if (isFocusMode) return <>{children}</>;
-
   return (
-    <div data-testid="cultoplus-page-shell" data-module={activeModule.module} className="min-h-full bg-[#fdfbf7] text-[#2d2a26] dark:bg-[#0b0b0c] dark:text-gray-100">
+    <div data-testid={isFocusMode ? undefined : "cultoplus-page-shell"} data-module={activeModule.module} className="min-h-full bg-[#fdfbf7] text-[#2d2a26] dark:bg-[#0b0b0c] dark:text-gray-100">
       <div className="flex min-h-full items-stretch">
-        <aside data-testid="cultoplus-desktop-menu" data-compact={isDesktopMenuCompact ? "true" : "false"} className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-[#e6e0d8] bg-white py-4 transition-[width,padding] duration-200 lg:flex dark:border-white/10 dark:bg-[#111113] ${isDesktopMenuCompact ? 'w-[84px] items-center px-2' : 'w-[256px] px-4 py-6'}`}>
+        <aside data-testid="cultoplus-desktop-menu" data-compact={isDesktopMenuCompact ? "true" : "false"} className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-[#e6e0d8] bg-white py-4 transition-[width,padding] duration-200 lg:flex dark:border-white/10 dark:bg-[#111113] ${isFocusMode ? '!hidden' : ''} ${isDesktopMenuCompact ? 'w-[84px] items-center px-2' : 'w-[256px] px-4 py-6'}`}>
           <div className={`flex w-full ${isDesktopMenuCompact ? "flex-col items-center gap-2" : "items-center justify-between gap-3"}`}>
             <CultoPlusBrand compact={isDesktopMenuCompact} className={isDesktopMenuCompact ? "!h-12" : "!h-16 min-w-0"} />
             <button
@@ -271,7 +272,7 @@ export default function CultoPlusPageShell({ children, isPastor = false, userNam
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {!isHeaderHidden ? <header data-testid="cultoplus-mobile-menu-header" className="relative border-b border-[#e6e0d8] bg-white px-4 py-3 lg:hidden dark:border-white/10 dark:bg-[#111113]" ref={mobileMenuRef}>
+          {!isFocusMode && !isHeaderHidden ? <header data-testid="cultoplus-mobile-menu-header" className="relative border-b border-[#e6e0d8] bg-white px-4 py-3 lg:hidden dark:border-white/10 dark:bg-[#111113]" ref={mobileMenuRef}>
             <div className="flex items-center justify-between gap-3">
               <CultoPlusBrand className="!h-16" />
               <div className="flex items-center gap-2">

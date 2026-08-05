@@ -60,11 +60,19 @@ const getAccessToken = async () => {
 
 const loadFromServer = async (forceNew: boolean) => {
   const accessToken = await getAccessToken();
-  const response = await fetch('/api/devotional/daily', {
-    method: forceNew ? 'POST' : 'GET',
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    cache: 'no-store',
-  });
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), 8_000);
+  let response: Response;
+  try {
+    response = await fetch('/api/devotional/daily', {
+      method: forceNew ? 'POST' : 'GET',
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new DailyDevotionalError(

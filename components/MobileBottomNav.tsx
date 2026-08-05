@@ -19,7 +19,7 @@ const MobileBottomNav: React.FC = () => {
   const location = useLocation();
   const { unreadNotificationsCount, currentUser, openLogin } = useAuth();
   const [activeCulto, setActiveCulto] = useState<ActiveCultoSession | null>(null);
-  const isBibleExperience = ['/bibliasagrada', '/biblia', '/devocional', '/oracoes', '/plano', '/quiz'].some(path => location.pathname === path || location.pathname.startsWith(`${path}/`));
+  const isBibleExperience = ['/trilhas', '/diario-espiritual', '/bibliasagrada', '/biblia', '/devocional', '/oracoes', '/plano', '/quiz'].some(path => location.pathname === path || location.pathname.startsWith(`${path}/`));
   const isCultoPlusShell = location.pathname === '/newhome' || location.pathname === '/meus-cultos' || isBibleExperience;
 
   useEffect(() => {

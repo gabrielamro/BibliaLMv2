@@ -4,6 +4,32 @@
 > **VERSION SYNC:** Lembre-se de atualizar `constants.ts`, `_ARCHITECTURE.md` e `_PROJECT_CONTEXT.md` ao mudar a versão aqui.
 > **GIT SYNC:** Após atualizar este arquivo, o Arquiteto deve executar `git commit` com a mensagem do release.
 
+## [v2.10.5] - 2026-08-04 (Trilhas em cards e estudo guiado)
+### Tipo: Refactor / UI / UX / Bíblia
+- **Catálogo visual:** cada trilha passa a ser apresentada como um card independente, com tema, autoria, duração e quantidade real de passos.
+- **Estudo em modal:** o clique no card abre a trilha sempre no primeiro passo, sem alongar a página principal.
+- **Navegação guiada:** ações fixas de passo anterior e próximo mantêm o avanço disponível durante a leitura.
+- **Acessibilidade:** foco entra no modal e retorna ao card; `Esc`, clique no fundo, armadilha de foco e alvos de toque de 44 px são suportados.
+- **Progresso isolado:** a conclusão usa a identidade da trilha e do passo, evitando colisão entre jornadas diferentes.
+- **Modo sem interrupções estável:** o shell é ocultado sem desmontar o Pão Diário nem reiniciar o carregamento do estudo.
+- **Fallback previsível:** a consulta do Pão Diário passa a ter prazo máximo antes de usar o conteúdo canônico local.
+- **Dados espirituais protegidos:** Diário Espiritual e favoritos unificados entram em produção com RLS por proprietário e privilégios mínimos para usuários autenticados.
+- **Validação:** TypeScript, contratos estruturais, Playwright desktop/mobile e inspeção visual no navegador aprovados.
+
+## [v2.10.4] - 2026-08-04 (Trilhas e entrada canônica)
+### Tipo: Fix / Navegação / Bíblia
+- **Trilhas restauradas:** `/trilhas` deixa de ser bloqueada pelo middleware e volta a responder dentro do shell bíblico oficial.
+- **Leitura pública:** visitantes podem explorar as trilhas; ações pessoais, como favoritar, continuam solicitando autenticação.
+- **Menu consistente:** Trilhas de Estudo aparece nos menus desktop e mobile da NewHome, alinhado ao menu das demais páginas.
+- **Entrada sem flash:** `/` redireciona para `/newhome` no middleware, antes da montagem React, eliminando a exibição transitória do menu legado.
+- **Validação:** contratos estruturais, resolução de tema, TypeScript e testes Playwright da NewHome aprovados.
+
+## [v2.10.3] - 2026-08-04 (Icone do navegador)
+### Tipo: Fix / Identidade
+- **Favicon oficial:** a aba do navegador passa a usar o simbolo compacto do Culto+, legivel em tamanhos pequenos.
+- **Manifesto corrigido:** remove referencias ao arquivo inexistente `/icon.png` e atualiza nome, cores e icone do aplicativo.
+- **Cache controlado:** a URL versionada do icone evita que navegadores preservem o favicon generico anterior.
+
 ## [v2.10.2] - 2026-08-03 (Fluxo temporal do culto)
 ### Tipo: Fix / Mobile / Cultos
 - **Retorno previsivel:** o botao voltar da experiencia de culto leva diretamente a `/meus-cultos`, inclusive no mobile.

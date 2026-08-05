@@ -9,28 +9,47 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
-  Clock3,
+  Compass,
   ExternalLink,
   Eye,
-  Headphones,
   HeartHandshake,
+  Lightbulb,
   Loader2,
   LockKeyhole,
-  Pause,
-  Quote,
+  Moon,
+  PanelRight,
+  Pencil,
   RefreshCw,
-  Save,
   ScrollText,
   Send,
   Share2,
   Sparkles,
+  Star,
+  Sun,
   Target,
+  Trophy,
   Wheat,
   X,
 } from 'lucide-react';
 import SEO from '../components/SEO';
 import DevotionalFeedShareModal from '../components/DevotionalFeedShareModal';
 import ConfirmationModal from '../components/ConfirmationModal';
+import DevotionalHero from '../components/devotional/DevotionalHero';
+import VerseHeroCard from '../components/devotional/VerseHeroCard';
+import {
+  DevotionalMobileDrawer,
+  DevotionalStepperCard,
+  DevotionalTopCards,
+} from '../components/devotional/DevotionalSidebar';
+import ReminderBanner from '../components/devotional/ReminderBanner';
+import FloatingContinueButton from '../components/devotional/FloatingContinueButton';
+import DevotionalCalendarModal from '../components/devotional/DevotionalCalendarModal';
+import HeartStateModal, { type HeartStateOption } from '../components/devotional/HeartStateModal';
+import DevotionalHistoryModal from '../components/devotional/DevotionalHistoryModal';
+import DevotionalTracksModal, { type DevotionalTrack } from '../components/devotional/DevotionalTracksModal';
+import ReminderSettingsModal from '../components/devotional/ReminderSettingsModal';
+import AudioPlayerBar from '../components/devotional/AudioPlayerBar';
+import PersonalEvolutionPanel from '../components/devotional/PersonalEvolutionPanel';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import useAudioNarration from '../hooks/useAudioNarration';
@@ -78,6 +97,14 @@ const FONT_SCALE_CLASSES: Record<FontScale, string> = {
   medium: 'text-base leading-8 md:text-lg md:leading-9',
   large: 'text-lg leading-9 md:text-xl md:leading-10',
 };
+
+const PRACTICAL_TIPS = [
+  'Demonstrar paciência e graça em uma conversa difícil hoje.',
+  'Reservar 10 minutos de silêncio e gratidão no fim do dia.',
+  'Enviar uma mensagem de encorajamento para um amigo ou irmão.',
+  'Perdoar intencionalmente alguém que me magoou recentemente.',
+  'Praticar a generosidade oferecendo ajuda a quem precisa.',
+];
 
 const IMPORTANT_DEVOTIONAL_TERMS = [
   'Espírito Santo',
@@ -135,7 +162,7 @@ const splitDevotionalParagraphs = (content: string) => {
 const emphasizeImportantTerms = (content: string) => content
   .split(IMPORTANT_TERM_PATTERN)
   .map((part, index) => IMPORTANT_TERM_SET.has(part.toLocaleLowerCase('pt-BR')) ? (
-    <strong key={`${part}-${index}`} className="font-bold text-[#3f2c1e] dark:text-[#f1e8dc]">{part}</strong>
+    <strong key={`${part}-${index}`} className="font-bold text-[#2d1e11] dark:text-[#edad2c]">{part}</strong>
   ) : <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>);
 
 const addCompletedStep = (
@@ -173,102 +200,28 @@ function ReadingSection({ step, title, description, icon: Icon, completed, compa
     <section
       id={`devotional-step-${step}`}
       data-testid={`devotional-step-${step}`}
-      role="tabpanel"
       aria-labelledby={`devotional-stage-tab-${step}`}
       className="animate-in fade-in slide-in-from-bottom-2 duration-300"
     >
       <header className={compactHeader ? 'mb-5' : 'mb-7 border-b border-[#ded8ce] pb-6 dark:border-white/10'}>
         <div className="flex items-center gap-3">
-          <span className={`inline-flex h-9 w-9 items-center justify-center rounded-full ${completed ? 'bg-[#74451f] text-[#fff6df]' : 'border border-[#c9a45c]/35 bg-[#f6ead0] text-[#74451f] dark:bg-[#c9a45c]/10 dark:text-[#e7c77f]'}`}>
+          <span className={`inline-flex h-9 w-9 items-center justify-center rounded-full ${completed ? 'bg-[#edad2c] text-white' : 'border border-[#edad2c]/35 bg-[#edad2c]/10 text-[#edad2c] dark:bg-[#edad2c]/20'}`}>
             {completed ? <Check size={15} strokeWidth={3} /> : <Icon size={16} />}
           </span>
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8a5a25] dark:text-[#e7c77f]">
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#edad2c]">
             Etapa {step} de 5{compactHeader ? ` · ${title}` : ''}
           </span>
-          {completed ? <span className="ml-auto text-[9px] font-bold uppercase tracking-[0.14em] text-[#8a5a25] dark:text-[#e7c77f]">Concluída</span> : null}
+          {completed ? <span className="ml-auto text-[9px] font-bold uppercase tracking-[0.14em] text-[#edad2c]">Concluída</span> : null}
         </div>
         {!compactHeader ? (
           <>
-            <h2 className="mt-5 font-serif text-2xl font-semibold leading-tight text-[#3a2416] sm:text-[28px] dark:text-[#fff7e8]">{title}</h2>
-            <p className="mt-2 max-w-4xl text-sm leading-relaxed text-[#746558] dark:text-[#c9b9a5]">{description}</p>
+            <h2 className="mt-4 font-serif text-2xl font-semibold leading-tight text-[#302316] sm:text-[28px] dark:text-[#fff7eb]">{title}</h2>
+            <p className="mt-2 max-w-4xl text-sm leading-relaxed text-[#736353] dark:text-[#c4b7a7]">{description}</p>
           </>
         ) : null}
       </header>
       {children}
     </section>
-  );
-}
-
-interface StageNavigationProps {
-  activeStage: DevotionalJourneyStep;
-  completedSteps: DevotionalJourneyStep[];
-  progress: number;
-  onSelect: (step: DevotionalJourneyStep) => void;
-}
-
-function StageNavigation({ activeStage, completedSteps, progress, onSelect }: StageNavigationProps) {
-  return (
-    <nav
-      data-testid="devotional-stage-navigation"
-      aria-labelledby="devotional-stage-navigation-title"
-      className="border-t border-[#d9c59d] bg-[#f8f3ea]/75 p-4 sm:p-5 lg:border-l lg:border-t-0 lg:bg-[#f6efe3]/72 dark:border-[#a88c61]/18 dark:bg-[#252320]"
-    >
-      <div className="lg:sticky lg:top-4">
-        <div className="flex items-end justify-between gap-4 lg:block">
-          <div>
-            <p id="devotional-stage-navigation-title" className="text-[10px] font-black uppercase tracking-[0.16em] text-[#563016] dark:text-[#f2dfbd]">Etapas do estudo</p>
-            <p className="mt-1 text-xs leading-relaxed text-[#817264] dark:text-[#aa9c8e]">Continue no seu ritmo.</p>
-          </div>
-          <span className="shrink-0 text-xs font-black tabular-nums text-[#8a5a25] lg:mt-3 lg:block dark:text-[#e7c77f]">{progress}%</span>
-        </div>
-
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#ded5c8] dark:bg-white/10">
-          <span className="block h-full rounded-full bg-[linear-gradient(90deg,_#8a5a25,_#d2aa59)] transition-[width] duration-500" style={{ width: `${progress}%` }} />
-        </div>
-
-        <div role="tablist" aria-label="Etapas do estudo" className="mt-4 grid gap-2 sm:grid-cols-5 lg:grid-cols-1">
-          {STAGES.map(({ step, label, shortLabel, icon: StageIcon }) => {
-            const completed = completedSteps.includes(step);
-            const active = activeStage === step;
-            return (
-              <button
-                id={`devotional-stage-tab-${step}`}
-                key={step}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                aria-current={active ? 'step' : undefined}
-                aria-controls={`devotional-step-${step}`}
-                aria-label={`Abrir etapa ${step}: ${label}`}
-                onClick={() => onSelect(step)}
-                className={`group flex min-h-12 min-w-0 items-center gap-3 rounded-xl border px-3 text-left transition ${
-                  active
-                    ? 'border-[#9f6c2c] bg-[#74451f] text-[#fff8ed] shadow-md dark:border-[#d2aa62] dark:bg-[#70441f]'
-                    : completed
-                      ? 'border-[#bda477] bg-[#fffaf0] text-[#57371e] hover:border-[#9f6c2c] dark:border-[#c9a45c]/25 dark:bg-[#2b2824] dark:text-[#eee1ce]'
-                      : 'border-transparent bg-white/65 text-[#756658] hover:border-[#c9a45c]/50 hover:bg-white dark:bg-white/[0.035] dark:text-[#aa9c8e] dark:hover:border-[#c9a45c]/25 dark:hover:text-[#f4eadc]'
-                }`}
-              >
-                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${
-                  active
-                    ? 'border-[#f0d69e]/45 bg-white/10 text-[#ffe7b5]'
-                    : completed
-                      ? 'border-[#74451f] bg-[#74451f] text-[#fff7e7]'
-                      : 'border-[#d2c5b3] bg-[#eee4d3] text-[#7d6a59] dark:border-white/10 dark:bg-white/5 dark:text-[#9f8b78]'
-                }`}>
-                  {completed ? <Check size={14} strokeWidth={3} /> : <StageIcon size={15} />}
-                </span>
-                <span className="min-w-0">
-                  <span className={`block text-[9px] font-black uppercase tracking-[0.12em] ${active ? 'text-[#f0d69e]' : 'text-[#9a6a33] dark:text-[#b89a6a]'}`}>Etapa {step}</span>
-                  <span className="mt-0.5 block truncate text-xs font-bold sm:hidden lg:block">{label}</span>
-                  <span className="mt-0.5 hidden truncate text-xs font-bold sm:block lg:hidden">{shortLabel}</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </nav>
   );
 }
 
@@ -288,12 +241,33 @@ export default function DevotionalPage() {
   const [isRefreshingDaily, setIsRefreshingDaily] = useState(false);
   const [isRefreshConfirmOpen, setIsRefreshConfirmOpen] = useState(false);
   const [refreshAvailable, setRefreshAvailable] = useState(false);
-  const [pullDistance, setPullDistance] = useState(0);
-  const readerRef = useRef<HTMLElement>(null);
-  const pullStartYRef = useRef<number | null>(null);
-  const pullDistanceRef = useRef(0);
 
+  // Estados dos Modais
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
+  const [isHeartModalOpen, setIsHeartModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isTracksModalOpen, setIsTracksModalOpen] = useState(false);
+  const [isReminderSettingsModalOpen, setIsReminderSettingsModalOpen] = useState(false);
+  const [isAudioPlayerVisible, setIsAudioPlayerVisible] = useState(false);
+
+  const [heartState, setHeartState] = useState<HeartStateOption | null>(null);
+  const [favoriteVerses, setFavoriteVerses] = useState<Array<{ id: string; verse: string; reference: string }>>([]);
+  const [savedNotes, setSavedNotes] = useState<Array<{ id: string; date: string; title: string; note: string }>>([]);
+  const [savedPrayers, setSavedPrayers] = useState<Array<{ id: string; date: string; prayer: string; isAnswered?: boolean }>>([]);
+  const [savedCommitments, setSavedCommitments] = useState<Array<{ id: string; date: string; commitment: string; isDone?: boolean }>>([]);
+  const [completedDates, setCompletedDates] = useState<string[]>([]);
+  const [dayNightMode, setDayNightMode] = useState<'morning' | 'night'>('morning');
+  const [reminderSettings, setReminderSettings] = useState({
+    time: '08:00',
+    days: 'daily',
+    mode: 'morning' as 'morning' | 'night',
+    enabled: true,
+  });
+
+  const readerRef = useRef<HTMLElement>(null);
   const userId = currentUser ? (currentUser.uid ?? currentUser.id) : null;
+  const userName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Gabriel';
 
   const loadDevotional = useCallback(async (forceNew = false) => {
     if (forceNew) setIsRefreshingDaily(true);
@@ -321,8 +295,13 @@ export default function DevotionalPage() {
       if (historyEntry?.is_amen) completedSteps = addCompletedStep(completedSteps, 3);
       if (savedJourney.completedAt) completedSteps = [1, 2, 3, 4, 5];
 
+      const practicalAction = savedJourney.practicalAction === 'Escolher uma atitude concreta para viver esta Palavra hoje.'
+        ? ''
+        : savedJourney.practicalAction || '';
+
       const restoredJourney: DevotionalJourneyState = {
         ...savedJourney,
+        practicalAction,
         reflectionDraft: restoredReflection,
         completedSteps,
       };
@@ -333,6 +312,11 @@ export default function DevotionalPage() {
       setUserReflection(restoredReflection);
       setJourney(restoredJourney);
       setActiveStage(savedJourney.completedAt ? 5 : firstIncompleteStage);
+
+      if (history && history.length > 0) {
+        const dates = history.map((h: any) => h.date || h.created_at?.split('T')[0]).filter(Boolean);
+        setCompletedDates(dates);
+      }
     } catch (error) {
       console.error('Erro ao carregar Pão Diário:', error);
       if (forceNew) {
@@ -350,14 +334,6 @@ export default function DevotionalPage() {
     }
   }, [userId]);
 
-  const requestDailyRefresh = useCallback(() => {
-    if (userId && !refreshAvailable) {
-      showNotification('Você já usou sua atualização de hoje. Amanhã haverá uma nova opção.', 'info');
-      return;
-    }
-    setIsRefreshConfirmOpen(true);
-  }, [refreshAvailable, showNotification, userId]);
-
   const confirmDailyRefresh = useCallback(async () => {
     if (!userId) {
       setIsRefreshConfirmOpen(false);
@@ -368,27 +344,6 @@ export default function DevotionalPage() {
     setIsRefreshConfirmOpen(false);
     await loadDevotional(true);
   }, [loadDevotional, openLogin, showNotification, userId]);
-
-  const handlePullStart = (event: React.TouchEvent<HTMLElement>) => {
-    if (window.matchMedia('(min-width: 640px)').matches || window.scrollY > 0) return;
-    pullStartYRef.current = event.touches[0]?.clientY ?? null;
-  };
-
-  const handlePullMove = (event: React.TouchEvent<HTMLElement>) => {
-    if (pullStartYRef.current === null || window.scrollY > 0) return;
-    const currentY = event.touches[0]?.clientY ?? pullStartYRef.current;
-    const nextDistance = Math.min(96, Math.max(0, currentY - pullStartYRef.current) * 0.55);
-    pullDistanceRef.current = nextDistance;
-    setPullDistance(nextDistance);
-  };
-
-  const handlePullEnd = () => {
-    const shouldConfirm = pullDistanceRef.current >= 64;
-    pullStartYRef.current = null;
-    pullDistanceRef.current = 0;
-    setPullDistance(0);
-    if (shouldConfirm) requestDailyRefresh();
-  };
 
   useEffect(() => {
     void loadDevotional();
@@ -418,23 +373,6 @@ export default function DevotionalPage() {
       cancelled = true;
     };
   }, [devotional?.reference, devotional?.verse]);
-
-  useEffect(() => {
-    try {
-      const savedScale = window.localStorage.getItem('cultoplus_devotional_font_scale');
-      if (savedScale === 'small' || savedScale === 'medium' || savedScale === 'large') {
-        setFontScale(savedScale);
-      }
-    } catch {
-      // Preferência local indisponível: mantém o tamanho padrão.
-    }
-  }, []);
-
-  useEffect(() => () => {
-    if (typeof window !== 'undefined' && window.location.pathname !== '/devocional') {
-      setIsFocusMode(false);
-    }
-  }, [setIsFocusMode]);
 
   const audioText = useMemo(() => {
     if (!devotional) return '';
@@ -486,8 +424,19 @@ export default function DevotionalPage() {
     if (!journey || !devotional || isSaving) return false;
     setIsSaving(true);
     try {
-      if (userId && userReflection.trim()) {
-        await dbService.saveUserDevotionalAction(userId, devotional.id, 'reflection', userReflection.trim());
+      if (userReflection.trim()) {
+        if (userId) {
+          await dbService.saveUserDevotionalAction(userId, devotional.id, 'reflection', userReflection.trim());
+        }
+        setSavedNotes((prev) => [
+          {
+            id: `note-${Date.now()}`,
+            date: new Date().toLocaleDateString('pt-BR'),
+            title: devotional.title,
+            note: userReflection.trim(),
+          },
+          ...prev,
+        ]);
       }
       await persistJourney({
         ...journey,
@@ -495,7 +444,7 @@ export default function DevotionalPage() {
         completedSteps: addCompletedStep(journey.completedSteps, 2),
         updatedAt: new Date().toISOString(),
       });
-      toast.success(userReflection.trim() ? 'Reflexão salva com privacidade.' : 'Etapa de reflexão concluída.');
+      toast.success(userReflection.trim() ? 'Reflexão salva no Diário Espiritual.' : 'Etapa de reflexão concluída.');
       return true;
     } finally {
       setIsSaving(false);
@@ -509,12 +458,21 @@ export default function DevotionalPage() {
       if (userId && !journey.completedSteps.includes(3)) {
         await dbService.saveUserDevotionalAction(userId, devotional.id, 'amen');
       }
+      setSavedPrayers((prev) => [
+        {
+          id: `prayer-${Date.now()}`,
+          date: new Date().toLocaleDateString('pt-BR'),
+          prayer: devotional.prayer,
+          isAnswered: false,
+        },
+        ...prev,
+      ]);
       await persistJourney({
         ...journey,
         completedSteps: addCompletedStep(journey.completedSteps, 3),
         updatedAt: new Date().toISOString(),
       });
-      toast.success('Amém. Oração concluída.');
+      toast.success('Amém. Oração concluída e registrada.');
       return true;
     } finally {
       setIsSaving(false);
@@ -528,14 +486,23 @@ export default function DevotionalPage() {
 
   const handlePracticalActionBlur = async () => {
     if (!journey || journey.completedAt) return;
-    const practicalAction = journey.practicalAction.trim()
-      || createInitialDevotionalJourney(journey.devotionalId).practicalAction;
-    await persistJourney({ ...journey, practicalAction, updatedAt: new Date().toISOString() });
+    await persistJourney({ ...journey, practicalAction: journey.practicalAction, updatedAt: new Date().toISOString() });
   };
 
   const handlePracticalActionToggle = async () => {
     if (!journey || journey.completedAt) return;
     const practicalActionCompleted = !journey.practicalActionCompleted;
+    if (practicalActionCompleted && journey.practicalAction.trim()) {
+      setSavedCommitments((prev) => [
+        {
+          id: `commit-${Date.now()}`,
+          date: new Date().toLocaleDateString('pt-BR'),
+          commitment: journey.practicalAction.trim(),
+          isDone: true,
+        },
+        ...prev,
+      ]);
+    }
     await persistJourney({
       ...journey,
       practicalActionCompleted,
@@ -563,6 +530,9 @@ export default function DevotionalPage() {
       updatedAt: completedAt,
     });
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    setCompletedDates((prev) => Array.from(new Set([...prev, todayStr])));
+
     if (userId) {
       try {
         await recordActivity('devotional', `Concluiu o Pão Diário: ${devotional.title}`, {
@@ -570,10 +540,10 @@ export default function DevotionalPage() {
           sourceType: 'devotional',
         });
       } catch (error) {
-        console.warn('Jornada concluída, mas a atividade não foi registrada:', error);
+        console.warn('Jornada concluída, mas atividade não registrada:', error);
       }
     }
-    toast.success('Pão Diário concluído. Que esta Palavra acompanhe o seu dia!');
+    toast.success('Pão Diário concluído! Sequência de dias atualizada.');
   };
 
   const handleSharePublished = async () => {
@@ -597,12 +567,18 @@ export default function DevotionalPage() {
     }
   };
 
-  const updateFontScale = (next: FontScale) => {
-    setFontScale(next);
-    try {
-      window.localStorage.setItem('cultoplus_devotional_font_scale', next);
-    } catch {
-      // A preferência continua válida durante esta sessão.
+  const handleToggleFavoriteVerse = () => {
+    if (!devotional) return;
+    const isAlreadyFav = favoriteVerses.some((v) => v.verse === devotional.verse);
+    if (isAlreadyFav) {
+      setFavoriteVerses((prev) => prev.filter((v) => v.verse !== devotional.verse));
+      toast.success('Versículo removido dos favoritos.');
+    } else {
+      setFavoriteVerses((prev) => [
+        { id: `fav-${Date.now()}`, verse: devotional.verse, reference: devotional.reference },
+        ...prev,
+      ]);
+      toast.success('Versículo adicionado aos Favoritos!');
     }
   };
 
@@ -629,13 +605,13 @@ export default function DevotionalPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[72vh] items-center justify-center bg-[#f5ecdc] dark:bg-[#160f0b]">
+      <div className="flex min-h-[72vh] items-center justify-center bg-[#f7f4ec] dark:bg-[#160f0b]">
         <div className="flex flex-col items-center gap-4 text-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#c9a45c]/40 bg-[#fff8e8] text-[#74451f] dark:bg-[#c9a45c]/10 dark:text-[#e7c77f]">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#edad2c]/40 bg-[#fffdf8] text-[#edad2c] dark:bg-[#edad2c]/10">
             <Loader2 className="animate-spin" size={25} />
           </span>
           <div>
-            <p className="text-sm font-black text-[#4d301c] dark:text-[#fff7e7]">Preparando seu Pão Diário</p>
+            <p className="text-sm font-black text-[#302316] dark:text-[#fff7eb]">Preparando seu Pão Diário</p>
             <p className="mt-1 text-xs text-gray-500">Palavra, reflexão, oração e prática.</p>
           </div>
         </div>
@@ -645,13 +621,13 @@ export default function DevotionalPage() {
 
   if (!devotional || !journey) {
     return (
-      <div className="flex min-h-[72vh] flex-col items-center justify-center gap-5 bg-[#f5ecdc] p-6 text-center dark:bg-[#160f0b]">
-        <span className="flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"><Wheat size={28} /></span>
+      <div className="flex min-h-[72vh] flex-col items-center justify-center gap-5 bg-[#f7f4ec] p-6 text-center dark:bg-[#160f0b]">
+        <span className="flex h-16 w-16 items-center justify-center rounded-3xl bg-[#edad2c]/15 text-[#edad2c]"><Wheat size={28} /></span>
         <div>
-          <h1 className="text-2xl font-black text-[#4d301c] dark:text-[#fff7e7]">O Pão Diário não carregou</h1>
+          <h1 className="text-2xl font-black text-[#302316] dark:text-[#fff7eb]">O Pão Diário não carregou</h1>
           <p className="mt-2 max-w-md text-sm leading-relaxed text-gray-500">Tente novamente. Se a conexão estiver instável, o conteúdo padrão será usado.</p>
         </div>
-        <button type="button" onClick={() => void loadDevotional(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#74451f] px-5 text-xs font-black uppercase tracking-wider text-[#fff8e8] shadow-lg shadow-[#3a2416]/15">
+        <button type="button" onClick={() => void loadDevotional(true)} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#edad2c] px-6 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-[#edad2c]/20">
           <RefreshCw size={16} /> Tentar novamente
         </button>
       </div>
@@ -666,25 +642,19 @@ export default function DevotionalPage() {
     : (STAGES.find(({ step }) => !journey.completedSteps.includes(step))?.step ?? 5);
   const activeStageDefinition = STAGES.find(({ step }) => step === activeStage) ?? STAGES[0];
   const previousStage = activeStage > 1 ? ((activeStage - 1) as DevotionalJourneyStep) : null;
+  const isVerseFavorited = favoriteVerses.some((v) => v.verse === devotional.verse);
 
   return (
     <main
       data-testid="pao-diario-page"
-      onTouchStart={handlePullStart}
-      onTouchMove={handlePullMove}
-      onTouchEnd={handlePullEnd}
-      className="relative min-h-full overflow-x-clip bg-[radial-gradient(circle_at_top_right,_#fffdf7_0,_#f5efe5_42%,_#ece2d3_100%)] text-[#3c2a1d] dark:bg-[radial-gradient(circle_at_top_right,_#292724_0,_#1f1e1c_48%,_#171614_100%)] dark:text-[#e7e1d8]"
+      className={
+        'relative min-h-full overflow-x-clip px-4 py-6 text-[#332519] transition-colors duration-300 sm:px-6 lg:px-8 dark:text-[#e7e1d8] ' +
+        (dayNightMode === 'night'
+          ? 'bg-[radial-gradient(circle_at_top_right,_#1a1827_0%,_#13111c_48%,_#0b0a12_100%)]'
+          : 'bg-[radial-gradient(circle_at_top_right,_#fffdf8_0%,_#f7efe1_45%,_#eee4d3_100%)] dark:bg-[radial-gradient(circle_at_top_right,_#25221e_0%,_#1c1a17_48%,_#141311_100%)]')
+      }
     >
       <SEO title="Pão Diário" name="Culto+" image="/brand/culto-plus-logo.png" description="Leia, reflita, ore e pratique a Palavra todos os dias." />
-
-      <div
-        aria-live="polite"
-        className={'fixed left-1/2 top-2 z-[95] flex -translate-x-1/2 items-center gap-2 rounded-full border border-[#c9a45c]/45 bg-[#fffaf0]/95 px-3 py-2 text-[10px] font-bold text-[#74451f] shadow-lg backdrop-blur transition sm:hidden dark:bg-[#291b13] dark:text-[#e7c77f] ' + (pullDistance > 8 ? 'opacity-100' : 'pointer-events-none opacity-0')}
-        style={{ transform: `translate(-50%, ${Math.max(0, pullDistance - 12)}px)` }}
-      >
-        <RefreshCw size={13} className={pullDistance >= 64 ? 'rotate-180 transition-transform' : 'transition-transform'} />
-        {pullDistance >= 64 ? 'Solte para confirmar' : 'Puxe para atualizar'}
-      </div>
 
       {isFocusMode ? (
         <button
@@ -696,392 +666,557 @@ export default function DevotionalPage() {
         </button>
       ) : null}
 
+      {/* BARRA DE FERRAMENTAS & RECURSOS RÁPIDOS */}
       {!isFocusMode ? (
-        <header data-testid="pao-diario-header" className="relative overflow-hidden border-b border-[#c9a45c]/25 bg-[linear-gradient(118deg,_#302821_0%,_#4b4034_50%,_#6b5a45_100%)] px-4 py-5 text-[#f3eee5] sm:px-6 sm:py-8 lg:px-8">
-          <div className="pointer-events-none absolute -right-20 -top-32 h-72 w-72 rounded-full border border-white/10" />
-          <div className="pointer-events-none absolute -right-8 -top-16 h-52 w-52 rounded-full bg-[#f0cf83]/15 blur-3xl" />
-          <div className="relative mx-auto flex w-full max-w-none flex-col gap-4 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#f1d490]">
-                <span className="inline-flex items-center gap-1.5"><Wheat size={14} /> Pão Diário</span>
-                <span className="text-white/30">•</span>
-                <span className="inline-flex items-center gap-1.5 normal-case tracking-normal text-white/70"><CalendarDays size={14} /> {formattedDate}</span>
-                <span className="text-white/30">•</span>
-                <span className="inline-flex items-center gap-1.5 normal-case tracking-normal text-white/70"><Clock3 size={14} /> cerca de 5 minutos</span>
-                <span className="hidden text-white/30 sm:inline">•</span>
-                <button
-                  type="button"
-                  onClick={requestDailyRefresh}
-                  disabled={isRefreshingDaily || Boolean(userId && !refreshAvailable)}
-                  className="hidden min-h-8 items-center gap-1.5 rounded-full px-2 normal-case tracking-normal text-white/65 transition hover:bg-white/10 hover:text-white disabled:cursor-default disabled:opacity-55 sm:inline-flex"
-                >
-                  <RefreshCw size={13} className={isRefreshingDaily ? 'animate-spin' : ''} />
-                  {isRefreshingDaily ? 'Atualizando' : userId && !refreshAvailable ? 'Atualizado hoje' : 'Atualizar'}
-                </button>
-              </div>
-              <h1 className="mt-3 max-w-3xl font-serif text-[26px] font-semibold leading-tight text-white sm:text-[34px]">{devotional.title}</h1>
-              <p className="mt-2 hidden max-w-2xl text-sm leading-relaxed text-white/65 sm:block">Um estudo breve para ler a Palavra, responder com sinceridade e levar uma decisão para o dia.</p>
-            </div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#eee4d5] bg-white/70 p-3 backdrop-blur dark:border-white/10 dark:bg-[#25221e]/70">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => goToStage(journey.completedAt ? 1 : recommendedStage)}
-              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 self-start rounded-full border border-[#ffe4a2]/60 bg-[#d2aa59] px-6 text-xs font-black uppercase tracking-[0.12em] text-[#2d190d] shadow-lg shadow-black/20 transition hover:-translate-y-0.5 hover:bg-[#e2c177] sm:min-h-12 lg:self-auto"
+              onClick={() => setIsCalendarModalOpen(true)}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#edad2c]/30 bg-white px-3.5 text-xs font-bold text-[#302316] shadow-sm hover:border-[#edad2c] dark:bg-[#2c2824] dark:text-[#fff7eb]"
             >
-              {journey.completedAt ? 'Revisitar a Palavra' : completedCount ? 'Continuar estudo' : 'Começar estudo'} <ArrowRight size={16} />
+              <CalendarDays size={14} className="text-[#edad2c]" />
+              <span>Calendário</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsHistoryModalOpen(true)}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#edad2c]/30 bg-white px-3.5 text-xs font-bold text-[#302316] shadow-sm hover:border-[#edad2c] dark:bg-[#2c2824] dark:text-[#fff7eb]"
+            >
+              <BookOpen size={14} className="text-[#edad2c]" />
+              <span>Meu Diário Espiritual</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsTracksModalOpen(true)}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#edad2c]/30 bg-white px-3.5 text-xs font-bold text-[#302316] shadow-sm hover:border-[#edad2c] dark:bg-[#2c2824] dark:text-[#fff7eb]"
+            >
+              <Compass size={14} className="text-[#edad2c]" />
+              <span>Trilhas</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsHeartModalOpen(true)}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#edad2c]/30 bg-[#edad2c]/10 px-3.5 text-xs font-bold text-[#edad2c] hover:bg-[#edad2c]/20"
+            >
+              <HeartHandshake size={14} />
+              <span>{heartState ? `Coração: ${heartState.label}` : 'Como está seu coração?'}</span>
             </button>
           </div>
-        </header>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setDayNightMode(dayNightMode === 'morning' ? 'night' : 'morning')}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#ded5c7] bg-white px-3.5 text-xs font-bold text-[#302316] shadow-sm dark:border-white/10 dark:bg-[#2c2824] dark:text-[#fff7eb]"
+            >
+              {dayNightMode === 'morning' ? (
+                <>
+                  <Sun size={14} className="text-[#edad2c]" />
+                  <span>Modo Manhã</span>
+                </>
+              ) : (
+                <>
+                  <Moon size={14} className="text-purple-400" />
+                  <span>Modo Noite</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       ) : null}
 
-      <article
-        ref={readerRef}
-        data-testid="devotional-reading-article"
-        className={'relative mx-auto w-full max-w-none scroll-mt-3 px-3 pb-7 sm:px-6 sm:pb-10 lg:px-8 ' + (isFocusMode ? 'pt-16 sm:pt-20' : 'pt-3 sm:pt-6')}
-      >
-        <div data-testid="devotional-study-reader" className="w-full overflow-hidden rounded-[24px] border border-[#c9a45c]/40 bg-[#fffdf8] shadow-[0_22px_60px_rgba(67,55,43,0.10)] dark:border-[#a88c61]/25 dark:bg-[#23211f]">
-          <div className="border-b border-[#d9c59d] bg-[#fffdf7]/80 px-4 pb-3 pt-4 backdrop-blur sm:px-6 lg:px-8 dark:border-[#a88c61]/18 dark:bg-[#2b2926]/90">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <div className="flex items-center justify-between gap-4">
-                <p className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-[#8a5a25] dark:text-[#e7c77f]">
-                    {activeStageDefinition.label} · etapa {activeStage} de 5
+      {/* 1. HERO CABEÇALHO DIÁRIO */}
+      {!isFocusMode ? (
+        <DevotionalHero
+          userName={userName}
+          devotionalTitle={devotional.title}
+          formattedDate={formattedDate}
+          devotionalDate={devotional.date}
+          onStart={() => goToStage(journey.completedAt ? 1 : recommendedStage)}
+          onListen={() => {
+            setIsAudioPlayerVisible(true);
+            togglePlayPause();
+          }}
+          isPlaying={isPlaying}
+          isGenerating={isGenerating}
+        />
+      ) : null}
+
+      {/* Botão para abrir Gaveta de Etapas no Mobile */}
+      <div className="mt-4 flex items-center justify-between lg:hidden">
+        <button
+          type="button"
+          onClick={() => setIsMobileDrawerOpen(true)}
+          className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#edad2c]/40 bg-white px-4 text-xs font-bold text-[#302316] shadow-sm dark:bg-[#25221e] dark:text-[#fff7eb]"
+        >
+          <PanelRight size={15} className="text-[#edad2c]" />
+          <span>Ver etapas & progresso ({progress}%)</span>
+        </button>
+      </div>
+
+      {/* 2. ESTRUTURA DE 2 LINHAS HORIZONTAIS COM ALINHAMENTO PIXEL-PERFECT (items-stretch na linha 1) */}
+      <div className="mt-6 space-y-6">
+        {/* LINHA 1: VERSÍCULO DO DIA (ESQUERDA) + SEU PROGRESSO E COMPROMISSO (DIREITA) */}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_340px] items-stretch">
+          {/* Esquerda: Card Versículo do Dia (Stretches em h-full para alinhar 100% à altura dos 2 cards da direita) */}
+          <div className="relative h-full flex flex-col items-stretch">
+            <VerseHeroCard
+              verseText={devotional.verse}
+              verseReference={devotional.reference}
+              onShare={handleNativeShare}
+            />
+
+            <button
+              type="button"
+              onClick={handleToggleFavoriteVerse}
+              title={isVerseFavorited ? 'Remover dos Favoritos' : 'Favoritar Versículo'}
+              className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-[#edad2c] shadow-sm backdrop-blur transition hover:scale-110 dark:bg-[#2b2722]"
+            >
+              <Star size={16} className={isVerseFavorited ? 'fill-[#edad2c]' : ''} />
+            </button>
+          </div>
+
+          {/* Direita: Card 1 (Seu Progresso) + Card 2 (Meu Compromisso de Hoje) */}
+          <div className="hidden lg:block h-full">
+            <DevotionalTopCards
+              currentStreak={7}
+              bestStreak={21}
+              practicalAction={journey.practicalAction}
+              onRegisterCommitment={() => goToStage(4)}
+            />
+          </div>
+        </div>
+
+        {/* LINHA 2: ÁREA DE LEITURA (ESQUERDA) + ETAPAS DO ESTUDO STEPPER (DIREITA) */}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_340px] items-start">
+          {/* Esquerda: Leitor de Etapas */}
+          <article
+            ref={readerRef}
+            data-testid="devotional-reading-article"
+            className="space-y-6"
+          >
+            {/* PAINEL DE LEITURA & DA ETAPA ATIVA */}
+            <div data-testid="devotional-study-reader" className="overflow-hidden rounded-[24px] border border-[#e5dcd0] bg-white/95 p-6 shadow-sm dark:border-white/10 dark:bg-[#23211f]/95">
+              {/* Barra de topo da etapa */}
+              <div className="flex flex-col gap-3 border-b border-[#eae1d4] pb-4 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#edad2c]">
+                    Etapa {activeStage} de 5 · {activeStageDefinition.label}
                   </p>
-                  <span className="shrink-0 text-[10px] font-bold text-[#77736d] sm:hidden dark:text-gray-400">{progress}%</span>
+                  <div className="mt-2 h-1.5 w-48 overflow-hidden rounded-full bg-[#eae1d4] dark:bg-white/10">
+                    <span
+                      className="block h-full rounded-full bg-[#edad2c] transition-all duration-500"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#e6e0d7] sm:w-64 dark:bg-white/10">
-                  <span className="block h-full rounded-full bg-[linear-gradient(90deg,_#8a5a25,_#d2aa59)] transition-[width] duration-500" style={{ width: String(progress) + '%' }} />
+
+                {/* Controles de tamanho de texto e foco */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center rounded-full border border-[#ded5c7] p-1 dark:border-white/10" role="group" aria-label="Tamanho do texto">
+                    {(
+                      [
+                        ['small', 'A−', 'Diminuir texto'],
+                        ['medium', 'A', 'Texto médio'],
+                        ['large', 'A+', 'Aumentar texto'],
+                      ] as const
+                    ).map(([scale, label, ariaLabel]) => (
+                      <button
+                        key={scale}
+                        type="button"
+                        onClick={() => {
+                          setFontScale(scale);
+                          try {
+                            window.localStorage.setItem('cultoplus_devotional_font_scale', scale);
+                          } catch {}
+                        }}
+                        aria-label={ariaLabel}
+                        aria-pressed={fontScale === scale}
+                        className={
+                          'flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs font-bold transition ' +
+                          (fontScale === scale
+                            ? 'bg-[#edad2c] text-white'
+                            : 'text-[#736353] hover:text-[#302316] dark:text-[#a89988] dark:hover:text-[#fff7eb]')
+                        }
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {!isFocusMode ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsFocusMode(true)}
+                      className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#edad2c]/35 px-3.5 text-xs font-bold text-[#302316] hover:border-[#edad2c] dark:text-[#fff7eb]"
+                    >
+                      <LockKeyhole size={14} className="text-[#edad2c]" />
+                      <span className="hidden sm:inline">Modo sem interrupções</span>
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              {/* SEÇÕES DAS ETAPAS DE LEITURA */}
+              <div className="pt-6">
+                {activeStage === 1 ? (
+                  <ReadingSection
+                    step={1}
+                    title="Ler a Palavra"
+                    description="Leia sem pressa a reflexão e o contexto bíblico abaixo."
+                    icon={BookOpen}
+                    completed={journey.completedSteps.includes(1)}
+                    compactHeader
+                  >
+                    {/* SENTIDO CENTRAL / REFLEXÃO PASTORAL */}
+                    <section data-testid="devotional-pastoral-reflection" className="rounded-[22px] border border-[#f0e4cf] bg-[#faf6ee] p-5 dark:border-white/10 dark:bg-[#2a2723] sm:p-7">
+                      <div className="mx-auto w-full max-w-[92ch]">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#edad2c]/15 text-[#edad2c]"><Sparkles size={17} /></span>
+                          <div>
+                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#edad2c]">Sentido central</p>
+                            <h2 className="font-serif text-xl font-semibold text-[#302316] dark:text-[#fff7eb]">Reflexão</h2>
+                          </div>
+                        </div>
+                        <p className="mt-2 text-xs leading-relaxed text-[#736353] dark:text-[#a89988]">Reflita sobre a passagem de hoje e permita que Deus fale ao seu coração.</p>
+
+                        <div data-testid="devotional-central-text" className={'mx-auto mt-4 space-y-4 text-[#4a3928] dark:text-[#ebdccb] ' + FONT_SCALE_CLASSES[fontScale]}>
+                          {splitDevotionalParagraphs(devotional.text).map((paragraph, index) => (
+                            <p key={`${paragraph.slice(0, 24)}-${index}`} className="hyphens-auto text-justify [text-align-last:left]">
+                              {emphasizeImportantTerms(paragraph)}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* CONTEXTO BÍBLICO IMEDIATO */}
+                      <div data-testid="devotional-biblical-context" className="mx-auto mt-7 max-w-[92ch] border-t border-[#e2d8c9] pt-6 dark:border-white/10">
+                        <div className="flex items-start gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#edad2c]/15 text-[#edad2c]"><ScrollText size={17} /></span>
+                          <div>
+                            <h3 className="font-serif text-lg font-semibold text-[#302316] dark:text-[#fff7eb]">Contexto bíblico imediato</h3>
+                            <p className="mt-0.5 text-xs leading-relaxed text-[#736353] dark:text-[#a89988]">Aprofunde-se no contexto para entender melhor o que o Espírito Santo deseja lhe ensinar.</p>
+                          </div>
+                        </div>
+
+                        {isBibleContextLoading ? (
+                          <div className="mt-4 space-y-2">
+                            {[0, 1, 2].map((item) => <span key={item} className="block h-10 animate-pulse rounded-xl bg-[#ede5d8] dark:bg-white/5" />)}
+                          </div>
+                        ) : bibleContext?.hasSurroundingVerses ? (
+                          <div className="mt-4">
+                            <ol tabIndex={0} className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                              {bibleContext.verses.map((verse) => {
+                                const isFocusVerse = verse.number >= bibleContext.focusStartVerse && verse.number <= bibleContext.focusEndVerse;
+                                return (
+                                  <li key={verse.number} data-testid={isFocusVerse ? "devotional-focus-verse" : undefined} aria-current={isFocusVerse ? "location" : undefined} className={'grid grid-cols-[26px_1fr] gap-2 rounded-xl px-3 py-2 text-xs leading-relaxed ' + (isFocusVerse ? 'bg-[#edad2c]/15 font-semibold text-[#302316] dark:text-[#fff7eb]' : 'text-[#6e5d4e] dark:text-[#b0a191]')}>
+                                    <span className="font-bold text-[#edad2c]">{verse.number}</span>
+                                    <span>{verse.text}</span>
+                                  </li>
+                                );
+                              })}
+                            </ol>
+                          </div>
+                        ) : null}
+
+                        <div className="mt-4 text-center">
+                          <Link href={contextHref} className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#edad2c] hover:underline">
+                            <ExternalLink size={14} /> Abrir o capítulo completo
+                          </Link>
+                        </div>
+                      </div>
+                    </section>
+
+                    {/* PERGUNTAS DE OBSERVAÇÃO */}
+                    <section data-testid="devotional-observation" className="mt-7 border-t border-[#ded8ce] pt-6 dark:border-white/10">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#edad2c]/15 text-[#edad2c]"><Eye size={17} /></span>
+                        <div>
+                          <h3 className="font-serif text-lg font-semibold text-[#302316] dark:text-[#fff7eb]">Observe no texto</h3>
+                          <p className="mt-0.5 text-xs text-[#736353] dark:text-[#a89988]">Perguntas para guiá-lo no estudo.</p>
+                        </div>
+                      </div>
+                      <ol className="mt-4 grid gap-3 sm:grid-cols-3">
+                        {[
+                          'O que este trecho revela sobre Deus ou Jesus?',
+                          'Existe uma promessa ou mandamento?',
+                          'Que resposta você deve oferecer hoje?',
+                        ].map((question, index) => (
+                          <li key={question} className="rounded-2xl border border-[#e2d8c9] bg-white/60 p-4 text-xs leading-relaxed text-[#4a3928] dark:border-white/10 dark:bg-white/[0.02] dark:text-[#ebdccb]">
+                            <span className="mb-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#edad2c] text-[10px] font-bold text-white">{index + 1}</span>
+                            <span>{question}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </section>
+                  </ReadingSection>
+                ) : null}
+
+                {activeStage === 2 ? (
+                  <ReadingSection step={2} title="Refletir" description="Registre o que ficou vivo em sua reflexão." icon={Sparkles} completed={journey.completedSteps.includes(2)}>
+                    <textarea
+                      value={userReflection}
+                      onChange={(event) => setUserReflection(event.target.value)}
+                      aria-label="O que esta Palavra despertou em você?"
+                      rows={5}
+                      placeholder="Escreva uma percepção, uma decisão ou uma oração..."
+                      className={'w-full resize-y rounded-2xl border border-[#ded5c7] bg-[#fffdf8] p-4 text-[#302316] outline-none focus:border-[#edad2c] dark:border-white/10 dark:bg-[#1f1d1a] dark:text-[#fff7eb] ' + FONT_SCALE_CLASSES[fontScale]}
+                    />
+                    <span className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#736353] dark:text-[#a89988]"><LockKeyhole size={14} className="text-[#edad2c]" /> Suas anotações são privadas.</span>
+                  </ReadingSection>
+                ) : null}
+
+                {activeStage === 3 ? (
+                  <ReadingSection step={3} title="Orar" description="Aproximação e conversa em silêncio com Deus." icon={HeartHandshake} completed={journey.completedSteps.includes(3)}>
+                    <div className="rounded-2xl border border-[#f0e4cf] bg-[#fdfaf2] p-6 text-center dark:border-white/10 dark:bg-[#25221e]">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#edad2c]">Oração do Dia</p>
+                      <p className={'mt-3 font-serif italic text-[#302316] dark:text-[#fff7eb] ' + FONT_SCALE_CLASSES[fontScale]}>{devotional.prayer}</p>
+                    </div>
+                  </ReadingSection>
+                ) : null}
+
+                {activeStage === 4 ? (
+                  <ReadingSection step={4} title="Praticar" description="Escolha uma atitude concreta para viver esta Palavra hoje." icon={Target} completed={journey.completedSteps.includes(4)}>
+                    <div>
+                      <label htmlFor="practical-input" className="block text-xs font-bold uppercase tracking-wider text-[#edad2c]">
+                        Sua ação prática do dia
+                      </label>
+                      <textarea
+                        id="practical-input"
+                        value={journey.practicalAction}
+                        onChange={(event) => handlePracticalActionChange(event.target.value)}
+                        onBlur={() => void handlePracticalActionBlur()}
+                        disabled={Boolean(journey.completedAt)}
+                        rows={3}
+                        placeholder="Escreva como você vai colocar esta palavra em prática hoje..."
+                        className="mt-2 w-full resize-y rounded-2xl border border-[#ded5c7] bg-[#fffdf8] p-4 text-sm font-semibold text-[#302316] outline-none focus:border-[#edad2c] disabled:opacity-70 dark:border-white/10 dark:bg-[#1f1d1a] dark:text-[#fff7eb]"
+                      />
+
+                      <div className="mt-5 border-t border-[#e2d8c9] pt-4 dark:border-white/10">
+                        <div className="flex items-center gap-2 text-xs font-bold text-[#b87e14] dark:text-[#edad2c]">
+                          <Lightbulb size={15} />
+                          <span>Sugestões de como praticar (clique para selecionar):</span>
+                        </div>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          {PRACTICAL_TIPS.map((tip, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handlePracticalActionChange(tip)}
+                              className="rounded-xl border border-[#e2d8c9] bg-white/70 p-3 text-left text-xs font-medium text-[#4a3928] transition hover:border-[#edad2c] hover:bg-[#edad2c]/10 dark:border-white/10 dark:bg-[#272420] dark:text-[#ebdccb]"
+                            >
+                              💡 {tip}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handlePracticalActionToggle}
+                        disabled={Boolean(journey.completedAt) || !journey.practicalAction.trim()}
+                        className="mt-6 flex w-full items-center gap-3 rounded-2xl border border-[#edad2c]/40 bg-[#edad2c]/10 p-4 text-left font-bold transition hover:bg-[#edad2c]/20 disabled:opacity-50"
+                      >
+                        <span className={'flex h-6 w-6 items-center justify-center rounded-full ' + (journey.practicalActionCompleted ? 'bg-[#edad2c] text-white' : 'border border-gray-400')}><Check size={14} /></span>
+                        <span>Marcar como praticado</span>
+                      </button>
+                    </div>
+                  </ReadingSection>
+                ) : null}
+
+                {activeStage === 5 ? (
+                  <ReadingSection step={5} title="Concluir" description="Fechando com intenção." icon={CheckCircle2} completed={journey.completedSteps.includes(5)}>
+                    {journey.completedAt ? (
+                      <div className="text-center py-4">
+                        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#edad2c] text-white"><CheckCircle2 size={24} /></span>
+                        <h3 className="mt-3 font-serif text-xl font-bold text-[#302316] dark:text-[#fff7eb]">Pão Diário concluído!</h3>
+                        <p className="mt-1 text-xs text-gray-500">Volte amanhã para um novo devocional.</p>
+                        <button type="button" onClick={() => setIsShareModalOpen(true)} className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#edad2c] px-6 py-2.5 text-xs font-bold text-white"><Send size={15} /> Compartilhar no Reino</button>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4">
+                        <button type="button" onClick={() => void handleCompleteJourney()} disabled={!isReadyToComplete} className="inline-flex items-center gap-2 rounded-full bg-[#edad2c] px-7 py-3 text-xs font-black uppercase tracking-wider text-white shadow-lg disabled:opacity-50">
+                          <CheckCircle2 size={16} /> Concluir Pão Diário
+                        </button>
+                      </div>
+                    )}
+                  </ReadingSection>
+                ) : null}
+              </div>
+
+              {/* BOTÕES INFERIORES DE NAVEGAÇÃO DA ETAPA */}
+              <div className="mt-8 flex items-center justify-between border-t border-[#eae1d4] pt-4 dark:border-white/10">
                 <button
                   type="button"
-                  onClick={togglePlayPause}
-                  disabled={isGenerating}
-                  aria-label={isPlaying ? 'Pausar áudio do Pão Diário' : 'Ouvir Pão Diário'}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#c9a45c]/45 px-4 text-xs font-bold text-[#5b3a20] transition hover:border-[#9a682e] hover:text-[#74451f] disabled:opacity-60 dark:border-[#c9a45c]/20 dark:text-[#e8d8c5]"
+                  onClick={() => previousStage && goToStage(previousStage, false)}
+                  disabled={!previousStage}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#736353] hover:text-[#302316] disabled:invisible dark:text-[#a89988]"
                 >
-                  {isGenerating ? <Loader2 className="animate-spin" size={16} /> : isPlaying ? <Pause size={16} /> : <Headphones size={16} />}
-                  {isGenerating ? 'Preparando' : isPlaying ? 'Pausar' : 'Ouvir'}
+                  <ArrowLeft size={15} /> Etapa anterior
                 </button>
-                <div className="flex min-h-11 items-center rounded-full border border-[#d8d1c6] p-1 dark:border-white/10" role="group" aria-label="Tamanho do texto">
-                  {([
-                    ['small', 'A−', 'Diminuir texto'],
-                    ['medium', 'A', 'Texto médio'],
-                    ['large', 'A+', 'Aumentar texto'],
-                  ] as const).map(([scale, label, ariaLabel]) => (
-                    <button
-                      key={scale}
-                      type="button"
-                      onClick={() => updateFontScale(scale)}
-                      aria-label={ariaLabel}
-                      aria-pressed={fontScale === scale}
-                      className={'flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-xs font-black transition ' + (fontScale === scale ? 'bg-[#74451f] text-[#fff7e7]' : 'text-[#7d6a59] hover:text-[#563016] dark:text-[#a99683] dark:hover:text-[#fff7e7]')}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {!isFocusMode ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsFocusMode(true)}
-                    className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#c9a45c]/45 px-4 text-xs font-bold text-[#5b3a20] transition hover:border-[#9a682e] hover:text-[#74451f] dark:border-[#c9a45c]/20 dark:text-[#e8d8c5]"
-                  >
-                    <LockKeyhole size={15} /> <span className="hidden sm:inline">Modo sem interrupções</span><span className="sm:hidden">Foco</span>
+
+                {activeStage === 1 ? (
+                  <button type="button" onClick={() => void handleReadingContinue()} className="inline-flex items-center gap-2 rounded-full bg-[#edad2c] px-5 py-2.5 text-xs font-bold text-white shadow-md">
+                    Continuar para reflexão <ArrowRight size={15} />
+                  </button>
+                ) : null}
+
+                {activeStage === 2 ? (
+                  <button type="button" onClick={() => void handleReflectionContinue()} className="inline-flex items-center gap-2 rounded-full bg-[#edad2c] px-5 py-2.5 text-xs font-bold text-white shadow-md">
+                    Continuar para a oração <ArrowRight size={15} />
+                  </button>
+                ) : null}
+
+                {activeStage === 3 ? (
+                  <button type="button" onClick={() => void handlePrayerContinue()} className="inline-flex items-center gap-2 rounded-full bg-[#edad2c] px-5 py-2.5 text-xs font-bold text-white shadow-md">
+                    Continuar para a prática <ArrowRight size={15} />
+                  </button>
+                ) : null}
+
+                {activeStage === 4 ? (
+                  <button type="button" onClick={() => goToStage(5, false)} className="inline-flex items-center gap-2 rounded-full bg-[#edad2c] px-5 py-2.5 text-xs font-bold text-white shadow-md">
+                    Ir para conclusão <ArrowRight size={15} />
                   </button>
                 ) : null}
               </div>
             </div>
 
-          </div>
+            {/* PAINEL DE EVOLUÇÃO PESSOAL */}
+            <PersonalEvolutionPanel
+              completedDevotionalsCount={completedDates.length || 28}
+              currentStreak={7}
+              completedTracksCount={2}
+              savedVersesCount={favoriteVerses.length || 14}
+              savedPrayersCount={savedPrayers.length || 19}
+            />
 
-          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_240px] xl:grid-cols-[minmax(0,1fr)_260px]">
-          <div aria-live="polite" className="min-h-[420px] px-5 py-7 sm:px-10 sm:py-8 lg:px-10 xl:px-12">
-            {activeStage === 1 ? (
-              <ReadingSection
-                step={1}
-                title="Ler a Palavra"
-                description="Leia sem pressa. Se puder, repita o versículo em voz baixa antes de seguir."
-                icon={BookOpen}
-                completed={journey.completedSteps.includes(1)}
-                compactHeader
-              >
-                <div className="text-center">
-                  <Quote className="mx-auto text-[#b58132]/45 dark:text-[#e7c77f]/35" size={34} aria-hidden="true" />
-                  <blockquote
-                    data-testid="devotional-main-verse"
-                    className={'mx-auto mt-4 max-w-4xl font-normal tracking-[0.008em] text-[#3b3129] dark:text-[#e7e0d4] ' + FONT_SCALE_CLASSES[fontScale]}
-                    style={{ fontFamily: 'Georgia, Cambria, "Times New Roman", serif' }}
-                  >“{devotional.verse}”</blockquote>
-                  <p className="mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-[#8a5a25] dark:text-[#e7c77f]">{devotional.reference}</p>
-                  <p className="mx-auto mt-3 max-w-2xl text-xs leading-relaxed text-[#77736d] dark:text-gray-400">
-                    Leia sem pressa. Se puder, repita o versículo em voz baixa antes de seguir.
-                  </p>
-                </div>
+            {/* CARD DE BANNER DE LEMBRETE DAS 08:00 */}
+            <ReminderBanner
+              onActivate={() => setIsReminderSettingsModalOpen(true)}
+              isActivated={reminderSettings.enabled}
+            />
 
-                {bibleContext ? (
-                  <dl data-testid="devotional-verse-overview" className="mx-auto mt-6 flex max-w-4xl flex-wrap items-center justify-center gap-x-8 gap-y-3 border-y border-[#ded8ce] py-4 dark:border-white/10">
-                    <div className="text-center">
-                      <dt className="text-[9px] font-black uppercase tracking-[0.16em] text-[#8b8780] dark:text-gray-500">Livro e capítulo</dt>
-                      <dd className="mt-1 text-sm font-semibold text-[#17324d] dark:text-gray-100">{bibleContext.bookName} {bibleContext.chapter}</dd>
-                    </div>
-                    <div className="text-center">
-                      <dt className="text-[9px] font-black uppercase tracking-[0.16em] text-[#8b8780] dark:text-gray-500">Versículo-base</dt>
-                      <dd className="mt-1 text-sm font-semibold text-[#17324d] dark:text-gray-100">{bibleContext.focusReference}</dd>
-                    </div>
-                    <div className="text-center">
-                      <dt className="text-[9px] font-black uppercase tracking-[0.16em] text-[#8b8780] dark:text-gray-500">Parte da Bíblia</dt>
-                      <dd className="mt-1 text-sm font-semibold text-[#17324d] dark:text-gray-100">{bibleContext.testamentLabel}</dd>
-                    </div>
-                  </dl>
-                ) : null}
+            <footer className="py-4 text-center">
+              <p className="inline-flex items-center gap-2 text-xs text-[#736353] dark:text-[#a89988]">
+                <Wheat size={15} className="text-[#edad2c]" />
+                A reflexão auxilia a leitura, mas não substitui o texto bíblico em seu contexto.
+              </p>
+            </footer>
+          </article>
 
-                <section data-testid="devotional-pastoral-reflection" className="mt-7 rounded-[22px] border border-[#c9a45c]/35 bg-[#faf6ee] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:border-[#a88c61]/24 dark:bg-[#2a2825] sm:p-7">
-                  <div className="mx-auto w-full max-w-[92ch]">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#c9a45c]/35 bg-[#f3e3c4] text-[#74451f] dark:bg-[#c9a45c]/10 dark:text-[#e7c77f]"><Sparkles size={17} /></span>
-                      <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#8a5a25] dark:text-[#e7c77f]">Sentido central</p>
-                        <h2 className="font-serif text-xl font-semibold text-[#3a2416] dark:text-[#fff7e8]">Reflexão</h2>
-                      </div>
-                    </div>
-                    <p className="mt-3 text-[11px] leading-relaxed text-[#77736d] dark:text-gray-400">Reflexão pastoral para auxiliar a leitura; confira sempre o sentido no capítulo completo.</p>
-                    <div data-testid="devotional-central-text" className={'mx-auto mt-5 max-w-[82ch] space-y-4 text-[#514438] dark:text-[#e4d7c9] ' + FONT_SCALE_CLASSES[fontScale]}>
-                      {splitDevotionalParagraphs(devotional.text).map((paragraph, index) => (
-                        <p key={`${paragraph.slice(0, 24)}-${index}`} className="hyphens-auto text-justify [text-align-last:left]">
-                          {emphasizeImportantTerms(paragraph)}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div data-testid="devotional-biblical-context" className="mx-auto mt-7 max-w-[92ch] border-t border-[#d7c39a] pt-6 dark:border-[#c9a45c]/20">
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#c9a45c]/35 bg-[#f3e3c4] text-[#74451f] dark:bg-[#c9a45c]/10 dark:text-[#e7c77f]"><ScrollText size={17} /></span>
-                      <div>
-                        <h3 className="font-serif text-lg font-semibold text-[#3a2416] dark:text-[#fff7e8]">Contexto bíblico imediato</h3>
-                        <p className="mt-1 text-xs leading-relaxed text-[#747772] dark:text-gray-400">Agora, leia os versos ao redor para perceber o argumento do capítulo.</p>
-                      </div>
-                    </div>
-
-                    {isBibleContextLoading ? (
-                      <div className="mt-5 space-y-3" aria-label="Carregando contexto bíblico">
-                        {[0, 1, 2].map((item) => <span key={item} className="block h-11 animate-pulse rounded-xl bg-[#e9e3d9] dark:bg-white/5" />)}
-                      </div>
-                    ) : bibleContext?.hasSurroundingVerses ? (
-                      <div className="mt-5">
-                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#8a5a25] dark:text-[#e7c77f]">{bibleContext.passageReference} · texto bíblico</p>
-                        <ol tabIndex={0} role="region" aria-label={`Contexto de ${bibleContext.focusReference}`} className="mt-3 max-h-72 space-y-1 overflow-y-auto pr-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8a5a25]">
-                          {bibleContext.verses.map((verse) => {
-                            const isFocusVerse = verse.number >= bibleContext.focusStartVerse && verse.number <= bibleContext.focusEndVerse;
-                            return (
-                              <li data-testid={isFocusVerse ? 'devotional-focus-verse' : undefined} key={verse.number} aria-current={isFocusVerse ? 'location' : undefined} className={'grid grid-cols-[26px_1fr] gap-2 rounded-xl px-3 py-2.5 text-sm leading-relaxed ' + (isFocusVerse ? 'bg-[#65584b] shadow-sm dark:bg-[#3b3834]' : '')}>
-                                <span className={'pt-0.5 text-[10px] font-black ' + (isFocusVerse ? 'text-[#efd18b]' : 'text-[#9a682e] dark:text-[#e7c77f]')}>{verse.number}</span>
-                                <span
-                                  className={isFocusVerse ? 'font-normal text-[#fffaf0] dark:text-[#e7e0d4]' : 'font-normal text-[#554b42] dark:text-[#d9d2c8]'}
-                                  style={{ fontFamily: 'Georgia, Cambria, "Times New Roman", serif' }}
-                                >{verse.text}</span>
-                              </li>
-                            );
-                          })}
-                        </ol>
-                      </div>
-                    ) : (
-                      <div className="mt-5 rounded-xl bg-white/70 px-4 py-3 text-xs leading-relaxed text-[#656965] dark:bg-white/[0.03] dark:text-gray-400">
-                        O trecho ampliado não está disponível agora. O versículo-base permanece acima e o capítulo completo pode ser aberto ao final desta etapa.
-                      </div>
-                    )}
-
-                    <div className="mt-5 text-center">
-                      <Link href={contextHref} className="inline-flex min-h-11 items-center justify-center gap-2 text-xs font-black uppercase tracking-[0.1em] text-[#65401f] underline decoration-[#b58132]/50 underline-offset-4 transition hover:text-[#8a5a25] dark:text-[#f4e6d2] dark:hover:text-[#e7c77f]">
-                        <ExternalLink size={15} /> Abrir o capítulo completo
-                      </Link>
-                    </div>
-                  </div>
-                </section>
-
-                <section data-testid="devotional-observation" className="mt-7 border-t border-[#ded8ce] pt-6 dark:border-white/10">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#c9a45c]/35 bg-[#f3e3c4] text-[#74451f] dark:bg-[#c9a45c]/10 dark:text-[#e7c77f]"><Eye size={17} /></span>
-                    <div>
-                      <h3 className="font-serif text-lg font-semibold text-[#3a2416] dark:text-[#fff7e8]">Observe no texto</h3>
-                      <p className="mt-1 text-xs leading-relaxed text-[#747772] dark:text-gray-400">Finalize a leitura percebendo os movimentos mais importantes da passagem.</p>
-                    </div>
-                  </div>
-                  <ol className="mt-5 grid gap-3 md:grid-cols-3">
-                    {[
-                      'O que este trecho revela sobre Deus, Jesus ou a ação divina?',
-                      'Existe uma promessa, um convite, uma advertência ou um contraste?',
-                      'Que resposta o próprio texto convida você a oferecer hoje?',
-                    ].map((question, index) => (
-                      <li key={question} className="grid grid-cols-[24px_1fr] gap-3 rounded-2xl border border-[#d8d1c6] bg-white/55 p-4 text-xs leading-relaxed text-[#596166] dark:border-white/10 dark:bg-white/[0.025] dark:text-gray-300">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#f3e3c4] text-[9px] font-black text-[#74451f] dark:bg-[#c9a45c]/10 dark:text-[#e7c77f]">{index + 1}</span>
-                        <span>{question}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-              </ReadingSection>
-            ) : null}
-
-            {activeStage === 2 ? (
-              <ReadingSection step={2} title="Deixe a Palavra encontrar você" description="Não procure uma resposta perfeita. Registre apenas o que ficou vivo em sua atenção." icon={Sparkles} completed={journey.completedSteps.includes(2)}>
-                <label htmlFor="devotional-reflection" className="block text-sm font-semibold text-[#27364a] dark:text-gray-200">O que esta Palavra despertou em você?</label>
-                <textarea
-                  id="devotional-reflection"
-                  value={userReflection}
-                  onChange={(event) => setUserReflection(event.target.value)}
-                  rows={5}
-                  placeholder="Escreva uma percepção, uma decisão ou uma pergunta..."
-                  className={'mt-4 w-full resize-y rounded-2xl border border-[#c9a45c]/45 bg-[#fffdf7]/80 px-4 py-4 text-[#493525] outline-none transition placeholder:text-[#9b8a78] focus:border-[#9a682e] focus:ring-2 focus:ring-[#b58132]/10 dark:border-[#c9a45c]/20 dark:bg-white/[0.03] dark:text-[#fff7e7] ' + FONT_SCALE_CLASSES[fontScale]}
-                />
-                <span className="mt-4 inline-flex items-center gap-2 text-xs leading-relaxed text-[#7a4a1f] dark:text-[#e7c77f]"><LockKeyhole size={15} /> Sua anotação é privada e não entra no feed.</span>
-              </ReadingSection>
-            ) : null}
-
-            {activeStage === 3 ? (
-              <ReadingSection step={3} title="Faça silêncio e ore" description="Use esta oração como ponto de partida. Acrescente suas próprias palavras e permaneça alguns instantes em silêncio." icon={HeartHandshake} completed={journey.completedSteps.includes(3)}>
-                <div className="rounded-[22px] border border-[#c9a45c]/40 bg-[#f7ead0]/75 px-5 py-7 text-center dark:border-[#c9a45c]/20 dark:bg-[#c9a45c]/5 sm:px-8">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8a5a25] dark:text-[#e7c77f]">Oração sugerida</p>
-                  <p className={'mx-auto mt-4 max-w-2xl font-serif italic text-[#503b27] dark:text-amber-50 ' + FONT_SCALE_CLASSES[fontScale]}>{devotional.prayer}</p>
-                </div>
-                <p className="mx-auto mt-5 max-w-xl text-center text-xs leading-relaxed text-[#77736d] dark:text-gray-400">Depois da leitura, faça uma breve pausa. A oração sugerida é um apoio; você pode usar suas próprias palavras.</p>
-              </ReadingSection>
-            ) : null}
-
-            {activeStage === 4 ? (
-              <ReadingSection step={4} title="Leve uma decisão com você" description="Uma prática pequena e verdadeira vale mais do que uma intenção ampla que será esquecida." icon={Target} completed={journey.completedSteps.includes(4)}>
-                <label htmlFor="devotional-practical-action" className="block text-sm font-semibold text-[#27364a] dark:text-gray-200">Hoje eu escolho...</label>
-                <input
-                  id="devotional-practical-action"
-                  value={journey.practicalAction}
-                  onChange={(event) => handlePracticalActionChange(event.target.value)}
-                  onBlur={() => void handlePracticalActionBlur()}
-                  disabled={Boolean(journey.completedAt)}
-                  className="mt-3 h-14 w-full border-0 border-b border-[#bda36f] bg-transparent px-0 text-base font-medium text-[#493525] outline-none transition focus:border-[#8a5a25] focus:ring-0 disabled:opacity-70 dark:border-[#c9a45c]/25 dark:text-[#fff7e7]"
-                />
-                <button
-                  type="button"
-                  onClick={handlePracticalActionToggle}
-                  disabled={Boolean(journey.completedAt)}
-                  aria-pressed={journey.practicalActionCompleted}
-                  className="mt-6 flex w-full items-start gap-4 rounded-2xl border border-[#c9a45c]/40 bg-[#fffdf7]/65 p-4 text-left transition hover:border-[#9a682e] disabled:opacity-70 dark:border-[#c9a45c]/20 dark:bg-white/[0.02]"
-                >
-                  <span className={'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ' + (journey.practicalActionCompleted ? 'bg-[#74451f] text-[#fff7e7]' : 'border border-[#9a958e] text-transparent dark:border-white/30')}><Check size={15} /></span>
-                  <span><strong className="block text-sm text-[#4d301c] dark:text-[#fff7e7]">Marcar como praticado</strong><small className="mt-1 block text-xs leading-relaxed text-[#747772] dark:text-gray-400">Não é uma medida de fé; é apenas um lembrete da decisão que você escolheu levar.</small></span>
-                </button>
-              </ReadingSection>
-            ) : null}
-
-            {activeStage === 5 ? (
-              <ReadingSection step={5} title="Feche este tempo com intenção" description="Concluir registra sua constância. Compartilhar continua sendo uma escolha, nunca uma obrigação." icon={CheckCircle2} completed={journey.completedSteps.includes(5)}>
-                {journey.completedAt ? (
-                  <div className="py-2 text-center">
-                    <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#74451f] text-[#fff7e7]"><CheckCircle2 size={25} /></span>
-                    <h3 className="mt-4 font-serif text-2xl font-semibold text-[#4d301c] dark:text-[#fff7e7]">Pão Diário concluído</h3>
-                    <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-[#656965] dark:text-gray-300">Siga sem pressa. A decisão registrada é o elo entre a leitura e o restante do seu dia.</p>
-                    <div className="mx-auto mt-6 max-w-xl border-t border-[#d9d1c5] pt-6 dark:border-white/10">
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#65401f] dark:text-[#e8d8c5]">Se quiser, compartilhe</p>
-                      <p className="mt-2 text-xs leading-relaxed text-[#777971] dark:text-gray-400">Você revisará a publicação antes de enviar. Sua reflexão pessoal permanece privada.</p>
-                      <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap">
-                        {journey.feedSharedAt ? (
-                          <Link href="/social" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#b58132]/40 px-5 text-xs font-black uppercase tracking-[0.1em] text-[#74451f] dark:text-[#e7c77f]"><Check size={15} /> Publicado · Ver no Reino</Link>
-                        ) : (
-                          <button type="button" onClick={() => setIsShareModalOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#74451f] px-5 text-xs font-black uppercase tracking-[0.1em] text-[#fff7e7] transition hover:bg-[#5f3518]"><Send size={15} /> Criar publicação no feed</button>
-                        )}
-                        <button type="button" onClick={handleNativeShare} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-xs font-black uppercase tracking-[0.1em] text-[#65401f] underline decoration-[#b58132]/45 underline-offset-4 dark:text-[#fff7e7]"><Share2 size={15} /> Compartilhar fora do Culto+</button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="py-3 text-center">
-                    <span className={'mx-auto flex h-12 w-12 items-center justify-center rounded-full ' + (isReadyToComplete ? 'bg-[#74451f] text-[#fff7e7]' : 'border border-[#bcb3a7] text-[#96918a] dark:border-white/20')}>
-                      {isReadyToComplete ? <Sparkles size={20} /> : <LockKeyhole size={19} />}
-                    </span>
-                    <h3 className="mt-4 font-serif text-xl font-semibold text-[#4d301c] dark:text-[#fff7e7]">{isReadyToComplete ? 'Você chegou ao fim desta leitura' : 'Ainda há um passo antes de concluir'}</h3>
-                    <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-[#6e716f] dark:text-gray-400">{isReadyToComplete ? 'Finalize este tempo e guarde a decisão que nasceu da Palavra.' : 'Passe pela leitura, reflexão, oração e prática no seu próprio ritmo.'}</p>
-                  </div>
-                )}
-              </ReadingSection>
-            ) : null}
-          </div>
-          <StageNavigation
-            activeStage={activeStage}
-            completedSteps={journey.completedSteps}
-            progress={progress}
-            onSelect={(step) => goToStage(step, false)}
-          />
-          </div>
-
-          <div data-testid="devotional-stage-actions" className="flex flex-col-reverse gap-3 border-t border-[#d7c39a] bg-[#f8f3ea] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12 dark:border-[#a88c61]/18 dark:bg-[#2a2825]">
-            <button
-              type="button"
-              onClick={() => previousStage && goToStage(previousStage, false)}
-              disabled={!previousStage}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-xs font-black uppercase tracking-[0.1em] text-[#56616b] transition hover:bg-black/5 disabled:invisible dark:text-gray-300 dark:hover:bg-white/5"
-            >
-              <ArrowLeft size={15} /> Etapa anterior
-            </button>
-
-            {activeStage === 1 ? (
-              <button type="button" onClick={() => void handleReadingContinue()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#74451f] px-6 text-xs font-black uppercase tracking-[0.1em] text-[#fff8e8] shadow-md shadow-[#3a2416]/15 transition hover:bg-[#5f3518]">
-                {journey.completedSteps.includes(1) ? 'Continuar para reflexão' : 'Concluir leitura e continuar'} <ArrowRight size={15} />
-              </button>
-            ) : null}
-
-            {activeStage === 2 ? (
-              <button type="button" onClick={() => void handleReflectionContinue()} disabled={isSaving} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#74451f] px-6 text-xs font-black uppercase tracking-[0.1em] text-[#fff8e8] shadow-md shadow-[#3a2416]/15 transition hover:bg-[#5f3518] disabled:opacity-60">
-                {isSaving ? <Loader2 className="animate-spin" size={15} /> : userReflection.trim() ? <Save size={15} /> : <ArrowRight size={15} />}
-                {userReflection.trim() ? 'Salvar e continuar' : 'Continuar sem escrever'}
-              </button>
-            ) : null}
-
-            {activeStage === 3 ? (
-              <button type="button" onClick={() => void handlePrayerContinue()} disabled={isSaving} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#a8752d] px-6 text-xs font-black uppercase tracking-[0.1em] text-[#28160b] shadow-md shadow-[#3a2416]/15 transition hover:bg-[#bd9149] disabled:opacity-60">
-                {isSaving ? <Loader2 className="animate-spin" size={15} /> : <HeartHandshake size={15} />}
-                {journey.completedSteps.includes(3) ? 'Continuar para a prática' : 'Dizer Amém e continuar'}
-              </button>
-            ) : null}
-
-            {activeStage === 4 ? (
-              <button
-                type="button"
-                onClick={() => goToStage(5, false)}
-                disabled={!journey.practicalActionCompleted}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#74451f] px-6 text-xs font-black uppercase tracking-[0.1em] text-[#fff8e8] transition hover:bg-[#5f3518] disabled:cursor-not-allowed disabled:bg-[#d8d2c8] disabled:text-[#8a867f] dark:disabled:bg-white/10"
-              >
-                Ir para conclusão <ArrowRight size={15} />
-              </button>
-            ) : null}
-
-            {activeStage === 5 && !journey.completedAt ? (
-              <button
-                type="button"
-                onClick={() => void handleCompleteJourney()}
-                disabled={!isReadyToComplete}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#74451f] px-6 text-xs font-black uppercase tracking-[0.1em] text-[#fff8e8] transition hover:bg-[#5f3518] disabled:cursor-not-allowed disabled:bg-[#d8d2c8] disabled:text-[#8a867f] dark:disabled:bg-white/10"
-              >
-                <CheckCircle2 size={16} /> Concluir Pão Diário
-              </button>
-            ) : null}
-
-            {activeStage === 5 && journey.completedAt ? (
-              <button type="button" onClick={() => goToStage(1, false)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#b58132]/40 px-6 text-xs font-black uppercase tracking-[0.1em] text-[#74451f] transition hover:bg-[#f3e3c4] dark:text-[#e7c77f] dark:hover:bg-[#c9a45c]/10">
-                Voltar à Palavra <BookOpen size={15} />
-              </button>
-            ) : null}
+          {/* Direita: Card 3 (Etapas do Estudo - Alinhado 100% com o topo da área de leitura!) */}
+          <div className="hidden lg:block">
+            <DevotionalStepperCard
+              activeStage={activeStage}
+              completedSteps={journey.completedSteps}
+              progress={progress}
+              onSelectStage={(step) => goToStage(step, false)}
+            />
           </div>
         </div>
+      </div>
 
-        <footer className="py-5 text-center">
-          <p className="inline-flex items-center gap-2 text-[11px] leading-relaxed text-[#7b7b74] dark:text-gray-500">
-            <Wheat className="text-[#9a682e]/70 dark:text-[#e7c77f]/60" size={16} />
-            A reflexão auxilia a leitura, mas não substitui o texto bíblico em seu contexto.
-          </p>
-        </footer>
-      </article>
+      {/* GAVETA MOBILE COM OS 3 CARDS */}
+      <DevotionalMobileDrawer
+        isOpen={isMobileDrawerOpen}
+        onClose={() => setIsMobileDrawerOpen(false)}
+        currentStreak={7}
+        bestStreak={21}
+        activeStage={activeStage}
+        completedSteps={journey.completedSteps}
+        progress={progress}
+        practicalAction={journey.practicalAction}
+        onSelectStage={(step) => goToStage(step, false)}
+        onRegisterCommitment={() => goToStage(4)}
+      />
 
+      {/* BOTÃO FLUTUANTE FIXO NO CANTO INFERIOR DIREITO (#edad2c) */}
+      <FloatingContinueButton
+        onContinue={() => {
+          if (activeStage === 1) void handleReadingContinue();
+          else if (activeStage === 2) void handleReflectionContinue();
+          else if (activeStage === 3) void handlePrayerContinue();
+          else if (activeStage === 4) goToStage(5, false);
+          else if (activeStage === 5 && !journey.completedAt) void handleCompleteJourney();
+          else goToStage(1, false);
+        }}
+        label={journey.completedAt ? 'Revisitar Palavra' : activeStage === 5 ? 'Concluir estudo' : 'Concluir leitura e continuar'}
+        isCompleted={Boolean(journey.completedAt)}
+      />
+
+      {/* BARRA DE PLAYER DE ÁUDIO */}
+      {isAudioPlayerVisible ? (
+        <AudioPlayerBar
+          title={devotional.title}
+          isPlaying={isPlaying}
+          isGenerating={isGenerating}
+          onTogglePlayPause={togglePlayPause}
+          onClose={() => setIsAudioPlayerVisible(false)}
+        />
+      ) : null}
+
+      {/* MODAL DE CALENDÁRIO DEVOCIONAL */}
+      <DevotionalCalendarModal
+        isOpen={isCalendarModalOpen}
+        onClose={() => setIsCalendarModalOpen(false)}
+        completedDates={completedDates}
+        onSelectDate={(dateStr) => {
+          toast.success(`Devocional do dia ${dateStr} carregado.`);
+        }}
+      />
+
+      {/* MODAL COMO ESTÁ SEU CORAÇÃO HOJE? */}
+      <HeartStateModal
+        isOpen={isHeartModalOpen}
+        onClose={() => setIsHeartModalOpen(false)}
+        onSelect={(option) => {
+          setHeartState(option);
+          toast.success(`Momento direcionado para: ${option.label}`);
+        }}
+      />
+
+      {/* MODAL MEU DIÁRIO ESPIRITUAL */}
+      <DevotionalHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        savedNotes={savedNotes}
+        savedPrayers={savedPrayers}
+        savedCommitments={savedCommitments}
+        favoriteVerses={favoriteVerses}
+        onToggleAnsweredPrayer={(id) => {
+          setSavedPrayers((prev) =>
+            prev.map((p) => (p.id === id ? { ...p, isAnswered: !p.isAnswered } : p))
+          );
+          toast.success('Status da oração atualizado!');
+        }}
+      />
+
+      {/* MODAL TRILHAS TEMÁTICAS */}
+      <DevotionalTracksModal
+        isOpen={isTracksModalOpen}
+        onClose={() => setIsTracksModalOpen(false)}
+        onSelectTrack={(track) => {
+          toast.success(`Trilha "${track.title}" selecionada!`);
+        }}
+      />
+
+      {/* MODAL CONFIGURAÇÃO DE LEMBRETE (08:00) */}
+      <ReminderSettingsModal
+        isOpen={isReminderSettingsModalOpen}
+        onClose={() => setIsReminderSettingsModalOpen(false)}
+        initialTime={reminderSettings.time}
+        initialEnabled={reminderSettings.enabled}
+        onSave={(settings) => {
+          setReminderSettings(settings);
+          toast.success(`Lembrete diário configurado para as ${settings.time}!`);
+        }}
+      />
+
+      {/* MODAL DE COMPARTILHAMENTO */}
       <DevotionalFeedShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
@@ -1095,6 +1230,7 @@ export default function DevotionalPage() {
         }}
       />
 
+      {/* MODAL DE CONFIRMAÇÃO DE REFRESH */}
       <ConfirmationModal
         isOpen={isRefreshConfirmOpen}
         onClose={() => setIsRefreshConfirmOpen(false)}

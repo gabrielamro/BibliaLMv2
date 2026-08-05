@@ -6,7 +6,7 @@ const source = readFileSync(new URL('../views/NewHomePage.tsx', import.meta.url)
 
 test('home mostra configurações ao lado do perfil em desktop e mobile', () => {
   assert.equal((source.match(/<HomeSettingsMenu/g) || []).length, 2);
-  assert.match(source, /aria-label="Abrir configurações"/);
+  assert.match(source, /"Abrir configurações"/);
   assert.match(source, /includeViewSwitcher/);
 });
 

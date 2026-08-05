@@ -471,7 +471,29 @@ export const analyzeReadingPlanCommitment = async (days: number, scope: string) 
     try {
         const prompt = `Analise um plano de leitura da Bíblia (${scope}) em ${days} dias. Calcule capítulos/dia, versículos estimados, dificuldade e crie uma frase de compromisso e 3 dicas. JSON: { commitment, tips, difficulty, versesPerDay, strategy }`;
         const result = await callAi(prompt, undefined, "json");
-        return JSON.parse(result || "{}");
+        const parsed = JSON.parse(result || "{}");
+
+        let versesPerDay = 0;
+        if (typeof parsed.versesPerDay === 'number') {
+            versesPerDay = parsed.versesPerDay;
+        } else if (typeof parsed.versesPerDay === 'object' && parsed.versesPerDay !== null) {
+            versesPerDay = Number(parsed.versesPerDay.estimatedVersesPerDay || parsed.versesPerDay.versesPerDay || parsed.versesPerDay.verses || 0);
+        } else if (typeof parsed.estimatedVersesPerDay === 'number') {
+            versesPerDay = parsed.estimatedVersesPerDay;
+        } else if (typeof parsed.versesPerDay === 'string') {
+            versesPerDay = Number.parseInt(parsed.versesPerDay, 10) || 0;
+        }
+
+        const totalChapters = scope === 'all' ? 1189 : scope === 'new_testament' ? 260 : 929;
+        const fallbackVerses = Math.ceil((totalChapters / Math.max(1, days)) * 26);
+
+        return {
+            commitment: typeof parsed.commitment === 'string' ? parsed.commitment : "Aceito o desafio de crescer no conhecimento da Graça e da Verdade.",
+            tips: typeof parsed.tips === 'string' ? parsed.tips : "1. Defina um horário fixo.\n2. Ore antes de ler.\n3. Não desista se atrasar um dia.",
+            difficulty: typeof parsed.difficulty === 'string' ? parsed.difficulty : "Moderado",
+            versesPerDay: versesPerDay > 0 ? versesPerDay : fallbackVerses,
+            strategy: typeof parsed.strategy === 'string' ? parsed.strategy : `Leitura sequencial de aprox. ${(totalChapters / Math.max(1, days)).toFixed(1)} capítulos por dia.`,
+        };
     } catch (e) { return null; }
 };
 
