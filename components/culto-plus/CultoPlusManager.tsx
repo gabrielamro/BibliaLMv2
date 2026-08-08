@@ -9,9 +9,10 @@ import { bibleService } from '../../services/bibleService';
 import { dbService, uploadBlob } from '../../services/supabase';
 import { ChurchServiceStats, cultoPlusService } from '../../services/cultoPlusService';
 import { generateDailyDevotional } from '../../services/pastorAgent';
-import { ChurchService, ChurchServiceStatus, ChurchServiceType, ServiceAdvancedAnalytics, ServiceAiContentKind, ServiceCheckin, ServiceLiturgyItem, ServiceLiturgyKind, ServiceLiveState, ServiceMinistry, ServiceMinistryMember, ServiceReactionSummary, ServiceScheduleAssignment, UserProfile } from '../../types';
+import { ChurchService, ChurchServiceModality, ChurchServiceStatus, ChurchServiceType, ServiceAdvancedAnalytics, ServiceAiContentKind, ServiceCheckin, ServiceLiturgyItem, ServiceLiturgyKind, ServiceLiveState, ServiceMinistry, ServiceMinistryMember, ServiceReactionSummary, ServiceScheduleAssignment, UserProfile } from '../../types';
 import CultoPlusCalendarView from './CultoPlusCalendarView';
 import { getCalendarMonthRange } from '../../utils/cultoPlusCalendar';
+import { SERVICE_MODALITY_META, SERVICE_MODALITY_VALUES, getServiceModality, normalizeServiceModality } from '../../utils/serviceModality';
 import { isSafeLiveUrl } from '../../utils/cultoPlusOnePage';
 import { isGeneralManager } from '../../utils/profileAccess';
 
@@ -524,6 +525,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
   const [theme, setTheme] = useState('');
   const [preacherName, setPreacherName] = useState(userProfile?.displayName ?? '');
   const [serviceType, setServiceType] = useState<ChurchServiceType>('sunday');
+  const [modality, setModality] = useState<ChurchServiceModality>('presencial');
   const [status, setStatus] = useState<ChurchServiceStatus>('published');
   const [startsAt, setStartsAt] = useState(todayAt('19:00'));
   const [endsAt, setEndsAt] = useState(todayAt('21:00'));
@@ -545,6 +547,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
     theme,
     preacherName,
     serviceType,
+    modality,
     status,
     startsAt,
     endsAt,
@@ -553,7 +556,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
     bannerUrl,
     liveUrl,
     liturgyItems,
-  }), [bannerUrl, endsAt, keyVerseRef, keyVerseText, liturgyItems, liveUrl, preacherName, serviceType, startsAt, status, theme, title]);
+  }), [bannerUrl, endsAt, keyVerseRef, keyVerseText, liturgyItems, liveUrl, modality, preacherName, serviceType, startsAt, status, theme, title]);
   const hasUnsavedChanges = showForm && savedFormSnapshot !== '' && formSnapshot !== savedFormSnapshot;
   const localDraftKey = showForm ? `${LOCAL_DRAFT_PREFIX}:${editingServiceId ?? 'new'}:${churchData?.churchId ?? 'no-church'}` : '';
   const calendarRange = useMemo(() => getCalendarMonthRange(calendarDate), [calendarDate]);
@@ -860,6 +863,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
       setTheme(draft.theme ?? '');
       setPreacherName(draft.preacherName ?? userProfile?.displayName ?? '');
       setServiceType(draft.serviceType ?? 'sunday');
+      setModality(normalizeServiceModality(draft.modality) ?? 'presencial');
       setStatus(draft.status ?? 'published');
       setStartsAt(draft.startsAt ?? todayAt('19:00'));
       setEndsAt(draft.endsAt ?? todayAt('21:00'));
@@ -1044,6 +1048,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
     setTheme('');
     setPreacherName(userProfile?.displayName ?? '');
     setServiceType('sunday');
+    setModality('presencial');
     setStatus('published');
     setStartsAt(todayAt('19:00'));
     setEndsAt(todayAt('21:00'));
@@ -1089,6 +1094,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
     setTheme(service.theme);
     setPreacherName(service.preacherName);
     setServiceType(service.serviceType);
+    setModality(getServiceModality(service));
     setStatus(service.status);
     setStartsAt(toDateTimeLocal(service.startsAt));
     setEndsAt(toDateTimeLocal(service.endsAt));
@@ -1453,6 +1459,7 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
         theme: theme.trim(),
         preacherName: preacherName.trim() || userProfile.displayName,
         serviceType,
+        modality,
         startsAt: new Date(startsAt).toISOString(),
         endsAt: new Date(endsAt).toISOString(),
         keyVerseRef: verseReference || undefined,
@@ -1708,6 +1715,22 @@ const CultoPlusManager: React.FC<CultoPlusManagerProps> = ({
                   {SERVICE_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
                 </select>
               </SelectShell>
+            </label>
+            <label className={activeEditorStep === 'overview' ? 'space-y-1' : 'hidden'}>
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Modalidade</span>
+              <SelectShell>
+                <select
+                  value={modality}
+                  onChange={(event) => setModality(event.target.value as ChurchServiceModality)}
+                  title="Defina se a participação é presencial, online ou híbrida. A agenda pública usa esta informação nos filtros e selos."
+                  className="w-full appearance-none rounded-2xl border border-gray-200 bg-white py-3 pl-4 pr-12 text-sm font-bold outline-none focus:ring-2 focus:ring-bible-gold dark:border-gray-700 dark:bg-bible-darkPaper"
+                >
+                  {SERVICE_MODALITY_VALUES.map((value) => (
+                    <option key={value} value={value}>{SERVICE_MODALITY_META[value].label}</option>
+                  ))}
+                </select>
+              </SelectShell>
+              <p className="text-xs font-medium text-gray-400">{SERVICE_MODALITY_META[modality].description}</p>
             </label>
             <label className={activeEditorStep === 'overview' ? 'space-y-1' : 'hidden'}>
               <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Status</span>

@@ -1,3 +1,5 @@
+import { getResponsiveTextLayout } from '../app/criar-arte-sacra/editorLayout';
+
 /**
  * Opcoes de customizacao para a composicao da imagem.
  */
@@ -219,8 +221,14 @@ export const composeImageWithText = (
             ctx.textBaseline = 'middle';
             
             // --- Texto do versiculo ---
-            const baseFontSize = options.aspectRatio === 'story' ? 46 : 48;
-            const finalFontSize = clamp(baseFontSize * options.fontSizeScale, 24, 88);
+            // Mantem o arquivo exportado sincronizado com a escala da previa Konva.
+            const textLayout = getResponsiveTextLayout({
+              aspectRatio: options.aspectRatio ?? 'feed',
+              containerWidth: width,
+              containerHeight: height,
+              fontSizeScale: options.fontSizeScale,
+            });
+            const finalFontSize = textLayout.verseFontSizePx;
             
             // Define o peso da fonte baseado na familia escolhida
             let fontWeight = 'bold';
@@ -241,16 +249,16 @@ export const composeImageWithText = (
             }
       
             // Quebra de linha do texto (Wrap Text)
-            const maxWidth = width * (options.aspectRatio === 'story' ? 0.84 : 0.80);
-            // Ajusta entrelinha dependendo da fonte.
-            const lineHeightMultiplier = options.fontFamily === 'Great Vibes' ? 1.42 : 1.24;
-            const maxTextBlockHeight = height * (options.aspectRatio === 'story' ? 0.52 : 0.56);
+            const maxWidth = width * (textLayout.contentWidthPercent / 100);
+            // Ajusta entrelinha dependendo da fonte, mantendo o padrao do editor.
+            const lineHeightMultiplier = options.fontFamily === 'Great Vibes' ? 1.42 : textLayout.verseLineHeight;
+            const maxTextBlockHeight = height * (textLayout.maxTextBlockHeightPercent / 100);
             const fittedText = fitTextLinesToBox(ctx, {
               text: `"${text}"`,
               maxWidth,
               maxHeight: maxTextBlockHeight,
               initialFontSize: finalFontSize,
-              minFontSize: 24,
+              minFontSize: 12,
               lineHeightMultiplier,
               applyFontSize: (fontSize) => {
                 ctx.font = `${fontWeight} ${fontSize}px ${fontStack}`;
@@ -279,7 +287,7 @@ export const composeImageWithText = (
             const refFontStack = options.fontFamily === 'Cinzel' ? '"Cinzel", serif' : '"Inter", sans-serif';
             ctx.font = `900 ${refFontSize}px ${refFontStack}`; 
             ctx.fillStyle = '#c5a059'; // Bible Gold
-            const refY = startY + textBlockHeight + Math.max(34, finalFontSize * 0.58);
+            const refY = startY + textBlockHeight + Math.max(18, fittedText.fontSize * 0.55);
             
             const refWidth = ctx.measureText(reference.toUpperCase()).width;
             

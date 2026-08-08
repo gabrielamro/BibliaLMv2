@@ -258,6 +258,30 @@ export async function getSpiritualDayTimeline(
         });
       });
     }
+
+    // 4. Reflexões registradas dentro das Trilhas de Estudo
+    const { data: trackNotes } = await supabase
+      .from('track_step_journal_entries')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('created_at', `${targetDate}T00:00:00Z`)
+      .lte('created_at', `${targetDate}T23:59:59Z`);
+
+    if (trackNotes && trackNotes.length > 0) {
+      trackNotes.forEach((entry: any) => {
+        timeline.push({
+          id: `track-note-${entry.id}`,
+          type: 'track_note',
+          title: entry.step_title,
+          subtitle: `${entry.track_title} · Passo ${entry.step_number}`,
+          dateStr: targetDate,
+          timestamp: entry.created_at,
+          badge: 'Trilha',
+          snippet: entry.note,
+          actionUrl: '/trilhas',
+        });
+      });
+    }
   } catch (error) {
     console.warn('Erro ao construir timeline:', error);
   }
@@ -338,9 +362,11 @@ export async function getMonthlyMoodHistory(
   * Exporta todos os registros do Diário Espiritual do usuário em formato JSON
   */
 export async function exportUserJournalData(userId: string) {
-  const [entries, favorites] = await Promise.all([
+  const [entries, favorites, trackNotes, trackProgress] = await Promise.all([
     supabase.from('spiritual_day_entries').select('*').eq('user_id', userId),
     supabase.from('user_content_favorites').select('*').eq('user_id', userId),
+    supabase.from('track_step_journal_entries').select('*').eq('user_id', userId),
+    supabase.from('user_track_progress').select('*').eq('user_id', userId),
   ]);
 
   return {
@@ -348,6 +374,8 @@ export async function exportUserJournalData(userId: string) {
     userId,
     entries: entries.data || [],
     favorites: favorites.data || [],
+    trackNotes: trackNotes.data || [],
+    trackProgress: trackProgress.data || [],
   };
 }
 
@@ -355,10 +383,12 @@ export async function exportUserJournalData(userId: string) {
   * Exclui todos os registros privados do usuário (Hard Delete)
   */
 export async function deleteUserJournalData(userId: string): Promise<boolean> {
-  const [resEntries, resFavs] = await Promise.all([
+  const [resEntries, resFavs, resTrackNotes, resTrackProgress] = await Promise.all([
     supabase.from('spiritual_day_entries').delete().eq('user_id', userId),
     supabase.from('user_content_favorites').delete().eq('user_id', userId),
+    supabase.from('track_step_journal_entries').delete().eq('user_id', userId),
+    supabase.from('user_track_progress').delete().eq('user_id', userId),
   ]);
 
-  return !resEntries.error && !resFavs.error;
+  return !resEntries.error && !resFavs.error && !resTrackNotes.error && !resTrackProgress.error;
 }

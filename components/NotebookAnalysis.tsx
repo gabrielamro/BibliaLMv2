@@ -22,6 +22,7 @@ import SEO from './SEO';
 import { BIBLE_BOOKS_LIST } from '../constants';
 import { bibleService } from '../services/bibleService';
 import { searchMatch } from '../utils/textUtils';
+import { sanitizePublicHtml } from '../utils/sanitizePublicHtml';
 import SmartText from './reader/SmartText';
 
 const NotebookAnalysis: React.FC = () => {
@@ -411,7 +412,7 @@ const NotebookAnalysis: React.FC = () => {
                                 ) : (
                                     <div 
                                         className="prose dark:prose-invert prose-lg max-w-none font-serif text-gray-700 dark:text-gray-300 leading-loose"
-                                        dangerouslySetInnerHTML={{ __html: analysisResult }}
+                                        dangerouslySetInnerHTML={{ __html: sanitizePublicHtml(analysisResult) }}
                                     />
                                 )}
                             </div>

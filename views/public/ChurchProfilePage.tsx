@@ -14,7 +14,8 @@ import {
   CheckCircle2, MessageSquareHeart, Heart, Send, Plus, 
   Home, Crown, Star, ChevronRight, Calendar, Info, Share2, 
   Flame, LayoutGrid, Award, Boxes, MessageSquare, Edit2, Trash2, AtSign, Zap, BookOpen, Brain, MapPinned,
-  User as UserIcon, Search, X, Check, UserCheck, Camera, MoreHorizontal, UserCog, ChevronDown, CornerDownRight
+  User as UserIcon, Search, X, Check, UserCheck, Camera, MoreHorizontal, UserCog, ChevronDown, CornerDownRight,
+  ArrowRight, Clock
 } from 'lucide-react';
 import { useHeader } from '../../contexts/HeaderContext';
 import SEO from '../../components/SEO';
@@ -27,6 +28,7 @@ import { generateSlug } from '../../utils/textUtils';
 import { FeedPostCard } from '../../components/social/FeedPostCard';
 import ChurchServicesPreview from '../../components/culto-plus/ChurchServicesPreview';
 import CultoPlusPublicAgenda from '../../components/culto-plus/CultoPlusPublicAgenda';
+import { ServiceModalityBadge } from '../../components/culto-plus/ServiceModalityBadge';
 import { isAdminProfile, isGeneralManager, isGeneralPastor } from '../../utils/profileAccess';
 import { getChurchGroupCapabilities, hasActiveChurchRole } from '../../utils/churchGroupRules';
 import { postInteractionService } from '../../services/postInteractionService';
@@ -43,6 +45,20 @@ const getChurchServiceStatusLabel = (service: ChurchService, wasAttended: boolea
     const temporalLabel = getLiveStatusLabel(service, now);
     if (temporalLabel === 'Terminou' && wasAttended) return 'Assistido';
     return temporalLabel;
+};
+
+const formatChurchPortalServiceDate = (value: string) => {
+    try {
+        return new Intl.DateTimeFormat('pt-BR', {
+            weekday: 'short',
+            day: '2-digit',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+        }).format(new Date(value)).replace('.', '');
+    } catch {
+        return value;
+    }
 };
 
 const isFeedPostMuralItem = (item: ChurchMuralItem): item is Post & { muralType: 'post' } =>
@@ -139,6 +155,7 @@ const ChurchProfilePage: React.FC = () => {
   const [followers, setFollowers] = useState<UserProfile[]>([]);
   const [loadingPeople, setLoadingPeople] = useState(false);
   const [peoplePanel, setPeoplePanel] = useState<'members' | 'followers' | null>(null);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [isSavingGroup, setIsSavingGroup] = useState(false);
@@ -175,12 +192,6 @@ const ChurchProfilePage: React.FC = () => {
   const isSocialMode = location.pathname.startsWith('/social');
   const basePath = isSocialMode ? '/social' : '';
   const currentUserId = currentUser?.uid || currentUser?.id;
-  const latestServicePosts = useMemo(
-    () => prayers
-      .filter((item): item is Post & { muralType: 'post' } => isFeedPostMuralItem(item) && Boolean(item.serviceId))
-      .slice(0, 3),
-    [prayers]
-  );
   const visibleServices = useMemo(() => {
       const now = new Date();
       return services.filter((service) => {
@@ -188,6 +199,14 @@ const ChurchProfilePage: React.FC = () => {
           return !isFinished || attendedServiceIds.has(service.id);
       });
   }, [services, attendedServiceIds]);
+
+  const nextService = useMemo(() => {
+      const now = Date.now();
+      const upcoming = visibleServices
+          .filter((service) => new Date(service.endsAt).getTime() >= now)
+          .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+      return upcoming[0] ?? null;
+  }, [visibleServices]);
 
   const loadChurchData = useCallback(async () => {
       if (!churchSlug) return;
@@ -764,232 +783,282 @@ const ChurchProfilePage: React.FC = () => {
   if (loading && !church) return <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-black"><Loader2 className="animate-spin text-bible-gold" size={40} /></div>;
   if (!church) return <div className="h-screen flex flex-col items-center justify-center p-6 text-center"><h2 className="text-xl font-bold">Igreja não encontrada</h2><button onClick={() => navigate(`${basePath}/explorar`)} className="mt-4 text-bible-gold font-bold">Voltar</button></div>;
 
+  const nextServiceStatusLabel = nextService
+      ? getChurchServiceStatusLabel(nextService, attendedServiceIds.has(nextService.id))
+      : null;
+  const locationLabel = churchFullAddress || `${church.location.city}, ${church.location.state}`;
+  const showClaimChurch = !church.admins || church.admins.length === 0;
+  const showPastoralEntry = hasActiveChurchRole(churchRoles, church.id, ['pastor'], ['church']);
+  const showProfileMenu = showClaimChurch || showPastoralEntry || isMember || canManageChurchIdentity;
+  const upcomingServicesCount = visibleServices.filter((service) => new Date(service.endsAt).getTime() >= Date.now()).length;
+  const memberCount = church.stats.memberCount || members.length || 0;
+  const followersCount = church.stats.followersCount || 0;
+
   return (
     <div data-testid="kingdom-church-profile" className="module-soft-surface h-full overflow-y-auto">
-        <SEO title={church.name} description={`Comunidade ${church.name} no Culto+.`} />
-        
-        <div className="relative h-48 overflow-hidden bg-[#3d2b25] md:h-64">
-            {church.logoUrl ? (
-                <img src={church.logoUrl} alt={church.name} className="absolute inset-0 h-full w-full object-cover opacity-75 blur-[1px] scale-105" />
-            ) : (
-                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)', backgroundSize: '15px 15px' }} />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black/45" />
-            <div className="absolute inset-x-0 top-4 z-10 mx-auto flex max-w-5xl items-center px-4">
-                <button onClick={() => navigate(-1)} className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-900 shadow-lg transition hover:bg-white" aria-label="Voltar">
-                    <ArrowLeft size={18} />
-                </button>
-            </div>
-        </div>
-        
-        <div className="mx-auto max-w-5xl px-4 pb-32 relative z-10">
-            <div className="relative -mt-16 mb-8">
-                <div className="overflow-visible rounded-[2rem] border border-gray-100 bg-white shadow-2xl dark:border-gray-800 dark:bg-bible-darkPaper">
-                    <div className="grid grid-cols-[auto_1fr_auto] gap-4 p-5 md:gap-6 md:p-7">
-                        <div className="relative -mt-12 md:-mt-16">
-                            <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white p-2 shadow-2xl dark:border-bible-darkPaper dark:bg-gray-900 md:h-36 md:w-36">
-                                {isUpdatingLogo ? (
-                                    <Loader2 className="animate-spin text-bible-gold" size={32} />
-                                ) : church.logoUrl ? (
-                                    <img src={church.logoUrl} className="h-full w-full object-contain" alt={church.name} />
-                                ) : (
-                                    <Shield size={62} className="text-bible-gold" />
-                                )}
-                            </div>
-                            {canChangeLogo && (
-                                <>
-                                    <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="absolute bottom-1 right-1 rounded-full border-2 border-white bg-bible-gold p-2 text-white shadow-lg transition hover:scale-110 dark:border-bible-darkPaper"
-                                        title="Trocar foto da igreja"
-                                    >
-                                        <Camera size={14} />
-                                    </button>
-                                    <input type="file" ref={fileInputRef} onChange={handleLogoUpload} className="hidden" accept="image/*" />
-                                </>
-                            )}
-                        </div>
+        <SEO title={church.name} description={`${church.name}${church.location?.city ? ` · ${church.location.city}` : ''}`} />
 
-                        <div className="min-w-0 pt-2 text-left md:pt-4">
-                            <div className="mb-2 flex flex-wrap items-center gap-2">
-                                <h1 className="text-xl font-black leading-tight text-gray-900 dark:text-white md:text-4xl">{church.name}</h1>
-                                {isMember && (
-                                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-green-50 text-green-600 ring-1 ring-green-100" title="Membro ativo">
-                                        <UserCheck size={17} />
-                                    </span>
-                                )}
-                                <button
-                                    onClick={async () => {
-                                        if (navigator.share) await navigator.share({ title: church.name, url: window.location.href });
-                                        else { await navigator.clipboard.writeText(window.location.href); showNotification('Link copiado!', 'success'); }
-                                    }}
-                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 text-gray-500 ring-1 ring-gray-100 transition hover:text-bible-gold dark:bg-gray-900 dark:ring-gray-800"
-                                    aria-label="Compartilhar igreja"
-                                >
-                                    <Share2 size={15} />
-                                </button>
-                            </div>
-                            <div className="mb-2 flex items-center gap-2 text-sm font-bold text-bible-gold">
-                                <Crown size={15} className="fill-bible-gold/10" />
-                                {church.pastorName ? <span>Pastor(a): {church.pastorName}</span> : <span className="text-gray-400">Liderança não informada</span>}
-                                {canManageChurchIdentity && (
-                                    <button
-                                        onClick={() => setIsEditingPastor(true)}
-                                        className="rounded-lg p-1 text-bible-gold transition hover:bg-gray-100 dark:hover:bg-gray-800"
-                                        title={church.pastorName ? 'Editar liderança' : 'Cadastrar liderança'}
-                                    >
-                                        {church.pastorName ? <Edit2 size={13} /> : <Plus size={13} />}
-                                    </button>
-                                )}
-                            </div>
-                            <a href={mapsUrl} target="_blank" rel="noreferrer" className="flex items-start gap-2 text-[10px] font-black uppercase tracking-widest text-gray-500 transition hover:text-bible-gold" title="Abrir endereço no mapa">
-                                <MapPin size={12} className="mt-0.5 shrink-0 text-bible-gold" />
-                                <span className="line-clamp-2">{churchFullAddress || `${church.location.city}, ${church.location.state}`}</span>
-                            </a>
-                        </div>
-
-                        <div className="flex w-32 flex-col items-stretch gap-2 pt-2 md:w-40 md:pt-4">
-                            <button
-                                onClick={handleFollowToggle}
-                                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-black transition active:scale-95 ${isFollowing ? 'bg-gray-100 text-gray-600' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
-                                aria-pressed={isFollowing}
-                            >
-                                <Star size={15} fill={isFollowing ? 'currentColor' : 'none'} />
-                                {isFollowing ? 'Seguindo' : 'Seguir página'}
-                            </button>
-                            
-                            <button
-                                onClick={() => {
-                                    if (isMember) {
-                                        setIsLeaveModalOpen(true);
-                                    } else {
-                                        handleJoinChurch();
-                                    }
-                                }}
-                                disabled={isJoiningChurch || isLeavingChurch}
-                                aria-label={isMember ? 'Gerenciar vínculo com esta igreja' : 'Marcar que sou membro desta igreja'}
-                                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-black transition active:scale-95 disabled:opacity-60 ${
-                                    isMember
-                                        ? 'bg-green-600 text-white hover:bg-green-700 ring-1 ring-green-500'
-                                        : 'bg-green-50 text-green-700 ring-1 ring-green-100 hover:bg-green-100'
-                                }`}
-                            >
-                                {isJoiningChurch || isLeavingChurch ? (
-                                    <Loader2 size={14} className="animate-spin" />
-                                ) : isMember ? (
-                                    <UserCheck size={14} />
-                                ) : (
-                                    <LogIn size={14} />
-                                )}
-                                {isMember ? 'Membro' : 'Sou membro'}
-                                {isMember && <ChevronDown size={13} aria-hidden="true" />}
-                            </button>
-
-                            {(!church.admins || church.admins.length === 0) && (
-                                <button
-                                    onClick={() => navigate(`${basePath}/igreja/${church.slug}/gerir`)}
-                                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-3 text-[10px] font-black uppercase tracking-widest transition active:scale-95"
-                                >
-                                    <Shield size={14} />
-                                    Gerir Igreja
-                                </button>
-                            )}
-
-                            {hasActiveChurchRole(churchRoles, church.id, ['pastor'], ['church']) && (
-                                <button onClick={() => navigate('/workspace-pastoral')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gray-50 px-3 text-xs font-black text-gray-700 ring-1 ring-gray-100 transition hover:bg-gray-100 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-800">
-                                    <Crown size={14} />
-                                    Espaço pastoral
-                                </button>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 border-t border-gray-50 px-5 py-4 dark:border-gray-800 md:px-7">
-                        <button type="button" onClick={() => setPeoplePanel('members')} className="rounded-2xl p-3 text-left transition hover:bg-gray-50 dark:hover:bg-gray-900">
-                            <span className="block text-2xl font-black leading-none text-gray-900 dark:text-white">{church.stats.memberCount || 0}</span>
-                            <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Fiéis</span>
-                        </button>
-                        <button type="button" onClick={() => setPeoplePanel('followers')} className="rounded-2xl border-l border-gray-100 p-3 pl-5 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900">
-                            <span className="block text-2xl font-black leading-none text-gray-900 dark:text-white">{church.stats.followersCount || 0}</span>
-                            <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Seguidores</span>
-                        </button>
-                    </div>
+        <section data-testid="church-profile-header" aria-labelledby="church-profile-title" className="animate-in fade-in duration-500">
+            <div className="relative h-28 overflow-hidden sm:h-36">
+                <div className="absolute inset-0 module-gradient" aria-hidden="true" />
+                {church.logoUrl ? (
+                    <img src={church.logoUrl} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-30 blur-md" />
+                ) : null}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/40" aria-hidden="true" />
+                <div className="relative mx-auto flex h-full w-full max-w-5xl items-start justify-between px-4 pt-3 sm:px-6">
+                    <button
+                        type="button"
+                        onClick={() => navigate(-1)}
+                        className="module-focus inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/45"
+                        aria-label="Voltar"
+                    >
+                        <ArrowLeft size={18} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            if (navigator.share) await navigator.share({ title: church.name, url: window.location.href });
+                            else { await navigator.clipboard.writeText(window.location.href); showNotification('Link copiado!', 'success'); }
+                        }}
+                        className="module-focus inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/45"
+                        aria-label="Compartilhar"
+                    >
+                        <Share2 size={16} />
+                    </button>
                 </div>
             </div>
-            {visibleServices.length > 0 && (
-                <div className="mb-8 overflow-hidden rounded-[1.5rem] border border-[var(--module-border)] bg-white shadow-sm dark:bg-[#171219]">
-                    <div className="h-1.5 bg-gradient-to-r from-[#073b35] via-[#0f5d51] to-[#d8b15f]" />
-                    <div className="p-5">
-                        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                            <div>
-                                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-700 dark:text-emerald-300">Culto+</p>
-                                <h2 className="text-xl font-black text-gray-900 dark:text-white">Agenda de Cultos e Eventos</h2>
-                            </div>
-                            <button onClick={() => setIsServiceCalendarOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#073b35] via-[#0f5d51] to-[#d8b15f] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-950/10 transition hover:-translate-y-0.5 hover:shadow-xl">
-                                <Calendar size={14} />
-                                Ver Culto
-                            </button>
+
+            <div className="relative z-10 mx-auto w-full max-w-5xl px-4 pb-2 sm:px-6">
+                <div className="-mt-12 flex items-end justify-between gap-3 sm:-mt-14">
+                    <div className="relative shrink-0">
+                        <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-[var(--module-surface)] bg-white shadow-md dark:bg-[#16121a] sm:h-28 sm:w-28">
+                            {isUpdatingLogo ? (
+                                <Loader2 className="module-accent-text animate-spin" size={28} />
+                            ) : church.logoUrl ? (
+                                <img src={church.logoUrl} className="h-full w-full object-cover" alt="" />
+                            ) : (
+                                <Shield size={40} className="module-icon" />
+                            )}
                         </div>
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        {visibleServices.slice(0, 2).map((service) => {
-                            const serviceStatusLabel = getChurchServiceStatusLabel(service, attendedServiceIds.has(service.id));
-                            return (
-                            <Link key={service.id} href={`/culto/${service.slug}`} className="group rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-white hover:shadow-md hover:shadow-emerald-950/5 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div>
-                                        <h3 className="text-sm font-black text-gray-900 group-hover:text-emerald-700 dark:text-white dark:group-hover:text-emerald-300">{service.title}</h3>
-                                        <p className="mt-1 line-clamp-2 text-xs font-medium text-gray-500">{service.theme}</p>
+                        {canChangeLogo ? (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="module-focus absolute bottom-0 right-0 inline-flex min-h-10 min-w-10 items-center justify-center rounded-full module-accent-bg text-[var(--module-on-primary)] shadow-md transition hover:opacity-90"
+                                    aria-label="Trocar foto"
+                                >
+                                    <Camera size={14} />
+                                </button>
+                                <input type="file" ref={fileInputRef} onChange={handleLogoUpload} className="hidden" accept="image/*" />
+                            </>
+                        ) : null}
+                    </div>
+
+                    <div data-testid="church-profile-actions" className="mb-1 flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={handleFollowToggle}
+                            className={`module-focus inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-semibold transition active:scale-[0.99] ${
+                                isFollowing
+                                    ? 'module-soft-surface module-border border text-gray-700 dark:text-gray-200'
+                                    : 'module-accent-bg text-[var(--module-on-primary)]'
+                            }`}
+                            aria-pressed={isFollowing}
+                        >
+                            <Star size={15} fill={isFollowing ? 'currentColor' : 'none'} aria-hidden="true" />
+                            {isFollowing ? 'Seguindo' : 'Seguir'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (isMember) setIsLeaveModalOpen(true);
+                                else handleJoinChurch();
+                            }}
+                            disabled={isJoiningChurch || isLeavingChurch}
+                            aria-label={isMember ? 'Gerenciar vínculo com esta igreja' : 'Marcar que sou membro desta igreja'}
+                            className={`module-focus inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-semibold transition active:scale-[0.99] disabled:opacity-60 ${
+                                isMember
+                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                    : 'module-soft-surface module-border border text-gray-800 dark:text-gray-100'
+                            }`}
+                        >
+                            {isJoiningChurch || isLeavingChurch ? (
+                                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                            ) : isMember ? (
+                                <UserCheck size={14} aria-hidden="true" />
+                            ) : (
+                                <LogIn size={14} aria-hidden="true" />
+                            )}
+                            {isMember ? 'Membro' : 'Sou membro'}
+                            {isMember ? <ChevronDown size={13} aria-hidden="true" /> : null}
+                        </button>
+                        {showProfileMenu ? (
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsProfileMenuOpen((open) => !open)}
+                                    className="module-focus module-soft-surface module-border inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border text-gray-700 dark:text-gray-200"
+                                    aria-label="Mais opções"
+                                    aria-expanded={isProfileMenuOpen}
+                                >
+                                    <MoreHorizontal size={18} aria-hidden="true" />
+                                </button>
+                                {isProfileMenuOpen ? (
+                                    <div className="absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-[#171219]">
+                                        {isMember ? (
+                                            <Link
+                                                href="/minhas-escalas"
+                                                className="flex min-h-11 items-center gap-2 px-3 text-sm font-semibold text-gray-800 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-white/5"
+                                                onClick={() => setIsProfileMenuOpen(false)}
+                                            >
+                                                <LayoutGrid size={15} aria-hidden="true" />
+                                                Minhas escalas
+                                            </Link>
+                                        ) : null}
+                                        {canManageChurchIdentity ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => { setIsProfileMenuOpen(false); setIsEditingPastor(true); }}
+                                                className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm font-semibold text-gray-800 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-white/5"
+                                            >
+                                                <Edit2 size={15} aria-hidden="true" />
+                                                {church.pastorName ? 'Editar liderança' : 'Informar liderança'}
+                                            </button>
+                                        ) : null}
+                                        {showClaimChurch ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => { setIsProfileMenuOpen(false); navigate(`${basePath}/igreja/${church.slug}/gerir`); }}
+                                                className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm font-semibold text-gray-800 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-white/5"
+                                            >
+                                                <Shield size={15} aria-hidden="true" />
+                                                Gerir igreja
+                                            </button>
+                                        ) : null}
+                                        {showPastoralEntry ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => { setIsProfileMenuOpen(false); navigate('/workspace-pastoral'); }}
+                                                className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm font-semibold text-gray-800 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-white/5"
+                                            >
+                                                <Crown size={15} aria-hidden="true" />
+                                                Espaço pastoral
+                                            </button>
+                                        ) : null}
                                     </div>
-                                    <span className={`shrink-0 rounded-full px-2 py-1 text-[8px] font-black uppercase tracking-widest ${serviceStatusLabel === 'Ao vivo' ? 'bg-red-500 text-white' : serviceStatusLabel === 'Assistido' ? 'bg-emerald-600 text-white' : 'bg-[#f3d28a] text-[#073b35]'}`}>
-                                        {serviceStatusLabel}
-                                    </span>
-                                </div>
-                                <div className="mt-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">
-                                    <Calendar size={12} />
-                                    {new Date(service.startsAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                                </div>
-                            </Link>
-                            );
-                        })}
-                    </div>
-                    {latestServicePosts.length > 0 && (
-                        <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-                            <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Ultimos posts dos cultos</p>
-                            <div className="space-y-3">
-                                {latestServicePosts.map((post) => {
-                                    const linkedService = services.find((service) => service.id === post.serviceId);
-                                    const postPreview = (
-                                        <>
-                                            <div className="flex items-center justify-between gap-3">
-                                                <span className="line-clamp-1 text-xs font-black text-gray-900 dark:text-white">{post.userDisplayName || 'Membro'}</span>
-                                                <span className="shrink-0 rounded-full bg-[#f3d28a] px-2 py-1 text-[8px] font-black uppercase tracking-widest text-[#073b35]">Culto+</span>
-                                            </div>
-                                            <p className="mt-1 line-clamp-2 text-xs font-medium text-gray-500 dark:text-gray-400">{post.content}</p>
-                                        </>
-                                    );
-                                    return linkedService ? (
-                                        <Link key={post.id} href={`/culto/${linkedService.slug}`} className="block rounded-xl bg-white p-3 transition hover:bg-emerald-50 dark:bg-bible-darkPaper dark:hover:bg-emerald-950/30">
-                                            {postPreview}
-                                        </Link>
-                                    ) : (
-                                        <div key={post.id} className="rounded-xl bg-white p-3 dark:bg-bible-darkPaper">
-                                            {postPreview}
-                                        </div>
-                                    );
-                                })}
+                                ) : null}
                             </div>
-                        </div>
-                    )}
+                        ) : null}
                     </div>
                 </div>
-            )}
 
-            <div className="flex bg-white dark:bg-bible-darkPaper p-1.5 rounded-[1.5rem] border border-gray-100 dark:border-gray-800 mb-8 shadow-sm overflow-x-auto no-scrollbar">
-                <button onClick={() => setActiveTab('mural')} className={`module-focus flex min-h-11 min-w-[100px] flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition-all ${activeTab === 'mural' ? 'module-gradient text-white shadow-md' : 'module-nav-link text-gray-500'}`}><MessageSquareHeart size={16} /> Mural</button>
-                <button onClick={() => setActiveTab('cultos')} className={`module-focus flex min-h-11 min-w-[100px] flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition-all ${activeTab === 'cultos' ? 'module-gradient text-white shadow-md' : 'module-nav-link text-gray-500'}`}><Calendar size={16} /> Cultos</button>
-                <button onClick={() => setActiveTab('groups')} className={`module-focus flex min-h-11 min-w-[100px] flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition-all ${activeTab === 'groups' ? 'module-gradient text-white shadow-md' : 'module-nav-link text-gray-500'}`}><Boxes size={16} /> Grupos</button>
-                <button onClick={() => setActiveTab('about')} className={`module-focus flex min-h-11 min-w-[100px] flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition-all ${activeTab === 'about' ? 'module-gradient text-white shadow-md' : 'module-nav-link text-gray-500'}`}><Info size={16} /> Sobre</button>
-                {isMember && <button onClick={() => setActiveTab('members')} className={`module-focus flex min-h-11 min-w-[100px] flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition-all ${activeTab === 'members' ? 'module-gradient text-white shadow-md' : 'module-nav-link text-gray-500'}`}><Users size={16} /> Membros</button>}
+                <div className="mt-4 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h1 id="church-profile-title" className="text-2xl font-bold tracking-tight text-gray-950 dark:text-white sm:text-3xl">
+                            {church.name}
+                        </h1>
+                        {isMember ? (
+                            <span className="inline-flex min-h-7 items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                                <UserCheck size={12} aria-hidden="true" /> Membro
+                            </span>
+                        ) : null}
+                    </div>
+
+                    <div className="mt-3 flex gap-6 text-sm">
+                        <button type="button" onClick={() => setPeoplePanel('members')} className="module-focus text-left">
+                            <span className="font-bold text-gray-950 dark:text-white">{memberCount}</span>
+                            <span className="ml-1 text-gray-500">membros</span>
+                        </button>
+                        <button type="button" onClick={() => setPeoplePanel('followers')} className="module-focus text-left">
+                            <span className="font-bold text-gray-950 dark:text-white">{followersCount}</span>
+                            <span className="ml-1 text-gray-500">seguidores</span>
+                        </button>
+                        <button type="button" onClick={() => setActiveTab('cultos')} className="module-focus text-left">
+                            <span className="font-bold text-gray-950 dark:text-white">{upcomingServicesCount}</span>
+                            <span className="ml-1 text-gray-500">cultos</span>
+                        </button>
+                    </div>
+
+                    {church.pastorName ? (
+                        <p className="mt-3 text-sm font-medium text-gray-800 dark:text-gray-200">
+                            Pastor(a) {church.pastorName}
+                        </p>
+                    ) : null}
+                    <a
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="module-focus mt-1 inline-flex max-w-full items-start gap-1.5 text-sm text-gray-500 transition hover:text-gray-800 dark:hover:text-gray-200"
+                    >
+                        <MapPin size={14} className="mt-0.5 shrink-0 module-icon" aria-hidden="true" />
+                        <span className="line-clamp-2">{locationLabel}</span>
+                    </a>
+                </div>
+
+                {nextService ? (
+                    <Link
+                        href={`/culto/${nextService.slug}`}
+                        data-testid="church-profile-next-service"
+                        data-module-theme="cultos"
+                        className="module-focus module-border mt-5 flex min-h-14 items-center gap-3 rounded-2xl border bg-white p-3 transition hover:bg-gray-50 dark:bg-[#171219] dark:hover:bg-white/5"
+                    >
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl module-soft-surface">
+                            <Calendar size={18} className="module-icon" aria-hidden="true" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-gray-950 dark:text-white">{nextService.title}</p>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                <span className="inline-flex items-center gap-1">
+                                    <Clock size={12} aria-hidden="true" />
+                                    {formatChurchPortalServiceDate(nextService.startsAt)}
+                                </span>
+                                <ServiceModalityBadge service={nextService} size="xs" />
+                                {nextServiceStatusLabel ? (
+                                    <span className={nextServiceStatusLabel === 'Ao vivo' ? 'font-semibold text-red-600' : ''}>
+                                        {nextServiceStatusLabel}
+                                    </span>
+                                ) : null}
+                            </div>
+                        </div>
+                        <ArrowRight size={16} className="shrink-0 text-gray-400" aria-hidden="true" />
+                    </Link>
+                ) : null}
+            </div>
+        </section>
+
+        <div className="relative z-10 mx-auto max-w-5xl px-4 pb-32 sm:px-6">
+            <div
+                className="mb-5 mt-5 flex overflow-x-auto no-scrollbar border-b border-gray-200 dark:border-gray-800"
+                role="tablist"
+                aria-label="Áreas da igreja"
+            >
+                {([
+                    { id: 'mural' as const, label: 'Mural', icon: MessageSquareHeart },
+                    { id: 'cultos' as const, label: 'Cultos', icon: Calendar },
+                    { id: 'groups' as const, label: 'Grupos', icon: Boxes },
+                    { id: 'about' as const, label: 'Sobre', icon: Info },
+                    ...(isMember ? [{ id: 'members' as const, label: 'Membros', icon: Users }] : []),
+                ]).map((tab) => {
+                    const Icon = tab.icon;
+                    const selected = activeTab === tab.id;
+                    return (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={selected}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`module-focus relative flex min-h-12 min-w-[4.5rem] flex-1 items-center justify-center gap-1.5 px-3 text-xs font-semibold transition ${
+                                selected ? 'module-accent-text' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                            }`}
+                        >
+                            <Icon size={16} aria-hidden="true" />
+                            {tab.label}
+                            {selected ? <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full module-accent-bg" aria-hidden="true" /> : null}
+                        </button>
+                    );
+                })}
             </div>
 
             {isServiceCalendarOpen && (
@@ -1007,6 +1076,7 @@ const ChurchProfilePage: React.FC = () => {
                         <div className="max-h-[60vh] overflow-y-auto p-5">
                             <CultoPlusPublicAgenda
                                 services={visibleServices}
+                                locationLabel={churchFullAddress || `${church.location.city}, ${church.location.state}`}
                                 onOpen={(service) => {
                                     setIsServiceCalendarOpen(false);
                                     navigate(`/culto/${service.slug}`);
@@ -1095,7 +1165,12 @@ const ChurchProfilePage: React.FC = () => {
 
                 {activeTab === 'cultos' && (
                     <div className="animate-in fade-in">
-                        <ChurchServicesPreview services={visibleServices} attendedServiceIds={attendedServiceIds} canManage={canManageChurchServices} />
+                        <ChurchServicesPreview
+                            services={visibleServices}
+                            attendedServiceIds={attendedServiceIds}
+                            canManage={canManageChurchServices}
+                            locationLabel={churchFullAddress || `${church.location.city}, ${church.location.state}`}
+                        />
                     </div>
                 )}
 
@@ -1331,15 +1406,28 @@ const ChurchProfilePage: React.FC = () => {
                 {activeTab === 'about' && (
                     <section className="grid gap-4 animate-in fade-in md:grid-cols-2" aria-labelledby="church-about-title">
                         <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-bible-darkPaper">
-                            <h2 id="church-about-title" className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white"><Info size={19} className="text-bible-gold" /> Sobre a igreja</h2>
+                            <h2 id="church-about-title" className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white"><Info size={19} className="module-icon" /> Sobre a igreja</h2>
                             <dl className="mt-5 space-y-4 text-sm">
                                 <div><dt className="font-semibold text-gray-500">Denominação</dt><dd className="mt-1 text-gray-900 dark:text-white">{church.denomination || 'Não informada'}</dd></div>
                                 <div><dt className="font-semibold text-gray-500">Liderança pastoral</dt><dd className="mt-1 text-gray-900 dark:text-white">{church.pastorName || 'Não informada'}</dd></div>
                             </dl>
                         </div>
                         <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-bible-darkPaper">
-                            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white"><MapPin size={19} className="text-bible-gold" /> Localização</h2>
+                            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white"><MapPin size={19} className="module-icon" /> Localização</h2>
                             <p className="mt-5 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{[church.location?.address, church.location?.city, church.location?.state].filter(Boolean).join(' · ') || 'Endereço ainda não informado.'}</p>
+                        </div>
+                        <div className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-bible-darkPaper md:col-span-2">
+                            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white"><Users size={19} className="module-icon" /> Comunidade</h2>
+                            <div className="mt-4 grid grid-cols-2 gap-3">
+                                <button type="button" onClick={() => setPeoplePanel('members')} className="module-focus rounded-2xl border border-gray-100 p-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900">
+                                    <span className="block text-2xl font-black leading-none text-gray-900 dark:text-white">{church.stats.memberCount || 0}</span>
+                                    <span className="mt-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Membros</span>
+                                </button>
+                                <button type="button" onClick={() => setPeoplePanel('followers')} className="module-focus rounded-2xl border border-gray-100 p-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900">
+                                    <span className="block text-2xl font-black leading-none text-gray-900 dark:text-white">{church.stats.followersCount || 0}</span>
+                                    <span className="mt-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Seguidores</span>
+                                </button>
+                            </div>
                         </div>
                     </section>
                 )}

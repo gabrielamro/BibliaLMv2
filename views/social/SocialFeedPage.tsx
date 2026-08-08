@@ -4,14 +4,14 @@ import { useNavigate, useLocation } from '../../utils/router';
 
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { AlertCircle, BookOpen, Bookmark, CalendarDays, ChevronRight, Church, HandHeart, HeartPulse, ImageIcon, Loader2, MapPin, PenLine, Plus, Quote, Search, Sparkles, Users, X } from 'lucide-react';
+import { AlertCircle, Bookmark, Church, HandHeart, HeartPulse, ImageIcon, Loader2, MapPin, PenLine, Plus, Quote, Search, Sparkles, Users, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFeatures } from '../../contexts/FeatureContext';
 import { useHeader } from '../../contexts/HeaderContext';
 
 import { dbService } from '../../services/supabase';
 import { postInteractionService } from '../../services/postInteractionService';
-import { Post } from '../../types';
+import { Post, UserProfile } from '../../types';
 import SEO from '../../components/SEO';
 import { generateShareLink } from '../../utils/shareUtils';
 import ConfirmationModal from '../../components/ConfirmationModal';
@@ -20,8 +20,6 @@ import { FeedPostCard } from '../../components/social/FeedPostCard';
 import KingdomComposer from '../../components/social/KingdomComposer';
 import FeatureCard, { FeatureCardType } from '../../components/social/FeatureCard';
 import PostCommentsSheet from '../../components/social/PostCommentsSheet';
-import KingdomPathRailV2 from '../../components/social/KingdomPathRail';
-import { kingdomPathService, type KingdomPathData } from '../../services/kingdomPathService';
 import { INSPIRATIONAL_VERSES } from '../../constants';
 
 interface FeatureItem {
@@ -78,35 +76,6 @@ const KingdomPulse = ({ posts }: { posts: Post[] }) => {
     );
 };
 
-const KingdomPathRail = ({ churchHref, hasChurch, savedCount, onShowSaved }: { churchHref: string; hasChurch: boolean; savedCount: number; onShowSaved: () => void }) => (
-    <aside aria-labelledby="kingdom-path-title" className="sticky top-5 hidden self-start rounded-[1.5rem] border border-[#e4ded5] bg-white p-5 shadow-[0_14px_45px_rgba(30,20,45,0.07)] dark:border-white/10 dark:bg-[#17131d] xl:block">
-        <div className="mb-4 flex items-center gap-3 border-b border-[#eee8e0] pb-4 dark:border-white/10">
-            <span className="h-1 w-8 rounded-full bg-gradient-to-r from-fuchsia-500 to-orange-400" />
-            <h2 id="kingdom-path-title" className="text-lg font-black text-gray-950 dark:text-white">Seu caminho</h2>
-        </div>
-        <nav aria-label="Continuidade no Culto+" className="space-y-3">
-            <Link href="/meus-cultos" className="group flex min-h-20 items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-3 transition hover:border-emerald-300 dark:border-emerald-400/10 dark:bg-emerald-500/5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm dark:bg-white/5 dark:text-emerald-300"><CalendarDays size={20} /></span>
-                <span className="min-w-0 flex-1"><strong className="block text-sm text-gray-900 dark:text-white">Seus cultos</strong><span className="block text-xs text-gray-500 dark:text-gray-400">Agenda, notas e continuidade</span></span><ChevronRight size={17} className="text-gray-400 transition group-hover:translate-x-0.5" />
-            </Link>
-            <Link href={churchHref} className="group flex min-h-20 items-center gap-3 rounded-2xl border border-violet-100 bg-violet-50/60 p-3 transition hover:border-violet-300 dark:border-violet-400/10 dark:bg-violet-500/5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-violet-700 shadow-sm dark:bg-white/5 dark:text-violet-300"><Church size={20} /></span>
-                <span className="min-w-0 flex-1"><strong className="block text-sm text-gray-900 dark:text-white">{hasChurch ? 'Minha igreja' : 'Encontrar uma igreja'}</strong><span className="block text-xs text-gray-500 dark:text-gray-400">Mural, cultos, grupos e membros</span></span><ChevronRight size={17} className="text-gray-400 transition group-hover:translate-x-0.5" />
-            </Link>
-            <Link href="/estudos" className="group flex min-h-20 items-center gap-3 rounded-2xl border border-amber-100 bg-amber-50/60 p-3 transition hover:border-amber-300 dark:border-amber-400/10 dark:bg-amber-500/5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-amber-700 shadow-sm dark:bg-white/5 dark:text-amber-300"><BookOpen size={20} /></span>
-                <span className="min-w-0 flex-1"><strong className="block text-sm text-gray-900 dark:text-white">Continuar estudando</strong><span className="block text-xs text-gray-500 dark:text-gray-400">Retome a Palavra de onde parou</span></span><ChevronRight size={17} className="text-gray-400 transition group-hover:translate-x-0.5" />
-            </Link>
-            <button type="button" onClick={onShowSaved} className="group flex min-h-16 w-full items-center gap-3 rounded-2xl border border-[#eee8e0] p-3 text-left transition hover:border-fuchsia-200 dark:border-white/10">
-                <Bookmark size={19} className="text-fuchsia-700 dark:text-fuchsia-300" /><span className="flex-1 text-sm font-bold text-gray-800 dark:text-gray-200">Salvos {savedCount > 0 ? `(${savedCount})` : ''}</span><ChevronRight size={17} className="text-gray-400" />
-            </button>
-            <Link href="/oracoes" className="group flex min-h-16 items-center gap-3 rounded-2xl border border-[#eee8e0] p-3 transition hover:border-fuchsia-200 dark:border-white/10">
-                <HandHeart size={19} className="text-fuchsia-700 dark:text-fuchsia-300" /><span className="flex-1 text-sm font-bold text-gray-800 dark:text-gray-200">Pedidos de oração</span><ChevronRight size={17} className="text-gray-400" />
-            </Link>
-        </nav>
-    </aside>
-);
-
 const SocialFeedPage: React.FC = () => {
     const { currentUser, userProfile, openLogin, showNotification, recordActivity } = useAuth();
     const { isFeatureEnabled } = useFeatures();
@@ -131,12 +100,13 @@ const SocialFeedPage: React.FC = () => {
     const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
     const [commentsPost, setCommentsPost] = useState<Post | null>(null);
     const [postToReport, setPostToReport] = useState<Post | null>(null);
-    const [pathData, setPathData] = useState<KingdomPathData>({ nextService: null, prayerInvitation: null, savedStudy: null, scaleInvitation: null, hasPartialFailure: false });
-    const [isPathLoading, setIsPathLoading] = useState(false);
 
     // State for prefilled content from other pages (e.g. Creative Studio)
     const [composerProps, setComposerProps] = useState<{ image?: string | null, caption?: string, initialTab?: 'reflection' | 'prayer' | 'feeling' | 'checkin' }>({});
     const highlightPostIdRef = useRef<string | null>(null);
+    // A publica\u00e7\u00e3o pode redirecionar para o Reino antes de o perfil completo terminar
+    // de hidratar. O uid autenticado ainda \u00e9 suficiente para o feed reconhecer o post como pr\u00f3prio.
+    const feedViewer = userProfile ?? (currentUser ? { uid: currentUser.uid } as UserProfile : null);
 
     // Handle navigation state (e.g. coming from Studio with an image)
     useEffect(() => {
@@ -153,28 +123,11 @@ const SocialFeedPage: React.FC = () => {
         }
     }, [location]);
 
-    useEffect(() => {
-        let mounted = true;
-        const userId = currentUser?.uid || currentUser?.id;
-        setIsPathLoading(Boolean(userId));
-        void kingdomPathService.load({ userId, churchId: userProfile?.churchData?.churchId })
-            .then((data) => {
-                if (mounted) setPathData(data);
-            })
-            .catch(() => {
-                if (mounted) setPathData({ nextService: null, prayerInvitation: null, savedStudy: null, scaleInvitation: null, hasPartialFailure: true });
-            })
-            .finally(() => {
-                if (mounted) setIsPathLoading(false);
-            });
-        return () => { mounted = false; };
-    }, [currentUser?.id, currentUser?.uid, userProfile?.churchData?.churchId]);
-
     const loadFeed = async (isPull = false) => {
         if (!isPull) setIsLoading(true);
         setError(null);
         try {
-            const fetchedPosts = await dbService.getGlobalFeed(50, userProfile);
+            const fetchedPosts = await dbService.getGlobalFeed(50, feedViewer);
             setPosts(fetchedPosts ?? []);
         } catch (e: any) {
             console.warn("Feed Error:", e?.message);
@@ -217,7 +170,7 @@ const SocialFeedPage: React.FC = () => {
             setIsHeaderHidden(false);
             window.removeEventListener('biblialm-scroll-top', handleScrollToTop);
         };
-    }, [userProfile?.churchData?.churchId, userProfile?.churchData?.groupId]);
+    }, [currentUser?.uid, userProfile?.uid, userProfile?.churchData?.churchId, userProfile?.churchData?.groupId]);
 
     const lastScrollYList = useRef(0);
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -375,11 +328,7 @@ const SocialFeedPage: React.FC = () => {
         return result;
     }, [filteredPosts]);
 
-    const churchHref = userProfile?.churchData?.churchSlug
-        ? `/igreja/${userProfile.churchData.churchSlug}`
-        : '/social/igrejas';
     const displayName = userProfile?.displayName || userProfile?.username || 'Você';
-    const savedCount = posts.filter(post => post.saved).length;
 
     if (!isFeatureEnabled('module_social')) {
         return <FeatureDisabled />;
@@ -418,22 +367,12 @@ const SocialFeedPage: React.FC = () => {
 
                 <div
                     data-testid="kingdom-feed-column"
-                    className="mx-auto w-full max-w-[1280px] px-4 pb-28 pt-4 transition-transform duration-200 sm:px-6 sm:pt-6 lg:px-7"
+                    className="mx-auto w-full max-w-4xl px-4 pb-28 pt-4 transition-transform duration-200 sm:px-6 sm:pt-6"
                     style={{ transform: `translateY(${pullMoveY}px)` }}
                 >
-                    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                     <main id="kingdom-main-content" className="min-w-0">
 
-                    <section data-testid="kingdom-hero" className="relative px-1 pb-2 pt-1 sm:px-2">
-                        <div className="relative flex items-center justify-between gap-4">
-                            <div className="max-w-xl">
-                                <h1 className="font-serif text-4xl font-black tracking-[-0.035em] text-[#2b1937] dark:text-[#f3e7f5] sm:text-5xl">Reino</h1>
-                                <p className="mt-1 text-sm font-medium text-[#886f89] dark:text-[#bb9fba] sm:text-base">Fé compartilhada. Vínculos que continuam.</p>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section data-testid="kingdom-composer-shortcut" aria-label="Criar publicação" className="relative mb-5 mt-5 rounded-[1.35rem] border border-fuchsia-300/60 bg-white p-3 shadow-[0_10px_35px_rgba(86,37,111,0.08)] after:absolute after:-bottom-3 after:right-8 after:h-6 after:w-6 after:rotate-45 after:border-b after:border-r after:border-fuchsia-300/60 after:bg-white dark:border-fuchsia-400/35 dark:bg-[#1a1520] dark:after:border-fuchsia-400/35 dark:after:bg-[#1a1520] sm:p-4">
+                    <section data-testid="kingdom-composer-shortcut" aria-label="Criar publicação" className="relative mb-5 mt-1 rounded-[1.35rem] border border-fuchsia-300/60 bg-white p-3 shadow-[0_10px_35px_rgba(86,37,111,0.08)] after:absolute after:-bottom-3 after:right-8 after:h-6 after:w-6 after:rotate-45 after:border-b after:border-r after:border-fuchsia-300/60 after:bg-white dark:border-fuchsia-400/35 dark:bg-[#1a1520] dark:after:border-fuchsia-400/35 dark:after:bg-[#1a1520] sm:p-4">
                         <div className="flex items-center gap-3">
                             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-fuchsia-400/60 bg-fuchsia-500/5 text-fuchsia-700 dark:text-fuchsia-300 sm:hidden"><PenLine size={22} aria-hidden="true" /></span>
                             {userProfile?.photoURL ? (
@@ -442,7 +381,7 @@ const SocialFeedPage: React.FC = () => {
                                 <span className="module-icon hidden h-11 w-11 shrink-0 items-center justify-center rounded-full text-xs font-black sm:flex">{displayName.slice(0, 2).toUpperCase()}</span>
                             )}
                             <button type="button" onClick={() => handleActionClick('write')} className="module-focus flex min-h-12 min-w-0 flex-1 items-center rounded-xl px-2 text-left text-base font-medium text-gray-500 transition hover:text-fuchsia-800 dark:text-gray-300 dark:hover:text-fuchsia-200">
-                                Abrir uma partilha
+                                Compartilhe o momento
                             </button>
                         </div>
                         <div className="mt-2 hidden grid-cols-3 gap-2 border-t border-[#eee8e0] pt-3 dark:border-white/10 sm:grid">
@@ -459,8 +398,6 @@ const SocialFeedPage: React.FC = () => {
                     </nav>
 
                     <KingdomPulse posts={filteredPosts} />
-
-                    <KingdomPathRailV2 variant="mobile" data={pathData} isLoading={isPathLoading} churchHref={churchHref} hasChurch={Boolean(userProfile?.churchData)} savedPostsCount={savedCount} onShowSaved={() => setActiveFilter('saved')} />
 
                     <div className="mb-4 hidden overflow-x-auto no-scrollbar sm:block" role="tablist" aria-label="Filtrar publicações do Reino">
                         <div className="inline-flex min-w-full gap-1 rounded-2xl border border-[#e4ded5] bg-white p-1 dark:border-white/10 dark:bg-[#151515] sm:min-w-0">
@@ -549,8 +486,6 @@ const SocialFeedPage: React.FC = () => {
                         })
                     )}
                     </main>
-                    <KingdomPathRailV2 data={pathData} isLoading={isPathLoading} churchHref={churchHref} hasChurch={Boolean(userProfile?.churchData)} savedPostsCount={savedCount} onShowSaved={() => setActiveFilter('saved')} />
-                    </div>
                 </div>
             </div>
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import RichTextEditor from '../../RichTextEditor';
 import { buildWrittenContentHtml } from '../utils';
+import { sanitizePublicHtml } from '../../../utils/sanitizePublicHtml';
 
 interface StudyContentBlockProps {
   data: any;
@@ -32,7 +33,7 @@ export const StudyContentBlock: React.FC<StudyContentBlockProps> = ({ data, onUp
         ) : (
           <div
             className="rich-editor-content prose prose-slate dark:prose-invert prose-sm md:prose-base max-w-none transition-all duration-500 font-inherit w-full overflow-x-auto break-words"
-            dangerouslySetInnerHTML={{ __html: data.content || '' }}
+            dangerouslySetInnerHTML={{ __html: sanitizePublicHtml(data.content) }}
           />
         )}
       </div>

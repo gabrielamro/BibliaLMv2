@@ -82,6 +82,15 @@ Usar `main` apenas se o shell ou layout não fornecer um `main` ancestral. Evita
 - Usar branco envelhecido no modo escuro do módulo Bíblia por meio dos tokens.
 - Não sacrificar contraste por textura ou imagem de fundo.
 
+### Jornadas e trilhas guiadas
+
+- Exibir progresso persistente no card e na experiência aberta, com porcentagem textual além da barra visual.
+- Diferenciar `Iniciar` de `Continuar` e retomar no último passo salvo; não reiniciar silenciosamente a jornada.
+- Oferecer `Continuar depois` como ação explícita e também preservar o passo ao navegar ou fechar.
+- Em modais longos, manter cabeçalho compacto com contexto, título, progresso e fechamento; reservar a maior altura possível para o conteúdo rolável.
+- Registrar reflexões em um editor contextual dentro do passo. Evitar transformar `Registrar no Diário` em mero redirecionamento ou abrir um segundo modal.
+- Para visitantes, preservar progresso e rascunhos no dispositivo e explicar quando o login é necessário para sincronizar dados privados.
+
 ## Responsividade
 
 - Começar em 320 px e ampliar progressivamente.

@@ -430,8 +430,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (tier === 'gold' || tier === 'pastor' || tier === 'admin') return true;
 
+    if (feature === 'aiImageGen' && ['free', 'bronze', 'silver'].includes(tier)) return true;
+
     const freeFeatures: Array<keyof PlanFeatures> = [
-      'aiChatAccess', 'readingPlans', 'audioNarration', 'focusMode',
+      'aiChatAccess', 'aiImageGen', 'readingPlans', 'audioNarration', 'focusMode',
       'socialFeedRead', 'socialFeedPost', 'muralPosting', 'followingSystem',
       'achievementBadges', 'advancedSearch'
     ];

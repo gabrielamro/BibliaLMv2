@@ -41,6 +41,7 @@ test.describe('Pão Diário guiado', () => {
 
     await expect(page.getByTestId('pao-diario-page')).toBeVisible();
     await expect(page.getByTestId('pao-diario-header')).toBeVisible();
+    await expect(page.getByTestId('devotional-desktop-date-card')).toBeVisible();
     await expect(page.getByTestId('cultoplus-page-shell')).toBeVisible();
     await expect(page.getByTestId('cultoplus-desktop-menu')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Pão Diário', exact: true })).toHaveAttribute('aria-current', 'page');
@@ -54,7 +55,7 @@ test.describe('Pão Diário guiado', () => {
     await expect(page.getByRole('heading', { name: 'Contexto bíblico imediato' })).toBeVisible();
     await expect(page.getByTestId('devotional-focus-verse').first()).toBeVisible();
 
-    await page.getByRole('button', { name: 'Concluir leitura e continuar' }).click();
+    await page.getByRole('button', { name: 'Continuar' }).click();
     await expect(page.getByTestId('devotional-step-2')).toBeVisible();
     await expect(page.getByLabel('O que esta Palavra despertou em você?')).toBeVisible();
   });
@@ -81,6 +82,8 @@ test.describe('Pão Diário guiado', () => {
 
     await expect(page.getByTestId('pao-diario-page')).toBeVisible();
     await expect(page.getByTestId('pao-diario-header')).toBeVisible();
+    await expect(page.getByTestId('devotional-date')).toBeVisible();
+    await expect(page.getByTestId('devotional-desktop-date-card')).toBeHidden();
     await expect(page.getByTestId('devotional-step-1')).toBeVisible();
     await expect(page.getByTestId('cultoplus-mobile-menu-header')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Começar estudo' })).toBeVisible();

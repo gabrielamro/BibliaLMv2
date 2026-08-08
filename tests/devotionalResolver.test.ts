@@ -45,10 +45,42 @@ test('pickSeenVerseReferencesFromDevotionals reads Supabase snake_case verse fie
   assert.deepEqual(references, ['Joao 3:16', 'Salmos 23:1', 'Romanos 8:1']);
 });
 
+test('toDevotionalErrorMessage never returns [object Object] for object payloads', async () => {
+  const { toDevotionalErrorMessage } = await import('../services/devotionalErrorMessage.ts');
+
+  assert.equal(
+    toDevotionalErrorMessage({ message: 'Falha autenticada' }),
+    'Falha autenticada',
+  );
+  assert.equal(
+    toDevotionalErrorMessage({ error: { message: 'nested boom' } }),
+    'nested boom',
+  );
+  assert.equal(
+    toDevotionalErrorMessage({}),
+    'Não foi possível carregar o Pão Diário.',
+  );
+  assert.equal(
+    toDevotionalErrorMessage({ code: 'X' }),
+    '{"code":"X"}',
+  );
+  assert.notEqual(toDevotionalErrorMessage({ foo: 'bar' }), '[object Object]');
+});
+
+test('resolver converts object API errors into readable DailyDevotionalError messages', () => {
+  const source = readFileSync(new URL('../services/devotionalResolver.ts', import.meta.url), 'utf8');
+
+  assert.match(source, /toDevotionalErrorMessage/);
+  assert.match(source, /asDailyDevotionalError/);
+  assert.match(source, /toDevotionalErrorMessage\(payload\?\.error/);
+  assert.match(source, /if \(forceNew\) throw normalized/);
+  assert.doesNotMatch(source, /payload\?\.error \|\| 'Não foi possível carregar o Pão Diário\.'/);
+});
+
 test('production resolver preserves read-only content when the normal API is unavailable', () => {
   const source = readFileSync(new URL('../services/devotionalResolver.ts', import.meta.url), 'utf8');
 
-  assert.match(source, /if \(forceNew\) throw error/);
+  assert.match(source, /if \(forceNew\) throw normalized/);
   assert.match(source, /return loadReadOnlyFallback\(\)/);
   assert.doesNotMatch(source, /forceNew \|\| userId/);
 });

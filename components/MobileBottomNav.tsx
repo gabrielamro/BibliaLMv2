@@ -20,7 +20,10 @@ const MobileBottomNav: React.FC = () => {
   const { unreadNotificationsCount, currentUser, openLogin } = useAuth();
   const [activeCulto, setActiveCulto] = useState<ActiveCultoSession | null>(null);
   const isBibleExperience = ['/trilhas', '/diario-espiritual', '/bibliasagrada', '/biblia', '/devocional', '/oracoes', '/plano', '/quiz'].some(path => location.pathname === path || location.pathname.startsWith(`${path}/`));
-  const isCultoPlusShell = location.pathname === '/newhome' || location.pathname === '/meus-cultos' || isBibleExperience;
+  const isCultoPlusShell = location.pathname === '/newhome'
+    || location.pathname.startsWith('/meus-cultos')
+    || location.pathname.startsWith('/minhas-escalas')
+    || isBibleExperience;
 
   useEffect(() => {
     const refreshActiveCulto = () => setActiveCulto(readActiveCultoSession());
@@ -41,7 +44,11 @@ const MobileBottomNav: React.FC = () => {
         || location.pathname.startsWith('/grupo/')
         || location.pathname.startsWith('/u/');
     }
-    if (id === 'cultos') return location.pathname.startsWith('/culto') || location.pathname.startsWith('/meus-cultos');
+    if (id === 'cultos') {
+      return location.pathname.startsWith('/culto')
+        || location.pathname.startsWith('/meus-cultos')
+        || location.pathname.startsWith('/minhas-escalas');
+    }
     if (id === 'bible') return isBibleExperience;
     if (id === 'profile') return location.pathname === '/perfil' || location.pathname.startsWith('/minha-conta');
     return location.pathname === path;

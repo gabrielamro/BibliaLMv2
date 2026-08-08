@@ -166,7 +166,7 @@ const WorkspacePage: React.FC = () => {
     // --- ACTIONS ---
     const handleEdit = (item: SavedStudy | CustomPlan | Note) => {
         if (isNote(item)) {
-            navigate((item as any).sourceType === 'service_note' ? '/culto' : '/estudos');
+            navigate((item as any).sourceType === 'service_note' ? '/meus-cultos' : '/estudos');
             return;
         }
 
@@ -190,7 +190,7 @@ const WorkspacePage: React.FC = () => {
 
     const handlePreview = (item: any) => {
         if (isNote(item)) {
-            navigate((item as any).sourceType === 'service_note' ? '/culto' : '/estudos');
+            navigate((item as any).sourceType === 'service_note' ? '/meus-cultos' : '/estudos');
             return;
         }
 

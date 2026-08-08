@@ -85,7 +85,10 @@ export default function SacredArtCanvas({
 
   // Internal layout adjustment for the text group (centering and reference positioning)
   useLayoutEffect(() => {
-    if (foundVerse && verseTextRef.current && refTextRef.current && textGroupRef.current) {
+    if (!foundVerse || !canvasSize.width || !canvasSize.height) return;
+
+    const frame = requestAnimationFrame(() => {
+      if (verseTextRef.current && refTextRef.current && textGroupRef.current) {
       const verseHeight = verseTextRef.current.height();
       refTextRef.current.y(verseHeight + textLayout.referenceGapPx);
 
@@ -93,8 +96,11 @@ export default function SacredArtCanvas({
       textGroupRef.current.offsetX(box.width / 2 + box.x);
       textGroupRef.current.offsetY(box.height / 2 + box.y);
       textGroupRef.current.getLayer()?.batchDraw();
-    }
-  }, [foundVerse, canvasSize, textLayout, textBlockWidth, editOptions.fontFamily, editOptions.alignment, Konva]);
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [foundVerse?.ref, foundVerse?.text, rawGeneratedBase64, canvasSize, textLayout, textBlockWidth, editOptions.fontFamily, editOptions.alignment, Konva]);
 
   // Transformer node management
   useEffect(() => {

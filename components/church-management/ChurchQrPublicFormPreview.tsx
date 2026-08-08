@@ -205,7 +205,7 @@ export default function ChurchQrPublicFormPreview({ form }: { form: ChurchQrForm
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
               {currentUserId ? (
-                <Link href="/meus-cultos#solicitacoes" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-black uppercase tracking-wider text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950">
+                <Link href="/minhas-escalas#solicitacoes" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-black uppercase tracking-wider text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950">
                   Ver acompanhamento
                 </Link>
               ) : (

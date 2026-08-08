@@ -1,9 +1,9 @@
 ---
 name: culto-plus
-description: Especialista no aplicativo Culto+ (v2.10.5) — Arquitetura, Regras de Negócio, Módulos Visuais, Banco de Dados, Gamificação (Maná) e Fluxos do Ecossistema.
+description: Especialista no aplicativo Culto+ (v2.10.6) — Arquitetura, Regras de Negócio, Módulos Visuais, Banco de Dados, Gamificação (Maná) e Fluxos do Ecossistema.
 ---
 
-# 📖 Culto+ Skill (v2.10.5)
+# 📖 Culto+ Skill (v2.10.6)
 
 Esta skill é o guia definitivo de arquitetura, ecossistema, módulos visuais, banco de dados, regras de negócio e boas práticas do **Culto+** (anteriormente BibliaLM).
 
@@ -11,7 +11,7 @@ Esta skill é o guia definitivo de arquitetura, ecossistema, módulos visuais, b
 
 ## 1. Visão Geral e Identidade da Marca
 
-- **Nome Oficial da Marca**: `Culto+` (Versão Atual: `v2.10.5`).
+- **Nome Oficial da Marca**: `Culto+` (Versão Atual: `v2.10.6`).
 - **Domínio e Origem Canônica**: `https://cultomais.vercel.app`.
 - **Nomes Legados**: `BibliaLM` e domínios anteriores (`biblialm.com.br`, `biblialm.vercel.app`) são mantidos exclusivamente para redirecionamentos e compatibilidade.
 - **Propósito**: Plataforma cristã integrada para leitura bíblica, devocionais ("Pão Diário"), crescimento espiritual, gamificação ("Maná"), comunidade social ("O Reino" / "Trama Viva"), acompanhamento de cultos ao vivo ("Cultos"), gestão de voluntários/escalas ("Gestão da Igreja") e ferramentas pastorais ("Workspace Pastoral").

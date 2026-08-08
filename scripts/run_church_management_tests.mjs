@@ -9,6 +9,7 @@ const testEntries = [
   'tests/churchVolunteerCategories.test.ts',
   'tests/churchManagerAlerts.test.ts',
   'tests/churchPeopleOperations.test.ts',
+  'tests/personalScales.test.ts',
 ];
 
 function run(command, args) {

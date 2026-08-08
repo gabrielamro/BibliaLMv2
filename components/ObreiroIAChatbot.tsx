@@ -28,7 +28,7 @@ const SUGGESTIONS = [
 ];
 
 const ObreiroIAChatbot: React.FC = () => {
-    const { currentUser, userProfile, checkFeatureAccess, incrementUsage, recordActivity, openLogin, openSubscription } = useAuth();
+    const { currentUser, userProfile, checkFeatureAccess, recordActivity, openLogin, openSubscription } = useAuth();
     const { isFocusMode } = useSettings();
     const location = useLocation();
     const navigate = useNavigate();
@@ -113,6 +113,11 @@ const ObreiroIAChatbot: React.FC = () => {
             return;
         }
 
+        if (!currentUser) {
+            openLogin();
+            return;
+        }
+
         const canChat = checkFeatureAccess('aiChatAccess');
         if (!canChat) {
             if (!currentUser) openLogin();
@@ -140,11 +145,11 @@ const ObreiroIAChatbot: React.FC = () => {
                 },
                 'Responda de forma concisa e objetiva para uso em pesquisa rápida durante criação de conteúdo ministerial.'
             );
-            await incrementUsage('chat');
             if (currentUser) await recordActivity('use_chat', 'Pesquisa via Obreiro IA Popup');
         } catch (e) {
+            const message = e instanceof Error ? e.message : 'Desculpe, tive um problema momentâneo. Tente novamente.';
             setMessages(prev =>
-                prev.map(msg => msg.id === aiMsgId ? { ...msg, content: 'Desculpe, tive um problema momentâneo. Tente novamente.' } : msg)
+                prev.map(msg => msg.id === aiMsgId ? { ...msg, content: message } : msg)
             );
         }
         setIsLoading(false);
@@ -176,6 +181,7 @@ const ObreiroIAChatbot: React.FC = () => {
 
     const renderMessageContent = (msg: ChatMessage, isLast: boolean) => {
         const isAppHelpResponse = msg.role === 'model' && msg.content.startsWith('Posso te guiar nisso.');
+        const isVerifiedBibleResponse = msg.role === 'model' && msg.content.startsWith('Encontrei esta passagem na base bíblica do Culto+:');
         // Simple markdown-like rendering
         const formatted = msg.content
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -197,13 +203,13 @@ const ObreiroIAChatbot: React.FC = () => {
                     {isLoading && isLast && msg.role === 'model' && (
                         <span className="inline-block w-1.5 h-4 ml-1 bg-amber-500 animate-pulse align-middle rounded-sm" />
                     )}
-                    {msg.role === 'model' && msg.content.length > 0 && !isLoading && !isAppHelpResponse && (
+                    {msg.role === 'model' && msg.content.length > 0 && !isLoading && !isAppHelpResponse && !isVerifiedBibleResponse && (
                         <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700 flex items-start gap-1.5 opacity-50">
                             <ShieldAlert size={10} className="mt-0.5 shrink-0" />
                             <p className="text-[9px] leading-tight italic">Reflexão auxiliada por IA. Examine as Escrituras (At 17:11).</p>
                         </div>
                     )}
-                    {msg.role === 'model' && msg.content.length > 0 && !isLoading && isLast && msg.id !== 'welcome' && !isAppHelpResponse && (
+                    {msg.role === 'model' && msg.content.length > 0 && !isLoading && isLast && msg.id !== 'welcome' && !isAppHelpResponse && !isVerifiedBibleResponse && (
                         <div className="mt-4 flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
                             <button
                                 onClick={() => handleAction('note', msg.content)}
@@ -240,15 +246,17 @@ const ObreiroIAChatbot: React.FC = () => {
     const chatHeight = isExpanded ? 'h-[calc(100svh-140px)] md:h-[680px]' : 'h-[500px] md:h-[520px]';
 
     const isKingdomMode = location.pathname.startsWith('/social');
-    const isSacredArtStudio = location.pathname === '/criar-arte-sacra' || location.pathname === '/estudio-criativo';
+    const isCreativeStudio = location.pathname === '/estudio-criativo';
+    const isOperationalShell = location.pathname.startsWith('/gestao-igreja') || location.pathname.startsWith('/workspace-pastoral');
+    const hasNoMobileBottomNavigation = isOperationalShell || location.pathname === '/criar-arte-sacra';
 
-    if (!isVisible || isKingdomMode || isFocusMode || isSacredArtStudio) return null;
+    if (!isVisible || isKingdomMode || isFocusMode || isCreativeStudio) return null;
 
     return (
         <>
             {/* Floating Button */}
             <div
-                className={`fixed ${isFocusMode ? 'bottom-4' : 'bottom-[90px]'} md:bottom-6 right-4 md:right-6 z-[200] flex flex-col items-end gap-2 transition-all duration-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+                className={`fixed ${isFocusMode || hasNoMobileBottomNavigation ? 'bottom-4' : 'bottom-[90px]'} md:bottom-6 right-4 md:right-6 z-[200] flex flex-col items-end gap-2 transition-all duration-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
                     }`}
             >
                 {/* Chat Popup */}

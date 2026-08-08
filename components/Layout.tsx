@@ -82,7 +82,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         || location.pathname === '/oracoes/gerenciar'
         || location.pathname === '/acervo';
     const isStandalonePublicQrShell = location.pathname.startsWith('/qr/');
-    const isCultoPlusOnePage = location.pathname === '/culto' || location.pathname.startsWith('/culto/');
+    const isCultoPlusOnePage = location.pathname.startsWith('/culto/');
     const isStandaloneBibleModuleShell = ['/trilhas', '/diario-espiritual', '/bibliasagrada', '/biblia', '/biblia-dashboard', '/devocional', '/oracoes', '/plano', '/quiz'].includes(location.pathname)
         || location.pathname.startsWith('/trilhas')
         || location.pathname.startsWith('/estudos')
@@ -96,9 +96,21 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         || location.pathname.startsWith('/grupo/')
         || location.pathname.startsWith('/p/');
     const isStandaloneCreativeStudioShell = ['/chat', '/criar-conteudo', '/criar-arte-sacra', '/criar-podcast', '/criar-sala'].includes(location.pathname);
+    const isSacredArtRoute = location.pathname === '/criar-arte-sacra';
     const isStandalonePersonalShell = ['/perfil', '/minha-conta', '/rotina', '/historico', '/competicao', '/suporte', '/privacidade', '/termos', '/planos'].includes(location.pathname);
     const isImmersiveDevotional = location.pathname === '/devocional';
-    const isStandaloneCultoPlusShell = isStandaloneNewHome || isCultoPlusOnePage || location.pathname.startsWith('/meus-cultos') || isStandaloneBibleModuleShell || isStandaloneSocialShell || isStandaloneCreativeStudioShell || isStandalonePersonalShell || isStandaloneChurchManagementShell || isStandalonePastoralWorkspaceShell || isStandalonePublicQrShell;
+    // Rotas Culto+ com CultoPlusPageShell próprio: esconder Sidebar legado para não duplicar o menu.
+    const isStandaloneCultosPersonalShell = location.pathname.startsWith('/meus-cultos')
+        || location.pathname.startsWith('/minhas-escalas');
+    const isStandaloneCultoPlusShell = isStandaloneNewHome || isCultoPlusOnePage || isStandaloneCultosPersonalShell || isStandaloneBibleModuleShell || isStandaloneSocialShell || isStandaloneCreativeStudioShell || isStandalonePersonalShell || isStandaloneChurchManagementShell || isStandalonePastoralWorkspaceShell || isStandalonePublicQrShell;
+    const supportsObreiroIA = !isStandaloneCultoPlusShell
+        || isStandaloneBibleModuleShell
+        || isStandaloneNewHome
+        || isStandaloneCultosPersonalShell
+        || isStandalonePersonalShell
+        || isStandaloneChurchManagementShell
+        || isStandalonePastoralWorkspaceShell
+        || isSacredArtRoute;
     const activeAppModule = getAppModuleForRoute(location.pathname, location.search);
 
     const rootPaths = [
@@ -506,7 +518,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <SupportModal isOpen={isSupportModalOpen} onClose={() => setIsSupportModalOpen(false)} />
                     <BuyCreditsModal isOpen={isBuyCreditsModalOpen} onClose={closeBuyCredits} />
                     <SystemTutorialModal isOpen={isTutorialOpen} onClose={() => setIsTutorialOpen(false)} />
-                    {!isCultoPlusOnePage && !isImmersiveDevotional && (!isStandaloneCultoPlusShell || isStandaloneBibleModuleShell) && <ObreiroIAChatbot />}
+                    {!isCultoPlusOnePage && !isImmersiveDevotional && supportsObreiroIA && <ObreiroIAChatbot />}
                 </main>
 
                 {showGlobalMobileNav && <MobileBottomNav />}

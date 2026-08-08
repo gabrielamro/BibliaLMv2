@@ -127,7 +127,7 @@ const sidebarItems: SidebarModule[] = [
     { label: "Feed", path: "/social", icon: Users }, { label: "Orações", path: "/social/oracao", icon: Heart }, { label: "Igrejas", path: "/social/igrejas", icon: Church }, { label: "Explorar", path: "/social/explore", icon: Search }, { label: "Artigos", path: "/social/artigos", icon: FileText }, { label: "Meu perfil", path: "/perfil", icon: UserRound },
   ] },
   { module: "cultos", label: "Cultos", path: "/meus-cultos", icon: CalendarDays, children: [
-    { label: "Agenda de cultos", path: "/culto", icon: CalendarDays }, { label: "Meu painel", path: "/meus-cultos", icon: Home }, { label: "Minha escala", path: "/meus-cultos#escala", icon: Check }, { label: "Minhas equipes", path: "/meus-cultos#equipes", icon: Users }, { label: "Solicitações", path: "/meus-cultos#solicitacoes", icon: BookMarked },
+    { label: "Meu painel", path: "/meus-cultos", icon: Home }, { label: "Minha escala", path: "/minhas-escalas", icon: Check }, { label: "Minhas equipes", path: "/minhas-escalas#equipes", icon: Users }, { label: "Solicitações", path: "/minhas-escalas#solicitacoes", icon: BookMarked },
   ] },
   { module: "create", label: "Criar", path: "/newhome?tab=criar", icon: PenLine, children: [
     { label: "Estúdio Criativo", path: "/newhome?tab=criar", icon: Sparkles }, { label: "Criar estudo", path: "/criar-conteudo", icon: NotebookPen }, { label: "Criar arte sacra", path: "/criar-arte-sacra", icon: FileImage }, { label: "Criar podcast", path: "/criar-podcast", icon: Music2 }, { label: "Criar sala", path: "/criar-sala", icon: Users, pastorOnly: true }, { label: "Histórico", path: "/historico", icon: History },
@@ -564,7 +564,6 @@ function NewHomeSidebar({ userName, avatar, isPastor, isVolunteer, canManage, ro
         <CultoPlusBrand compact={compact} className={compact ? "!h-11 !w-11" : "!h-20 min-w-0"} />
         <button type="button" onClick={toggleCompact} aria-expanded={!compact} aria-label={compact ? "Expandir menu" : "Esconder menu"} title={compact ? "Expandir menu" : "Esconder menu"} className="module-focus module-nav-link flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition hover:text-[var(--module-accent)]">{compact ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}</button>
       </div>
-      {!compact ? <UserViewSwitcher isPastor={isPastor} canManage={canManage} /> : null}
       <nav aria-label="Navegação principal da visão pessoal" className={`mt-4 min-h-0 flex-1 space-y-1 overflow-y-auto no-scrollbar ${compact ? "" : "pr-1"}`}>
         {modules.map((item) => {
           const Icon = item.icon;
@@ -584,13 +583,14 @@ function NewHomeSidebar({ userName, avatar, isPastor, isVolunteer, canManage, ro
           {avatar ? <img src={avatar} alt={userName} className="h-10 w-10 rounded-full object-cover" /> : <span className="module-icon flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold">{userName.slice(0, 2).toUpperCase()}</span>}
           {!compact ? <span className="min-w-0"><strong className="block truncate text-sm">{userName}</strong><small className="block truncate text-[11px] text-gray-500">{roleLabels.join(" · ") || "Membro"}</small></span> : null}
         </Link>
+        {!compact ? <UserViewSwitcher isPastor={isPastor} canManage={canManage} /> : null}
       </div>
     </aside>
   );
 }
 
 function UserViewSwitcher({ isPastor, canManage }: { isPastor: boolean; canManage: boolean }) {
-  return <div className="mt-6"><AppViewSwitcher activeView="personal" canOpenPastoral={isPastor} canOpenManagement={canManage} /></div>;
+  return <div data-testid="newhome-desktop-view-switcher" className="mt-2 border-t border-[#ece6df] pt-2 dark:border-white/10"><AppViewSwitcher activeView="personal" canOpenPastoral={isPastor} canOpenManagement={canManage} /></div>;
 }
 
 function HomeSettingsMenu({
@@ -1033,7 +1033,7 @@ function HomeRightRail({
   ];
 
   return <aside data-testid="home-right-rail" className="flex min-w-0 flex-col gap-4 xl:h-full xl:sticky xl:top-20">
-    {isVolunteer && <section data-module-theme="cultos" data-testid="home-my-scale-card" className="newhome-soft rounded-2xl border p-4"><div className="flex items-center justify-between"><h2 className="text-sm font-black">Minha escala</h2><Link href="/meus-cultos#escala" className="module-accent-text text-xs font-semibold">Ver todas</Link></div>{nextAssignment ? <AssignmentAttention assignment={nextAssignment} service={nextAssignmentContext?.service} team={nextAssignmentContext?.team} onRespond={onRespond} /> : <p className="module-muted-text mt-2 text-xs">Nenhuma escala ativa.</p>}</section>}
+    {isVolunteer && <section data-module-theme="cultos" data-testid="home-my-scale-card" className="newhome-soft rounded-2xl border p-4"><div className="flex items-center justify-between"><h2 className="text-sm font-black">Minha escala</h2><Link href="/minhas-escalas" className="module-accent-text text-xs font-semibold">Ver todas</Link></div>{nextAssignment ? <AssignmentAttention assignment={nextAssignment} service={nextAssignmentContext?.service} team={nextAssignmentContext?.team} onRespond={onRespond} /> : <p className="module-muted-text mt-2 text-xs">Nenhuma escala ativa.</p>}</section>}
 
     <section data-module-theme="kingdom" data-testid="home-kingdom-card" className="newhome-card flex min-h-0 flex-col overflow-hidden rounded-2xl border xl:flex-1">
       <div className="flex items-center justify-between p-4 pb-2"><h2 className="text-lg font-black">No Reino</h2><Link href="/social" className="module-accent-text text-xs font-semibold">Ver tudo</Link></div>
@@ -1102,7 +1102,7 @@ function HomeOverview(props: {
           <h2 className="text-xl font-bold">Precisa da sua atenção</h2>
           {loading ? <LoadingCard label="Carregando sua agenda..." /> : nextAssignment ? <AssignmentAttention assignment={nextAssignment} onRespond={onRespond} /> : <div className="mt-5 rounded-2xl bg-emerald-50 p-5 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"><Check className="mb-3" />Nenhuma pendência urgente agora.</div>}
           {accepted && accepted.id !== nextAssignment?.id && <div className="mt-3 flex items-center gap-3 rounded-2xl border border-emerald-200 p-4"><span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-700 text-white"><Check size={18} /></span><div className="min-w-0"><strong className="block truncate text-sm">{accepted.title}</strong><span className="text-xs text-gray-500">{formatDate(accepted.startsAt)} · {formatTime(accepted.startsAt)} · Confirmada</span></div></div>}
-          {isVolunteer && <Link href="/meus-cultos#escala" className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-300">Ver minhas designações <ChevronRight size={16} /></Link>}
+          {isVolunteer && <Link href="/minhas-escalas" className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-300">Ver minhas designações <ChevronRight size={16} /></Link>}
         </section>
       </div>
 
@@ -1142,7 +1142,7 @@ function AssignmentAttention({
 }
 
 function ServicesStrip({ services }: { services: ChurchService[] }) {
-  return <section className="rounded-3xl border border-[#e4ded5] bg-white p-5 dark:border-white/10 dark:bg-white/[0.04]"><div className="flex items-center justify-between"><h2 className="text-xl font-bold">Próximos cultos</h2><Link href="/culto" className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Ver agenda completa</Link></div><div className="mt-4 flex snap-x gap-4 overflow-x-auto pb-2">{services.length ? services.slice(0, 4).map((service) => <Link key={service.id} href={`/culto/${service.slug}`} className="flex min-w-[270px] snap-start items-center gap-4 rounded-2xl border border-[#e8e2da] p-4 transition hover:border-emerald-400 dark:border-white/10"><span className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"><small className="uppercase">{formatDate(service.startsAt, { month: "short" })}</small><strong className="text-xl">{formatDate(service.startsAt, { day: "2-digit" })}</strong></span><span className="min-w-0"><strong className="block truncate">{service.title}</strong><small className="text-gray-500">{formatTime(service.startsAt)} · {service.status === "live" ? "Ao vivo" : "Publicado"}</small></span><ChevronRight className="ml-auto shrink-0 text-gray-400" size={18} /></Link>) : <p className="rounded-2xl bg-[#f8f5f1] p-5 text-sm text-gray-500 dark:bg-white/5">Nenhum culto publicado nos próximos 30 dias.</p>}</div></section>;
+  return <section className="rounded-3xl border border-[#e4ded5] bg-white p-5 dark:border-white/10 dark:bg-white/[0.04]"><div className="flex items-center justify-between"><h2 className="text-xl font-bold">Próximos cultos</h2><Link href="/meus-cultos" className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Ver agenda completa</Link></div><div className="mt-4 flex snap-x gap-4 overflow-x-auto pb-2">{services.length ? services.slice(0, 4).map((service) => <Link key={service.id} href={`/culto/${service.slug}`} className="flex min-w-[270px] snap-start items-center gap-4 rounded-2xl border border-[#e8e2da] p-4 transition hover:border-emerald-400 dark:border-white/10"><span className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"><small className="uppercase">{formatDate(service.startsAt, { month: "short" })}</small><strong className="text-xl">{formatDate(service.startsAt, { day: "2-digit" })}</strong></span><span className="min-w-0"><strong className="block truncate">{service.title}</strong><small className="text-gray-500">{formatTime(service.startsAt)} · {service.status === "live" ? "Ao vivo" : "Publicado"}</small></span><ChevronRight className="ml-auto shrink-0 text-gray-400" size={18} /></Link>) : <p className="rounded-2xl bg-[#f8f5f1] p-5 text-sm text-gray-500 dark:bg-white/5">Nenhum culto publicado nos próximos 30 dias.</p>}</div></section>;
 }
 
 function StudyShelf({ filter, onFilter, items, loading, loadError }: { filter: ShelfFilter; onFilter: (filter: ShelfFilter) => void; items: ShelfItem[]; loading: boolean; loadError: boolean }) {
@@ -1161,7 +1161,7 @@ function PastorRooms({ plans }: { plans: CustomPlan[] }) {
 }
 
 function VolunteerSection({ pending, accepted, onRespond }: { pending?: ChurchAssignment; accepted?: ChurchAssignment; onRespond: (assignment: ChurchAssignment, response: "accepted" | "declined") => void }) {
-  return <section><div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Serviço</p><h2 className="mt-1 text-2xl font-black text-emerald-950 dark:text-emerald-200">Minha escala</h2></div><Link href="/meus-cultos#escala" className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Ver designações</Link></div><div className="mt-4 grid gap-4 md:grid-cols-2">{pending && <AssignmentAttention assignment={pending} onRespond={onRespond} />}{accepted && <div className="rounded-2xl border border-emerald-200 bg-white p-5 dark:border-emerald-900 dark:bg-white/[0.04]"><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Confirmada</p><h3 className="mt-2 text-xl font-black">{accepted.title}</h3><p className="mt-2 text-sm text-gray-500">{formatDate(accepted.startsAt)} · {formatTime(accepted.startsAt)}</p></div>}{!pending && !accepted && <div className="rounded-2xl border border-[#e4ded5] bg-white p-5 text-sm text-gray-500 dark:border-white/10 dark:bg-white/[0.04]">Nenhuma escala ativa no momento.</div>}</div></section>;
+  return <section><div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Serviço</p><h2 className="mt-1 text-2xl font-black text-emerald-950 dark:text-emerald-200">Minha escala</h2></div><Link href="/minhas-escalas" className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Ver designações</Link></div><div className="mt-4 grid gap-4 md:grid-cols-2">{pending && <AssignmentAttention assignment={pending} onRespond={onRespond} />}{accepted && <div className="rounded-2xl border border-emerald-200 bg-white p-5 dark:border-emerald-900 dark:bg-white/[0.04]"><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Confirmada</p><h3 className="mt-2 text-xl font-black">{accepted.title}</h3><p className="mt-2 text-sm text-gray-500">{formatDate(accepted.startsAt)} · {formatTime(accepted.startsAt)}</p></div>}{!pending && !accepted && <div className="rounded-2xl border border-[#e4ded5] bg-white p-5 text-sm text-gray-500 dark:border-white/10 dark:bg-white/[0.04]">Nenhuma escala ativa no momento.</div>}</div></section>;
 }
 
 function ShortcutGrid() {

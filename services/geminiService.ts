@@ -1,13 +1,25 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { DAILY_BREAD } from "../constants";
 import { getAiInstance } from "./aiConfig";
+import { generateWithCloudflareWorkersAi, isCloudflareWorkersAiConfigured } from "./cloudflareAiService";
 import { generateVerseImage } from "./imageGenService";
+import { retryWithBackoff } from "./retryWithBackoff";
+import type { AiFeatureKey } from "./aiFeatureAccessPolicy";
 
 /**
  * Valida a conexão com o motor de IA (Smoke Test)
  */
 export const checkAiHealth = async (): Promise<boolean> => {
     try {
+        if (typeof window !== 'undefined') {
+            const { generateTextWithAi } = await import('./aiTextClient');
+            const text = await generateTextWithAi({ prompt: "Diga apenas 'OK'", feature: 'aiChatAccess' });
+            return text.includes('OK');
+        }
+        if (isCloudflareWorkersAiConfigured()) {
+            const text = await generateWithCloudflareWorkersAi([{ role: 'user', content: "Diga apenas 'OK'" }]);
+            return text.includes('OK');
+        }
         const response = await getAiInstance().models.generateContent({
             model: TEXT_MODEL,
             contents: [{ parts: [{ text: "Diga apenas 'OK'" }] }]
@@ -78,9 +90,36 @@ const parseJsonWithRepair = async (raw: string, repairContext: string) => {
     }
 };
 
-// Generic AI Call with Fallbacks (Order: Groq → OpenRouter → Gemini)
-export const callAi = async (prompt: string, systemInstruction?: string, responseFormat?: "json" | "text"): Promise<string> => {
-    // 1. Try Groq (primary — free tier, high quota)
+// Generic server AI call with fallbacks (Order: Cloudflare → Groq → OpenRouter → Gemini)
+export const callAi = async (
+    prompt: string,
+    systemInstruction?: string,
+    responseFormat?: "json" | "text",
+    feature: AiFeatureKey = 'aiChatAccess',
+): Promise<string> => {
+    if (typeof window !== 'undefined') {
+        const { generateTextWithAi } = await import('./aiTextClient');
+        return generateTextWithAi({ prompt, systemInstruction, responseFormat, feature });
+    }
+
+    // Cloudflare Workers AI is the primary server provider.
+    if (typeof window === 'undefined' && isCloudflareWorkersAiConfigured()) {
+        try {
+            const messages = [
+                ...(systemInstruction ? [{ role: 'system' as const, content: systemInstruction }] : []),
+                ...(responseFormat === 'json' ? [{ role: 'system' as const, content: 'Retorne somente JSON válido, sem markdown.' }] : []),
+                { role: 'user' as const, content: prompt },
+            ];
+            return await retryWithBackoff(
+                () => generateWithCloudflareWorkersAi(messages),
+                { attempts: 2, initialDelayMs: 500 },
+            );
+        } catch (e: any) {
+            console.warn("Cloudflare Workers AI failed, trying Groq...", e.message);
+        }
+    }
+
+    // 2. Try Groq (free tier, high quota)
     try {
         const groqKey = process.env.GROQ_API_KEY || process.env.NEXT_PUBLIC_GROQ_API_KEY;
         if (groqKey) {
@@ -194,7 +233,7 @@ export const sendMessageToGeminiStream = async (
 export const analyzeUnderstanding = async (userThoughts: string, context: string): Promise<string> => {
     try {
         const prompt = `Analise esta reflexão do usuário sobre o texto: "${userThoughts}". Contexto bíblico: "${context}". Forneça feedback teológico, encorajamento e uma aplicação prática. Responda em HTML simples (p, strong, ul, li). IMPORTANTE: Garanta contraste legível; se usar estilos customizados, assegure que o texto seja escuro em fundos claros.`;
-        return await callAi(prompt, undefined, "text");
+        return await callAi(prompt, undefined, "text", 'aiDeepAnalysis');
     } catch (e) {
         return "Erro na análise.";
     }
@@ -236,14 +275,14 @@ export const generateDailyDevotional = async (
 export const improveNote = async (content: string): Promise<string> => {
     try {
         const prompt = `Melhore esta anotação bíblica, corrigindo gramática, expandindo ideias teológicas e formatando melhor, mantendo a essência pessoal: "${content}"`;
-        return await callAi(prompt, undefined, "text");
+        return await callAi(prompt, undefined, "text", 'aiNoteImprovement');
     } catch (e) { return content; }
 };
 
 export const summarizeNoteForSocial = async (content: string, bookName: string, chapter: number) => {
     try {
         const prompt = `Crie um resumo curto e inspirador (max 280 chars) para compartilhar no feed social, baseado nesta nota sobre ${bookName} ${chapter}: "${content}". Inclua hashtags.`;
-        const text = await callAi(prompt, undefined, "text");
+        const text = await callAi(prompt, undefined, "text", 'aiSocialCaptions');
         return { summary: text || "", ref: `${bookName} ${chapter}` };
     } catch (e) { return null; }
 };
@@ -262,7 +301,7 @@ export const generateSermonOutline = async (contextText: string, theme: string, 
         Estrutura OBRIGATÓRIA: 1. Introdução, 2. Contextualização (Contexto histórico, Pontos, Tópicos, Temas), 3. Aplicação Prática, 4. Oração Final. 
         Use formato HTML (h1, h2, p, strong, ul, li).`;
 
-        return await callAi(prompt, undefined, "text");
+        return await callAi(prompt, undefined, "text", 'aiSermonBuilder');
     } catch (e) { return ""; }
 };
 
@@ -347,14 +386,14 @@ export const generateSongLyricsText = async (songTitle: string, context = ''): P
 export const generateSermonIllustration = async (theme: string, context: string): Promise<string> => {
     try {
         const prompt = `Crie uma ilustração (história, metáfora ou exemplo histórico) curta e impactante para um sermão sobre: "${theme}". Contexto bíblico: "${context}". A ilustração deve ajudar a explicar o ponto teológico de forma emocional e memorável. Formato HTML (p). Assegure contraste total (texto #222 se o fundo for claro).`;
-        return await callAi(prompt, undefined, "text");
+        return await callAi(prompt, undefined, "text", 'aiSermonBuilder');
     } catch (e) { return ""; }
 };
 
 export const generateSmallGroupQuestions = async (sermonContent: string): Promise<string> => {
     try {
         const prompt = `Com base neste esboço de sermão, crie 5 perguntas para discussão em pequenos grupos (Células/PGs). As perguntas devem estimular a aplicação prática e a comunhão. \n\nSermão: "${sermonContent.substring(0, 1000)}..." \n\nFormato HTML (ul, li, strong).`;
-        return await callAi(prompt, undefined, "text");
+        return await callAi(prompt, undefined, "text", 'aiSermonBuilder');
     } catch (e) { return ""; }
 };
 
@@ -638,7 +677,7 @@ export const generatePodcastScript = async (sourceText: string, title: string) =
         - Tom conversacional, acolhedor e profundo.
         - Mantenha-se fiel às fontes e cite os versículos.`;
 
-        return await callAi(prompt, undefined, "text");
+        return await callAi(prompt, undefined, "text", 'aiPodcastGen');
     } catch (e) { return null; }
 };
 
@@ -813,7 +852,7 @@ JSON EXATO (preencha "..." com conteúdo real):
 `;
 
     try {
-        const raw = await callAi(prompt, systemInstruction, "json");
+        const raw = await callAi(prompt, systemInstruction, "json", 'aiSermonBuilder');
         return await parseJsonWithRepair(raw, 'one-page pastoral Culto+');
     } catch (e: any) {
         throw new Error(`Falha ao gerar one-page: ${e.message}`);

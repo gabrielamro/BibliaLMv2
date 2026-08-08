@@ -4,12 +4,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   BookOpen,
+  BookmarkCheck,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Compass,
   Copy,
-  ExternalLink,
+  Loader2,
+  NotebookPen,
+  Save,
   Sparkles,
   Star,
   Target,
@@ -19,6 +22,16 @@ import {
 import SEO from '../components/SEO';
 import { useAuth } from '../contexts/AuthContext';
 import { addUnifiedFavorite } from '../services/unifiedFavoritesService';
+import {
+  getPendingTrackStepJournalEntry,
+  getTrackStepJournalEntry,
+  getUserTrackProgress,
+  savePendingTrackStepJournalEntry,
+  saveTrackProgress,
+  saveTrackStepJournalEntry,
+  syncPendingTrackJournalEntries,
+} from '../services/trackProgressService';
+import type { UserTrackProgress } from '../types';
 import toast from 'react-hot-toast';
 
 export interface TrackVerseStudy {
@@ -187,20 +200,51 @@ export const DETAILED_TRACKS: DetailedTrack[] = [
 ];
 
 export default function TracksPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, openLogin } = useAuth();
   const userId = currentUser ? (currentUser.uid ?? currentUser.id) : null;
 
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
-  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+  const [progressByTrack, setProgressByTrack] = useState<Record<string, UserTrackProgress>>({});
+  const [isProgressLoading, setIsProgressLoading] = useState(true);
+  const [isJournalOpen, setIsJournalOpen] = useState(false);
+  const [journalNote, setJournalNote] = useState('');
+  const [isJournalLoading, setIsJournalLoading] = useState(false);
+  const [isJournalSaving, setIsJournalSaving] = useState(false);
+  const [isJournalSaved, setIsJournalSaved] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const triggerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const activeTrack = DETAILED_TRACKS.find((track) => track.id === selectedTrackId) ?? null;
   const activeStep = activeTrack?.steps[currentStepIndex] ?? null;
-  const activeStepKey = activeTrack && activeStep ? `${activeTrack.id}:${activeStep.stepNumber}` : '';
-  const isStepCompleted = activeStepKey ? completedSteps.includes(activeStepKey) : false;
+  const activeProgress = activeTrack ? progressByTrack[activeTrack.id] : null;
+  const completedStepNumbers = activeProgress?.completedStepNumbers ?? [];
+  const isStepCompleted = activeStep ? completedStepNumbers.includes(activeStep.stepNumber) : false;
+  const completionPercentage = activeTrack
+    ? Math.round((completedStepNumbers.length / activeTrack.steps.length) * 100)
+    : 0;
+
+  useEffect(() => {
+    let isCancelled = false;
+    setIsProgressLoading(true);
+    void getUserTrackProgress(userId, DETAILED_TRACKS.map((track) => track.id)).then((progress) => {
+      if (!isCancelled) {
+        setProgressByTrack(progress);
+        setIsProgressLoading(false);
+      }
+    });
+    return () => {
+      isCancelled = true;
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    void syncPendingTrackJournalEntries(userId).then((syncedCount) => {
+      if (syncedCount > 0) toast.success(`${syncedCount} anotação salva foi sincronizada com o Diário.`);
+    });
+  }, [userId]);
 
   useEffect(() => {
     if (!selectedTrackId) return;
@@ -245,13 +289,66 @@ export default function TracksPage() {
     };
   }, [selectedTrackId]);
 
+  const buildProgress = (
+    track: DetailedTrack,
+    stepIndex: number,
+    completedNumbers: number[],
+  ): UserTrackProgress => {
+    const existingProgress = progressByTrack[track.id];
+    const isComplete = completedNumbers.length === track.steps.length;
+    return {
+      userId,
+      trackId: track.id,
+      currentStepIndex: Math.min(Math.max(0, stepIndex), track.steps.length - 1),
+      completedStepNumbers: completedNumbers,
+      startedAt: existingProgress?.startedAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      completedAt: isComplete ? existingProgress?.completedAt || new Date().toISOString() : null,
+    };
+  };
+
+  const persistProgress = async (
+    track: DetailedTrack,
+    stepIndex: number,
+    completedNumbers: number[],
+  ) => {
+    const progress = buildProgress(track, stepIndex, completedNumbers);
+    setProgressByTrack((previous) => ({ ...previous, [track.id]: progress }));
+    await saveTrackProgress(progress);
+  };
+
   const openTrack = (trackId: string, trigger: HTMLButtonElement) => {
     triggerButtonRef.current = trigger;
-    setCurrentStepIndex(0);
+    const track = DETAILED_TRACKS.find((item) => item.id === trackId);
+    const savedStepIndex = progressByTrack[trackId]?.currentStepIndex ?? 0;
+    setCurrentStepIndex(track ? Math.min(savedStepIndex, track.steps.length - 1) : 0);
+    setIsJournalOpen(false);
+    setJournalNote('');
     setSelectedTrackId(trackId);
   };
 
-  const closeTrack = () => setSelectedTrackId(null);
+  const closeTrack = () => {
+    if (activeTrack) void persistProgress(activeTrack, currentStepIndex, completedStepNumbers);
+    setSelectedTrackId(null);
+    setIsJournalOpen(false);
+  };
+
+  const handleContinueLater = async () => {
+    if (!activeTrack) return;
+    await persistProgress(activeTrack, currentStepIndex, completedStepNumbers);
+    toast.success(userId ? 'Progresso salvo na sua conta.' : 'Progresso salvo neste dispositivo.');
+    setSelectedTrackId(null);
+    setIsJournalOpen(false);
+  };
+
+  const handleStepNavigation = (nextStepIndex: number) => {
+    if (!activeTrack) return;
+    const normalizedIndex = Math.min(Math.max(0, nextStepIndex), activeTrack.steps.length - 1);
+    setCurrentStepIndex(normalizedIndex);
+    setIsJournalOpen(false);
+    setJournalNote('');
+    void persistProgress(activeTrack, normalizedIndex, completedStepNumbers);
+  };
 
   const handleCopyVerse = (text: string, ref: string) => {
     void navigator.clipboard.writeText(`"${text}" (${ref})`);
@@ -278,14 +375,70 @@ export default function TracksPage() {
   };
 
   const toggleStepCompleted = () => {
-    if (!activeStepKey) return;
+    if (!activeTrack || !activeStep) return;
+
+    const nextCompletedSteps = isStepCompleted
+      ? completedStepNumbers.filter((stepNumber) => stepNumber !== activeStep.stepNumber)
+      : [...completedStepNumbers, activeStep.stepNumber].sort((a, b) => a - b);
+
+    void persistProgress(activeTrack, currentStepIndex, nextCompletedSteps);
 
     if (isStepCompleted) {
-      setCompletedSteps((previousSteps) => previousSteps.filter((stepKey) => stepKey !== activeStepKey));
       toast.success('Passo marcado como pendente.');
     } else {
-      setCompletedSteps((previousSteps) => [...previousSteps, activeStepKey]);
       toast.success('Passo de estudo concluído! Parabéns!');
+    }
+  };
+
+  const handleOpenJournal = async () => {
+    if (!activeTrack || !activeStep) return;
+    setIsJournalOpen(true);
+    setIsJournalSaved(false);
+    setIsJournalLoading(true);
+
+    const pendingEntry = getPendingTrackStepJournalEntry(activeTrack.id, activeStep.stepNumber);
+    setJournalNote(pendingEntry?.note || '');
+
+    if (userId) {
+      const savedEntry = await getTrackStepJournalEntry(userId, activeTrack.id, activeStep.stepNumber);
+      if (savedEntry) {
+        setJournalNote(savedEntry.note);
+        setIsJournalSaved(true);
+      }
+    }
+    setIsJournalLoading(false);
+  };
+
+  const handleSaveJournal = async () => {
+    if (!activeTrack || !activeStep || !journalNote.trim()) {
+      toast.error('Escreva uma reflexão antes de salvar.');
+      return;
+    }
+
+    setIsJournalSaving(true);
+    const entry = {
+      trackId: activeTrack.id,
+      trackTitle: activeTrack.title,
+      stepNumber: activeStep.stepNumber,
+      stepTitle: activeStep.title,
+      note: journalNote.trim(),
+    };
+
+    if (!userId) {
+      savePendingTrackStepJournalEntry(entry);
+      setIsJournalSaved(true);
+      setIsJournalSaving(false);
+      toast.success('Anotação guardada neste dispositivo. Entre para sincronizar com o Diário.');
+      return;
+    }
+
+    const savedEntry = await saveTrackStepJournalEntry({ ...entry, userId });
+    setIsJournalSaving(false);
+    if (savedEntry) {
+      setIsJournalSaved(true);
+      toast.success('Reflexão registrada no seu Diário Espiritual.');
+    } else {
+      toast.error('Não foi possível salvar a reflexão. Tente novamente.');
     }
   };
 
@@ -329,7 +482,12 @@ export default function TracksPage() {
           </div>
 
           <div data-testid="tracks-catalog" className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {DETAILED_TRACKS.map((track) => (
+            {DETAILED_TRACKS.map((track) => {
+              const trackProgress = progressByTrack[track.id];
+              const completedCount = trackProgress?.completedStepNumbers.length ?? 0;
+              const percentage = Math.round((completedCount / track.steps.length) * 100);
+              const hasStarted = Boolean(trackProgress);
+              return (
               <button
                 key={track.id}
                 type="button"
@@ -366,15 +524,25 @@ export default function TracksPage() {
                       Ritmo sugerido
                     </span>
                   </span>
+                  <span className="mt-4" data-testid={`track-progress-${track.id}`}>
+                    <span className="flex items-center justify-between text-[11px] font-bold text-[#736353] dark:text-[#b9ab9b]">
+                      <span>{isProgressLoading ? 'Carregando progresso...' : hasStarted ? `${completedCount} de ${track.steps.length} concluídos` : 'Ainda não iniciada'}</span>
+                      <span className="text-[#b97800] dark:text-[#f1bd56]">{percentage}%</span>
+                    </span>
+                    <span className="mt-1.5 block h-2 overflow-hidden rounded-full bg-[#eee4d5] dark:bg-white/10">
+                      <span className="block h-full rounded-full bg-[#edad2c] transition-[width] duration-300" style={{ width: `${percentage}%` }} />
+                    </span>
+                  </span>
                   <span className="mt-auto flex items-center justify-between border-t border-[#eee4d5] pt-4 dark:border-white/10">
                     <span className="text-[11px] font-semibold text-[#736353] dark:text-[#a89988]">{track.authorName}</span>
                     <span className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-wide text-[#b97800] dark:text-[#f1bd56]">
-                      Iniciar <ChevronRight size={16} className="transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                      {hasStarted ? 'Continuar' : 'Iniciar'} <ChevronRight size={16} className="transition-transform group-hover:translate-x-1" aria-hidden="true" />
                     </span>
                   </span>
                 </span>
               </button>
-            ))}
+              );
+            })}
           </div>
         </section>
       </div>
@@ -395,16 +563,28 @@ export default function TracksPage() {
             data-testid="track-dialog"
             className="flex max-h-[94dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[28px] border border-[#eadfce] bg-[#fffaf2] shadow-2xl sm:max-h-[90dvh] sm:rounded-[28px] dark:border-white/10 dark:bg-[#1d1a17]"
           >
-            <header className={`relative shrink-0 overflow-hidden bg-gradient-to-r ${activeTrack.coverGradient} px-5 py-5 text-white sm:px-7`}>
-              <span className="absolute -right-10 -top-16 h-44 w-44 rounded-full bg-white/10" aria-hidden="true" />
-              <div className="relative flex items-start justify-between gap-4">
+            <header className={`relative shrink-0 overflow-hidden bg-gradient-to-r ${activeTrack.coverGradient} px-4 py-3 text-white sm:px-6`}>
+              <span className="absolute -right-8 -top-14 h-32 w-32 rounded-full bg-white/10" aria-hidden="true" />
+              <div className="relative flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/75">
                     {activeTrack.category} · {activeTrack.durationDays} dias
                   </span>
-                  <h2 id="track-dialog-title" className="mt-1 font-serif text-2xl font-bold sm:text-3xl">{activeTrack.title}</h2>
-                  <p id="track-dialog-description" className="mt-1 text-xs text-white/85 sm:text-sm">{activeTrack.subtitle}</p>
+                  <h2 id="track-dialog-title" className="truncate font-serif text-lg font-bold sm:text-xl">{activeTrack.title}</h2>
+                  <p id="track-dialog-description" className="sr-only">{activeTrack.subtitle}</p>
                 </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    data-testid="track-continue-later"
+                    onClick={() => void handleContinueLater()}
+                    aria-label="Continuar esta trilha depois"
+                    title="Continuar depois"
+                    className="flex h-11 items-center justify-center gap-2 rounded-full bg-black/20 px-3 text-xs font-bold text-white transition hover:bg-black/30 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/50"
+                  >
+                    <BookmarkCheck size={17} aria-hidden="true" />
+                    <span className="hidden sm:inline">Continuar depois</span>
+                  </button>
                 <button
                   ref={closeButtonRef}
                   type="button"
@@ -413,18 +593,19 @@ export default function TracksPage() {
                   aria-label="Fechar trilha"
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/20 text-white transition hover:bg-black/30 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/50"
                 >
-                  <X size={21} aria-hidden="true" />
+                  <X size={20} aria-hidden="true" />
                 </button>
+                </div>
               </div>
 
-              <div className="relative mt-5 flex items-center gap-3">
+              <div className="relative mt-2 flex items-center gap-3">
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/20">
                   <div
                     className="h-full rounded-full bg-white transition-[width] duration-300"
-                    style={{ width: `${((currentStepIndex + 1) / activeTrack.steps.length) * 100}%` }}
+                    style={{ width: `${completionPercentage}%` }}
                   />
                 </div>
-                <span className="shrink-0 text-xs font-bold">Passo {currentStepIndex + 1} de {activeTrack.steps.length}</span>
+                <span data-testid="track-dialog-progress" className="shrink-0 text-[11px] font-bold">{completionPercentage}% concluído</span>
               </div>
             </header>
 
@@ -489,11 +670,74 @@ export default function TracksPage() {
                       <CheckCircle2 size={16} aria-hidden="true" />
                       <span>{isStepCompleted ? 'Passo concluído' : 'Marcar como concluído'}</span>
                     </button>
-                    <Link href="/diario-espiritual" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#ded5c7] bg-white px-5 text-xs font-bold text-[#302316] transition hover:border-[#edad2c] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#edad2c]/30 dark:border-white/10 dark:bg-[#312c27] dark:text-[#fff7eb]">
+                    <button
+                      type="button"
+                      data-testid="track-open-journal"
+                      onClick={() => void handleOpenJournal()}
+                      aria-expanded={isJournalOpen}
+                      aria-controls="track-journal-composer"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#ded5c7] bg-white px-5 text-xs font-bold text-[#302316] transition hover:border-[#edad2c] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#edad2c]/30 dark:border-white/10 dark:bg-[#312c27] dark:text-[#fff7eb]"
+                    >
                       <span>Registrar no Diário</span>
-                      <ExternalLink size={14} aria-hidden="true" />
-                    </Link>
+                      <NotebookPen size={16} aria-hidden="true" />
+                    </button>
                   </div>
+
+                  {isJournalOpen ? (
+                    <div id="track-journal-composer" data-testid="track-journal-composer" className="mt-4 rounded-2xl border border-[#edad2c]/35 bg-[#fffaf2] p-4 dark:bg-[#1f1c19]">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h4 className="text-sm font-bold text-[#302316] dark:text-[#fff7eb]">O que este passo falou ao seu coração?</h4>
+                          <p className="mt-1 text-xs leading-relaxed text-[#736353] dark:text-[#a89988]">
+                            Registre uma decisão, oração ou aprendizado. Esta nota ficará vinculada ao passo no seu Diário.
+                          </p>
+                        </div>
+                        {isJournalLoading ? <Loader2 size={18} className="shrink-0 animate-spin text-[#edad2c]" aria-label="Carregando anotação" /> : null}
+                      </div>
+                      <label htmlFor="track-journal-note" className="sr-only">Anotação sobre este passo</label>
+                      <textarea
+                        id="track-journal-note"
+                        data-testid="track-journal-note"
+                        value={journalNote}
+                        onChange={(event) => {
+                          setJournalNote(event.target.value);
+                          setIsJournalSaved(false);
+                        }}
+                        disabled={isJournalLoading || isJournalSaving}
+                        maxLength={5000}
+                        rows={4}
+                        placeholder="Ex.: Hoje percebi que preciso entregar esta preocupação a Deus..."
+                        className="mt-3 w-full resize-y rounded-xl border border-[#ded5c7] bg-white p-3 text-sm leading-relaxed text-[#302316] outline-none transition focus:border-[#edad2c] focus:ring-4 focus:ring-[#edad2c]/15 disabled:opacity-60 dark:border-white/10 dark:bg-[#2b2722] dark:text-[#fff7eb]"
+                      />
+                      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-[11px] text-[#736353] dark:text-[#a89988]">
+                          {userId ? 'Privado e sincronizado com sua conta.' : 'Será guardado neste dispositivo até você entrar.'}
+                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {!userId && isJournalSaved ? (
+                            <button type="button" onClick={() => openLogin('/trilhas')} className="inline-flex min-h-11 items-center rounded-full border border-[#ded5c7] px-4 text-xs font-bold text-[#302316] dark:border-white/10 dark:text-[#fff7eb]">
+                              Entrar e sincronizar
+                            </button>
+                          ) : null}
+                          {userId && isJournalSaved ? (
+                            <Link href="/diario-espiritual" className="inline-flex min-h-11 items-center rounded-full border border-[#ded5c7] px-4 text-xs font-bold text-[#302316] dark:border-white/10 dark:text-[#fff7eb]">
+                              Ver no Diário
+                            </Link>
+                          ) : null}
+                          <button
+                            type="button"
+                            data-testid="track-save-journal"
+                            onClick={() => void handleSaveJournal()}
+                            disabled={isJournalLoading || isJournalSaving || !journalNote.trim()}
+                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#edad2c] px-5 text-xs font-bold text-white transition hover:bg-[#d99c22] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#edad2c]/30"
+                          >
+                            {isJournalSaving ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Save size={16} aria-hidden="true" />}
+                            <span>{isJournalSaving ? 'Salvando...' : isJournalSaved ? 'Anotação salva' : 'Salvar no Diário'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                 </section>
               </div>
             </div>
@@ -502,7 +746,7 @@ export default function TracksPage() {
               <button
                 type="button"
                 data-testid="track-previous-step"
-                onClick={() => setCurrentStepIndex((previousIndex) => Math.max(0, previousIndex - 1))}
+                onClick={() => handleStepNavigation(currentStepIndex - 1)}
                 disabled={currentStepIndex === 0}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#ded5c7] bg-white px-5 text-xs font-bold text-[#302316] transition hover:border-[#edad2c] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#edad2c]/30 dark:border-white/10 dark:bg-[#312c27] dark:text-[#fff7eb]"
               >
@@ -513,7 +757,7 @@ export default function TracksPage() {
               <button
                 type="button"
                 data-testid="track-next-step"
-                onClick={() => setCurrentStepIndex((previousIndex) => Math.min(activeTrack.steps.length - 1, previousIndex + 1))}
+                onClick={() => handleStepNavigation(currentStepIndex + 1)}
                 disabled={currentStepIndex === activeTrack.steps.length - 1}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#edad2c] px-5 text-xs font-bold text-white transition hover:bg-[#d99c22] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#edad2c]/30"
               >

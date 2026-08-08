@@ -58,7 +58,7 @@ Rotas ambíguas devem seguir o contexto funcional, não apenas uma palavra no ca
 - `/oracoes/gerenciar` → `pastoral`
 - `/gestao-igreja/cultos` → `management`
 - `/workspace-pastoral/cultos` → `pastoral`
-- `/culto` e `/meus-cultos` → `cultos`
+- `/culto/[slug]` e `/meus-cultos` → `cultos`
 - `/criar-sala` → `pastoral`
 
 ## Tokens e classes

@@ -8,7 +8,7 @@ const managementSource = readFileSync(resolve('services/churchManagementService.
 
 test('resumo mobile ocupa uma faixa unica e revela rotulos sob demanda', () => {
   assert.match(source, /data-testid="cultos-mobile-summary"/);
-  assert.match(source, /grid grid-cols-5/);
+  assert.match(source, /grid grid-cols-3/);
   assert.match(source, /sm:hidden/);
   assert.match(source, /aria-label={`\$\{summary\.label\}: \$\{summary\.value\}`}/);
   assert.match(source, /aria-expanded={isOpen}/);
@@ -31,5 +31,18 @@ test('agenda carrega proximos cultos publicados da igreja com estados reais', ()
   assert.match(source, /data-testid="next-church-service"/);
   assert.match(source, /href={`\/culto\/\$\{nextChurchService\.slug\}`}/);
   assert.match(source, /Ver mais cultos/);
+  assert.match(source, /churchMembership\?\.churchSlug \? `\/igreja\/\$\{churchMembership\.churchSlug\}` : '\/social\/igrejas'/);
+  assert.doesNotMatch(source, /href="\/culto"/);
   assert.match(source, /Nenhum próximo culto foi publicado pela igreja/);
+});
+
+test('a página de memória não carrega mais a operação de escalas', () => {
+  for (const contract of ['PersonalCultosOperations', 'listUserCultoAssignments', 'listUserTeams', 'listMemberSubmissions']) {
+    assert.doesNotMatch(source, new RegExp(contract));
+  }
+
+  assert.doesNotMatch(source, /href="#escala"/);
+  assert.match(source, /data-testid="my-cultos-scales-link"/);
+  assert.match(source, /data-testid="my-cultos-scales-shortcut"/);
+  assert.match(source, /MY_SCALES_ROUTE/);
 });

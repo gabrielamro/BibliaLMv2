@@ -29,7 +29,7 @@ export const APP_MODULE_ROUTE_RULES: ReadonlyArray<{
   { module: 'create', exact: ['/chat', '/estudio-criativo'], prefixes: ['/criar-conteudo', '/criar-arte-sacra', '/criar-podcast', '/criar-estudo'] },
   { module: 'bible', exact: ['/trilhas', '/diario-espiritual', '/bibliasagrada', '/biblia', '/biblia-dashboard', '/devocional', '/oracoes', '/quiz', '/notes'], prefixes: ['/plano', '/estudos', '/estudo', '/jornada', '/v/'] },
   { module: 'kingdom', exact: ['/social'], prefixes: ['/social/', '/p/', '/u/', '/igreja/', '/grupo/'] },
-  { module: 'cultos', exact: ['/culto', '/meus-cultos'], prefixes: ['/culto/', '/meus-cultos/'] },
+  { module: 'cultos', exact: ['/meus-cultos', '/minhas-escalas'], prefixes: ['/culto/', '/meus-cultos/', '/minhas-escalas/'] },
   { module: 'home', exact: ['/', '/newhome', '/rotina', '/mapa-vivo'] },
 ];
 

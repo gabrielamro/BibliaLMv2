@@ -4,27 +4,33 @@ const rlsMatrix = [
   {
     profile: 'gestor',
     tables: ['church_member_roles', 'church_service_teams', 'church_assignments', 'church_qr_forms', 'church_form_submissions', 'church_management_notifications', 'church_notification_events', 'church_management_settings', 'church_analytics_snapshots'],
-    requiredPolicies: ['Church managers manage roles', 'Church operators manage QR forms', 'Church managers manage settings'],
+    requiredPolicies: [
+      'Church managers manage roles',
+      'Scoped roles create QR forms',
+      'Scoped roles update QR forms',
+      'Scoped roles delete QR forms',
+      'Church managers manage settings',
+    ],
   },
   {
     profile: 'pastor',
     tables: ['church_form_submissions', 'church_management_notifications', 'church_notification_events', 'church_analytics_snapshots'],
-    requiredPolicies: ['Authorized users update submissions', 'Church analytics readable by operators'],
+    requiredPolicies: ['Authorized scoped roles update submissions', 'Church analytics readable by managers'],
   },
   {
     profile: 'lider',
     tables: ['church_service_teams', 'church_assignments', 'church_form_submissions', 'church_management_notifications'],
-    requiredPolicies: ['Church managers and leaders manage teams', 'Operators and leaders manage assignments'],
+    requiredPolicies: ['Managers or scoped leaders update teams', 'Operators and leaders manage assignments'],
   },
   {
     profile: 'voluntario',
     tables: ['church_assignments', 'church_volunteer_badges'],
-    requiredPolicies: ['Operators leaders and assignee update assignments', 'Assignees record accepted assignment badges'],
+    requiredPolicies: ['Scoped operators and assignee update assignments', 'Assignees record accepted assignment badges'],
   },
   {
     profile: 'membro',
     tables: ['church_qr_forms', 'church_form_submissions'],
-    requiredPolicies: ['Active QR forms public by token', 'Public can create active form submissions'],
+    requiredPolicies: ['Anonymous users read active QR forms', 'Public can create active form submissions'],
   },
 ];
 
@@ -67,9 +73,15 @@ try {
   const installedPolicies = new Set(policies.map((row) => `${row.tablename}:${row.policyname}`));
 
   for (const entry of rlsMatrix) {
-    const tableOk = entry.tables.every((table) => rlsEnabled.get(table));
-    const policyOk = entry.requiredPolicies.every((policy) => policies.some((row) => row.policyname === policy));
-    printCheck(`RLS matrix profile ${entry.profile}`, tableOk && policyOk, `${entry.tables.length} table(s), ${entry.requiredPolicies.length} policy check(s)`);
+    const missingTables = entry.tables.filter((table) => !rlsEnabled.get(table));
+    const missingPolicies = entry.requiredPolicies.filter((policy) => !policies.some((row) => row.policyname === policy));
+    const tableOk = missingTables.length === 0;
+    const policyOk = missingPolicies.length === 0;
+    const details = [
+      missingTables.length ? `RLS ausente: ${missingTables.join(', ')}` : null,
+      missingPolicies.length ? `políticas ausentes: ${missingPolicies.join(', ')}` : null,
+    ].filter(Boolean).join('; ') || `${entry.tables.length} table(s), ${entry.requiredPolicies.length} policy check(s)`;
+    printCheck(`RLS matrix profile ${entry.profile}`, tableOk && policyOk, details);
     if (!tableOk || !policyOk) failures += 1;
   }
 

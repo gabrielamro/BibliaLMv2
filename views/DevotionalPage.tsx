@@ -16,8 +16,6 @@ import {
   Lightbulb,
   Loader2,
   LockKeyhole,
-  Moon,
-  PanelRight,
   Pencil,
   RefreshCw,
   ScrollText,
@@ -25,7 +23,6 @@ import {
   Share2,
   Sparkles,
   Star,
-  Sun,
   Target,
   Trophy,
   Wheat,
@@ -36,11 +33,7 @@ import DevotionalFeedShareModal from '../components/DevotionalFeedShareModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import DevotionalHero from '../components/devotional/DevotionalHero';
 import VerseHeroCard from '../components/devotional/VerseHeroCard';
-import {
-  DevotionalMobileDrawer,
-  DevotionalStepperCard,
-  DevotionalTopCards,
-} from '../components/devotional/DevotionalSidebar';
+import { DevotionalStepperCard, DevotionalTopCards } from '../components/devotional/DevotionalSidebar';
 import ReminderBanner from '../components/devotional/ReminderBanner';
 import FloatingContinueButton from '../components/devotional/FloatingContinueButton';
 import DevotionalCalendarModal from '../components/devotional/DevotionalCalendarModal';
@@ -132,8 +125,14 @@ const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\
 const IMPORTANT_TERM_PATTERN = new RegExp(`(${IMPORTANT_DEVOTIONAL_TERMS.map(escapeRegExp).join('|')})`, 'giu');
 const IMPORTANT_TERM_SET = new Set(IMPORTANT_DEVOTIONAL_TERMS.map((term) => term.toLocaleLowerCase('pt-BR')));
 
-const splitDevotionalParagraphs = (content: string) => {
-  const normalized = content.replace(/\r/g, '').trim();
+const asDisplayString = (value: unknown, fallback = '') => {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return fallback;
+};
+
+const splitDevotionalParagraphs = (content: unknown) => {
+  const normalized = asDisplayString(content).replace(/\r/g, '').trim();
   if (!normalized) return [];
 
   const explicitParagraphs = normalized
@@ -159,11 +158,15 @@ const splitDevotionalParagraphs = (content: string) => {
   return paragraphs;
 };
 
-const emphasizeImportantTerms = (content: string) => content
-  .split(IMPORTANT_TERM_PATTERN)
-  .map((part, index) => IMPORTANT_TERM_SET.has(part.toLocaleLowerCase('pt-BR')) ? (
-    <strong key={`${part}-${index}`} className="font-bold text-[#2d1e11] dark:text-[#edad2c]">{part}</strong>
-  ) : <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>);
+const emphasizeImportantTerms = (content: unknown) => {
+  const text = asDisplayString(content);
+  if (!text) return null;
+  return text
+    .split(IMPORTANT_TERM_PATTERN)
+    .map((part, index) => IMPORTANT_TERM_SET.has(part.toLocaleLowerCase('pt-BR')) ? (
+      <strong key={`${part}-${index}`} className="font-bold text-[#2d1e11] dark:text-[#edad2c]">{part}</strong>
+    ) : <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>);
+};
 
 const addCompletedStep = (
   completedSteps: DevotionalJourneyStep[],
@@ -179,9 +182,11 @@ const normalizeForView = (data: ResolvedDevotionalCandidate | null): ViewDevotio
   if (!data) return null;
   return {
     ...data,
-    verse: data.verseText || '',
-    reference: data.verseReference || '',
-    text: data.content || '',
+    title: asDisplayString(data.title, 'Pão Diário'),
+    verse: asDisplayString(data.verseText),
+    reference: asDisplayString(data.verseReference),
+    text: asDisplayString(data.content),
+    prayer: asDisplayString(data.prayer),
   };
 };
 
@@ -243,7 +248,6 @@ export default function DevotionalPage() {
   const [refreshAvailable, setRefreshAvailable] = useState(false);
 
   // Estados dos Modais
-  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
   const [isHeartModalOpen, setIsHeartModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -257,7 +261,6 @@ export default function DevotionalPage() {
   const [savedPrayers, setSavedPrayers] = useState<Array<{ id: string; date: string; prayer: string; isAnswered?: boolean }>>([]);
   const [savedCommitments, setSavedCommitments] = useState<Array<{ id: string; date: string; commitment: string; isDone?: boolean }>>([]);
   const [completedDates, setCompletedDates] = useState<string[]>([]);
-  const [dayNightMode, setDayNightMode] = useState<'morning' | 'night'>('morning');
   const [reminderSettings, setReminderSettings] = useState({
     time: '08:00',
     days: 'daily',
@@ -289,7 +292,9 @@ export default function DevotionalPage() {
         userId ? dbService.getUserDevotionalHistory(userId, 30) : Promise.resolve([]),
       ]);
       const historyEntry = history.find((entry: any) => entry.content_id === nextDevotional.id);
-      const restoredReflection = historyEntry?.reflection || savedJourney.reflectionDraft || '';
+      const restoredReflection = asDisplayString(
+        historyEntry?.reflection || savedJourney.reflectionDraft || '',
+      );
       let completedSteps = savedJourney.completedSteps;
       if (restoredReflection.trim()) completedSteps = addCompletedStep(completedSteps, 2);
       if (historyEntry?.is_amen) completedSteps = addCompletedStep(completedSteps, 3);
@@ -297,7 +302,7 @@ export default function DevotionalPage() {
 
       const practicalAction = savedJourney.practicalAction === 'Escolher uma atitude concreta para viver esta Palavra hoje.'
         ? ''
-        : savedJourney.practicalAction || '';
+        : asDisplayString(savedJourney.practicalAction);
 
       const restoredJourney: DevotionalJourneyState = {
         ...savedJourney,
@@ -323,7 +328,11 @@ export default function DevotionalPage() {
         if (error instanceof DailyDevotionalError && error.code === 'DAILY_REFRESH_USED') {
           setRefreshAvailable(false);
         }
-        toast.error(error instanceof Error ? error.message : 'Não foi possível atualizar o Pão Diário.');
+        toast.error(
+          error instanceof Error && error.message && error.message !== '[object Object]'
+            ? error.message
+            : 'Não foi possível atualizar o Pão Diário.',
+        );
       } else {
         setDevotional(null);
         setJourney(null);
@@ -444,7 +453,7 @@ export default function DevotionalPage() {
         completedSteps: addCompletedStep(journey.completedSteps, 2),
         updatedAt: new Date().toISOString(),
       });
-      toast.success(userReflection.trim() ? 'Reflexão salva no Diário Espiritual.' : 'Etapa de reflexão concluída.');
+      toast.success(userReflection.trim() ? 'Reflexão salva no Meu Diário.' : 'Etapa de reflexão concluída.');
       return true;
     } finally {
       setIsSaving(false);
@@ -643,16 +652,14 @@ export default function DevotionalPage() {
   const activeStageDefinition = STAGES.find(({ step }) => step === activeStage) ?? STAGES[0];
   const previousStage = activeStage > 1 ? ((activeStage - 1) as DevotionalJourneyStep) : null;
   const isVerseFavorited = favoriteVerses.some((v) => v.verse === devotional.verse);
+  const reflectionSource = devotional.source === 'generated'
+    ? 'Reflexão gerada com apoio de IA'
+    : 'Reflexão editorial do Culto+';
 
   return (
     <main
       data-testid="pao-diario-page"
-      className={
-        'relative min-h-full overflow-x-clip px-4 py-6 text-[#332519] transition-colors duration-300 sm:px-6 lg:px-8 dark:text-[#e7e1d8] ' +
-        (dayNightMode === 'night'
-          ? 'bg-[radial-gradient(circle_at_top_right,_#1a1827_0%,_#13111c_48%,_#0b0a12_100%)]'
-          : 'bg-[radial-gradient(circle_at_top_right,_#fffdf8_0%,_#f7efe1_45%,_#eee4d3_100%)] dark:bg-[radial-gradient(circle_at_top_right,_#25221e_0%,_#1c1a17_48%,_#141311_100%)]')
-      }
+      className="relative min-h-full overflow-x-clip bg-[radial-gradient(circle_at_top_right,_#fffdf8_0%,_#f7efe1_45%,_#eee4d3_100%)] px-4 py-6 text-[#332519] transition-colors duration-300 sm:px-6 lg:px-8 dark:bg-[radial-gradient(circle_at_top_right,_#25221e_0%,_#1c1a17_48%,_#141311_100%)] dark:text-[#e7e1d8]"
     >
       <SEO title="Pão Diário" name="Culto+" image="/brand/culto-plus-logo.png" description="Leia, reflita, ore e pratique a Palavra todos os dias." />
 
@@ -668,12 +675,17 @@ export default function DevotionalPage() {
 
       {/* BARRA DE FERRAMENTAS & RECURSOS RÁPIDOS */}
       {!isFocusMode ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#eee4d5] bg-white/70 p-3 backdrop-blur dark:border-white/10 dark:bg-[#25221e]/70">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="mb-4 overflow-hidden rounded-2xl border border-[#eee4d5] bg-white/70 p-3 backdrop-blur dark:border-white/10 dark:bg-[#25221e]/70">
+          <div
+            role="list"
+            aria-label="Funcionalidades do Pão Diário"
+            className="flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-smooth pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
             <button
               type="button"
+              role="listitem"
               onClick={() => setIsCalendarModalOpen(true)}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#edad2c]/30 bg-white px-3.5 text-xs font-bold text-[#302316] shadow-sm hover:border-[#edad2c] dark:bg-[#2c2824] dark:text-[#fff7eb]"
+              className="inline-flex min-h-9 shrink-0 snap-start items-center gap-1.5 rounded-full border border-[#edad2c]/30 bg-white px-3.5 text-xs font-bold text-[#302316] shadow-sm hover:border-[#edad2c] dark:bg-[#2c2824] dark:text-[#fff7eb]"
             >
               <CalendarDays size={14} className="text-[#edad2c]" />
               <span>Calendário</span>
@@ -681,17 +693,19 @@ export default function DevotionalPage() {
 
             <button
               type="button"
+              role="listitem"
               onClick={() => setIsHistoryModalOpen(true)}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#edad2c]/30 bg-white px-3.5 text-xs font-bold text-[#302316] shadow-sm hover:border-[#edad2c] dark:bg-[#2c2824] dark:text-[#fff7eb]"
+              className="inline-flex min-h-9 shrink-0 snap-start items-center gap-1.5 rounded-full border border-[#edad2c]/30 bg-white px-3.5 text-xs font-bold text-[#302316] shadow-sm hover:border-[#edad2c] dark:bg-[#2c2824] dark:text-[#fff7eb]"
             >
               <BookOpen size={14} className="text-[#edad2c]" />
-              <span>Meu Diário Espiritual</span>
+              <span>Meu Diário</span>
             </button>
 
             <button
               type="button"
+              role="listitem"
               onClick={() => setIsTracksModalOpen(true)}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#edad2c]/30 bg-white px-3.5 text-xs font-bold text-[#302316] shadow-sm hover:border-[#edad2c] dark:bg-[#2c2824] dark:text-[#fff7eb]"
+              className="inline-flex min-h-9 shrink-0 snap-start items-center gap-1.5 rounded-full border border-[#edad2c]/30 bg-white px-3.5 text-xs font-bold text-[#302316] shadow-sm hover:border-[#edad2c] dark:bg-[#2c2824] dark:text-[#fff7eb]"
             >
               <Compass size={14} className="text-[#edad2c]" />
               <span>Trilhas</span>
@@ -699,31 +713,12 @@ export default function DevotionalPage() {
 
             <button
               type="button"
+              role="listitem"
               onClick={() => setIsHeartModalOpen(true)}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#edad2c]/30 bg-[#edad2c]/10 px-3.5 text-xs font-bold text-[#edad2c] hover:bg-[#edad2c]/20"
+              className="inline-flex min-h-9 shrink-0 snap-start items-center gap-1.5 rounded-full border border-[#edad2c]/30 bg-[#edad2c]/10 px-3.5 text-xs font-bold text-[#edad2c] hover:bg-[#edad2c]/20"
             >
               <HeartHandshake size={14} />
               <span>{heartState ? `Coração: ${heartState.label}` : 'Como está seu coração?'}</span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setDayNightMode(dayNightMode === 'morning' ? 'night' : 'morning')}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#ded5c7] bg-white px-3.5 text-xs font-bold text-[#302316] shadow-sm dark:border-white/10 dark:bg-[#2c2824] dark:text-[#fff7eb]"
-            >
-              {dayNightMode === 'morning' ? (
-                <>
-                  <Sun size={14} className="text-[#edad2c]" />
-                  <span>Modo Manhã</span>
-                </>
-              ) : (
-                <>
-                  <Moon size={14} className="text-purple-400" />
-                  <span>Modo Noite</span>
-                </>
-              )}
             </button>
           </div>
         </div>
@@ -747,17 +742,6 @@ export default function DevotionalPage() {
       ) : null}
 
       {/* Botão para abrir Gaveta de Etapas no Mobile */}
-      <div className="mt-4 flex items-center justify-between lg:hidden">
-        <button
-          type="button"
-          onClick={() => setIsMobileDrawerOpen(true)}
-          className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#edad2c]/40 bg-white px-4 text-xs font-bold text-[#302316] shadow-sm dark:bg-[#25221e] dark:text-[#fff7eb]"
-        >
-          <PanelRight size={15} className="text-[#edad2c]" />
-          <span>Ver etapas & progresso ({progress}%)</span>
-        </button>
-      </div>
-
       {/* 2. ESTRUTURA DE 2 LINHAS HORIZONTAIS COM ALINHAMENTO PIXEL-PERFECT (items-stretch na linha 1) */}
       <div className="mt-6 space-y-6">
         {/* LINHA 1: VERSÍCULO DO DIA (ESQUERDA) + SEU PROGRESSO E COMPROMISSO (DIREITA) */}
@@ -800,14 +784,14 @@ export default function DevotionalPage() {
             className="space-y-6"
           >
             {/* PAINEL DE LEITURA & DA ETAPA ATIVA */}
-            <div data-testid="devotional-study-reader" className="overflow-hidden rounded-[24px] border border-[#e5dcd0] bg-white/95 p-6 shadow-sm dark:border-white/10 dark:bg-[#23211f]/95">
+            <div data-testid="devotional-study-reader" className="overflow-hidden rounded-[24px] border border-[#e5dcd0] bg-white/95 p-4 shadow-sm dark:border-white/10 dark:bg-[#23211f]/95 sm:p-6">
               {/* Barra de topo da etapa */}
-              <div className="flex flex-col gap-3 border-b border-[#eae1d4] pb-4 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
-                <div>
+              <div className="flex items-center justify-between gap-2 border-b border-[#eae1d4] pb-3 sm:gap-3 sm:pb-4 dark:border-white/10">
+                <div className="min-w-0 flex-1">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#edad2c]">
                     Etapa {activeStage} de 5 · {activeStageDefinition.label}
                   </p>
-                  <div className="mt-2 h-1.5 w-48 overflow-hidden rounded-full bg-[#eae1d4] dark:bg-white/10">
+                  <div className="mt-2 h-1.5 w-48 max-w-full overflow-hidden rounded-full bg-[#eae1d4] dark:bg-white/10">
                     <span
                       className="block h-full rounded-full bg-[#edad2c] transition-all duration-500"
                       style={{ width: `${progress}%` }}
@@ -816,7 +800,8 @@ export default function DevotionalPage() {
                 </div>
 
                 {/* Controles de tamanho de texto e foco */}
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2">
+                  <button type="button" onClick={() => activeStage > 1 && goToStage((activeStage - 1) as DevotionalJourneyStep, false)} disabled={activeStage === 1} aria-label="Etapa anterior" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#ded5c7] text-[#736353] transition hover:border-[#edad2c] hover:text-[#edad2c] disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/10 dark:text-[#a89988]"><ArrowLeft size={15} /></button>
                   <div className="flex items-center rounded-full border border-[#ded5c7] p-1 dark:border-white/10" role="group" aria-label="Tamanho do texto">
                     {(
                       [
@@ -837,7 +822,7 @@ export default function DevotionalPage() {
                         aria-label={ariaLabel}
                         aria-pressed={fontScale === scale}
                         className={
-                          'flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs font-bold transition ' +
+                          'flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-[11px] font-bold transition sm:h-8 sm:min-w-8 sm:px-2 sm:text-xs ' +
                           (fontScale === scale
                             ? 'bg-[#edad2c] text-white'
                             : 'text-[#736353] hover:text-[#302316] dark:text-[#a89988] dark:hover:text-[#fff7eb]')
@@ -858,6 +843,7 @@ export default function DevotionalPage() {
                       <span className="hidden sm:inline">Modo sem interrupções</span>
                     </button>
                   ) : null}
+                  <button type="button" onClick={() => activeStage < 5 && goToStage((activeStage + 1) as DevotionalJourneyStep, false)} disabled={activeStage === 5} aria-label="Próxima etapa" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#edad2c] text-white shadow-sm transition hover:bg-[#d99c22] disabled:cursor-not-allowed disabled:opacity-35"><ArrowRight size={15} /></button>
                 </div>
               </div>
 
@@ -882,7 +868,7 @@ export default function DevotionalPage() {
                             <h2 className="font-serif text-xl font-semibold text-[#302316] dark:text-[#fff7eb]">Reflexão</h2>
                           </div>
                         </div>
-                        <p className="mt-2 text-xs leading-relaxed text-[#736353] dark:text-[#a89988]">Reflita sobre a passagem de hoje e permita que Deus fale ao seu coração.</p>
+                        <p className="mt-2 text-xs leading-relaxed text-[#736353] dark:text-[#a89988]">{reflectionSource}. Ela auxilia a leitura, mas não substitui o texto bíblico em seu contexto.</p>
 
                         <div data-testid="devotional-central-text" className={'mx-auto mt-4 space-y-4 text-[#4a3928] dark:text-[#ebdccb] ' + FONT_SCALE_CLASSES[fontScale]}>
                           {splitDevotionalParagraphs(devotional.text).map((paragraph, index) => (
@@ -915,7 +901,7 @@ export default function DevotionalPage() {
                                 return (
                                   <li key={verse.number} data-testid={isFocusVerse ? "devotional-focus-verse" : undefined} aria-current={isFocusVerse ? "location" : undefined} className={'grid grid-cols-[26px_1fr] gap-2 rounded-xl px-3 py-2 text-xs leading-relaxed ' + (isFocusVerse ? 'bg-[#edad2c]/15 font-semibold text-[#302316] dark:text-[#fff7eb]' : 'text-[#6e5d4e] dark:text-[#b0a191]')}>
                                     <span className="font-bold text-[#edad2c]">{verse.number}</span>
-                                    <span>{verse.text}</span>
+                                    <span>{asDisplayString(verse.text)}</span>
                                   </li>
                                 );
                               })}
@@ -1121,19 +1107,6 @@ export default function DevotionalPage() {
       </div>
 
       {/* GAVETA MOBILE COM OS 3 CARDS */}
-      <DevotionalMobileDrawer
-        isOpen={isMobileDrawerOpen}
-        onClose={() => setIsMobileDrawerOpen(false)}
-        currentStreak={7}
-        bestStreak={21}
-        activeStage={activeStage}
-        completedSteps={journey.completedSteps}
-        progress={progress}
-        practicalAction={journey.practicalAction}
-        onSelectStage={(step) => goToStage(step, false)}
-        onRegisterCommitment={() => goToStage(4)}
-      />
-
       {/* BOTÃO FLUTUANTE FIXO NO CANTO INFERIOR DIREITO (#edad2c) */}
       <FloatingContinueButton
         onContinue={() => {
@@ -1144,7 +1117,7 @@ export default function DevotionalPage() {
           else if (activeStage === 5 && !journey.completedAt) void handleCompleteJourney();
           else goToStage(1, false);
         }}
-        label={journey.completedAt ? 'Revisitar Palavra' : activeStage === 5 ? 'Concluir estudo' : 'Concluir leitura e continuar'}
+        label={journey.completedAt ? 'Revisitar Palavra' : activeStage === 5 ? 'Concluir leitura' : 'Continuar'}
         isCompleted={Boolean(journey.completedAt)}
       />
 

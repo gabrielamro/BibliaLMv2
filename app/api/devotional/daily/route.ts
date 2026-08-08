@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { DAILY_BREAD } from '../../../../constants';
-import { generateDailyDevotional } from '../../../../services/pastorAgent';
+import { generateDevotionalWithAudit } from '../../../../services/pastorAgent';
 import { normalizeVerseReference } from '../../../../services/devotionalResolverCore';
 
 export const dynamic = 'force-dynamic';
@@ -105,9 +105,16 @@ const generateUniqueContent = async (
 ) => {
   const excluded = new Set(excludedReferences.map(normalizeVerseReference));
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const generated = normalizeDraft(await generateDailyDevotional(true, 'gemini', {
+    const result = await generateDevotionalWithAudit(true, true, {
       excludedVerseReferences: Array.from(excludedReferences),
-    }));
+    });
+    if (!result.audit?.approved) {
+      console.warn('Generated devotional was not approved by the pastoral audit.', {
+        issues: result.audit?.issues ?? [],
+      });
+      continue;
+    }
+    const generated = normalizeDraft(result.data);
     if (!generated || excluded.has(normalizeVerseReference(generated.verseReference))) continue;
     return persistContent(admin, generated, 'ai', date);
   }

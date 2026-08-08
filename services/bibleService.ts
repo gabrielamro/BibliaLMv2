@@ -2,7 +2,7 @@
 import { BIBLE_BOOKS_LIST, BIBLE_DATA } from "../constants";
 import { getBibleChapter as fetchFromAI } from "./pastorAgent";
 import { dbService, supabase } from "./supabase";
-import { Chapter } from "../types";
+import { Chapter, Verse } from "../types";
 import { searchMatch, normalizeText } from "../utils/textUtils";
 
 function resolveBibleBook(bookPartRaw: string) {
@@ -26,6 +26,34 @@ function resolveBibleBook(bookPartRaw: string) {
     // 3) Fallback: prefix match (abreviações)
     return BIBLE_BOOKS_LIST.find(b => searchMatch(bookPart, b.name, b.id)) || null;
 }
+
+const normalizeReferenceSeparators = (reference: string) => reference.replace(/[–—]/g, '-');
+
+const loadBundledVerse = async (
+    bookId: string,
+    chapter: number,
+    startVerse: number,
+    endVerse: number,
+): Promise<Verse[] | null> => {
+    if (typeof window === 'undefined') return null;
+
+    try {
+        const params = new URLSearchParams({
+            bookId,
+            chapter: String(chapter),
+            start: String(startVerse),
+            end: String(endVerse),
+            radius: '0',
+        });
+        const response = await fetch(`/api/bible/context?${params.toString()}`);
+        if (!response.ok) return null;
+        const payload = await response.json() as { verses?: Verse[] };
+        return Array.isArray(payload.verses) && payload.verses.length > 0 ? payload.verses : null;
+    } catch (error) {
+        console.warn('Biblia local indisponivel para a pesquisa:', error);
+        return null;
+    }
+};
 
 export const bibleService = {
     /**
@@ -78,6 +106,8 @@ export const bibleService = {
         }
 
         // 4. API IA (Gemini) — Única fonte para versões alternativas
+        if (version === 'ara') return null;
+
         try {
             const data = await fetchFromAI(bookMeta.name, chapterNum, version);
             if (data) {
@@ -101,7 +131,7 @@ export const bibleService = {
      */
     async getVerseText(ref: string, version: string = 'ara'): Promise<{ text: string, formattedRef: string } | null> {
         // Regex flexível para capturar "Livro Cap:Ver" ou "1 Livro Cap.Ver" ou "Livro Cap Ver"
-        const match = ref.trim().match(/^([1-3]?\s?[a-zà-ú\ç\ã\õ\s]+)\s+(\d+)[:\.;\s](\d+)$/i);
+        const match = normalizeReferenceSeparators(ref.trim()).match(/^([1-3]?\s?[a-zà-ú\ç\ã\õ\s]+)\s+(\d+)[:\.;\s](\d+)$/i);
 
         if (!match) return null;
 
@@ -148,8 +178,9 @@ export const bibleService = {
         bookName: string;
     } | null {
         // Regex para: Livro Capitulo (VersoInicial (- VersoFinal)?)?
+        const normalizedInput = normalizeReferenceSeparators(input.trim());
         const regex = /^([1-3]?\s?[a-zà-ú\ç\ã\õ\s]+)\s+(\d+)(?:[:\.\s](\d+)(?:[-,\s](\d+))?)?$/i;
-        const match = input.trim().match(regex);
+        const match = normalizedInput.match(regex);
 
         if (!match) return null;
 
@@ -186,6 +217,31 @@ export const bibleService = {
         const parsed = this.parseReference(ref);
         if (!parsed) return null;
 
+        const normalizedRef = normalizeReferenceSeparators(ref);
+        const hasExplicitVerse = normalizedRef.includes(':') || normalizedRef.match(/\d\s\d/);
+
+        // A Biblia completa ja faz parte do app. Para versiculos pontuais, ela evita
+        // depender da IA quando o capitulo ainda nao esta no cache offline reduzido.
+        if (hasExplicitVerse) {
+            const bundledVerses = await loadBundledVerse(
+                parsed.bookId,
+                parsed.chapter,
+                parsed.startVerse,
+                parsed.endVerse ?? parsed.startVerse,
+            );
+            if (bundledVerses) {
+                return {
+                    text: bundledVerses.map((verse) => bundledVerses.length > 1 ? `[${verse.number}] ${verse.text}` : verse.text).join(' '),
+                    formattedRef: parsed.formatted,
+                    meta: {
+                        bookId: parsed.bookId,
+                        chapter: parsed.chapter,
+                        verses: bundledVerses.map((verse) => verse.number),
+                    },
+                };
+            }
+        }
+
         try {
             const chapterData = await this.getChapter(parsed.bookId, parsed.chapter, version);
             if (!chapterData || !chapterData.verses) return null;
@@ -193,7 +249,7 @@ export const bibleService = {
             let selectedVerses = chapterData.verses;
 
             // Se usuário especificou versículos
-            if (ref.includes(':') || ref.match(/\d\s\d/)) {
+            if (hasExplicitVerse) {
                 if (parsed.endVerse) {
                     // Intervalo
                     const minV = Math.min(parsed.startVerse, parsed.endVerse);

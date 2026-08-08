@@ -1,7 +1,7 @@
 # 📖 Culto+ - Product Context & Business Rules
 
 > **AI INSTRUCTION:** This file contains the "Soul" of the application. Refer to this for logic, gamification rules, and terminology.
-> **VERSION:** v2.10.5 (Trilhas em cards com estudo guiado em modal)
+> **VERSION:** v2.10.9 (Minhas Escalas separada e modalidade do culto)
 
 ## 1. Product Vision
 Culto+ is one church-centered platform connecting personal Bible study, spiritual growth, community, services, volunteering, pastoral care and church management. `https://cultomais.vercel.app` is the canonical public origin. Legacy BibliaLM names and hosts are accepted only at compatibility boundaries; no active or newly generated product surface may present them as the primary brand or public URL.
@@ -80,7 +80,7 @@ Culto+ is one church-centered platform connecting personal Bible study, spiritua
 *   **Explore:** OmniSearch for finding Users, Churches, or Bible content.
 
 ### 3.4. Estúdio Criativo
-*   Generates "Sacred Art" (DALL-E/Imagen style via Gemini) from verses.
+*   Generates "Sacred Art" from verses through Cloudflare Workers AI FLUX; Gemini is only the server-side contingency provider.
 *   Generates "AI Podcasts" (Dialogues between two hosts).
 
 ### 3.5. Workspace Pastoral
@@ -123,3 +123,4 @@ Culto+ is one church-centered platform connecting personal Bible study, spiritua
 *   **Wipe:** Admin capability to hard-delete all Firestore UGC (User Generated Content).
 *   **Moderation:** Reporting system for toxic content.
 *   **Quotas:** `checkFeatureAccess` must wrap ALL AI calls to prevent abuse/billing spikes.
+*   **Workers AI:** é o provedor principal de texto e imagens. Chat usa `/api/ai/chat`, demais gerações textuais usam `/api/ai/generate` e imagens usam `/api/ai/image`; credenciais permanecem exclusivamente server-side e as rotas validam autenticação, capability e, quando aplicável, cota diária.

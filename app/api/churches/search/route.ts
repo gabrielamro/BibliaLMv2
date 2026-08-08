@@ -5,6 +5,8 @@ import {
   filterChurchesByRequestedLocation,
   normalizeGooglePlaceChurch,
   normalizeNominatimChurch,
+  resolveChurchSearchGoogleApiKey,
+  validateChurchSearchRequest,
 } from '../../../../utils/churchSearch';
 
 export const dynamic = 'force-dynamic';
@@ -12,13 +14,10 @@ export const dynamic = 'force-dynamic';
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 const GOOGLE_PLACES_URL = 'https://places.googleapis.com/v1/places:searchText';
 const PAGE_SIZE = 10;
+const SEARCH_CACHE_CONTROL = 'public, s-maxage=300, stale-while-revalidate=600';
 
-const getGooglePlacesKey = () =>
-  process.env.GOOGLE_PLACES_API_KEY ||
-  process.env.GOOGLE_MAPS_API_KEY ||
-  process.env.NEXT_PRIVATE_GOOGLE_PLACES_API_KEY ||
-  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
-  '';
+const jsonSearchResponse = (body: unknown) =>
+  NextResponse.json(body, { headers: { 'Cache-Control': SEARCH_CACHE_CONTROL } });
 
 const searchGooglePlaces = async ({
   query,
@@ -29,7 +28,7 @@ const searchGooglePlaces = async ({
   pageToken?: string;
   requestedLocation: { city: string; state: string };
 }) => {
-  const apiKey = getGooglePlacesKey();
+  const apiKey = resolveChurchSearchGoogleApiKey(process.env);
   if (!apiKey) return null;
 
   const body: Record<string, any> = {
@@ -62,8 +61,7 @@ const searchGooglePlaces = async ({
   });
 
   if (!response.ok) {
-    const detail = await response.text().catch(() => '');
-    console.error('[church-search] Google Places error:', response.status, detail);
+    console.error('[church-search] Google Places error:', response.status);
     return null;
   }
 
@@ -112,30 +110,36 @@ const searchNominatim = async (query: string, requestedLocation: { city: string;
     attribution: 'Data (c) OpenStreetMap contributors, ODbL 1.0',
     nextPageToken: null,
     results: filterChurchesByRequestedLocation(results, requestedLocation),
-    warning: getGooglePlacesKey() ? null : 'google_places_key_missing',
+    warning: resolveChurchSearchGoogleApiKey(process.env) ? null : 'google_places_key_missing',
   };
 };
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const term = searchParams.get('term') || '';
-  const city = searchParams.get('city') || '';
-  const state = searchParams.get('state') || '';
-  const pageToken = searchParams.get('pageToken') || '';
+  const input = validateChurchSearchRequest({
+    term: searchParams.get('term') || '',
+    city: searchParams.get('city') || '',
+    state: searchParams.get('state') || '',
+    pageToken: searchParams.get('pageToken') || '',
+  });
+  if (!input) {
+    return NextResponse.json({ error: 'Invalid search input' }, { status: 400 });
+  }
+  const { term, city, state, pageToken } = input;
 
   if (!term.trim() && !city.trim()) {
-    return NextResponse.json({ results: [] });
+    return jsonSearchResponse({ results: [] });
   }
 
   const query = buildChurchSearchQuery({ term, city, state });
 
   try {
     const googleResults = await searchGooglePlaces({ query, pageToken, requestedLocation: { city, state } });
-    if (googleResults) return NextResponse.json(googleResults);
+    if (googleResults) return jsonSearchResponse(googleResults);
 
-    return NextResponse.json(await searchNominatim(query, { city, state }));
-  } catch (error) {
-    console.error('[church-search] external provider error:', error);
+    return jsonSearchResponse(await searchNominatim(query, { city, state }));
+  } catch {
+    console.error('[church-search] external provider request failed');
     return NextResponse.json({ results: [], error: 'search_unavailable' }, { status: 500 });
   }
 }

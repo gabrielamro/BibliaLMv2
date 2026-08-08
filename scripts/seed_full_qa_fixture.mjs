@@ -744,8 +744,8 @@ async function seedFormsAndInbox() {
   })));
 
   await upsert('notifications', [
-    { id: uuid('1c', 1), user_id: people.member.id, title: '[QA] Candidatura recebida', message: 'A liderança recebeu sua solicitação.', type: 'info', link: '/meus-cultos#solicitacoes', read: false, timestamp: isoDays(-1) },
-    { id: uuid('1c', 2), user_id: people.leader.id, title: '[QA] Escala pendente', message: 'Confirme sua participação no próximo culto.', type: 'warning', link: '/meus-cultos#escalas', read: false, timestamp: isoDays(-1) },
+    { id: uuid('1c', 1), user_id: people.member.id, title: '[QA] Candidatura recebida', message: 'A liderança recebeu sua solicitação.', type: 'info', link: '/minhas-escalas#solicitacoes', read: false, timestamp: isoDays(-1) },
+    { id: uuid('1c', 2), user_id: people.leader.id, title: '[QA] Escala pendente', message: 'Confirme sua participação no próximo culto.', type: 'warning', link: '/minhas-escalas', read: false, timestamp: isoDays(-1) },
     { id: uuid('1c', 3), user_id: people.manager.id, title: '[QA] Inbox operacional', message: 'Existem itens para aprovação.', type: 'action', link: '/gestao-igreja/inbox', read: true, timestamp: isoDays(-2) },
   ]);
 }

@@ -1,6 +1,7 @@
 import { DAILY_BREAD } from '../constants';
 import { dbService, supabase } from './supabase';
 import type { ResolvedDevotionalCandidate } from './devotionalResolverCore';
+import { toDevotionalErrorMessage, toErrorCode } from './devotionalErrorMessage';
 
 interface ResolveUserDailyDevotionalInput {
   userId?: string | null;
@@ -19,6 +20,8 @@ export class DailyDevotionalError extends Error {
   }
 }
 
+export { toDevotionalErrorMessage, toErrorCode } from './devotionalErrorMessage';
+
 const getManausDate = () => new Intl.DateTimeFormat('en-CA', {
   timeZone: 'America/Manaus',
   year: 'numeric',
@@ -27,6 +30,23 @@ const getManausDate = () => new Intl.DateTimeFormat('en-CA', {
 }).format(new Date());
 
 const toDateId = (value?: string | null) => (value || getManausDate()).replace(/\//g, '-');
+
+const asDailyDevotionalError = (error: unknown, fallbackStatus = 500): DailyDevotionalError => {
+  if (error instanceof DailyDevotionalError) return error;
+  if (error instanceof Error) {
+    return new DailyDevotionalError(toDevotionalErrorMessage(error), fallbackStatus);
+  }
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, unknown>;
+    const status = typeof record.status === 'number' ? record.status : fallbackStatus;
+    return new DailyDevotionalError(
+      toDevotionalErrorMessage(error),
+      status,
+      toErrorCode(record.code ?? record),
+    );
+  }
+  return new DailyDevotionalError(toDevotionalErrorMessage(error), fallbackStatus);
+};
 
 export const normalizeDevotionalCandidate = (data: any, fallbackDate?: string): ResolvedDevotionalCandidate | null => {
   if (!data) return null;
@@ -76,9 +96,9 @@ const loadFromServer = async (forceNew: boolean) => {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new DailyDevotionalError(
-      payload?.error || 'Não foi possível carregar o Pão Diário.',
+      toDevotionalErrorMessage(payload?.error, 'Não foi possível carregar o Pão Diário.'),
       response.status,
-      payload?.code,
+      toErrorCode(payload?.code ?? payload?.error),
     );
   }
   return normalizeDevotionalCandidate(payload);
@@ -90,7 +110,7 @@ const loadReadOnlyFallback = async () => {
     const legacy = normalizeDevotionalCandidate(await dbService.getDailyDevotional(), date);
     if (legacy) return { ...legacy, refreshAvailable: false };
   } catch (error) {
-    console.warn('Daily devotional read-only fallback failed:', error);
+    console.warn('Daily devotional read-only fallback failed:', toDevotionalErrorMessage(error));
   }
   return normalizeDevotionalCandidate({
     ...DAILY_BREAD,
@@ -107,8 +127,13 @@ export const resolveUserDailyDevotional = async ({ forceNew = false }: ResolveUs
     if (resolved) return resolved;
     throw new DailyDevotionalError('O conteúdo recebido está incompleto.', 502);
   } catch (error) {
-    if (forceNew) throw error;
-    console.warn('Daily devotional API unavailable; using read-only fallback:', error);
+    const normalized = asDailyDevotionalError(error);
+    if (forceNew) throw normalized;
+    console.warn(
+      'Daily devotional API unavailable; using read-only fallback:',
+      normalized.message,
+      normalized.code ? `(${normalized.code})` : '',
+    );
     return loadReadOnlyFallback();
   }
 };

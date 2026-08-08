@@ -96,7 +96,7 @@ export function DevotionalTopCards({
           Meu compromisso de hoje
         </h3>
         <p className="mt-1.5 text-xs leading-relaxed text-[#7a6b5c] dark:text-[#b0a191]">
-          {practicalAction.trim()
+          {typeof practicalAction === 'string' && practicalAction.trim()
             ? `“${practicalAction}”`
             : '“Escolher uma atitude concreta para viver esta Palavra hoje.”'}
         </p>

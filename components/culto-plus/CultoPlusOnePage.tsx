@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, Clock, Copy, Crown, Download, Edit3, Eye, Gift, HandHeart, Heart, Loader2, MessageSquarePlus, NotebookPen, PlayCircle, QrCode, Radio, Save, Send, Share2, Sparkles, UserPlus, Users, X } from 'lucide-react';
+import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, Clock, Copy, Crown, Download, Edit3, Eye, Gift, Globe, HandHeart, Heart, Loader2, MapPin, MessageSquarePlus, NotebookPen, PlayCircle, QrCode, Radio, Save, Send, Share2, Sparkles, UserPlus, Users, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHeader } from '../../contexts/HeaderContext';
 import { cultoPlusService } from '../../services/cultoPlusService';
@@ -12,6 +12,7 @@ import CultoLiveTimeline from './CultoLiveTimeline';
 import CultoPlusTopActions from './CultoPlusTopActions';
 import { ChurchService, Post, ServiceAdvancedAnalytics, ServiceAiContent, ServiceAiContentKind, ServiceCheckin, ServiceLiturgyComment, ServiceLiturgyKind, ServiceLiveState, ServiceNote, ServicePrayerRequest, ServicePrayerTimelineEvent, ServiceReactionBurst, ServiceReactionSummary, ServiceReactionType, ServiceScheduleAssignment, ServiceScheduleStatus } from '../../types';
 import { buildServiceCalendarEvent, getLiveStatusLabel, getNextServiceMomentDistanceLabel, getOfferingItem, getServiceCounterParts } from '../../utils/cultoPlusOnePage';
+import { SERVICE_MODALITY_META, getServiceModality, getServiceParticipationLabel } from '../../utils/serviceModality';
 import { getCurrentLiturgyMoment, getExperienceMoments, getNextLiturgyMoment, resolveServiceStreamStatus, resolveWorshipExperienceMode } from '../../utils/cultoPlusExperience';
 import { consumePendingCultoReaction, storePendingCultoReaction } from '../../utils/authIntent';
 import { storeActiveCultoSession } from '../../utils/activeCultoSession';
@@ -507,6 +508,7 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
     { label: 'Versículos', value: `${verseSavesCount}`, icon: <BookOpen size={16} /> },
   ];
   const liveEmbedUrl = useMemo(() => getYouTubeEmbedUrl(service?.liveUrl), [service?.liveUrl]);
+  const serviceModality = useMemo(() => getServiceModality(service), [service]);
   const liveProgressPercent = useMemo(() => service ? getServiceLiveProgressPercent(service, nowDate) : 0, [service, nowDate]);
   const currentMomentKindLabel = currentStep ? SERVICE_MOMENT_KIND_LABELS[currentStep.kind] : 'Culto';
   const currentMomentTitle = liveState?.currentTitle || currentStep?.title || service?.title || 'Culto publicado';
@@ -1091,6 +1093,13 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                   <Eye size={17} />
                   Culto público
                 </span>
+                <span className="hidden h-4 w-px bg-white/25 sm:inline-block" />
+                <span className="inline-flex min-w-0 items-center gap-2" title={SERVICE_MODALITY_META[serviceModality].description}>
+                  {serviceModality === 'online' ? <Radio size={17} /> : serviceModality === 'hibrido' ? <Globe size={17} /> : <MapPin size={17} />}
+                  <span className="truncate">
+                    {SERVICE_MODALITY_META[serviceModality].badgeLabel} · {getServiceParticipationLabel(service)}
+                  </span>
+                </span>
               </div>
 
               {(canOpenSchedule || canManageService) && (
@@ -1408,17 +1417,26 @@ const CultoPlusOnePage: React.FC<CultoPlusOnePageProps> = ({ serviceSlug }) => {
                   <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Minha escala</p>
                   <h2 className="mt-1 text-lg font-black text-gray-900 dark:text-white">Voce esta escalado neste culto</h2>
                 </div>
-                {canOpenSchedule && (
-                  <button
-                    type="button"
-                    onClick={() => setIsScheduleModalOpen(true)}
-                    title="Abrir a escala completa deste culto."
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-4 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-300"
+                <div className="flex flex-wrap gap-2">
+                  {canOpenSchedule && (
+                    <button
+                      type="button"
+                      onClick={() => setIsScheduleModalOpen(true)}
+                      title="Abrir a escala completa deste culto."
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-4 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-300"
+                    >
+                      <Users size={14} />
+                      Ver escala do culto
+                    </button>
+                  )}
+                  <Link
+                    href="/minhas-escalas"
+                    title="Abrir a página com todas as suas escalas."
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-emerald-200 px-4 text-[10px] font-black uppercase tracking-widest text-emerald-700 transition hover:bg-emerald-50 dark:border-emerald-900/50 dark:text-emerald-300 dark:hover:bg-emerald-950/20"
                   >
-                    <Users size={14} />
-                    Ver escala
-                  </button>
-                )}
+                    Minhas escalas
+                  </Link>
+                </div>
               </div>
 
               <div className="grid gap-3">

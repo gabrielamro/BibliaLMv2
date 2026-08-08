@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, Check, Download, LayoutGrid, Loader2, Send, Smartphone, Sparkles } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Download, LayoutGrid, Loader2, Search, Send, Smartphone, Sparkles } from 'lucide-react';
 
 import SEO from '../../components/SEO';
 import CultoPlusPageShell from '../../components/CultoPlusPageShell';
@@ -81,7 +81,6 @@ export default function CriarArteSacraPage() {
   const {
     currentUser,
     checkFeatureAccess,
-    incrementUsage,
     openLogin,
     openSubscription,
     recordActivity,
@@ -98,6 +97,7 @@ export default function CriarArteSacraPage() {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [refInput, setRefInput] = useState(state.verseRef || '');
+  const [verseSearchVersion, setVerseSearchVersion] = useState(0);
   const [isSearchingVerse, setIsSearchingVerse] = useState(false);
   const [foundVerse, setFoundVerse] = useState<{ ref: string; text: string } | null>(
     state.verseText && state.verseRef ? { ref: state.verseRef, text: state.verseText } : null
@@ -180,8 +180,11 @@ export default function CriarArteSacraPage() {
     searchTimeoutRef.current = setTimeout(async () => {
       setIsSearchingVerse(true);
       try {
-        const result = await bibleService.getVerseText(ref);
-        if (!result) return;
+        const result = await bibleService.getTextByReference(ref);
+        if (!result) {
+          setFoundVerse(null);
+          return;
+        }
 
         setFoundVerse({ ref: result.formattedRef, text: result.text });
         setCustomPrompt((previous) => {
@@ -198,7 +201,7 @@ export default function CriarArteSacraPage() {
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
-  }, [refInput]);
+  }, [refInput, verseSearchVersion]);
 
   useEffect(() => {
     const updatePreview = async () => {
@@ -218,15 +221,20 @@ export default function CriarArteSacraPage() {
     return () => clearTimeout(timeout);
   }, [customPrompt, editOptions, foundVerse, rawGeneratedBase64]);
 
-  const handleGenerateIA = async () => {
+  const handleGenerateIA = async (verse = foundVerse) => {
     setIsGeneratingImg(true);
     try {
       const styleLabel =
         selectedStyle === 'custom'
           ? customPrompt
           : STYLES.find((style) => style.id === selectedStyle)?.label || 'Realista';
-      const contextText = foundVerse ? foundVerse.text : customPrompt;
-      const contextRef = foundVerse ? foundVerse.ref : refInput || 'Arte IA';
+      const contextText = verse ? verse.text : customPrompt.trim();
+      const contextRef = verse ? verse.ref : refInput || 'Arte IA';
+
+      if (!contextText) {
+        showNotification('Pesquise um versiculo ou descreva a arte que deseja criar.', 'info');
+        return;
+      }
 
       const result = await generateVerseImage(contextText, contextRef, styleLabel);
       if (!result?.data) {
@@ -238,7 +246,7 @@ export default function CriarArteSacraPage() {
       const raw = `data:${result.mimeType};base64,${cleanedData}`;
       setRawGeneratedBase64(raw);
 
-      if (!foundVerse) {
+      if (!verse) {
         setFoundVerse({ ref: contextRef, text: contextText });
       }
 
@@ -259,7 +267,6 @@ export default function CriarArteSacraPage() {
             metadata: { generatedAt: new Date().toISOString() },
           });
 
-          await incrementUsage('images');
           await recordActivity('create_image', `Arte gerada e salva no acervo: ${contextRef}`);
 
           const updatedUserGal = await dbService.getSacredArtGallery(currentUser.uid);
@@ -280,8 +287,33 @@ export default function CriarArteSacraPage() {
     }
   };
 
-  const handleCreateClick = () => {
-    if (!foundVerse && !refInput) {
+  const handleCreateClick = async () => {
+    if (isSearchingVerse) {
+      showNotification('Aguarde a pesquisa do versiculo terminar.', 'info');
+      return;
+    }
+
+    let verse = foundVerse;
+    if (!verse && refInput.trim()) {
+      setIsSearchingVerse(true);
+      try {
+        const result = await bibleService.getTextByReference(refInput);
+        if (!result) {
+          showNotification('Nao encontramos essa referencia. Confira o livro, capitulo e versiculo.', 'info');
+          return;
+        }
+        verse = { ref: result.formattedRef, text: result.text };
+        setFoundVerse(verse);
+      } catch (error) {
+        console.error('Erro ao pesquisar versiculo antes da geracao:', error);
+        showNotification('Nao foi possivel pesquisar o versiculo agora. Tente novamente.', 'error');
+        return;
+      } finally {
+        setIsSearchingVerse(false);
+      }
+    }
+
+    if (!verse && !customPrompt.trim()) {
       showNotification('Escolha um versículo ou referência bíblica!', 'info');
       return;
     }
@@ -297,7 +329,7 @@ export default function CriarArteSacraPage() {
       return;
     }
 
-    handleGenerateIA();
+    await handleGenerateIA(verse);
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -359,10 +391,11 @@ export default function CriarArteSacraPage() {
 
     setIsPostingToFeed(true);
     try {
+      const aspectRatio = editOptions.aspectRatio ?? 'feed';
       const blob = finalImg.startsWith('data:')
         ? await base64ToBlob(finalImg)
         : await fetch(finalImg).then((response) => response.blob());
-      const imageUrl = await uploadBlob(blob, `posts/${currentUser.uid}/${Date.now()}.webp`);
+      const imageUrl = await uploadBlob(blob, `posts/${currentUser.uid}/${aspectRatio}/${Date.now()}.webp`);
 
       const caption = foundVerse
         ? `📖 ${foundVerse.ref}\n\n"${foundVerse.text}"`
@@ -379,7 +412,14 @@ export default function CriarArteSacraPage() {
         content: caption,
         imageUrl,
         sourceType: 'sacred_art',
-        metadata: foundVerse ? { verseReference: foundVerse.ref } : {},
+        sourceId: `sacred_art:${aspectRatio}`,
+        metadata: {
+          ...(foundVerse ? { verseReference: foundVerse.ref } : {}),
+          aspectRatio,
+          imageAlt: foundVerse
+            ? `Arte sacra com ${foundVerse.ref}`
+            : 'Arte sacra criada no Culto+',
+        },
       });
 
       try {
@@ -540,8 +580,9 @@ export default function CriarArteSacraPage() {
           <div className="flex items-center gap-2">
             <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#d9d1c6] bg-white px-3 focus-within:border-[#0b5148] dark:border-white/10 dark:bg-white/5">
               <BookOpen size={16} className="shrink-0 text-[#0b5148]" />
-              <input type="text" value={refInput} onChange={(event) => setRefInput(event.target.value)} aria-label="Versículo ou referência" className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none" placeholder="Ex.: Filipenses 4:6–7" />
+              <input type="text" value={refInput} onChange={(event) => setRefInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); setVerseSearchVersion((version) => version + 1); } }} aria-label="Versículo ou referência" className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none" placeholder="Ex.: Filipenses 4:6–7" />
               {isSearchingVerse && <Loader2 size={15} className="animate-spin text-[#c5a059]" />}
+              <button type="button" onClick={() => setVerseSearchVersion((version) => version + 1)} disabled={isSearchingVerse} aria-label="Pesquisar versículo" title="Pesquisar versículo" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#0b5148] hover:bg-[#0b5148]/10 disabled:opacity-50"><Search size={16} /></button>
             </div>
             <button type="button" onClick={() => setActiveControlTab('ai')} aria-label="Criar com inteligência artificial" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#c5a059] text-[#17211f]"><Sparkles size={18} /></button>
           </div>
@@ -554,8 +595,9 @@ export default function CriarArteSacraPage() {
               <label htmlFor="sacred-art-verse" className="mt-2.5 block text-[8px] font-black uppercase tracking-[0.14em] text-gray-500">Versículo ou referência</label>
               <div className="mt-1.5 flex min-h-10 items-center gap-2 rounded-xl border border-[#d9d1c6] bg-white px-3 focus-within:border-[#0b5148] focus-within:ring-2 focus-within:ring-[#0b5148]/10 dark:border-white/10 dark:bg-white/5">
                 <BookOpen size={16} className="shrink-0 text-[#0b5148]" />
-                <input id="sacred-art-verse" type="text" value={refInput} onChange={(event) => setRefInput(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none" placeholder="Ex.: Filipenses 4:6–7" />
+                <input id="sacred-art-verse" type="text" value={refInput} onChange={(event) => setRefInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); setVerseSearchVersion((version) => version + 1); } }} className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none" placeholder="Ex.: Filipenses 4:6–7" />
                 {isSearchingVerse && <Loader2 size={15} className="animate-spin text-[#c5a059]" />}
+                <button type="button" onClick={() => setVerseSearchVersion((version) => version + 1)} disabled={isSearchingVerse} aria-label="Pesquisar versículo" title="Pesquisar versículo" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#0b5148] hover:bg-[#0b5148]/10 disabled:opacity-50"><Search size={16} /></button>
               </div>
               {foundVerse ? <div className="mt-2 rounded-xl border border-emerald-900/10 bg-[#eef7f2] p-2.5 dark:bg-emerald-950/20"><p className="line-clamp-2 font-serif text-[11px] leading-4 text-[#33473f] dark:text-emerald-50">“{foundVerse.text}”</p><strong className="mt-1.5 block text-[8px] uppercase tracking-[0.14em] text-[#0b5148]">{foundVerse.ref}</strong></div> : <p className="mt-2 text-[10px] leading-4 text-gray-500">Digite uma referência e encontre o texto automaticamente.</p>}
             </section>

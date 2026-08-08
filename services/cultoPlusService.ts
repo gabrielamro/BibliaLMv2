@@ -2,6 +2,7 @@ import { dbService, supabase } from './supabase';
 import { kingdomPublishingService } from './kingdomPublishingService';
 import {
   ChurchService,
+  ChurchServiceModality,
   ChurchServiceStatus,
   ChurchServiceType,
   ServiceAdvancedAnalytics,
@@ -29,6 +30,7 @@ import {
   UserProfile,
 } from '../types';
 import { generateSlug } from '../utils/textUtils';
+import { normalizeServiceModality, serviceMatchesModalityFilter, type ServiceModalityFilter } from '../utils/serviceModality';
 import { formatSupabaseError, getMissingColumnNameFromError, isMissingColumnError } from '../utils/supabaseErrors';
 import {
   getCurrentLiturgyMoment,
@@ -49,6 +51,7 @@ type CreateChurchServiceInput = {
   theme: string;
   preacherName: string;
   serviceType: ChurchServiceType;
+  modality?: ChurchServiceModality;
   startsAt: string;
   endsAt: string;
   keyVerseRef?: string;
@@ -85,6 +88,8 @@ type ChurchServiceRangeOptions = {
   includeDrafts?: boolean;
   status?: ChurchServiceStatus[];
   serviceTypes?: ChurchServiceType[];
+  /** Filtro de modalidade resolvido no cliente para continuar compatível com registros sem `modality`. */
+  modality?: ServiceModalityFilter;
   limit?: number;
 };
 
@@ -249,6 +254,7 @@ const mapService = (row: any): ChurchService => ({
   theme: row.theme ?? '',
   preacherName: row.preacher_name ?? '',
   serviceType: row.service_type ?? 'sunday',
+  modality: normalizeServiceModality(row.modality) ?? undefined,
   startsAt: row.starts_at,
   endsAt: row.ends_at,
   keyVerseRef: row.key_verse_ref ?? undefined,
@@ -274,6 +280,7 @@ const toServicePayload = (input: CreateChurchServiceInput, id: string, slug: str
   theme: input.theme,
   preacher_name: input.preacherName,
   service_type: input.serviceType,
+  modality: normalizeServiceModality(input.modality) ?? 'presencial',
   starts_at: input.startsAt,
   ends_at: input.endsAt,
   key_verse_ref: input.keyVerseRef ?? null,
@@ -842,7 +849,8 @@ export const cultoPlusService = {
               ? service.status !== 'archived'
               : service.status !== 'draft' && service.status !== 'archived';
           const typeAllowed = options.serviceTypes?.length ? options.serviceTypes.includes(service.serviceType) : true;
-          return serviceTime >= startTime && serviceTime <= endTime && statusAllowed && typeAllowed;
+          const modalityAllowed = options.modality ? serviceMatchesModalityFilter(service, options.modality) : true;
+          return serviceTime >= startTime && serviceTime <= endTime && statusAllowed && typeAllowed && modalityAllowed;
         })
         .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
         .slice(0, options.limit ?? Number.POSITIVE_INFINITY);
@@ -870,7 +878,10 @@ export const cultoPlusService = {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data ?? []).map(mapService);
+      const services = (data ?? []).map(mapService);
+      return options.modality
+        ? services.filter((service) => serviceMatchesModalityFilter(service, options.modality!))
+        : services;
     } catch (error) {
       if (!isMissingServiceSchema(error)) throw new Error(`Erro ao carregar calendario de cultos. ${formatSupabaseError(error)}`);
       return applyLocalFilters(getLocalServices(churchId));
@@ -992,6 +1003,7 @@ export const cultoPlusService = {
       theme: updates.theme,
       preacher_name: updates.preacherName,
       service_type: updates.serviceType,
+      modality: normalizeServiceModality(updates.modality) ?? undefined,
       starts_at: updates.startsAt,
       ends_at: updates.endsAt,
       key_verse_ref: updates.keyVerseRef,
@@ -1005,7 +1017,18 @@ export const cultoPlusService = {
     const cleaned = Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
 
     try {
-      const { error } = await supabase.from('church_services').update(cleaned).eq('id', serviceId);
+      // Bancos que ainda não receberam a migration de modalidade continuam aceitando o update.
+      let updatePayload: Record<string, any> = { ...cleaned };
+      let { error } = await supabase.from('church_services').update(updatePayload).eq('id', serviceId);
+
+      for (let attempt = 0; error && attempt < 4; attempt++) {
+        const missingColumn = getMissingColumnNameFromError(error);
+        if (!isMissingColumnError(error) || !missingColumn || !(missingColumn in updatePayload)) break;
+        delete updatePayload[missingColumn];
+        const retry = await supabase.from('church_services').update(updatePayload).eq('id', serviceId);
+        error = retry.error;
+      }
+
       if (error) throw error;
     } catch (error) {
       if (!isMissingServiceSchema(error)) throw new Error(`Erro ao atualizar culto. ${formatSupabaseError(error)}`);
@@ -1016,6 +1039,7 @@ export const cultoPlusService = {
         theme: updates.theme ?? service.theme,
         preacherName: updates.preacherName ?? service.preacherName,
         serviceType: updates.serviceType ?? service.serviceType,
+        modality: normalizeServiceModality(updates.modality) ?? service.modality,
         startsAt: updates.startsAt ?? service.startsAt,
         endsAt: updates.endsAt ?? service.endsAt,
         keyVerseRef: updates.keyVerseRef ?? service.keyVerseRef,

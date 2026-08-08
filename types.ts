@@ -497,6 +497,9 @@ export type ChurchServiceType =
   | 'communion'
   | 'other';
 
+/** Modalidade de participação do culto. Independente de `ChurchServiceType`, que é categoria litúrgica. */
+export type ChurchServiceModality = 'presencial' | 'online' | 'hibrido';
+
 export type ChurchServiceStatus = 'draft' | 'published' | 'checkin_open' | 'live' | 'in_progress' | 'finished' | 'archived';
 
 export type ServiceStreamStatus = 'not_configured' | 'upcoming' | 'live' | 'ended' | 'unavailable';
@@ -543,6 +546,8 @@ export interface ChurchService {
   theme: string;
   preacherName: string;
   serviceType: ChurchServiceType;
+  /** Ausente em registros antigos; resolva sempre com `getServiceModality` (utils/serviceModality.ts). */
+  modality?: ChurchServiceModality;
   startsAt: string;
   endsAt: string;
   keyVerseRef?: string;
@@ -1466,9 +1471,31 @@ export interface UserContentFavorite {
   createdAt?: string;
 }
 
+export interface UserTrackProgress {
+  userId: string | null;
+  trackId: string;
+  currentStepIndex: number;
+  completedStepNumbers: number[];
+  startedAt?: string;
+  updatedAt?: string;
+  completedAt?: string | null;
+}
+
+export interface TrackStepJournalEntry {
+  id?: string;
+  userId: string;
+  trackId: string;
+  trackTitle: string;
+  stepNumber: number;
+  stepTitle: string;
+  note: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface SpiritualTimelineItem {
   id: string;
-  type: 'devotional' | 'bible_reading' | 'service' | 'prayer' | 'commitment' | 'journal_note' | 'favorite' | 'saved_post';
+  type: 'devotional' | 'bible_reading' | 'service' | 'prayer' | 'commitment' | 'journal_note' | 'track_note' | 'favorite' | 'saved_post';
   title: string;
   subtitle?: string;
   dateStr: string;

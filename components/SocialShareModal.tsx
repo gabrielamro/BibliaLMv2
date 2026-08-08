@@ -100,7 +100,7 @@ const PreviewCard: React.FC<{
 };
 
 const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, verseText, verseReference }) => {
-  const { currentUser, recordActivity, checkFeatureAccess, incrementUsage, showNotification, openLogin, openSubscription } = useAuth();
+  const { currentUser, recordActivity, checkFeatureAccess, showNotification, openLogin, openSubscription } = useAuth();
   const navigate = useNavigate();
   
   const [activeTab, setActiveTab] = useState<'visual' | 'caption'>('visual');
@@ -166,7 +166,6 @@ const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, ve
             const composedBase64 = await composeImageWithText(rawBase64, displayText, verseReference);
             
             setImageData(composedBase64);
-            await incrementUsage('images');
             if (currentUser) {
                 await recordActivity('create_image', `Arte IA gerada para: ${verseReference}`);
             }

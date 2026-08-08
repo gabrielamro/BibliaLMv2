@@ -230,6 +230,15 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
     const feedReasonLabel = post.feedReason && !isOwner ? FEED_REASON_LABEL[post.feedReason] : '';
     const visibilityLabel = VISIBILITY_LABEL[post.visibility || 'public'] || 'Público';
     const scripture = getPostScripture(post);
+    const isSacredArt = post.sourceType === 'sacred_art';
+    const sacredArtAspectRatio = post.metadata?.aspectRatio === 'story'
+        || post.sourceId === 'sacred_art:story'
+        || postImage?.includes('/posts/') && postImage.includes('/story/')
+        ? 'story'
+        : 'feed';
+    const sacredArtMediaClass = sacredArtAspectRatio === 'story'
+        ? 'mx-auto aspect-[9/16] w-full max-w-[280px]'
+        : 'mx-auto aspect-square w-full max-w-[420px]';
 
     const renderContent = () => {
         if (post.type === 'devotional' && post.devotionalId && post.devotionalVerse && post.devotionalReference) {
@@ -310,10 +319,10 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, currentUser, o
 
         if (postImage) {
             return (
-                <div className="w-full bg-gray-50 dark:bg-black/20 mt-3 mb-2">
+                <div className={`mt-3 mb-2 bg-gray-50 dark:bg-black/20 ${isSacredArt ? sacredArtMediaClass : 'w-full'}`}>
                     <img 
                         src={postImage}
-                        className="w-full h-auto object-cover max-h-[75vh]" 
+                        className={isSacredArt ? 'h-full w-full object-cover' : 'h-auto w-full max-h-[75vh] object-cover'}
                         loading="lazy" 
                         alt={typeof post.metadata?.imageAlt === 'string' && post.metadata.imageAlt.trim() ? post.metadata.imageAlt : `Publicação de ${post.userDisplayName}`}
                     />

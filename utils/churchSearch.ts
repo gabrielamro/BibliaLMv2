@@ -8,6 +8,47 @@ export interface ChurchSearchInput {
   state?: string;
 }
 
+export interface ChurchSearchRequestInput extends ChurchSearchInput {
+  pageToken?: string;
+}
+
+export interface ValidChurchSearchRequest {
+  term: string;
+  city: string;
+  state: string;
+  pageToken: string;
+}
+
+const MAX_SEARCH_FIELD_LENGTH = 160;
+const MAX_PAGE_TOKEN_LENGTH = 2048;
+
+export const resolveChurchSearchGoogleApiKey = (
+  environment: Record<string, string | undefined>,
+) => environment.GOOGLE_PLACES_API_KEY || environment.GOOGLE_MAPS_API_KEY || '';
+
+const isSafeSearchValue = (value: string, maxLength: number) =>
+  value.length <= maxLength && !/[\u0000-\u001F\u007F]/.test(value);
+
+export const validateChurchSearchRequest = (
+  input: ChurchSearchRequestInput,
+): ValidChurchSearchRequest | null => {
+  const term = cleanPart(input.term);
+  const city = cleanPart(input.city);
+  const state = cleanPart(input.state);
+  const pageToken = cleanPart(input.pageToken);
+
+  if (
+    !isSafeSearchValue(term, MAX_SEARCH_FIELD_LENGTH)
+    || !isSafeSearchValue(city, MAX_SEARCH_FIELD_LENGTH)
+    || !isSafeSearchValue(state, MAX_SEARCH_FIELD_LENGTH)
+    || !isSafeSearchValue(pageToken, MAX_PAGE_TOKEN_LENGTH)
+  ) {
+    return null;
+  }
+
+  return { term, city, state, pageToken };
+};
+
 export interface NominatimChurchResult {
   place_id?: number | string;
   osm_type?: string;

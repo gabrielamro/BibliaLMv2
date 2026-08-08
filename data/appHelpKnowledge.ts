@@ -107,6 +107,21 @@ export const APP_HELP_KNOWLEDGE: AppHelpArticle[] = [
     updatedAt: '2026-06-11',
   },
   {
+    id: 'app.culto.scales',
+    title: 'Onde ver minhas escalas',
+    module: 'culto-plus',
+    route: '/minhas-escalas',
+    intentKeywords: ['minhas escalas', 'escala', 'escalas', 'designacao', 'designacoes', 'convite de escala', 'aceitar escala', 'recusar escala', 'minhas equipes', 'voluntariado', 'solicitacoes'],
+    steps: [
+      'Abra Minhas Escalas.',
+      'Use os filtros para ver convites pendentes, proximas escalas ou historico.',
+      'Toque em uma escala para ver equipe, funcao e responder ao convite.',
+    ],
+    relatedQuestions: ['Onde aceito uma escala?', 'Onde vejo minhas equipes?', 'Como acompanho minha solicitacao de voluntariado?'],
+    unavailableFallback: 'Escalas e equipes dependem do vinculo com uma igreja e da criacao pela lideranca.',
+    updatedAt: '2026-08-07',
+  },
+  {
     id: 'app.culto.manual',
     title: 'Como registrar culto manual',
     module: 'culto-plus',

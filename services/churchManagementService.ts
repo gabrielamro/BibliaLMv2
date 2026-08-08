@@ -1984,7 +1984,7 @@ export const churchManagementService = {
       notificationTitle: 'Retorno sobre sua solicitação de voluntariado',
       notificationEventType: 'volunteer_submission_declined',
       notificationDedupeKey: `volunteer_submission_declined:${submission.id}`,
-      notificationLink: '/meus-cultos#solicitacoes',
+      notificationLink: '/minhas-escalas#solicitacoes',
     });
   },
 
@@ -2023,7 +2023,7 @@ export const churchManagementService = {
         eventType: updates.notificationEventType ?? 'submission_status_updated',
         severity: updates.status === 'closed' ? 'info' : 'action',
         channel: 'member',
-        link: updates.notificationLink ?? '/meus-cultos#solicitacoes',
+        link: updates.notificationLink ?? '/minhas-escalas#solicitacoes',
         sourceType: 'form_submission',
         sourceId: submission.id,
         dedupeKey: updates.notificationDedupeKey ?? `submission_status_updated:${submission.id}:${submission.status}`,

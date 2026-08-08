@@ -12,7 +12,7 @@ import ConfirmationModal from './ConfirmationModal';
 const AIChat: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { recordActivity, currentUser, openLogin, checkFeatureAccess, incrementUsage, openSubscription } = useAuth();
+  const { recordActivity, currentUser, openLogin, checkFeatureAccess, openSubscription } = useAuth();
   const { context: initialContext } = (location.state as { context?: string }) || {};
   
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -45,6 +45,11 @@ const AIChat: React.FC = () => {
     const textToSend = textOverride || inputText;
     if (!textToSend.trim() || isLoading) return;
 
+    if (!currentUser) {
+      openLogin();
+      return;
+    }
+
     const canChat = checkFeatureAccess('aiChatAccess');
     if (!canChat) {
         if (!currentUser) openLogin();
@@ -70,9 +75,11 @@ const AIChat: React.FC = () => {
             },
             initialContext
         );
-        await incrementUsage('chat');
         if (currentUser) await recordActivity('use_chat', 'Conversa com IA');
-    } catch (e) {}
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Desculpe, tive um problema momentâneo. Tente novamente.';
+      setMessages(prev => prev.map(msg => msg.id === aiMsgId ? { ...msg, content: message } : msg));
+    }
     
     setIsLoading(false);
   };

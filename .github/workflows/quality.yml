@@ -1,0 +1,47 @@
+name: Quality gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Typecheck, tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Church management regression suite
+        run: npm run test:church-management
+
+      - name: Culto+ regression suite
+        run: npm run test:culto-plus
+
+      - name: Kingdom regression suite
+        run: npm run test:kingdom-ui
+
+      - name: Security policy regression suite
+        run: npm run test:security
+
+      - name: Production build
+        run: npm run build

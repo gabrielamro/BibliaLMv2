@@ -123,7 +123,8 @@ export const chatWithPastor = async (
     onChunk: (text: string) => void,
     context?: string
 ) => {
-    return await gemini.sendMessageToGeminiStream(history, onChunk, context);
+    const { sendMessageToAiChat } = await import('./aiChatClient');
+    return await sendMessageToAiChat(history, onChunk, context);
 };
 
 export const sendMessageToGeminiStream = async (
@@ -131,7 +132,8 @@ export const sendMessageToGeminiStream = async (
     onChunk: (text: string) => void,
     context?: string
 ) => {
-    return await gemini.sendMessageToGeminiStream(history, onChunk, context);
+    const { sendMessageToAiChat } = await import('./aiChatClient');
+    return await sendMessageToAiChat(history, onChunk, context);
 };
 
 export const generateVerseImage = async (text: string, reference: string, style: string) => {
@@ -156,8 +158,12 @@ export const findNearbyChurches = async (lat: number, lng: number) => {
 
 export type { NearbyPlace } from './geminiService';
 
-export const generateDevotionalWithAudit = async (forceNew: boolean = false, audit: boolean = true) => {
-    const content = await generateDailyDevotional(forceNew, 'gemini');
+export const generateDevotionalWithAudit = async (
+    forceNew: boolean = false,
+    audit: boolean = true,
+    options?: DailyDevotionalOptions,
+) => {
+    const content = await generateDailyDevotional(forceNew, 'gemini', options);
     if (!audit) return { data: content };
     
     const auditResult = await auditarConteudo(

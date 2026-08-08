@@ -31,7 +31,7 @@ Preservar a identidade visual do Culto+ a partir do código canônico do própri
 - Resolver a identidade pela rota com `getAppModuleForRoute`; atualizar `APP_MODULE_ROUTE_RULES` ao introduzir uma nova família de rotas.
 - Usar `data-module` no shell e `data-module-theme` somente em blocos contextuais que pertençam visualmente a outro módulo.
 - Preservar no mobile os cinco destinos pessoais, nesta ordem: `Início`, `Bíblia`, `Reino`, `Cultos`, `Perfil`.
-- Direcionar o item principal `Cultos` para `/meus-cultos`; usar `/culto` apenas quando o rótulo indicar agenda pública.
+- Direcionar o item principal `Cultos` para `/meus-cultos`; a agenda pública fica no perfil da igreja (`/igreja/[slug]`), não em `/culto`.
 - Manter cor semântica própria para sucesso, alerta, erro e informação. Não substituir esses estados pela cor do módulo.
 - Usar ícones de `lucide-react` e a marca existente (`CultoPlusBrand`/`LogoIcon`); não desenhar substitutos improvisados.
 - Manter alvos de toque com pelo menos 44 px, foco visível, HTML semântico, rótulos acessíveis e suporte a teclado.

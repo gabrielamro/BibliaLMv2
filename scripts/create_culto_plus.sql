@@ -10,6 +10,7 @@ create table if not exists public.church_services (
   theme text not null,
   preacher_name text,
   service_type text not null default 'sunday',
+  modality text not null default 'presencial' check (modality in ('presencial', 'online', 'hibrido')),
   starts_at timestamptz not null,
   ends_at timestamptz not null,
   key_verse_ref text,
@@ -184,8 +185,13 @@ create table if not exists public.service_public_invites (
 alter table public.posts add column if not exists service_id text;
 alter table public.posts add column if not exists service_title text;
 
+alter table public.church_services add column if not exists modality text not null default 'presencial';
+
 create index if not exists church_services_church_id_starts_at_idx
   on public.church_services(church_id, starts_at desc);
+
+create index if not exists church_services_modality_starts_at_idx
+  on public.church_services(modality, starts_at desc);
 
 create index if not exists service_checkins_service_id_idx
   on public.service_checkins(service_id);

@@ -25,6 +25,10 @@ As mensagens de commit devem ser semanticas:
 
 | DATA | TIPO | ARQUIVO(S) | DESCRICAO CURTA | Arquiteto |
 | :--- | :--- | :--- | :--- | :--- |
+| 2026-08-07 | feat | app/minhas-escalas/page.tsx, views/MyScalesPage.tsx, views/MyCultosPage.tsx, services/personalScalesService.ts, components/church-management/PersonalScale*, utils/serviceModality.ts, components/culto-plus/ServiceModality*, supabase/migrations/20260807120000_church_service_modality.sql, tests/ | Meus Cultos volta a ser memória, Minhas Escalas assume a operação pessoal e a agenda diferencia culto presencial de online - v2.10.9 | Codex |
+| 2026-08-06 | feat | app/api/ai/generate, app/api/ai/image, services/cloudflareAiService.ts, services/imageGenService.ts, services/aiTextClient.ts | Workers AI centralizado como provedor principal de texto e imagens, com autenticação, capability, cota e fallbacks server-side - v2.10.8 | Codex |
+| 2026-08-06 | feat | app/api/ai/chat/route.ts, services/cloudflareAiService.ts, services/aiChatClient.ts, components/AIChat.tsx, components/ObreiroIAChatbot.tsx, tests/ | Workers AI protegido por autenticação, capability, cota server-side e retry - v2.10.7 | Codex |
+| 2026-08-04 | feat | views/TracksPage.tsx, services/trackProgressService.ts, services/spiritualJournalService.ts, supabase/migrations/, tests/, .agents/skills/ | Trilhas persistentes retomam o último passo, exibem conclusão e registram reflexões contextuais privadas no Diário - v2.10.6 | Codex |
 | 2026-08-04 | fix | components/CultoPlusPageShell.tsx, services/devotionalResolver.ts, supabase/migrations/, tests/ | Pão Diário preserva o estudo no modo foco, usa fallback com prazo e Diário Espiritual recebe RLS mínimo em produção - v2.10.5 | Codex |
 | 2026-08-04 | refactor | views/TracksPage.tsx, tests/tracks.spec.ts | Catálogo de Trilhas convertido em cards com estudo passo a passo em modal responsivo e acessível - v2.10.5 | Codex |
 | 2026-08-04 | fix | middleware.ts, app/trilhas/, views/NewHomePage.tsx, tests/ | Trilhas restauradas, menus alinhados e redirect inicial antecipado para eliminar o shell legado - v2.10.4 | Codex |

@@ -2888,6 +2888,7 @@ function mapPost(d: any): Post {
     const devotionalShare = d.type === 'devotional' ? parseDevotionalShareContent(d.content) : null;
     const profile = d.__profile;
     const moodContent = d.type === 'feeling' ? decodeMoodContent(d.content ?? '', d.mood ?? null) : null;
+    const metadata = safeJson(d.metadata, {}) as Record<string, unknown>;
     return {
         id: d.id,
         userId: d.user_id,
@@ -2906,7 +2907,7 @@ function mapPost(d: any): Post {
         likedBy: safeJson(d.liked_by, []),
         createdAt: d.created_at,
         time: d.created_at,
-        location: d.type === 'checkin' && d.metadata?.place?.name ? d.metadata.place.name : '',
+        location: d.type === 'checkin' && typeof metadata.place === 'object' && metadata.place && 'name' in metadata.place && typeof metadata.place.name === 'string' ? metadata.place.name : '',
         imageUrl: d.image_url ?? studyShare?.studyCoverUrl ?? undefined,
         image: d.image_url ?? studyShare?.studyCoverUrl ?? undefined,
         title: d.title ?? devotionalShare?.devotionalTitle ?? undefined,
@@ -2933,7 +2934,7 @@ function mapPost(d: any): Post {
         sourceType: d.source_type ?? undefined,
         sourceId: d.source_id ?? undefined,
         dedupeKey: d.dedupe_key ?? undefined,
-        metadata: d.metadata && typeof d.metadata === 'object' ? d.metadata : {},
+        metadata,
         authorProfilePublic: d.__profile ? d.__profile.is_profile_public ?? true : false,
         authorChurchId: safeJson(d.__profile?.church_data)?.churchId ?? undefined,
         authorCity: d.__profile?.city ?? undefined,

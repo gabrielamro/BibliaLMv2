@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, Plus, Radio, Users } from 'lucide-react';
 import { groupServicesByDate, toLocalDateKey, formatCalendarDayLabel, formatServiceHour, getServiceTemporalStatus } from '../../utils/cultoPlusCalendar';
 import { ChurchService, ServiceScheduleAssignment } from '../../types';
+import { ServiceModalityBadge, ServiceParticipationHint } from './ServiceModalityBadge';
 
 type CultoPlusCalendarViewProps = {
   services: ChurchService[];
@@ -80,6 +81,7 @@ const EventCard: React.FC<{
           {temporalStatus === 'live' && <Radio size={9} className="shrink-0 text-red-500" />}
           {hasSchedule && <Users size={9} className="shrink-0 text-emerald-700 dark:text-emerald-300" />}
         </div>
+        <ServiceModalityBadge service={service} size="xs" className="mt-1" />
       </button>
     );
   }
@@ -108,8 +110,10 @@ const EventCard: React.FC<{
 
       <div className="flex flex-wrap items-center gap-2 text-[9px] font-black uppercase tracking-widest text-gray-400">
         <span>{serviceTypeLabel[service.serviceType]}</span>
+        <ServiceModalityBadge service={service} size="xs" />
         {hasSchedule && <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300"><Users size={10} /> Escala</span>}
       </div>
+      <ServiceParticipationHint service={service} />
 
       <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-bible-gold">
         <span>Abrir painel</span>
@@ -139,7 +143,7 @@ const CultoPlusCalendarView: React.FC<CultoPlusCalendarViewProps> = ({
   const hasSchedule = (serviceId: string) => scheduleAssignments.some((assignment) => assignment.serviceId === serviceId);
 
   return (
-    <section className="rounded-[1.5rem] border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/40">
+    <section data-module-theme="cultos" className="rounded-[1.5rem] border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/40">
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-gray-500">

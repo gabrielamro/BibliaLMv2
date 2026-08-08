@@ -44,7 +44,9 @@ export const auditarConteudo = async (content: string, type: 'chat' | 'study' | 
         const result = JSON.parse(text || "{}");
         
         return {
-            approved: result.approved ?? true,
+            // Aprovação precisa ser explícita. JSON incompleto ou fora do contrato
+            // é tratado como não aprovado para que fluxos editoriais usem fallback.
+            approved: result.approved === true,
             correctedContent: result.correctedContent,
             foundation: result.foundation || "Verificação não disponível",
             source: result.source || "Não especificado",
@@ -55,12 +57,14 @@ export const auditarConteudo = async (content: string, type: 'chat' | 'study' | 
     } catch (e) {
         console.error("Erro na auditoria:", e);
         return {
-            approved: true,
-            foundation: "Auditoria falhou - liberando por padrão",
+            // A falha de revisão não pode ser tratada como aprovação pastoral.
+            // Chamadores devem recorrer a conteúdo previamente revisado.
+            approved: false,
+            foundation: "Auditoria indisponível",
             source: "N/A",
             observations: "Erro ao processar auditoria",
             limitations: ["Auditoria indisponível"],
-            issues: []
+            issues: ["Não foi possível concluir a auditoria pastoral."]
         };
     }
 };

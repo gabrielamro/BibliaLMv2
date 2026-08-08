@@ -7,6 +7,8 @@ import {
   mergeChurchSearchResults,
   normalizeGooglePlaceChurch,
   normalizeNominatimChurch,
+  resolveChurchSearchGoogleApiKey,
+  validateChurchSearchRequest,
 } from '../utils/churchSearch.ts';
 
 test('buildChurchSearchQuery keeps church intent and location context', () => {
@@ -21,6 +23,24 @@ test('buildChurchSearchQuery does not duplicate igreja and fixes common typo', (
     buildChurchSearchQuery({ term: 'Igreje Maranata', city: 'Manaus', state: 'AM' }),
     'igreja Maranata, Manaus, AM, Brasil',
   );
+});
+
+test('validateChurchSearchRequest rejects oversized and control-character input', () => {
+  assert.deepEqual(
+    validateChurchSearchRequest({ term: ' Batista Central ', city: 'Manaus', state: 'AM', pageToken: '' }),
+    { term: 'Batista Central', city: 'Manaus', state: 'AM', pageToken: '' },
+  );
+  assert.equal(validateChurchSearchRequest({ term: 'x'.repeat(161) }), null);
+  assert.equal(validateChurchSearchRequest({ city: 'Manaus\u0000' }), null);
+});
+
+test('resolveChurchSearchGoogleApiKey accepts only private server environment variables', () => {
+  assert.equal(
+    resolveChurchSearchGoogleApiKey({ GOOGLE_PLACES_API_KEY: 'places-key', NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: 'public-key' }),
+    'places-key',
+  );
+  assert.equal(resolveChurchSearchGoogleApiKey({ GOOGLE_MAPS_API_KEY: 'maps-key' }), 'maps-key');
+  assert.equal(resolveChurchSearchGoogleApiKey({ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: 'public-key' }), '');
 });
 
 test('normalizeNominatimChurch maps provider data into persistent church shape', () => {

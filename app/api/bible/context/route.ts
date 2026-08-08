@@ -16,13 +16,20 @@ const readPositiveInteger = (value: string | null) => {
   return parsed > 0 ? parsed : null;
 };
 
+const readRadius = (value: string | null) => {
+  if (value === null || value === '') return 2;
+  if (!/^\d+$/.test(value)) return null;
+  return Math.min(Number.parseInt(value, 10), 5);
+};
+
 export async function GET(request: NextRequest) {
   const bookId = request.nextUrl.searchParams.get('bookId')?.trim().toLowerCase() ?? '';
   const chapterNumber = readPositiveInteger(request.nextUrl.searchParams.get('chapter'));
   const startVerse = readPositiveInteger(request.nextUrl.searchParams.get('start'));
   const endVerse = readPositiveInteger(request.nextUrl.searchParams.get('end')) ?? startVerse;
+  const radius = readRadius(request.nextUrl.searchParams.get('radius'));
 
-  if (!bookId || !chapterNumber || !startVerse || !endVerse) {
+  if (!bookId || !chapterNumber || !startVerse || !endVerse || radius === null) {
     return NextResponse.json({ error: 'Referência bíblica inválida.' }, { status: 400 });
   }
 
@@ -39,6 +46,7 @@ export async function GET(request: NextRequest) {
     },
     startVerse,
     endVerse,
+    radius,
   );
 
   return NextResponse.json({

@@ -9,8 +9,8 @@ Santuario digital de estudo biblico com IA, construido em Next.js 16, React 18 e
 - TypeScript
 - Tailwind CSS 4
 - Supabase para dados e autenticacao
-- Google GenAI como provedor principal de IA
-- Groq, OpenRouter e BigPickle como fallbacks opcionais
+- Cloudflare Workers AI como provedor server-side de texto
+- Google GenAI para recursos multimodais e Groq/OpenRouter como fallbacks opcionais
 - Firebase App Hosting para deploy
 
 ## Pre-requisitos
@@ -27,12 +27,16 @@ Santuario digital de estudo biblico com IA, construido em Next.js 16, React 18 e
 3. Preencha as variaveis obrigatorias em `.env.local`:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `CLOUDFLARE_ACCOUNT_ID`
+   - `CLOUDFLARE_API_TOKEN`
+4. Os modelos padrao sao `@cf/meta/llama-3.1-8b-instruct-fast` para texto e `@cf/black-forest-labs/flux-1-schnell` para imagens. Para troca-los, defina `CLOUDFLARE_AI_MODEL` e `CLOUDFLARE_IMAGE_MODEL`.
+5. Para recursos multimodais e fallbacks legados, configure quando necessario:
    - `NEXT_PUBLIC_API_KEY`
-4. Se quiser habilitar fallbacks de IA, preencha tambem:
    - `NEXT_PUBLIC_GROQ_API_KEY`
    - `NEXT_PUBLIC_OPENROUTER_API_KEY`
    - `NEXT_PUBLIC_BIGPICKLE_API_KEY`
-5. Rode o app:
+6. Rode o app:
    `npm run dev`
 
 Aplicacao local: `http://localhost:3010`
@@ -52,13 +56,18 @@ O runtime atual usa as seguintes variaveis:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (somente servidor)
+- `CLOUDFLARE_ACCOUNT_ID` (somente servidor)
+- `CLOUDFLARE_API_TOKEN` (somente servidor)
+- `CLOUDFLARE_AI_MODEL` (opcional)
+- `CLOUDFLARE_IMAGE_MODEL` (opcional)
 - `NEXT_PUBLIC_API_KEY`
 - `NEXT_PUBLIC_GROQ_API_KEY`
 - `NEXT_PUBLIC_OPENROUTER_API_KEY`
 - `NEXT_PUBLIC_BIGPICKLE_API_KEY`
 - `GEMINI_API_KEY` apenas como compatibilidade secundaria em alguns fluxos
 
-As variaveis de deploy em `apphosting.yaml` seguem o mesmo padrao `NEXT_PUBLIC_*`.
+As credenciais `SUPABASE_SERVICE_ROLE_KEY` e `CLOUDFLARE_API_TOKEN` nunca devem usar o prefixo `NEXT_PUBLIC_`. Configure-as como secrets no provedor de deploy.
 
 ## Agentes locais
 

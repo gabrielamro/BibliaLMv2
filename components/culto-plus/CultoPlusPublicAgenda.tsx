@@ -4,6 +4,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, Clock, Radio } from 'lucide-react';
 import { ChurchService } from '../../types';
 import { formatCalendarDayLabel, formatServiceHour, getServiceTemporalStatus, groupServicesByDate, toLocalDateKey } from '../../utils/cultoPlusCalendar';
+import { filterServicesByModality, type ServiceModalityFilter as ServiceModalityFilterValue } from '../../utils/serviceModality';
+import ServiceModalityFilter from './ServiceModalityFilter';
+import { ServiceModalityBadge, ServiceParticipationHint } from './ServiceModalityBadge';
 
 type CultoPlusPublicAgendaProps = {
   services: ChurchService[];
@@ -12,6 +15,11 @@ type CultoPlusPublicAgendaProps = {
   emptyLabel?: string;
   layout?: 'list' | 'carousel';
   pageSize?: number;
+  /** Endereço físico usado no rótulo dos cultos presenciais. */
+  locationLabel?: string;
+  /** A agenda da igreja começa em `Presenciais`; use `all` em inventários de gestão. */
+  defaultModality?: ServiceModalityFilterValue;
+  showModalityFilter?: boolean;
 };
 
 const statusText: Record<ReturnType<typeof getServiceTemporalStatus>, string> = {
@@ -38,9 +46,10 @@ type AgendaServiceCardProps = {
   onOpen: (service: ChurchService) => void;
   dayLabel?: string;
   compact?: boolean;
+  locationLabel?: string;
 };
 
-const AgendaServiceCard: React.FC<AgendaServiceCardProps> = ({ service, onOpen, dayLabel, compact = false }) => {
+const AgendaServiceCard: React.FC<AgendaServiceCardProps> = ({ service, onOpen, dayLabel, compact = false, locationLabel }) => {
   const temporalStatus = getServiceTemporalStatus(service);
 
   return (
@@ -64,11 +73,13 @@ const AgendaServiceCard: React.FC<AgendaServiceCardProps> = ({ service, onOpen, 
               {temporalStatus === 'live' && <Radio size={9} />}
               {statusText[temporalStatus]}
             </span>
+            <ServiceModalityBadge service={service} size="xs" />
           </div>
           <h3 className="line-clamp-2 text-sm font-black leading-tight text-gray-900 transition group-hover:text-emerald-700 dark:text-white dark:group-hover:text-emerald-300">
             {service.title}
           </h3>
           <p className="mt-1 line-clamp-1 text-[10px] font-bold text-gray-500 dark:text-gray-400">{service.theme || service.preacherName}</p>
+          <ServiceParticipationHint service={service} locationLabel={locationLabel} className="mt-1" />
         </div>
         <span className="mt-1 inline-flex shrink-0 items-center gap-1 text-[9px] font-black uppercase tracking-widest text-bible-gold">
           Abrir <ArrowRight size={10} />
@@ -82,12 +93,17 @@ const CultoPlusPublicAgenda: React.FC<CultoPlusPublicAgendaProps> = ({
   services,
   visibleDays,
   onOpen,
-  emptyLabel = 'Ainda não h? cultos publicados para este período.',
+  emptyLabel = 'Ainda não há cultos publicados para este período.',
   layout = 'list',
   pageSize = 6,
+  locationLabel,
+  defaultModality = 'presencial',
+  showModalityFilter = true,
 }) => {
   const [activePage, setActivePage] = useState(0);
-  const groupedServices = useMemo(() => groupServicesByDate(services), [services]);
+  const [modalityFilter, setModalityFilter] = useState<ServiceModalityFilterValue>(defaultModality);
+  const modalityServices = useMemo(() => filterServicesByModality(services, modalityFilter), [services, modalityFilter]);
+  const groupedServices = useMemo(() => groupServicesByDate(modalityServices), [modalityServices]);
   const agendaDays = useMemo(() => {
     if (visibleDays?.length) return visibleDays;
     const keys = Object.keys(groupedServices).sort();
@@ -115,18 +131,50 @@ const CultoPlusPublicAgenda: React.FC<CultoPlusPublicAgendaProps> = ({
     setActivePage((currentPage) => Math.min(currentPage, lastPage));
   }, [lastPage]);
 
+  const modalityFilterNode = showModalityFilter && services.length > 0 ? (
+    <ServiceModalityFilter
+      services={services}
+      value={modalityFilter}
+      onChange={(next) => {
+        setModalityFilter(next);
+        setActivePage(0);
+      }}
+    />
+  ) : null;
+
   if (services.length === 0 || agendaItems.length === 0) {
+    const isFilteredOut = services.length > 0;
+
     return (
-      <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 p-5 text-center dark:border-emerald-900/50 dark:bg-emerald-950/10">
-        <CalendarDays size={24} className="mx-auto mb-3 text-emerald-600" />
-        <span className="text-xs text-gray-500 dark:text-gray-400">{emptyLabel}</span>
+      <div className="space-y-3" data-module-theme="cultos">
+        {modalityFilterNode}
+        <div className="module-border rounded-2xl border border-dashed bg-white/70 p-5 text-center dark:bg-black/20">
+          <CalendarDays size={24} className="module-accent-text mx-auto mb-3" />
+          <span className="block text-xs text-gray-500 dark:text-gray-400">
+            {isFilteredOut
+              ? modalityFilter === 'presencial'
+                ? 'Nenhum culto presencial neste período.'
+                : 'Nenhum culto online neste período.'
+              : emptyLabel}
+          </span>
+          {isFilteredOut && modalityFilter !== 'all' && (
+            <button
+              type="button"
+              onClick={() => setModalityFilter('all')}
+              className="module-focus module-accent-text mt-3 inline-flex min-h-11 items-center text-[10px] font-black uppercase tracking-widest"
+            >
+              Ver todos os cultos
+            </button>
+          )}
+        </div>
       </div>
     );
   }
 
   if (layout === 'carousel') {
     return (
-      <div className="space-y-3">
+      <div className="space-y-3" data-module-theme="cultos">
+        {modalityFilterNode}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="rounded-full bg-emerald-50 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-300 dark:ring-emerald-900/60">
             {agendaItems.length} {agendaItems.length === 1 ? 'culto' : 'cultos'}
@@ -174,6 +222,7 @@ const CultoPlusPublicAgenda: React.FC<CultoPlusPublicAgendaProps> = ({
                       service={service}
                       onOpen={onOpen}
                       dayLabel={formatCalendarDayLabel(day)}
+                      locationLabel={locationLabel}
                       compact
                     />
                   ))}
@@ -202,7 +251,8 @@ const CultoPlusPublicAgenda: React.FC<CultoPlusPublicAgendaProps> = ({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-module-theme="cultos">
+      {modalityFilterNode}
       {agendaDays.map((day) => {
         const dayKey = toLocalDateKey(day);
         const dayServices = groupedServices[dayKey] ?? [];
@@ -214,7 +264,7 @@ const CultoPlusPublicAgenda: React.FC<CultoPlusPublicAgendaProps> = ({
               {formatCalendarDayLabel(day)}
             </h4>
             {dayServices.map((service) => (
-              <AgendaServiceCard key={service.id} service={service} onOpen={onOpen} />
+              <AgendaServiceCard key={service.id} service={service} onOpen={onOpen} locationLabel={locationLabel} />
             ))}
           </div>
         );

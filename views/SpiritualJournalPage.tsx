@@ -467,6 +467,7 @@ export default function SpiritualJournalPage() {
                 {[
                   ['all', 'Todos'],
                   ['devotional', 'Devocionais'],
+                  ['track_note', 'Trilhas'],
                   ['saved_post', 'Posts Salvos'],
                   ['favorite', 'Favoritos'],
                 ].map(([fKey, fLabel]) => (

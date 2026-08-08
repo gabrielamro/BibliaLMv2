@@ -23,6 +23,7 @@ const requiredColumns = [
   ['church_services', 'status'],
   ['church_services', 'liturgy_items'],
   ['church_services', 'live_url'],
+  ['church_services', 'modality'],
   ['church_services', 'checkins_count'],
   ['church_services', 'posts_count'],
   ['service_live_states', 'current_item_id'],

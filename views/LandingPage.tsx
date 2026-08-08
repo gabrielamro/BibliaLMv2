@@ -389,7 +389,12 @@ const LandingPage: React.FC = () => {
                  </div>
                  
                  <h1 className="text-5xl md:text-7xl font-serif font-black text-gray-900 dark:text-white leading-[1.1] mb-6 animate-in fade-in slide-in-from-bottom-6 delay-100">
-                    <span dangerouslySetInnerHTML={{ __html: config.heroTitle.replace(/\n/g, '<br/>') }} />
+                    {config.heroTitle.split('\n').map((line, index) => (
+                        <React.Fragment key={`${line}-${index}`}>
+                            {index > 0 && <br />}
+                            {line}
+                        </React.Fragment>
+                    ))}
                  </h1>
                  
                  <p className="text-lg text-gray-500 dark:text-gray-400 mb-10 max-w-lg leading-relaxed animate-in fade-in slide-in-from-bottom-8 delay-200">

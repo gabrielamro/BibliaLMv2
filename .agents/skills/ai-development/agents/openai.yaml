@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Development"
+  short_description: "Contexto mínimo, patches seguros e validação determinística."
+  default_prompt: "Use $ai-development para trabalhar com escopo explícito, contexto mínimo e validação progressiva."

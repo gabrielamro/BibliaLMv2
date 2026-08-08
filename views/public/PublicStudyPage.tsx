@@ -13,6 +13,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useHeader } from '../../contexts/HeaderContext';
 import StandardHeader from '../../components/ui/StandardHeader';
 import SmartText from '../../components/reader/SmartText';
+import { sanitizePublicHtml } from '../../utils/sanitizePublicHtml';
 
 const PublicStudyPage: React.FC = () => {
     const { studyId } = useParams<{ studyId: string }>();
@@ -120,7 +121,7 @@ const PublicStudyPage: React.FC = () => {
 
                     <div className="prose dark:prose-invert prose-lg max-w-none font-sans text-gray-700 dark:text-gray-300 leading-relaxed">
                         {isHtmlContent ? (
-                            <div dangerouslySetInnerHTML={{ __html: study.analysis }} className="editor-content" />
+                            <div dangerouslySetInnerHTML={{ __html: sanitizePublicHtml(study.analysis) }} className="editor-content" />
                         ) : (
                             <div className="whitespace-pre-wrap text-justify space-y-6">
                                 {study.analysis.split('\n').map((line, i) => {

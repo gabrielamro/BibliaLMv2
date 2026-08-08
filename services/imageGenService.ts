@@ -1,9 +1,4 @@
-import { Modality } from "@google/genai";
-import { getAiInstance } from "./aiConfig";
-
-const IMAGE_MODEL = "gemini-3.1-flash-image-preview"; // Nano Banana 2 (Gemini 3.1 Flash Image)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const PRO_IMAGE_MODEL = "gemini-3-pro-image-preview"; // Nano Banana Pro
+import { supabase } from './supabase';
 
 // Mapeamento de estilos para queries de imagem em inglês
 const STYLE_TO_QUERY: Record<string, string> = {
@@ -117,34 +112,28 @@ export const generateVerseImage = async (text: string, reference: string, style:
         }
     }
 
-    // 1. Try Gemini Image (Nano Banana)
+    // 1. Workers AI through the protected server route (Gemini remains server fallback).
     try {
-        const prompt = `A high quality, ${style} style religious art representing the bible verse: "${text}" (${reference}). Spiritual, cinematic lighting, masterpiece. 
-        IMPORTANT CONSTRAINTS: 
-        - NO RED BACKGROUNDS. 
-        - NO text, letters, or words on the image itself. 
-        - NO frames, borders, or watermarks.
-        - Focus ONLY on the image subject. Clean, high-fidelity output.`;
-        
-        const response = await getAiInstance().models.generateContent({
-            model: IMAGE_MODEL,
-            contents: [{ parts: [{ text: prompt }] }],
-            config: { responseModalities: [Modality.IMAGE] as any }
-        });
-
-        const parts = response.candidates?.[0]?.content?.parts;
-        if (parts) {
-            for (const part of parts) {
-                const imgData = part.inlineData?.data;
-                const mime = part.inlineData?.mimeType;
-                if (imgData && mime) {
-                    return { mimeType: mime, data: imgData, category };
-                }
-            }
+        if (typeof window === 'undefined') {
+            const { generateAiImageOnServer } = await import('./serverImageGenerationService');
+            const image = await generateAiImageOnServer(`High quality ${style} Christian sacred art inspired by "${text}" (${reference}). No text, letters, words, frames, logos or watermarks. Avoid red backgrounds.`);
+            return { mimeType: image.mimeType, data: image.data, category };
         }
-        throw new Error("No image data returned from model");
+
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) throw new Error('Entre na sua conta para gerar imagens.');
+        const response = await fetch('/api/ai/image', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, reference, style }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error || 'Image generation request failed.');
+        if (!payload?.data) throw new Error('No image data returned from provider.');
+        return { mimeType: payload.mimeType || 'image/jpeg', data: payload.data, category };
     } catch (e: any) {
-        console.warn('Gemini/Imagen Image failed (likely quota or modality):', e.message || e);
+        console.warn('Workers AI image generation failed, trying stock image fallback:', e.message || e);
     }
 
     // 2. Try Pexels (if API key available)

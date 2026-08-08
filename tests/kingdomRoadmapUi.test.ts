@@ -23,7 +23,8 @@ test('feed distingue erro, vazio e filtros sem mock silencioso', () => {
 
 test('compositor preserva rascunho e explicita audiência', () => {
   assert.match(composer, /cultoplus:kingdom-draft/);
-  assert.match(composer, /role="dialog" aria-modal="true"/);
+  assert.match(composer, /role="dialog"/);
+  assert.match(composer, /aria-modal="true"/);
   assert.match(composer, /role="radiogroup" aria-label="Audiência da publicação"/);
   assert.match(composer, /Usar minha localização/);
   assert.match(composer, /Descrição da imagem/);
@@ -39,12 +40,15 @@ test('ações do post são acessíveis e salvar possui persistência', () => {
 
 test('Trama Viva está implementada no feed e no caderno de partilha', () => {
   assert.match(feed, /Pulso do Reino/);
-  assert.match(feed, /Seu caminho/);
+  assert.match(feed, /Compartilhe o momento/);
   assert.match(feed, /Agora na sua comunidade/);
-  assert.match(feed, /xl:grid-cols-\[minmax\(0,1fr\)_320px\]/);
+  assert.doesNotMatch(feed, /Seu caminho/);
+  assert.doesNotMatch(feed, /kingdom-hero/);
+  assert.doesNotMatch(feed, /Abrir uma partilha/);
   assert.match(composer, /Destino e prévia/);
   assert.match(composer, /partilha-preview-title/);
-  assert.match(composer, /md:grid-cols-\[1\.08fr_\.92fr\]/);
+  assert.match(composer, /md:grid-cols-\[1\.15fr_0\.85fr\]/);
+  assert.match(composer, /z-\[320\]/);
 });
 
 test('cards do Reino preservam a linguagem editorial e o contexto da partilha', () => {
@@ -58,8 +62,7 @@ test('cards do Reino preservam a linguagem editorial e o contexto da partilha', 
   assert.match(composer, /scripture:/);
 });
 
-test('Seu caminho combina agenda, escala, oracao e estudo com dados reais', () => {
-  assert.match(feed, /KingdomPathRailV2/);
+test('Seu caminho permanece disponível no componente, fora do feed principal', () => {
   assert.match(pathRail, /Próximo culto/);
   assert.match(pathRail, /Convite para escala/);
   assert.match(pathRail, /Convite de oração/);
@@ -70,6 +73,7 @@ test('Seu caminho combina agenda, escala, oracao e estudo com dados reais', () =
   assert.match(pathService, /listUserCultoAssignments/);
   assert.match(pathService, /getLatestCommunityPrayer/);
   assert.doesNotMatch(pathService, /mock/i);
+  assert.doesNotMatch(feed, /KingdomPathRailV2/);
 });
 
 test('mobile replica a Trama Viva e usa a arquitetura principal de cinco destinos', () => {
@@ -91,9 +95,18 @@ test('mobile replica a Trama Viva e usa a arquitetura principal de cinco destino
 });
 
 test('igreja e grupo expõem arquitetura de conteúdo consistente', () => {
-  assert.match(church, /setActiveTab\('about'\)/);
-  assert.match(church, /setActiveTab\('members'\)/);
-  assert.match(church, /setActiveTab\('cultos'\)/);
+  assert.match(church, /id: 'mural' as const/);
+  assert.match(church, /id: 'cultos' as const/);
+  assert.match(church, /id: 'about' as const/);
+  assert.match(church, /id: 'members' as const/);
+  assert.match(church, /data-testid="church-profile-header"/);
+  assert.match(church, /data-testid="church-profile-actions"/);
+  assert.match(church, /data-testid="church-profile-next-service"/);
+  assert.match(church, /Seguir/);
+  assert.match(church, /Sou membro/);
+  assert.doesNotMatch(church, /Abrir o app|Entrar no Culto\+|Porta de entrada/);
+  assert.doesNotMatch(church, />Explorar</);
+  assert.match(church, /\/minhas-escalas/);
   assert.match(group, /setActiveTab\('about'\)/);
   assert.match(group, />Membros<\/button>/);
   assert.match(church, /initialVisibility="church"/);

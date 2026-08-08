@@ -47,7 +47,7 @@ export default function DevotionalHistoryModal({
             </span>
             <div>
               <h2 className="font-serif text-lg font-bold text-[#302316] dark:text-[#fff7eb]">
-                Meu Diário Espiritual
+                Meu Diário
               </h2>
               <p className="text-xs text-[#736353] dark:text-[#a89988]">
                 Seu histórico pessoal de caminhada e registros com a Palavra.

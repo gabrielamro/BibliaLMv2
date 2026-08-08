@@ -53,6 +53,17 @@ test('Quiz publica pelo contrato central e retorna destacando o post criado', ()
   assert.match(feedSource, /scrollIntoView/);
 });
 
+test('Reino reconhece o autor autenticado enquanto o perfil ainda est\u00e1 carregando', () => {
+  assert.match(feedSource, /const feedViewer = userProfile \?\? \(currentUser \? \{ uid: currentUser\.uid \}/);
+  assert.match(feedSource, /dbService\.getGlobalFeed\(50, feedViewer\)/);
+  assert.match(feedSource, /\[currentUser\?\.uid, userProfile\?\.uid,/);
+});
+
+test('Feed do Reino mant\u00e9m uma coluna de leitura compacta no desktop', () => {
+  assert.match(feedSource, /max-w-4xl/);
+  assert.doesNotMatch(feedSource, /max-w-\[1280px\]/);
+});
+
 test('contrato central exige audiência válida e retorna o post persistido', () => {
   assert.match(publishingSource, /Selecione uma igreja antes de publicar/);
   assert.match(publishingSource, /Selecione um grupo antes de publicar/);

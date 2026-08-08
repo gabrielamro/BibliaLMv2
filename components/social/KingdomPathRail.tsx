@@ -74,7 +74,7 @@ const PathContent = ({ data, churchHref, hasChurch, savedPostsCount, onShowSaved
               <Link href={`/culto/${service.slug}`} className="module-focus mt-3 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-emerald-900 shadow-sm transition hover:bg-emerald-100 dark:bg-white/10 dark:text-emerald-100 dark:hover:bg-white/15">Ver detalhes do culto <ChevronRight size={15} /></Link>
             </>
           ) : (
-            <Link href="/culto" className="module-focus flex min-h-11 items-center justify-between gap-3 text-sm font-bold text-gray-700 dark:text-gray-200"><span>Consulte a agenda da comunidade</span><ChevronRight size={16} /></Link>
+            <Link href="/social/igrejas" className="module-focus flex min-h-11 items-center justify-between gap-3 text-sm font-bold text-gray-700 dark:text-gray-200"><span>Consulte a agenda da comunidade</span><ChevronRight size={16} /></Link>
           )}
         </div>
       </section>
@@ -90,7 +90,7 @@ const PathContent = ({ data, churchHref, hasChurch, savedPostsCount, onShowSaved
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-orange-700 shadow-sm dark:bg-white/10 dark:text-orange-200"><ClipboardCheck size={19} /></span>
               <div className="min-w-0"><strong className="block truncate text-sm text-gray-950 dark:text-white">{scale.assignment.title}</strong><span className="mt-1 block truncate text-xs text-gray-500 dark:text-gray-400">{scale.team?.name || scale.service?.title || 'Equipe da igreja'}</span><span className="block text-xs text-gray-500 dark:text-gray-400">{formatJourneyDate(scale.assignment.startsAt || scale.service?.startsAt)}</span></div>
             </div>
-            <Link href="/meus-cultos#escala" className="module-focus mt-3 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-orange-900 shadow-sm transition hover:bg-orange-100 dark:bg-white/10 dark:text-orange-100 dark:hover:bg-white/15">{scalePending ? 'Responder convite' : 'Ver minha escala'} <ChevronRight size={15} /></Link>
+            <Link href="/minhas-escalas" className="module-focus mt-3 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-orange-900 shadow-sm transition hover:bg-orange-100 dark:bg-white/10 dark:text-orange-100 dark:hover:bg-white/15">{scalePending ? 'Responder convite' : 'Ver minha escala'} <ChevronRight size={15} /></Link>
           </div>
         </section>
       ) : null}

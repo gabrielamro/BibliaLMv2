@@ -399,9 +399,14 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center overflow-hidden bg-[#100a18]/85 p-0 backdrop-blur-md animate-in fade-in duration-300 md:items-center md:p-5">
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="kingdom-composer-title" className="relative flex h-[100dvh] max-h-[100dvh] w-full max-w-[1080px] flex-col overflow-hidden bg-[#fffdf9] shadow-[0_30px_100px_rgba(8,4,16,0.55)] animate-in slide-in-from-bottom-10 dark:bg-[#17131d] md:h-auto md:max-h-[96vh] md:rounded-[2rem] md:border md:border-fuchsia-300/30 md:after:pointer-events-none md:after:absolute md:after:bottom-0 md:after:left-1/2 md:after:top-[6.7rem] md:after:w-px md:after:bg-gradient-to-b md:after:from-[#d9cbd7]/20 md:after:via-[#c4b2c2]/70 md:after:to-[#d9cbd7]/20">
-        
+    <div className="fixed inset-0 z-[320] flex items-end justify-center overflow-hidden bg-[#100a18]/85 p-0 backdrop-blur-md animate-in fade-in duration-300 md:items-center md:p-5">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="kingdom-composer-title"
+        className="relative flex h-[100dvh] max-h-[100dvh] w-full max-w-[920px] flex-col overflow-hidden bg-[#fffdf9] shadow-[0_30px_100px_rgba(8,4,16,0.55)] animate-in slide-in-from-bottom-10 dark:bg-[#17131d] md:h-[min(880px,92vh)] md:max-h-[92vh] md:rounded-[2rem] md:border md:border-fuchsia-300/30"
+      >
         {/* Header com Abas Dinâmicas */}
         <div className="border-b border-[#e9dfd7] bg-[#fffdf9] p-4 dark:border-white/10 dark:bg-[#17131d] md:px-8 md:pt-6">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -442,8 +447,8 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
           </div>
         </div>
 
-        <div data-testid="kingdom-composer-scroll" className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain md:grid md:grid-cols-[1.08fr_.92fr] md:overflow-hidden">
-        <div className="min-h-0 space-y-6 p-5 custom-scrollbar md:overflow-y-auto md:p-8 md:pr-10">
+        <div data-testid="kingdom-composer-scroll" className="grid min-h-0 flex-1 touch-pan-y grid-cols-1 overflow-y-auto overscroll-contain md:grid-cols-[1.15fr_0.85fr] md:overflow-hidden">
+        <div className="min-h-0 space-y-6 p-5 custom-scrollbar md:overflow-y-auto md:p-7 md:pr-8">
             <input type="file" ref={fileInputRef} className="hidden" accept="image/jpeg,image/png,image/webp" onChange={handleImageUpload} />
 
             <div className="grid grid-cols-3 gap-2" aria-label="Enriquecer partilha">
@@ -611,8 +616,8 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
         </div>
 
         {/* Rodapé: Destino e Botão de Ação */}
-        <div className="min-h-0 border-t border-[#e9dfd7] bg-[#fcf8f2] p-4 pb-safe dark:border-white/10 dark:bg-black/10 md:overflow-y-auto md:border-l-0 md:border-t-0 md:p-8 md:pl-10">
-            <div className="mx-auto space-y-4">
+        <div className="flex min-h-0 flex-col border-t border-[#e9dfd7] bg-[#fcf8f2] p-4 pb-safe dark:border-white/10 dark:bg-black/10 md:overflow-y-auto md:border-l md:border-t-0 md:border-[#e9dfd7] md:p-7 md:pl-8 dark:md:border-white/10">
+            <div className="mx-auto flex w-full flex-1 flex-col space-y-4">
                 <div>
                     <h3 className="font-serif text-xl font-black text-gray-950 dark:text-white">Destino e prévia</h3>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Confirme quem verá antes de publicar.</p>
@@ -729,7 +734,7 @@ const KingdomComposer: React.FC<KingdomComposerProps> = ({
                 <button 
                     onClick={handleSubmit}
                     disabled={(!content.trim() && !attachedImage && !selectedPlace) || isPosting}
-                    className="w-full py-5 bg-bible-leather dark:bg-bible-gold text-white dark:text-black font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="mt-auto w-full py-5 bg-bible-leather dark:bg-bible-gold text-white dark:text-black font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isPosting ? <Loader2 className="animate-spin" size={20}/> : <Zap size={18} fill="currentColor"/>}
                     {visibility === 'private' ? 'Salvar privado' : visibility === 'followers' ? 'Publicar para seguidores' : destination === 'global' ? 'Publicar no Reino' : 'Enviar para Comunidade'}

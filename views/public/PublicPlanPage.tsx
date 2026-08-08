@@ -22,6 +22,7 @@ import { StudyDocumentRenderer } from '../../components/study-studio';
 import PlanOwnerPreviewActions from '../../components/plan/PlanOwnerPreviewActions';
 import PlanShareModal from '../../components/plan/PlanShareModal';
 import { buildPlanSharePostContent, canUserAccessPlan, getPlanSharePath, getPlanShareUrl } from '../../utils/planSharing';
+import { sanitizePublicHtml } from '../../utils/sanitizePublicHtml';
 
 type Tab = 'content' | 'ranking';
 
@@ -179,7 +180,7 @@ const PublicPlanPage: React.FC = () => {
                 <section
                     key={block.id || index}
                     className="focused-prose my-8"
-                    dangerouslySetInnerHTML={{ __html: data.content || data.html || data.body }}
+                    dangerouslySetInnerHTML={{ __html: sanitizePublicHtml(data.content || data.html || data.body) }}
                 />
             );
         }
@@ -862,7 +863,7 @@ const PublicPlanPage: React.FC = () => {
                             <div
                                 className={isFocusedMode ? "reader-content reader-html focused-prose font-serif text-stone-800 dark:text-stone-100 empty:hidden" : "reader-content reader-html prose dark:prose-invert max-w-none font-serif leading-relaxed text-gray-800 dark:text-gray-200 empty:hidden [&_h1]:text-[1.5rem] [&_h1]:font-black [&_h1]:mb-6"}
                                 style={{ fontSize: `${fontSize}px`, ['--reader-font-size' as string]: `${fontSize}px` }}
-                                dangerouslySetInnerHTML={{ __html: readingDay.htmlContent }}
+                                dangerouslySetInnerHTML={{ __html: sanitizePublicHtml(readingDay.htmlContent) }}
                             />
                         )}
 

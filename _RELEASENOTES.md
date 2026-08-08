@@ -4,6 +4,49 @@
 > **VERSION SYNC:** Lembre-se de atualizar `constants.ts`, `_ARCHITECTURE.md` e `_PROJECT_CONTEXT.md` ao mudar a versão aqui.
 > **GIT SYNC:** Após atualizar este arquivo, o Arquiteto deve executar `git commit` com a mensagem do release.
 
+## [v2.10.9] - 2026-08-07 (Minhas Escalas separada e modalidade do culto)
+### Tipo: Feature / UX / Cultos / Gestão da Igreja
+- **Perfil da igreja objetivo:** `/igreja/[slug]` no espírito de um perfil social — capa, avatar, stats, `Seguir`/`Sou membro`, próximo culto discreto e abas (Mural, Cultos, Grupos, Sobre); sem CTAs de “abrir o app” ou Explorar, para quem chega por convite já dentro do Culto+.
+- **Nova rota `/minhas-escalas`:** rota protegida com shell e tema `cultos`, reunindo próximas escalas, histórico, convites pendentes, equipes e solicitações de voluntariado em uma lista operacional com filtros `Todas`, `Pendentes`, `Próximas` e `Histórico`.
+- **`/meus-cultos` volta a ser memória:** a página mantém check-ins, registros pessoais e diário do culto, deixa de carregar escalas/equipes/solicitações e passa a indicar as escalas por link direto; os indicadores contam apenas participação.
+- **Carregador dedicado:** `services/personalScalesService.ts` reutiliza `listUserCultoAssignments`, `listUserTeams` e `listMemberSubmissions`, ordena pendentes primeiro e atualiza o aceite/recusa na lista local sem recarregar a página. A regra de negócio continua em `churchManagementService`.
+- **Modalidade determinística:** `utils/serviceModality.ts` centraliza `presencial`, `online` e `hibrido`; a modalidade declarada vence e, em registros antigos, a presença de `liveUrl` resolve como online, com padrão seguro `presencial`.
+- **Agenda com selo e filtro:** agenda pública, calendário, cards, OnePage e detalhes da escala informam a modalidade por texto e ícone, com filtros `Todos`, `Presenciais` e `Online`; a cor nunca é o único sinal.
+- **Migration segura:** `church_services.modality` entra com `NOT NULL DEFAULT 'presencial'`, `CHECK` de valores, índice por modalidade/data e backfill de `online` apenas onde já existia link de transmissão.
+- **Links antigos preservados:** `/meus-cultos#escala`, `#equipes` e `#solicitacoes` continuam válidos e são resolvidos no cliente para o destino equivalente, mantendo notificações, e-mails, QR forms e favoritos funcionando.
+- **Referências migradas:** menu do shell, Home, Reino, notificações, redirects de `/minha-igreja/*`, QR de candidatura, mapa do app, ajuda contextual e fixture de QA passam a apontar para a nova página.
+- **Permissões inalteradas:** nenhuma consulta nova foi criada; o membro continua vendo apenas as próprias designações pelo RLS de `church_assignments`.
+- **Validação:** TypeScript, suítes de Gestão da Igreja, Culto+, Reino e políticas de segurança e build de produção aprovados.
+
+## [v2.10.8] - 2026-08-06 (Workers AI principal para texto e imagens)
+### Tipo: Feature / IA / Segurança
+- **Provedor principal:** chamadas textuais do navegador passam pela rota autenticada `/api/ai/generate`, que executa Workers AI no servidor antes dos fallbacks.
+- **Imagens com FLUX:** a geração visual usa `@cf/black-forest-labs/flux-1-schnell` pelo Workers AI, com Gemini apenas como fallback server-side.
+- **Credenciais protegidas:** o token Cloudflare nunca é enviado ao navegador; as rotas validam sessão e capability antes da inferência.
+- **Cota de imagens:** `/api/ai/image` valida o limite do plano e registra o consumo no servidor usando `America/Manaus`.
+- **Compatibilidade:** Pexels e Unsplash continuam como fallback de imagem; o Gemini permanece disponível para TTS e contingência.
+- **Configuração:** adicionado `CLOUDFLARE_IMAGE_MODEL`, permitindo trocar o modelo visual sem alterar código.
+
+## [v2.10.7] - 2026-08-06 (Workers AI protegido no Obreiro IA)
+### Tipo: Feature / IA / Segurança
+- **Novo provedor:** Cloudflare Workers AI passa a atender o chat textual e as gerações server-side com modelo configurável.
+- **Credenciais protegidas:** Account ID e API Token permanecem exclusivamente no servidor, sem prefixo `NEXT_PUBLIC_`.
+- **Chat autenticado:** o navegador chama `/api/ai/chat`, e o backend valida sessão, capability e limite diário antes da inferência.
+- **Cota confiável:** o consumo do chat é registrado no servidor usando a data canônica de `America/Manaus`.
+- **Compatibilidade:** Groq, OpenRouter e Gemini permanecem como fallbacks nos fluxos server-side existentes; Gemini continua responsável pelos recursos multimodais.
+- **Validação:** TypeScript, testes de configuração/política do Workers AI e build de produção aprovados.
+
+## [v2.10.6] - 2026-08-04 (Trilhas persistentes e Diário contextual)
+### Tipo: Feature / UX / Bíblia / Dados privados
+- **Retomada real:** cada trilha preserva o último passo visitado e oferece `Continuar depois`, retomando exatamente de onde o usuário parou.
+- **Progresso visível:** cards e modal exibem porcentagem de conclusão calculada pelos passos concluídos, com CTA `Iniciar` ou `Continuar` conforme o estado.
+- **Diário com contexto:** `Registrar no Diário` abre um editor dentro do passo, salva uma reflexão vinculada à trilha e passa a exibi-la na linha do tempo do Diário Espiritual.
+- **Continuidade para visitantes:** progresso e rascunhos ficam guardados no dispositivo e são sincronizados com a conta após o login.
+- **Leitura em foco:** o cabeçalho do modal foi reduzido para 90 px, mantendo contexto, progresso, fechamento e mais área útil para o estudo.
+- **Privacidade:** migração versionada cria progresso e anotações com RLS por proprietário, índices compostos e privilégios mínimos.
+- **Padrão visual:** a skill `culto-plus-visual` agora documenta o padrão de jornadas e trilhas guiadas.
+- **Validação:** TypeScript, oito contratos estruturais, três cenários Playwright e inspeção visual desktop/mobile aprovados.
+
 ## [v2.10.5] - 2026-08-04 (Trilhas em cards e estudo guiado)
 ### Tipo: Refactor / UI / UX / Bíblia
 - **Catálogo visual:** cada trilha passa a ser apresentada como um card independente, com tema, autoria, duração e quantidade real de passos.

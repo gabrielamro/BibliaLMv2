@@ -143,8 +143,11 @@ export default function SacredArtDrawer({
             </h3>
           </div>
           <button
-            onClick={() => setActiveControlTab('templates')}
-            className={`${mode !== 'all' || effectiveTab === 'templates' ? 'invisible pointer-events-none' : ''} w-10 h-10 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-400 hover:text-bible-gold transition-colors hover:scale-110 active:scale-95`}
+            type="button"
+            onClick={() => setActiveControlTab(null)}
+            aria-label="Fechar editor Pro"
+            title="Fechar editor Pro"
+            className={`${mode !== 'all' ? 'invisible pointer-events-none' : ''} min-h-11 min-w-11 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-400 hover:text-bible-gold transition-colors hover:scale-110 active:scale-95`}
           >
             <X size={18} />
           </button>

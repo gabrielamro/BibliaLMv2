@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+
 import { generateAIOnePage } from '../../../../services/pastorAgent';
 import { retryWithBackoff } from '../../../../services/retryWithBackoff';
+import { canAccessStudioAi } from '../../../../services/studioAiAccessPolicy';
 
 export const dynamic = 'force-dynamic';
-
-const ALLOWED_TIERS = new Set(['gold', 'pastor', 'admin']);
 
 const getAdminClient = () => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -26,6 +26,20 @@ const json = (body: unknown, status = 200) => NextResponse.json(body, {
   headers: { 'Cache-Control': 'private, no-store, max-age=0' },
 });
 
+const readFeatureMatrix = (value: unknown): Record<string, { aiSermonBuilder?: boolean }> | undefined => {
+  const settings = typeof value === 'string'
+    ? (() => {
+      try { return JSON.parse(value); } catch { return null; }
+    })()
+    : value;
+  if (!settings || typeof settings !== 'object') return undefined;
+
+  const matrix = (settings as { featuresMatrix?: unknown }).featuresMatrix;
+  return matrix && typeof matrix === 'object'
+    ? matrix as Record<string, { aiSermonBuilder?: boolean }>
+    : undefined;
+};
+
 export async function POST(request: NextRequest) {
   try {
     const token = readBearerToken(request);
@@ -36,14 +50,25 @@ export async function POST(request: NextRequest) {
     const user = authData.user;
     if (!user) return json({ error: 'Sua sessão expirou. Entre novamente.' }, 401);
 
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('subscription_tier, profile_type')
-      .eq('id', user.id)
-      .maybeSingle();
+    const [{ data: profile }, { data: settings }] = await Promise.all([
+      admin
+        .from('profiles')
+        .select('subscription_tier, profile_type')
+        .eq('id', user.id)
+        .maybeSingle(),
+      admin
+        .from('settings')
+        .select('value')
+        .eq('key', 'global')
+        .maybeSingle(),
+    ]);
     const tier = String(profile?.subscription_tier ?? 'free');
     const profileType = String(profile?.profile_type ?? 'user');
-    if (!ALLOWED_TIERS.has(tier) && profileType !== 'pastor' && profileType !== 'admin') {
+    if (!canAccessStudioAi({
+      subscriptionTier: tier,
+      profileType,
+      featuresMatrix: readFeatureMatrix(settings?.value),
+    })) {
       return json({ error: 'Seu plano atual não inclui a criação completa com IA.' }, 403);
     }
 
@@ -61,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
     return json(result);
   } catch (error) {
-    console.error('Studio AI generation failed:', error);
+    console.error('Studio AI generation failed:', error instanceof Error ? error.message : 'unknown_error');
     return json({ error: 'Não foi possível gerar o estudo agora. Tente novamente.' }, 500);
   }
 }

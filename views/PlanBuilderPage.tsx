@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useHeader } from '../contexts/HeaderContext';
 import { dbService, uploadBlob } from '../services/supabase';
 import { bibleService } from '../services/bibleService';
-import { generateImagePromptForPlan, generateStructuredStudy, generateVerseImage, generateAIOnePage } from '../services/pastorAgent';
+import { generateImagePromptForPlan, generateStructuredStudy, generateVerseImage } from '../services/pastorAgent';
 import { useSettings } from '../contexts/SettingsContext';
 import {
     ArrowLeft, Plus, Save, Trash2, Loader2, Search, Check,
@@ -58,7 +58,7 @@ const PlanBuilderPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams] = useSearchParams();
-    const { currentUser, userProfile, showNotification, checkFeatureAccess, openSubscription, incrementUsage, openLogin } = useAuth();
+    const { currentUser, userProfile, showNotification, checkFeatureAccess, openSubscription, openLogin } = useAuth();
     const { setTitle: setGlobalTitle, setBreadcrumbs, resetHeader, setIsHeaderHidden } = useHeader();
     const { setIsFocusMode } = useSettings();
 
@@ -424,7 +424,6 @@ const PlanBuilderPage: React.FC = () => {
                 const blob = await base64ToBlob(`data:${image.mimeType};base64,${image.data}`);
                 const url = await uploadBlob(blob, `plan_covers/${currentUser?.uid}_${Date.now()}.webp`);
                 setPlan(prev => ({ ...prev, coverUrl: url }));
-                await incrementUsage('images');
                 showNotification("Capa gerada com sucesso!", "success");
             } else {
                 showNotification("A IA não conseguiu gerar a imagem.", "error");

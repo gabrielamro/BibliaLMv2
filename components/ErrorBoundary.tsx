@@ -12,14 +12,44 @@ interface ErrorBoundaryState {
 }
 
 const stringifyUnknownError = (error: unknown) => {
-  if (error instanceof Error) return error.message || error.toString();
-  if (typeof error === 'string') return error;
-
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return String(error);
+  if (error instanceof Error) {
+    const message = error.message?.trim();
+    if (message && message !== '[object Object]') {
+      return `${error.name}: ${message}`;
+    }
+    // Error.message can be "[object Object]" when constructed with a non-string payload.
+    const extras = Object.entries(error as unknown as Record<string, unknown>)
+      .filter(([key]) => !['name', 'message', 'stack'].includes(key))
+      .slice(0, 6)
+      .map(([key, value]) => `${key}=${typeof value === 'string' ? value : JSON.stringify(value)}`)
+      .join(', ');
+    if (extras) return `${error.name}: ${extras}`;
+    return error.stack?.split('\n')[0] || `${error.name || 'Error'} (sem mensagem legível)`;
   }
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, unknown>;
+    for (const key of ['message', 'error', 'detail', 'details', 'hint'] as const) {
+      const nested = record[key];
+      if (typeof nested === 'string' && nested.trim()) {
+        const code = typeof record.code === 'string' ? ` [${record.code}]` : '';
+        return `${nested.trim()}${code}`;
+      }
+    }
+    try {
+      const serialized = JSON.stringify(error);
+      if (serialized && serialized !== '{}') return serialized;
+    } catch {
+      // ignore
+    }
+    const keys = Object.keys(record);
+    return keys.length
+      ? `Erro não-Error com chaves: ${keys.join(', ')}`
+      : 'Erro vazio ({}) — possível objeto lançado sem message/stack';
+  }
+  if (error == null) return 'Erro desconhecido';
+  const coerced = String(error);
+  return coerced === '[object Object]' ? 'Erro não serializável ([object Object])' : coerced;
 };
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {

@@ -29,9 +29,11 @@ test('menu pessoal reúne culto e escala em uma única área', () => {
   assert.equal((source.match(/label: "Cultos", path: "\/meus-cultos"/g) || []).length, 1);
   assert.doesNotMatch(source, /label: "Cultos e escala"/);
 
-  for (const label of ['Agenda de cultos', 'Meu painel', 'Minha escala', 'Minhas equipes', 'Solicitações']) {
+  for (const label of ['Meu painel', 'Minha escala', 'Minhas equipes', 'Solicitações']) {
     assert.match(source, new RegExp(`label: "${label}"`));
   }
+  assert.doesNotMatch(source, /label: "Agenda de cultos"/);
+  assert.doesNotMatch(source, /path: "\/culto"/);
 });
 
 test('newhome consome o contrato cromático dos módulos sem paletas paralelas no menu', () => {

@@ -1,0 +1,8 @@
+{
+  "id": "frontend-route",
+  "mode": "implement",
+  "include": ["app/example", "views/ExamplePage.tsx"],
+  "exclude": [".env", "supabase"],
+  "checks": ["diff-guard", "typecheck"],
+  "externalAiCalls": 0
+}

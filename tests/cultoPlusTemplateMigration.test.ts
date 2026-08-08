@@ -26,6 +26,24 @@ test('Trilhas é uma experiência bíblica pública e aparece no menu da NewHome
   assert.match(tracks, /data-testid="track-card"/);
   assert.match(tracks, /role="dialog"/);
   assert.match(tracks, /data-testid="track-next-step"/);
+  assert.match(tracks, /data-testid="track-dialog-progress"/);
+  assert.match(tracks, /data-testid="track-continue-later"/);
+  assert.match(tracks, /data-testid="track-journal-composer"/);
+});
+
+test('progresso e anotações das trilhas possuem persistência privada', () => {
+  const service = read('services/trackProgressService.ts');
+  const journal = read('services/spiritualJournalService.ts');
+  const migration = read('supabase/migrations/20260805030000_track_progress_journal.sql');
+
+  assert.match(service, /user_track_progress/);
+  assert.match(service, /track_step_journal_entries/);
+  assert.match(service, /cultoplus:track-progress:v1/);
+  assert.match(journal, /type: 'track_note'/);
+  assert.match(migration, /ALTER TABLE public\.user_track_progress ENABLE ROW LEVEL SECURITY/i);
+  assert.match(migration, /ALTER TABLE public\.track_step_journal_entries ENABLE ROW LEVEL SECURITY/i);
+  assert.match(migration, /\(SELECT auth\.uid\(\)\) = user_id/i);
+  assert.match(migration, /FROM anon, authenticated/i);
 });
 
 test('superfícies do Reino compartilham o shell Culto+', () => {
